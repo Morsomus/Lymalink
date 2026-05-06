@@ -2,6 +2,8 @@
 
 **Achievement tracker for Steam emulators, Steam API, and fully custom targets.**
 
+> **Note:** Lymalink is currently in early development and is not yet functional. Features and documentation are subject to change.
+
 ## Overview
 
 Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified system for tracking milestones across Steam emulators and official Steam environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources.
@@ -23,8 +25,8 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 ### Windows
 | Component | Status |
 |-----------|--------|
-| Frontend | 🔴 Not Started |
-| Backend Service | 🔴 Not Started |
+| Frontend | 🔴 To Be Started |
+| Backend Service | 🔴 To Be Started |
 
 ### macOS
 | Component | Status |
