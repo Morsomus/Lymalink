@@ -151,6 +151,7 @@ QtObject {
             readonly property int searchInput: 13
             readonly property int pillLabel: 13
             readonly property int pillValue: 12
+            readonly property int pillOrderValue: 18
             readonly property int segmentLabel: 12
             readonly property int chipsLabel: 11
             readonly property int chipsText: 11

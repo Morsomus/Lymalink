@@ -18,8 +18,8 @@ Item {
 
     property string activeGridSize: "default"
     property string activePanel: ""
-    property string activeFilter: "None"
-    property string activeSort: "Last Played"
+    property string activeFilter: "none"
+    property string activeSort: "lastPlayed"
 
     signal gridSizeSelected(string size)
 
@@ -146,7 +146,17 @@ Item {
                     }
 
                     Text {
-                        text: root.activeFilter !== "" ? qsTr(root.activeFilter) : qsTr("Filter")
+                        text: {
+                            switch (root.activeFilter) {
+                                case "none":         return qsTr("None")
+                                case "installed":    return qsTr("Installed")
+                                case "notInstalled": return qsTr("Not Installed")
+                                case "hidden":       return qsTr("Hidden")
+                                case "completed":    return qsTr("Completed")
+                                case "uncompleted":  return qsTr("Uncompleted")
+                                default:             return qsTr("Error")
+                            }
+                        }
                         color: root.activeFilter !== "" ? Themes.dashboardToolbar.colors.pillValueActive : Themes.dashboardToolbar.colors.pillLabel
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
                     }
@@ -208,7 +218,15 @@ Item {
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
                     }
                     Text {
-                        text: qsTr(root.activeSort)
+                        text: {
+                            switch (root.activeSort) {
+                                case "lastPlayed": return qsTr("Last Played")
+                                case "title":      return qsTr("Title")
+                                case "dateAdded":  return qsTr("Date Added")
+                                case "playtime":   return qsTr("Playtime")
+                                default:           return qsTr("Error")
+                            }
+                        }
                         color: Themes.dashboardToolbar.colors.pillValueActive
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
                     }
@@ -223,6 +241,77 @@ Item {
                     onReleased: sortPill.pressed = false
                     onCanceled: sortPill.pressed = false
                     onClicked: root.activePanel = sortPill.isOpen ? "" : "sort"
+                }
+            }
+
+            // Order pill
+            // \u2193 Downward arrow
+            // \u2191 Upward arrow
+            Rectangle {
+                id: orderPill
+
+                property bool isDescending: true
+                property bool hovered: false
+                property bool pressed: false
+
+                implicitHeight: 32
+                implicitWidth: orderRow.implicitWidth + 20
+                radius: 16
+                color: pressed
+                    ? Themes.dashboardToolbar.colors.pillPressed
+                    : hovered
+                        ? Themes.dashboardToolbar.colors.pillHover
+                        : Themes.dashboardToolbar.colors.pillBackground
+                border.width: 1
+                border.color: pressed
+                    ? Themes.dashboardToolbar.colors.pillBorderPressed
+                    : hovered
+                        ? Themes.dashboardToolbar.colors.pillBorderHover
+                        : Themes.dashboardToolbar.colors.pillBorder
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                RowLayout {
+                    id: orderRow
+
+                    anchors.centerIn: parent
+                    spacing: 6
+                    Text {
+                        text: qsTr("Order:")
+                        color: Themes.dashboardToolbar.colors.pillLabel
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                    }
+                    Text {
+                        id: arrowIcon
+                        text: "\u2191"
+                        color: Themes.dashboardToolbar.colors.pillValueActive
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillOrderValue
+                        
+                        // Transform
+                        rotation: orderPill.isDescending ? 180 : 0
+                        
+                        Behavior on rotation {
+                            RotationAnimation {
+                                duration: 200
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onEntered: orderPill.hovered = true
+                    onExited: orderPill.hovered = false
+                    onPressed: orderPill.pressed = true
+                    onReleased: orderPill.pressed = false
+                    onCanceled: orderPill.pressed = false
+                    onClicked: orderPill.isDescending = !orderPill.isDescending
                 }
             }
 
@@ -351,7 +440,7 @@ Item {
                 }
 
                 Repeater {
-                    model: [qsTr("Last Played"), qsTr("Title"), qsTr("Date Added"), qsTr("Playtime")]
+                    model: ["lastPlayed", "title", "dateAdded", "playtime"]
                     delegate: Rectangle {
                         readonly property bool active: modelData === root.activeSort
                         property bool hovered: false
@@ -385,7 +474,15 @@ Item {
                             id: sortChipLabel
 
                             anchors.centerIn: parent
-                            text: modelData
+                            text: {
+                                switch (modelData) {
+                                    case "lastPlayed": return qsTr("Last Played")
+                                    case "title":      return qsTr("Title")
+                                    case "dateAdded":  return qsTr("Date Added")
+                                    case "playtime":   return qsTr("Playtime")
+                                    default:           return modelData
+                                }
+                            }
                             color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
                             font.bold: active
@@ -444,7 +541,7 @@ Item {
                 }
 
                 Repeater {
-                    model: [qsTr("None"), qsTr("Installed"), qsTr("Not Installed"), qsTr("Hidden"), qsTr("Completed"), qsTr("Uncompleted")]
+                    model: ["none", "installed", "notInstalled", "hidden", "completed", "uncompleted"]
                     delegate: Rectangle {
                         readonly property bool active: modelData === root.activeFilter
                         property bool hovered: false
@@ -478,7 +575,17 @@ Item {
                             id: chipLabel
 
                             anchors.centerIn: parent
-                            text: modelData
+                            text: {
+                                switch (modelData) {
+                                    case "none":         return qsTr("None")
+                                    case "installed":    return qsTr("Installed")
+                                    case "notInstalled": return qsTr("Not Installed")
+                                    case "hidden":       return qsTr("Hidden")
+                                    case "completed":    return qsTr("Completed")
+                                    case "uncompleted":  return qsTr("Uncompleted")
+                                    default:             return modelData
+                                }
+                            }
                             color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
                             font.bold: active

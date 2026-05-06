@@ -30,21 +30,33 @@ set_source_files_properties(Themes.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
+# TODO: Remove later
+# Temporary non-commited files - Replace with your own dummy resources
+set(EXTERNAL_ASSETS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/library_capsule_2x.jpg"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/library_600x900_2x.jpg"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/hero_capsule_2x.jpg"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/hero_capsule.jpg"
+)
+foreach(asset_path IN LISTS EXTERNAL_ASSETS)
+    get_filename_component(asset_name ${asset_path} NAME)
+    set_source_files_properties(${asset_path} PROPERTIES 
+        QT_RESOURCE_ALIAS "res/img/${asset_name}"
+    )
+endforeach()
+
 qt_add_qml_module(Lymalink
     URI Lymalink
     VERSION 1.0
     RESOURCE_PREFIX /qt/qml
     RESOURCES
+        ${EXTERNAL_ASSETS}
         res/img-external/GitHub_Invertocat_White_Clearspace.png
         res/img/BlankBackground_MFC_Glow_00002_E.png
         res/img/BlankBackground_MFC_00002_E.png
         res/img/BlankBackground_MFC_Glow_00005_ED.png
         res/img/BlankBackground_MFC_Glow_00005_2_ED.png
         res/img/BlankBackground_MFC_Glow_00004_ED.png
-        res/img/library_capsule_2x.jpg
-        res/img/library_600x900_2x.jpg
-        res/img/hero_capsule.jpg
-        res/img/hero_capsule_2x.jpg
     QML_FILES
         Main.qml 
         Themes.qml

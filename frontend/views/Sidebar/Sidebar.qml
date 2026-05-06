@@ -22,6 +22,7 @@ Item {
     property real expandedWidth: 260
     property real collapsedWidth: 72
     property real panelWidth: collapsed ? collapsedWidth : expandedWidth
+    property bool hideLogo: false
 
     Layout.preferredWidth: panelWidth
     Layout.fillHeight: true
@@ -48,7 +49,9 @@ Item {
             anchors.bottomMargin: 14
             spacing: 10
 
+            // Logo
             Image {
+                visible: !hideLogo
                 Layout.fillWidth: true
                 Layout.preferredWidth: collapsed ? 64 : 220
                 Layout.preferredHeight: collapsed ? 64 : 220
@@ -57,7 +60,13 @@ Item {
                 smooth: true
             }
 
+            Item {
+                visible: hideLogo
+                Layout.preferredHeight: 37
+            }
+
             Rectangle {
+                visible: !hideLogo
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1
                 color: Themes.sidebar.colors.divider

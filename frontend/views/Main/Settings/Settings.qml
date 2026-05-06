@@ -47,13 +47,23 @@ Item {
             }
             ComboBox {
                 Layout.fillWidth: true
-                model: [qsTr("System"), qsTr("Dark"), qsTr("Light")]
+                model: ["system", "dark", "light"]
                 currentIndex: 1
-
+                displayText: model[currentIndex] === "system"
+                    ? qsTr("System")
+                    : model[currentIndex] === "dark"
+                        ? qsTr("Dark")
+                        : qsTr("Light")
                 delegate: ItemDelegate {
                     width: parent.width
-                    text: modelData
-                    enabled: index !== 0 && index !== 2 // TODO: Disabled until developed
+                    text: {
+                        switch (modelData) {
+                            case "system": return qsTr("System")
+                            case "dark":   return qsTr("Dark")
+                            case "light":  return qsTr("Light")
+                        }
+                    }
+                    enabled: modelData !== "system" && modelData !== "light" // TODO: Disabled until developed
                 }
             }
 
@@ -64,7 +74,14 @@ Item {
             }
             ComboBox {
                 Layout.fillWidth: true
-                model: [qsTr("English")]
+                model: ["English", "Suomi", "Svenska"]
+                currentIndex: 0
+                displayText: model[currentIndex]
+                delegate: ItemDelegate {
+                    width: parent.width
+                    text: modelData
+                    enabled: modelData !== "Suomi" && modelData !== "Svenska" // TODO: Disabled until developed
+                }
             }
 
             Label {
