@@ -8,9 +8,10 @@
 # Usage:
 #   ./build.sh debug        - Debug build
 #   ./build.sh release      - Release build
-#   ./build.sh deploy       - Release build + deploy to DEPLOY_DIR
+#   ./build.sh clean        - Clean build directory
+#   ./build.sh deploy       - Clean + Release build + deploy to DEPLOY_DIR
+#   ./build.sh dev          - Clean + Debug build + Execute
 #########################################################
-
 
 set -e
 
@@ -18,11 +19,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$HOME/Apps/Lymalink"
 DESKTOP_FILE="$HOME/.local/share/applications/lymalink.desktop"
 
+# When enabled, build output is diverted to /tmp (RAMfs)
+BUILD_TO_TMP=1
+
 ##############################################################################
 
 clean() {
     echo "==> Cleaning build directories..."
-    rm -rf "$SCRIPT_DIR/build"
+
+    if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
+        local BUILD_DIR="/tmp/lymalink-build"
+    else
+        local BUILD_DIR="$SCRIPT_DIR/build"
+    fi
+
+    rm -rf "$BUILD_DIR"
     echo "==> Clean done."
 }
 
@@ -30,7 +41,14 @@ clean() {
 
 build() {
     local MODE="$1"
-    local BUILD_DIR="$SCRIPT_DIR/build/$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
+    local MODE_LOWER
+    MODE_LOWER="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
+        local BUILD_DIR="/tmp/lymalink-build/${MODE_LOWER}"
+    else
+        local BUILD_DIR="$SCRIPT_DIR/build/${MODE_LOWER}"
+    fi
 
     echo "==> Configuring ($MODE)..."
     mkdir -p "$BUILD_DIR"
@@ -55,7 +73,12 @@ deploy() {
     clean
     build Release
 
-    local BUILD_DIR="$SCRIPT_DIR/build/release"
+    if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
+        local BUILD_DIR="/tmp/lymalink-build/release"
+    else
+        local BUILD_DIR="$SCRIPT_DIR/build/release"
+    fi
+
     local BINARY_PATH="$BUILD_DIR/bin/Lymalink"
 
     echo "==> Deploying to $DEPLOY_DIR..."
@@ -92,8 +115,14 @@ dev() {
     clean
     build Debug
 
-    local BUILD_DIR="$SCRIPT_DIR/build/debug"
-    local BINARY_PATH="$BUILD_DIR/bin/Lymalink"
+    local MODE_LOWER
+    MODE_LOWER="debug"
+
+    if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
+        local BINARY_PATH="/tmp/lymalink-build/debug/bin/Lymalink"
+    else
+        local BINARY_PATH="$SCRIPT_DIR/build/debug/bin/Lymalink"
+    fi
 
     echo "==> Launching..."
     exec "$BINARY_PATH"

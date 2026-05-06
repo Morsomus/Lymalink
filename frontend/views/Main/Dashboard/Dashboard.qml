@@ -13,12 +13,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-
 Item {
     id: root
 
     property string activeGridSize: "default"
-    property bool   isEmpty:        false
+    property bool isEmpty: false
 
     ColumnLayout {
         anchors.fill: parent

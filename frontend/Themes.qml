@@ -226,8 +226,8 @@ QtObject {
         readonly property QtObject fontSizes: QtObject {
             readonly property int imageError: 10
             readonly property int titleFallback: 13
-            readonly property int hoverTitle: 12
-            readonly property int hoverMeta: 10
+            readonly property int hoverTitle: 13
+            readonly property int hoverMeta: 11
             readonly property int badge: 10
         }
 
@@ -269,8 +269,8 @@ QtObject {
         readonly property QtObject fontSizes: QtObject {
             readonly property int imageError: 11
             readonly property int titleFallback: 14
-            readonly property int hoverTitle: 13
-            readonly property int hoverMeta: 11
+            readonly property int hoverTitle: 15
+            readonly property int hoverMeta: 13
             readonly property int badge: 12
         }
 

@@ -133,6 +133,26 @@ Item {
                 checked: false
                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
             }
+
+            Label {
+                text: qsTr("Disable collapse button")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Disable collapse border")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: false
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
         }
 
         Item {

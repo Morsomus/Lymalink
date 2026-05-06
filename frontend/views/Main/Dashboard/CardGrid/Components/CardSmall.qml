@@ -141,7 +141,7 @@ Rectangle {
         height: (root.height - frameInset) * root.gradientCoverage
         radius: root.radius
         color: Themes.cardSmall.colors.hoverOverlay
-        opacity: hoverArea.containsMouse ? 1.0 : 0.0
+        opacity: rootMouseArea.containsMouse ? 1.0 : 0.0
 
         Behavior on opacity {
             NumberAnimation {
@@ -180,20 +180,22 @@ Rectangle {
                 color: Themes.cardSmall.colors.hoverTitle
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverTitle
                 font.bold: true
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
                 elide: Text.ElideRight
                 width: parent.width
-            }
-            Text {
-                text: root.lastPlayed
-                color: Themes.cardSmall.colors.hoverLastPlayed
-                font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
-                visible: root.lastPlayed !== ""
             }
             Text {
                 text: root.achievementTotal > 0 ? root.achievementCount + " / " + root.achievementTotal : ""
                 color: Themes.cardSmall.colors.hoverAchievements
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
                 visible: root.achievementTotal > 0
+            }
+            Text {
+                text: root.lastPlayed
+                color: Themes.cardSmall.colors.hoverLastPlayed
+                font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
+                visible: root.lastPlayed !== ""
             }
         }
     }
@@ -202,7 +204,6 @@ Rectangle {
     Item {
         id: badge
 
-        visible: root.showMiniAchievementsBadge && root.achievementTotal > 0
         anchors {
             top: parent.top
             right: parent.right
@@ -211,6 +212,13 @@ Rectangle {
         }
         width: badgeText.implicitWidth + 6
         height: badgeText.implicitHeight + 15
+        opacity: root.showMiniAchievementsBadge && root.achievementTotal > 0 && !rootMouseArea.containsMouse ? 1.0 : 0.0
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
 
         // Flag gradient
         Rectangle {
@@ -313,18 +321,26 @@ Rectangle {
         }
     }
 
-    // Hover Area
+    // Mouse Area for hover
     MouseArea {
-        id: hoverArea
+        id: rootMouseArea
 
         z: 1
         anchors.fill: parent
         hoverEnabled: true
+
+        onClicked: {
+            // Open detailed information
+        }
     }
 
     // Lift animation
     transform: Translate {
-        y: hoverArea.containsMouse ? -4 : 0
+        y: rootMouseArea.containsMouse && !rootMouseArea.pressed
+            ? -4
+            : rootMouseArea.pressed
+                ? 3
+                : 0
 
         Behavior on y {
             NumberAnimation {
@@ -339,9 +355,9 @@ Rectangle {
     layer.effect: MultiEffect {
         shadowEnabled: true
         shadowColor: Themes.cardSmall.colors.shadow
-        shadowOpacity: hoverArea.containsMouse ? Themes.cardSmall.opacity.shadowHover : Themes.cardSmall.opacity.shadowIdle
+        shadowOpacity: rootMouseArea.containsMouse ? Themes.cardSmall.opacity.shadowHover : Themes.cardSmall.opacity.shadowIdle
         shadowBlur: 1.0
-        shadowVerticalOffset: hoverArea.containsMouse ? 8 : 0
+        shadowVerticalOffset: rootMouseArea.containsMouse ? 8 : 0
         shadowHorizontalOffset: 0
 
         Behavior on shadowOpacity {

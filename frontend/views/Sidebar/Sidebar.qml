@@ -23,6 +23,8 @@ Item {
     property real collapsedWidth: 72
     property real panelWidth: collapsed ? collapsedWidth : expandedWidth
     property bool hideLogo: false
+    property bool disableCollapseBorder: false
+    property bool disableCollapseButton: true
 
     Layout.preferredWidth: panelWidth
     Layout.fillHeight: true
@@ -123,6 +125,53 @@ Item {
             }
         }
 
+        // Collapse border - Collapse sidebar
+        Item {
+            id: collapseBorder
+
+            visible: !root.disableCollapseBorder
+            width: 10
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+
+            property bool showDivider: false
+
+            MouseArea {
+                id: collapseBorderMouseArea
+
+                anchors.fill: collapseBorder
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.collapsed = !root.collapsed
+	            onExited: collapseBorder.showDivider = false
+            }
+
+            // Timer to prevent collapse border flickering by passing mouse cursor
+            Timer {
+                id: delayTimer
+                interval: collapseBorderMouseArea.containsMouse ? 100 : 0
+                running: collapseBorderMouseArea.containsMouse && !collapseBorder.showDivider
+                repeat: false
+                onTriggered: collapseBorder.showDivider = true
+            }
+            
+            Rectangle {
+                width: collapseBorder.width
+                anchors.top: collapseBorder.top
+                anchors.bottom: collapseBorder.bottom
+                anchors.right: collapseBorder.right
+                color: Themes.sidebar.colors.divider
+                opacity: collapseBorder.showDivider ? 0.5 : 0.0
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 100
+                    }
+                }
+            }
+        }
+
         Rectangle {
             width: 1
             anchors.top: parent.top
@@ -135,6 +184,7 @@ Item {
     Button {
         id: collapseButton
         
+        visible: !root.disableCollapseButton
         width: 34
         height: 48
         anchors.right: parent.right

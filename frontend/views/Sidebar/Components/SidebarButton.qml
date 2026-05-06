@@ -66,7 +66,9 @@ Button {
             elide: Text.ElideRight
 
             Behavior on opacity {
-                NumberAnimation { duration: 120 }
+                NumberAnimation {
+                    duration: 150
+                }
             }
         }
     }

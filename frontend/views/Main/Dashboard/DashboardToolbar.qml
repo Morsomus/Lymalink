@@ -106,25 +106,23 @@ Item {
                 id: filterPill
 
                 readonly property bool isOpen: root.activePanel === "filter"
-                property bool hovered: false
-                property bool pressed: false
 
                 implicitHeight: 32
                 implicitWidth: filterRow.implicitWidth + 20
                 radius: 16
                 color: isOpen
                     ? Themes.dashboardToolbar.colors.pillOpen
-                    : pressed
+                    : filterPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillPressed
-                        : hovered
+                        : filterPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillHover
                             : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
                 border.color: isOpen
                     ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : pressed
+                    : filterPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : hovered
+                        : filterPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillBorderHover
                             : Themes.dashboardToolbar.colors.pillBorder
 
@@ -163,13 +161,10 @@ Item {
                 }
 
                 MouseArea {
+                    id: filterPillMouseArea
+
                     anchors.fill: parent
                     hoverEnabled: true
-                    onEntered: filterPill.hovered = true
-                    onExited: filterPill.hovered = false
-                    onPressed: filterPill.pressed = true
-                    onReleased: filterPill.pressed = false
-                    onCanceled: filterPill.pressed = false
                     onClicked: root.activePanel = filterPill.isOpen ? "" : "filter"
                 }
             }
@@ -179,25 +174,23 @@ Item {
                 id: sortPill
 
                 readonly property bool isOpen: root.activePanel === "sort"
-                property bool hovered: false
-                property bool pressed: false
 
                 implicitHeight: 32
                 implicitWidth: sortRow.implicitWidth + 20
                 radius: 16
                 color: isOpen
                     ? Themes.dashboardToolbar.colors.pillOpen
-                    : pressed
+                    : sortPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillPressed
-                        : hovered
+                        : sortPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillHover
                             : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
                 border.color: isOpen
                     ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : pressed
+                    : sortPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : hovered
+                        : sortPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillBorderHover
                             : Themes.dashboardToolbar.colors.pillBorder
 
@@ -233,13 +226,10 @@ Item {
                 }
 
                 MouseArea {
+                    id: sortPillMouseArea
+
                     anchors.fill: parent
                     hoverEnabled: true
-                    onEntered: sortPill.hovered = true
-                    onExited: sortPill.hovered = false
-                    onPressed: sortPill.pressed = true
-                    onReleased: sortPill.pressed = false
-                    onCanceled: sortPill.pressed = false
                     onClicked: root.activePanel = sortPill.isOpen ? "" : "sort"
                 }
             }
@@ -251,21 +241,19 @@ Item {
                 id: orderPill
 
                 property bool isDescending: true
-                property bool hovered: false
-                property bool pressed: false
 
                 implicitHeight: 32
                 implicitWidth: orderRow.implicitWidth + 20
                 radius: 16
-                color: pressed
+                color: orderPillMouseArea.pressed
                     ? Themes.dashboardToolbar.colors.pillPressed
-                    : hovered
+                    : orderPillMouseArea.containsMouse
                         ? Themes.dashboardToolbar.colors.pillHover
                         : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
-                border.color: pressed
+                border.color: orderPillMouseArea.pressed
                     ? Themes.dashboardToolbar.colors.pillBorderPressed
-                    : hovered
+                    : orderPillMouseArea.containsMouse
                         ? Themes.dashboardToolbar.colors.pillBorderHover
                         : Themes.dashboardToolbar.colors.pillBorder
 
@@ -304,13 +292,10 @@ Item {
                 }
 
                 MouseArea {
+                    id: orderPillMouseArea
+
                     anchors.fill: parent
                     hoverEnabled: true
-                    onEntered: orderPill.hovered = true
-                    onExited: orderPill.hovered = false
-                    onPressed: orderPill.pressed = true
-                    onReleased: orderPill.pressed = false
-                    onCanceled: orderPill.pressed = false
                     onClicked: orderPill.isDescending = !orderPill.isDescending
                 }
             }
@@ -342,16 +327,14 @@ Item {
                         model: ["list", "small", "default"]
                         delegate: Rectangle {
                             readonly property bool active: modelData === root.activeGridSize
-                            property bool hovered: false
-                            property bool pressed: false
                             implicitWidth: pillLabel.implicitWidth + 20
                             implicitHeight: 26
                             radius: 13
                             color: active
                                 ? Themes.dashboardToolbar.colors.segmentActive
-                                : pressed
+                                : pillMouseArea.pressed
                                     ? Themes.dashboardToolbar.colors.segmentPressed
-                                    : hovered
+                                    : pillMouseArea.containsMouse
                                         ? Themes.dashboardToolbar.colors.segmentHover
                                         : Themes.dashboardToolbar.colors.segmentBackground
 
@@ -378,13 +361,10 @@ Item {
                             }
 
                             MouseArea {
+                                id: pillMouseArea
+
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                onEntered: parent.hovered = true
-                                onExited: parent.hovered = false
-                                onPressed: parent.pressed = true
-                                onReleased: parent.pressed = false
-                                onCanceled: parent.pressed = false
                                 onClicked: root.gridSizeSelected(modelData)
                             }
                         }
@@ -429,7 +409,7 @@ Item {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 140
+                        duration: 150
                     }
                 }
 
@@ -443,24 +423,22 @@ Item {
                     model: ["lastPlayed", "title", "dateAdded", "playtime"]
                     delegate: Rectangle {
                         readonly property bool active: modelData === root.activeSort
-                        property bool hovered: false
-                        property bool pressed: false
                         implicitHeight: 26
                         implicitWidth: sortChipLabel.implicitWidth + 20
                         radius: 13
                         color: active
                             ? Themes.dashboardToolbar.colors.chipsActive
-                            : pressed
+                            : sortBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsPressed
-                                : hovered
+                                : sortBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsHover
                                     : Themes.dashboardToolbar.colors.pillBackground
                         border.width: 1
                         border.color: active
                             ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : pressed
+                            : sortBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : hovered
+                                : sortBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsBorderHover
                                     : Themes.dashboardToolbar.colors.pillBorder
 
@@ -495,13 +473,10 @@ Item {
                         }
 
                         MouseArea {
+                            id: sortBarMouseArea
+
                             anchors.fill: parent
                             hoverEnabled: true
-                            onEntered: parent.hovered = true
-                            onExited: parent.hovered = false
-                            onPressed: parent.pressed = true
-                            onReleased: parent.pressed = false
-                            onCanceled: parent.pressed = false
                             onClicked: {
                                 root.activeSort = modelData
                                 root.activePanel = ""
@@ -530,7 +505,7 @@ Item {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 140
+                        duration: 150
                     }
                 }
 
@@ -544,24 +519,22 @@ Item {
                     model: ["none", "installed", "notInstalled", "hidden", "completed", "uncompleted"]
                     delegate: Rectangle {
                         readonly property bool active: modelData === root.activeFilter
-                        property bool hovered: false
-                        property bool pressed: false
                         implicitHeight: 26
                         implicitWidth: chipLabel.implicitWidth + 20
                         radius: 13
                         color: active
                             ? Themes.dashboardToolbar.colors.chipsActive
-                            : pressed
+                            : filterBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsPressed
-                                : hovered
+                                : filterBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsHover
                                     : Themes.dashboardToolbar.colors.pillBackground
                         border.width: 1
                         border.color: active
                             ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : pressed
+                            : filterBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : hovered
+                                : filterBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsBorderHover
                                     : Themes.dashboardToolbar.colors.pillBorder
 
@@ -597,13 +570,10 @@ Item {
                         }
 
                         MouseArea {
+                            id: filterBarMouseArea
+
                             anchors.fill: parent
                             hoverEnabled: true
-                            onEntered: parent.hovered = true
-                            onExited: parent.hovered = false
-                            onPressed: parent.pressed = true
-                            onReleased: parent.pressed = false
-                            onCanceled: parent.pressed = false
                             onClicked: {
                                 root.activeFilter = modelData
                                 root.activePanel = ""

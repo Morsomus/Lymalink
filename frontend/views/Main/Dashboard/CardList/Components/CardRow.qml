@@ -35,14 +35,14 @@ Rectangle {
     // width: set by parent (ListView delegate width: listView.width)
     radius: 6
     clip: true
-    color: hoverArea.pressed
-           ? Themes.cardRow.colors.rowBackgroundPressed
-           : (hoverArea.containsMouse
+    color: rootMouseArea.pressed
+        ? Themes.cardRow.colors.rowBackgroundPressed
+        : (rootMouseArea.containsMouse
             ? Themes.cardRow.colors.rowBackgroundHover
             : Themes.cardRow.colors.rowBackground)
 
     // Hover border highlight
-    border.width: hoverArea.containsMouse || hoverArea.pressed ? 1 : 0
+    border.width: rootMouseArea.containsMouse || rootMouseArea.pressed ? 1 : 0
     border.color: Themes.cardRow.colors.rowBorder
 
     function restartProgressAnimation() {
@@ -280,11 +280,15 @@ Rectangle {
         }
     }
 
-    // Hover area
+    // Mouse Area for hover
     MouseArea {
-        id: hoverArea
+        id: rootMouseArea
 
         anchors.fill: parent
         hoverEnabled: true
+
+        onClicked: {
+            // Open detailed information
+        }
     }
 }
