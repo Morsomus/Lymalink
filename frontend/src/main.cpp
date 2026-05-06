@@ -23,8 +23,9 @@ int main(int argc, char *argv[]) {
 
     QQmlApplicationEngine engine;
 
-    // Expose build version to QML
+    // Expose build version and License information to QML
     engine.rootContext()->setContextProperty("LYMALINK_APP_VERSION", QStringLiteral(LYMALINK_VERSION));
+    engine.rootContext()->setContextProperty("LICENSE_APP_VERSION", QStringLiteral(LICENSE_VERSION));
 
     // Register singleton
     qmlRegisterSingletonType(QUrl("qrc:/qt/qml/Lymalink/Themes.qml"), "app.themes", 1, 0, "Themes");

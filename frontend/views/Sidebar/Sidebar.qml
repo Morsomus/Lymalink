@@ -7,10 +7,12 @@
 //              Application Frontend.
 /////////////////////////////////////////////////////////
 
+import Lymalink
+import app.themes 1.0
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import app.themes 1.0
 
 Item {
     id: root
@@ -35,6 +37,7 @@ Item {
 
     Rectangle {
         id: panel
+
         anchors.fill: parent
         color: Themes.sidebar.colors.panel
 
@@ -85,7 +88,9 @@ Item {
                 }
             }
 
-            Item { Layout.fillHeight: true }
+            Item {
+                Layout.fillHeight: true
+            }
 
             BackendServiceElement {
                 collapsed: root.collapsed 
@@ -101,7 +106,7 @@ Item {
             // Version Info
             Label {
                 Layout.fillWidth: true
-                text: root.collapsed ? "" : qsTr("v" + LYMALINK_APP_VERSION + "  •  GPLv3")
+                text: root.collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
                 color: Themes.sidebar.colors.versionText
                 font.pixelSize: Themes.sidebar.fontSizes.version
                 horizontalAlignment: Text.AlignHCenter
@@ -120,6 +125,7 @@ Item {
 
     Button {
         id: collapseButton
+        
         width: 34
         height: 48
         anchors.right: parent.right
@@ -147,73 +153,14 @@ Item {
 
         background: Rectangle {
             radius: 8
-            color: collapseButton.hovered ? Themes.sidebar.colors.collapseBackgroundHover : Themes.sidebar.colors.collapseBackground
+            color: collapseButton.down 
+                ? Themes.sidebar.colors.collapseBackgroundPressed
+                : (collapseButton.hovered 
+                    ? Themes.sidebar.colors.collapseBackgroundHover 
+                    : Themes.sidebar.colors.collapseBackground)
+
             border.color: Themes.sidebar.colors.collapseBorder
             border.width: 1
-        }
-    }
-
-    component SidebarButton: Button {
-        id: navButton
-
-        property bool collapsed: false
-        property bool selected: false
-        property string iconText: ""
-        property string iconUrl: ""
-        property string label: ""
-
-        Layout.preferredHeight: 42
-        leftPadding: collapsed ? 0 : 10
-
-        flat: true
-        focusPolicy: Qt.NoFocus
-        ToolTip.visible: collapsed && hovered
-        ToolTip.delay: 300
-        ToolTip.text: label
-
-        contentItem: RowLayout {
-            spacing: 10
-    
-            Image {
-                Layout.fillWidth: collapsed ? true : false
-                Layout.preferredWidth: 28
-                Layout.preferredHeight: 28
-                visible: iconUrl ? true : false
-                source: iconUrl
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-            }
-
-            // Fallback for iconText if iconUrl is not provided
-            Label {
-                Layout.preferredWidth: 32
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                visible: iconUrl ? false : true
-                text: navButton.iconText
-                color: navButton.selected ? Themes.sidebar.colors.navTextSelected : Themes.sidebar.colors.navText
-                font.pixelSize: Themes.sidebar.fontSizes.navIcon
-            }
-
-            Label {
-                Layout.fillWidth: true
-                visible: !navButton.collapsed
-                opacity: navButton.collapsed ? 0 : 1
-                text: navButton.label
-                color: navButton.selected ? Themes.sidebar.colors.navTextSelected : Themes.sidebar.colors.navText
-                font.pixelSize: Themes.sidebar.fontSizes.navLabel
-                font.bold: navButton.selected
-                elide: Text.ElideRight
-
-                Behavior on opacity {
-                    NumberAnimation { duration: 120 }
-                }
-            }
-        }
-
-        background: Rectangle {
-            radius: 8
-            color: navButton.selected ? Themes.sidebar.colors.navBackgroundSelected : (navButton.hovered ? Themes.sidebar.colors.navBackgroundHover : Themes.sidebar.colors.navBackground)
         }
     }
 }

@@ -7,10 +7,11 @@
 //              a clickable GitHub link to the project.
 /////////////////////////////////////////////////////////
 
+import app.themes 1.0
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import app.themes 1.0
 
 Button {
     id: root
@@ -43,6 +44,7 @@ Button {
             source: root.iconSource
             fillMode: Image.PreserveAspectFit
             smooth: true
+            mipmap: true
         }
 
         Label {
@@ -57,6 +59,10 @@ Button {
 
     background: Rectangle {
         radius: 8
-        color: root.down ? Themes.general.colors.linkBackgroundPressed : (root.hovered ? Themes.general.colors.linkBackgroundHover : Themes.general.colors.linkBackground)
+        color: root.down
+            ? Themes.general.colors.linkBackgroundPressed
+            : (root.hovered
+                ? Themes.general.colors.linkBackgroundHover
+                : Themes.general.colors.linkBackground)
     }
 }

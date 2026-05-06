@@ -8,10 +8,11 @@
 //              and setting.
 /////////////////////////////////////////////////////////
 
+import app.themes 1.0
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import app.themes 1.0
 
 Rectangle {
     id: root
@@ -80,6 +81,7 @@ Rectangle {
 
                 Switch {
                     id: serviceSwitch
+                    
                     Layout.preferredWidth: root.collapsed ? 36 : 46
                     checked: false
                     focusPolicy: Qt.NoFocus

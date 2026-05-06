@@ -11,11 +11,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-import Lymalink
-
 ApplicationWindow {
     visible: true
-    width: 1440
+    width: 1510
     height: 900
     title: qsTr("Lymalink")
     minimumWidth: 900
@@ -49,6 +47,7 @@ ApplicationWindow {
 
             StackLayout {
                 id: stackLayout
+                
                 anchors.fill: parent
                 anchors.leftMargin: 18
                 currentIndex: sidebar.currentPage

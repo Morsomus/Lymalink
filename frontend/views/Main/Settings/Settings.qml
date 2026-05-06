@@ -6,10 +6,11 @@
 // Description: Settings page.
 /////////////////////////////////////////////////////////
 
+import app.themes 1.0
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import app.themes 1.0
 
 Item {
     ColumnLayout {
@@ -44,11 +45,16 @@ Item {
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
-
             ComboBox {
                 Layout.fillWidth: true
                 model: [qsTr("System"), qsTr("Dark"), qsTr("Light")]
-                currentIndex: 0
+                currentIndex: 1
+
+                delegate: ItemDelegate {
+                    width: parent.width
+                    text: modelData
+                    enabled: index !== 0 && index !== 2 // TODO: Disabled until developed
+                }
             }
 
             Label {
@@ -56,7 +62,6 @@ Item {
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
-
             ComboBox {
                 Layout.fillWidth: true
                 model: [qsTr("English")]
@@ -67,7 +72,6 @@ Item {
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
-
             Switch {
                 checked: true
                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
@@ -78,9 +82,38 @@ Item {
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
-
             Switch {
                 checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Installation not found icon")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Total achievements badge")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Hide Lymalink Logo")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: false
                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
             }
         }

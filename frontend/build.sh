@@ -6,9 +6,9 @@
 # Copyright: see /LICENSE
 # Description: Automated build and deployment script for Lymalink.
 # Usage:
-#   ./build.sh debug        — Debug build
-#   ./build.sh release      — Release build
-#   ./build.sh deploy       — Release build + deploy to DEPLOY_DIR
+#   ./build.sh debug        - Debug build
+#   ./build.sh release      - Release build
+#   ./build.sh deploy       - Release build + deploy to DEPLOY_DIR
 #########################################################
 
 
@@ -110,11 +110,11 @@ case "${1:-}" in
     *)
         echo "Usage: $0 [clean|debug|release|deploy]"
         echo ""
-        echo "  clean    — Remove build/"
-        echo "  debug    — Debug build   -> build/debug/"
-        echo "  release  — Release build -> build/release/"
-        echo "  deploy   — clean + release build + strip + copy to $DEPLOY_DIR"
-        echo "  dev      — clean + debug build + launch"
+        echo "  clean    - Remove build/"
+        echo "  debug    - Debug build   -> build/debug/"
+        echo "  release  - Release build -> build/release/"
+        echo "  deploy   - clean + release build + strip + copy to $DEPLOY_DIR"
+        echo "  dev      - clean + debug build + launch"
         echo "             + create desktop entry at $DESKTOP_FILE"
         exit 1
         ;;
