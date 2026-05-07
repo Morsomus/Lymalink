@@ -207,6 +207,11 @@ QtObject {
             readonly property color maskFill: "white"
 
             readonly property color edgeFrame: "transparent"
+            readonly property color edgeFrameGray: Qt.rgba(0.50, 0.50, 0.50, 0.70)
+            readonly property color edgeFrameGlowA: Qt.rgba(0.70, 0.62, 0.15, 0.85)
+            readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
+            readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
+            readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
             readonly property color hoverOverlay: "transparent"
             readonly property color hoverGradientStart: "transparent"
             readonly property color hoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
@@ -250,6 +255,11 @@ QtObject {
             readonly property color maskFill: "white"
 
             readonly property color edgeFrame: "transparent"
+            readonly property color edgeFrameGray: Qt.rgba(0.50, 0.50, 0.50, 0.70)
+            readonly property color edgeFrameGlowA: Qt.rgba(0.70, 0.62, 0.15, 0.85)
+            readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
+            readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
+            readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
             readonly property color hoverOverlay: "transparent"
             readonly property color hoverGradientStart: "transparent"
             readonly property color hoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)

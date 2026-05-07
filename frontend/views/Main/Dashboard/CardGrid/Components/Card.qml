@@ -25,14 +25,13 @@ Rectangle {
     property string status: ""
     property string lastPlayed: ""
 
-    // Progress Indicator Visibility
-    property bool showEdgeProgressFrame: true
-    property bool showMiniAchievementsBadge: true
-
+    property bool miniAchievementsBadgeEnabled: false
+    property bool edgeProgressFrameEnabled: false
+    property bool edgeProgressFrameStaticGrayColor: false
+    property bool edgeProgressFrameCompletionAnimation: false
+    
     // Internals
-    readonly property real progress: achievementTotal > 0 ? achievementCount / achievementTotal : 0.0
-    readonly property int frameInset: root.showEdgeProgressFrame ? 2 : 0
-    property real gradientCoverage: 0.90
+    readonly property real edgeProgressFrameCompletion: achievementTotal > 0 ? achievementCount / achievementTotal : 0.0
 
     width: 200
     height: 300
@@ -117,29 +116,134 @@ Rectangle {
     }
 
     // Edge Progress Frame
-    Rectangle {
+    // Draws a clockwise-filling arc along the card outline using a dash-gap trick on a rounded rect SVG path.
+    Item {
+        id: edgeProgressFrame
+        
+        z: 2
         anchors.fill: parent
-        radius: root.radius
-        color: Themes.card.colors.edgeFrame
-        visible: root.showEdgeProgressFrame
-        border.width: 2
-        border.color: Qt.rgba(0.2 + root.progress * 0.8, 0.8, 0.4, 0.85)
-        // TODO Canvas/ShaderEffect clockwise arc
+        visible: root.edgeProgressFrameEnabled && root.achievementTotal > 0
+
+        // Colors
+        readonly property color grayModeColor: Themes.card.colors.edgeFrameGray
+        readonly property color completionColorA: Themes.card.colors.edgeFrameGlowA
+        readonly property color completionColorB: Themes.card.colors.edgeFrameGlowB
+        readonly property color completionColorStatic: Themes.card.colors.edgeFrameDone
+
+        // Lerps from neutral grey to vivid green-gold as progress increases
+        readonly property color incompleteColor: {
+            const grey = 0.45
+            const p = root.edgeProgressFrameCompletion
+            return Qt.rgba(
+                grey + p * (1.0 - grey),
+                grey + p * (0.8 - grey),
+                grey + p * (0.4 - grey),
+                0.60 + p * 0.25
+            )
+        }
+
+        // Breathes between two gold tones when complete - only runs when animation is enabled
+        property color breathingColor: completionColorA
+        SequentialAnimation {
+            running: root.edgeProgressFrameCompletion >= 1.0 && root.edgeProgressFrameCompletionAnimation && !root.edgeProgressFrameStaticGrayColor
+            loops: Animation.Infinite
+
+            ColorAnimation {
+                target: edgeProgressFrame
+                property: "breathingColor"
+                to: edgeProgressFrame.completionColorB
+                duration: 1500
+                easing.type: Easing.InOutSine
+            }
+            ColorAnimation {
+                target: edgeProgressFrame
+                property: "breathingColor"
+                to: edgeProgressFrame.completionColorA
+                duration: 3000
+                easing.type: Easing.InOutSine
+            }
+        }
+
+        readonly property color activeColor: root.edgeProgressFrameStaticGrayColor
+            ? grayModeColor
+            : root.edgeProgressFrameCompletion >= 1.0
+                ? (root.edgeProgressFrameCompletionAnimation ? breathingColor : completionColorStatic)
+                : incompleteColor
+
+        // Geometry
+        readonly property int edgeProgressFrameStroke: root.edgeProgressFrameCompletion >= 1.0 ? 4 : 3
+        readonly property real r: root.radius
+        readonly property real w: root.width
+        readonly property real h: root.height
+
+        // Perimeter = two straight pairs + corner circles (2πr)
+        readonly property real perimeter: 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r
+        readonly property real dashLength: perimeter * root.edgeProgressFrameCompletion
+        readonly property real gapLength: perimeter * (1.0 - root.edgeProgressFrameCompletion)
+
+        // Rounded rect path starting at top-left, traced clockwise
+        readonly property string roundedRectPath: `M ${r},0
+            L ${w - r},0
+            A ${r},${r} 0 0 1 ${w},${r}
+            L ${w},${h - r}
+            A ${r},${r} 0 0 1 ${w - r},${h}
+            L ${r},${h}
+            A ${r},${r} 0 0 1 0,${h - r}
+            L 0,${r}
+            A ${r},${r} 0 0 1 ${r},0
+            Z`
+
+        Shape {
+            anchors.fill: parent
+            layer.enabled: true
+            layer.samples: 4
+
+            // Black backing stroke provides contrast separation on any background
+            ShapePath {
+                strokeColor: Themes.card.colors.edgeFrameBack
+                strokeWidth: edgeProgressFrame.edgeProgressFrameStroke + 2
+                fillColor: "transparent"
+                capStyle: ShapePath.FlatCap
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [
+                    edgeProgressFrame.dashLength / strokeWidth,
+                    edgeProgressFrame.gapLength / strokeWidth
+                ]
+                PathSvg {
+                    path: edgeProgressFrame.roundedRectPath
+                }
+            }
+
+            // Colored progress stroke
+            ShapePath {
+                strokeColor: edgeProgressFrame.activeColor
+                strokeWidth: edgeProgressFrame.edgeProgressFrameStroke
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [
+                    edgeProgressFrame.dashLength / strokeWidth,
+                    edgeProgressFrame.gapLength / strokeWidth
+                ]
+                PathSvg {
+                    path: edgeProgressFrame.roundedRectPath
+                }
+            }
+        }
     }
 
     // Hover Overlay
     Rectangle {
         id: hoverOverlay
 
+        property real gradientCoverage: 0.90
+
         anchors {
             left: parent.left
             right: parent.right
             bottom: parent.bottom
-            leftMargin: frameInset
-            rightMargin: frameInset
-            bottomMargin: frameInset
         }
-        height: (root.height - frameInset) * root.gradientCoverage
+        height: root.height * gradientCoverage
         radius: root.radius
         color: Themes.card.colors.hoverOverlay
         opacity: rootMouseArea.containsMouse ? 1.0 : 0.0
@@ -208,12 +312,10 @@ Rectangle {
         anchors {
             top: parent.top
             right: parent.right
-            topMargin: frameInset
-            rightMargin: frameInset
         }
         width: badgeText.implicitWidth + 8
         height: badgeText.implicitHeight + 18
-        opacity: root.showMiniAchievementsBadge && root.achievementTotal > 0 && !rootMouseArea.containsMouse ? 1.0 : 0.0
+        opacity: root.miniAchievementsBadgeEnabled && root.achievementTotal > 0 && !rootMouseArea.containsMouse ? 1.0 : 0.0
         
         Behavior on opacity {
             NumberAnimation {
@@ -229,8 +331,6 @@ Rectangle {
                 top: parent.top
                 bottom: parent.bottom
                 right: parent.right
-
-                topMargin: 6
                 bottomMargin: 5
             }
             width: badge.width + 20
@@ -248,22 +348,22 @@ Rectangle {
                 }
             }
 
-            // layer.enabled: true
-            // layer.effect: MultiEffect {
-            //     maskEnabled: true
-            //     maskSource: badgeGradientMask
-            // }
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: badgeGradientMask
+            }
         }
 
         // Mask with top-right radius matching the card
-        // Rectangle {
-        //     id: badgeGradientMask
-        //     anchors.fill: badgeGradient
-        //     color: "white"
-        //     visible: false
-        //     layer.enabled: true
-        //     topRightRadius: root.radius
-        // }
+        Rectangle {
+            id: badgeGradientMask
+            anchors.fill: badgeGradient
+            color: "white"
+            visible: false
+            layer.enabled: true
+            topRightRadius: root.radius
+        }
 
         Text {
             id: badgeText
@@ -271,8 +371,8 @@ Rectangle {
             anchors {
                 top: parent.top
                 right: parent.right
-                topMargin: frameInset + 8
-                rightMargin: frameInset + 8
+                topMargin: root.edgeProgressFrameEnabled ? 8 : 7
+                rightMargin: 8
             }
             text: root.achievementCount + "/" + root.achievementTotal
             color: Themes.card.colors.badgeText

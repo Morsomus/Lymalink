@@ -38,7 +38,7 @@ Item {
         ListElement { title: "The Lost Meridian";       coverSource: ""; achievementCount: 0; achievementTotal: 16; status: "Not Installed"; lastPlayed: "" }
         ListElement { title: "Aris and the Shroudwood"; coverSource: ""; achievementCount: 20; achievementTotal: 35; status: "Installed"; lastPlayed: "5 days ago" }
         ListElement { title: "The Mischievous Fowl";    coverSource: ""; achievementCount: 5; achievementTotal: 12; status: "Installed"; lastPlayed: "2 weeks ago" }
-        ListElement { title: "Aethelwald III";          coverSource: ""; achievementCount: 102; achievementTotal: 102; status: "Installed"; lastPlayed: "1 hour ago" }
+        ListElement { title: "Aethelwald III";          coverSource: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; achievementCount: 102; achievementTotal: 102; status: "Installed"; lastPlayed: "1 hour ago" }
     }
 
     ScrollView {
@@ -129,8 +129,10 @@ Item {
         id: defaultCoverCard
 
         Card {
-            showEdgeProgressFrame: true
-            showMiniAchievementsBadge: true
+            miniAchievementsBadgeEnabled: true
+            edgeProgressFrameEnabled: true
+            edgeProgressFrameStaticGrayColor: false
+            edgeProgressFrameCompletionAnimation: true
         }
     }
 
@@ -138,8 +140,10 @@ Item {
         id: smallCoverCard
 
         CardSmall {
-            showEdgeProgressFrame: true
-            showMiniAchievementsBadge: true
+            miniAchievementsBadgeEnabled: true
+            edgeProgressFrameEnabled: true
+            edgeProgressFrameStaticGrayColor: false
+            edgeProgressFrameCompletionAnimation: true
         }
     }
 }

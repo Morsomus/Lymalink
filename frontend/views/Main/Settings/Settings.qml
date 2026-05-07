@@ -125,6 +125,36 @@ Item {
             }
 
             Label {
+                text: qsTr("Progress frame")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Progress frame gray mode")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: false
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Progress frame completion animation")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
                 text: qsTr("Hide Lymalink Logo")
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
