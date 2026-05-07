@@ -8,6 +8,19 @@
 
 Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified system for tracking milestones across Steam emulators and official Steam environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources.
 
+## Table of Contents
+
+- [Project Status](#project-status)
+- [Planned Features](#planned-features)
+- [Building](#building)
+  - [Requirements](#requirements)
+  - [Build Script](#build-script)
+- [Disclaimer](#disclaimer)
+  - [General](#general)
+  - [Steam Emulator Support](#steam-emulator-support)
+  - [Official Steam API / User Data](#official-steam-api--user-data)
+  - [No Warranty](#no-warranty)
+
 ## Project Status
 
 ### Linux
@@ -16,10 +29,14 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 | **Frontend** | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | 📋 Planning |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Page | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Page Business Logic | 📋 Planning |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Page | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Page Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings | 🚧 In Development |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | 🚧 In Development |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started |
 | **Backend Service** | 📋 Planning |
 
 ### Windows
@@ -36,16 +53,15 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 
 ---
 
-## Table of Contents
+## Planned Features
 
-- [Building](#building)
-  - [Requirements](#requirements)
-  - [Build Script](#build-script)
-- [Disclaimer](#disclaimer)
-  - [General](#general)
-  - [Steam Emulator Support](#steam-emulator-support)
-  - [Official Steam API / User Data](#official-steam-api--user-data)
-  - [No Warranty](#no-warranty)
+> The following features are planned and subject to change. Core tracking functionality is not listed here.
+
+- **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
+- **Customizable UI** - Toggle interface elements on or off, adjust tooltips, languages to choose from, switch between dark, light, and system themes to suit your preference and much more.
+- **Export & Import** - Move your achievement data between devices or back it up in open formats such as JSON or CSV.
+- **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
+- **Desktop Notifications** - Get notified when achievements are detected or a sync completes. User decides if tracker can run at system startup in the background, or only while the app is open.
 
 ---
 

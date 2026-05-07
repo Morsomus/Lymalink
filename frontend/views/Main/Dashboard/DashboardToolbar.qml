@@ -19,7 +19,7 @@ Item {
     property string activeGridSize: "default"
     property string activePanel: ""
     property string activeFilter: "none"
-    property string activeSort: "lastPlayed"
+    property string activeSort: "title"
 
     signal gridSizeSelected(string size)
 

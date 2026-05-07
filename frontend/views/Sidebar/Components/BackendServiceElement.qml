@@ -43,7 +43,7 @@ Rectangle {
 
         // Mouse area doesn't have ToolTip property by default, so we need to create one manually.
         ToolTip {
-            text: qsTr("Keep tracking active even when the app is closed")
+            text: qsTr("Keep tracking active even when the application is closed")
             visible: rootBg.containsMouse
             delay: 300
         }
@@ -88,14 +88,14 @@ Rectangle {
                     visible: root.collapsed == false
                     ToolTip.visible: hovered
                     ToolTip.delay: 300
-                    ToolTip.text: qsTr("Keep tracking active even when the app is closed")
+                    ToolTip.text: qsTr("Keep tracking active even when the application is closed")
                 }
             }
 
             Label {
                 Layout.fillWidth: true
                 visible: !root.collapsed
-                text: serviceSwitch.checked ? qsTr("Background tracking on") : qsTr("Only tracks while open")
+                text: serviceSwitch.checked ? qsTr("Background tracking on") : qsTr("Only tracks while application is started")
                 color: Themes.general.colors.bodyText
                 font.pixelSize: Themes.general.fontSizes.body
                 elide: Text.ElideRight
