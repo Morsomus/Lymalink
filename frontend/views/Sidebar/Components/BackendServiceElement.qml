@@ -15,14 +15,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
-    id: root
+    id: id_root
 
     property bool collapsed: false
 
     Layout.fillWidth: true
-    Layout.preferredHeight: root.collapsed ? 52 : 72
+    Layout.preferredHeight: id_root.collapsed ? 52 : 72
 
-    color: rootBg.pressed ? Themes.general.colors.backgroundPressed : (rootBg.containsMouse ? Themes.general.colors.backgroundHover : Themes.general.colors.background)
+    color: id_rootMouseArea.pressed ? Themes.general.colors.backgroundPressed : (id_rootMouseArea.containsMouse ? Themes.general.colors.backgroundHover : Themes.general.colors.background)
     border.color: Themes.general.colors.border
 
     radius: 8
@@ -35,43 +35,43 @@ Rectangle {
     }
     
     MouseArea {
-        id: rootBg
+        id: id_rootMouseArea
 
         anchors.fill: parent
-        enabled: root.collapsed
+        enabled: id_root.collapsed
         hoverEnabled: true
 
         // Mouse area doesn't have ToolTip property by default, so we need to create one manually.
         ToolTip {
             text: qsTr("Keep tracking active even when the application is closed")
-            visible: rootBg.containsMouse
+            visible: id_rootMouseArea.containsMouse
             delay: 300
         }
 
         onClicked: {
-            serviceSwitch.checked = !serviceSwitch.checked
+            id_backgroundServiceSwitch.checked = !id_backgroundServiceSwitch.checked
         }
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: root.collapsed ? 0 : 10
+            anchors.margins: id_root.collapsed ? 0 : 10
             spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: root.collapsed ? 0 : 8
+                spacing: id_root.collapsed ? 0 : 8
 
                 Label {
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: "●"
-                    color: serviceSwitch.checked ? Themes.general.colors.statusActive : Themes.general.colors.statusInactive
-                    font.pixelSize: root.collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
+                    color: id_backgroundServiceSwitch.checked ? Themes.general.colors.statusActive : Themes.general.colors.statusInactive
+                    font.pixelSize: id_root.collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
                 }
 
                 Label {
                     Layout.fillWidth: true
-                    visible: !root.collapsed
+                    visible: !id_root.collapsed
                     text: qsTr("Background service")
                     color: Themes.general.colors.titleText
                     font.pixelSize: Themes.general.fontSizes.title
@@ -80,12 +80,12 @@ Rectangle {
                 }
 
                 Switch {
-                    id: serviceSwitch
+                    id: id_backgroundServiceSwitch
                     
-                    Layout.preferredWidth: root.collapsed ? 36 : 46
+                    Layout.preferredWidth: id_root.collapsed ? 36 : 46
                     checked: false
                     focusPolicy: Qt.NoFocus
-                    visible: root.collapsed == false
+                    visible: id_root.collapsed == false
                     ToolTip.visible: hovered
                     ToolTip.delay: 300
                     ToolTip.text: qsTr("Keep tracking active even when the application is closed")
@@ -94,8 +94,8 @@ Rectangle {
 
             Label {
                 Layout.fillWidth: true
-                visible: !root.collapsed
-                text: serviceSwitch.checked ? qsTr("Background tracking on") : qsTr("Only tracks while application is started")
+                visible: !id_root.collapsed
+                text: id_backgroundServiceSwitch.checked ? qsTr("Background tracking on") : qsTr("Only tracks while application is started")
                 color: Themes.general.colors.bodyText
                 font.pixelSize: Themes.general.fontSizes.body
                 elide: Text.ElideRight

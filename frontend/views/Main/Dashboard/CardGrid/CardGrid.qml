@@ -15,20 +15,20 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    id: root
+    id: id_root
 
     // "default" | "small"
     property string gridSize: "default"
 
     // Internals
-    readonly property int cellW: root.gridSize === "default" ? 200 : 150
-    readonly property int cellH: root.gridSize === "default" ? 300 : 225
+    readonly property int cellW: id_root.gridSize === "default" ? 200 : 150
+    readonly property int cellH: id_root.gridSize === "default" ? 300 : 225
     readonly property int cellSpacing: 16
-    readonly property bool hasVerticalScroll: scrollView.ScrollBar.vertical.size < 1.0
+    readonly property bool hasVerticalScroll: id_rootScrollView.ScrollBar.vertical.size < 1.0
 
     // TERMPORARY: Dummy model
     ListModel {
-        id: dummyModel
+        id: id_dummyModel
 
         ListElement { title: "Hollow Warden";           coverSource: "qrc:/qt/qml/Lymalink/res/img/library_capsule_2x.jpg"; achievementCount: 45; achievementTotal: 63; status: "Installed"; lastPlayed: "2 days ago" }
         ListElement { title: "Frostpeak";               coverSource: ""; achievementCount: 12; achievementTotal: 24; status: "Installed"; lastPlayed: "1 week ago" }
@@ -42,20 +42,20 @@ Item {
     }
 
     ScrollView {
-        id: scrollView
+        id: id_rootScrollView
         
         anchors.fill: parent
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
-        contentHeight: flowContainer.height  // explicit so ScrollView knows when to show the scrollbar
+        contentHeight: id_flowContainer.height  // explicit so ScrollView knows when to show the scrollbar
         clip: true
 
         // Wraps Flow so we can animate implicitHeight changes (Flow's is read-only)
         Item {
-            id: flowContainer
+            id: id_flowContainer
 
-            width: scrollView.availableWidth - (root.hasVerticalScroll ? 30 : 0)
-            height: flow.implicitHeight + flow.topPadding
+            width: id_rootScrollView.availableWidth - (id_root.hasVerticalScroll ? 30 : 0)
+            height: id_flow.implicitHeight + id_flow.topPadding
 
             Behavior on height {
                 NumberAnimation {
@@ -66,10 +66,10 @@ Item {
 
             // Flow preserves delegate identity across re-layouts, enabling move transitions
             Flow {
-                id: flow
+                id: id_flow
 
                 width: parent.width
-                spacing: root.cellSpacing
+                spacing: id_root.cellSpacing
                 topPadding: 6
 
                 // Slide cards to new positions on re-wrap
@@ -83,13 +83,11 @@ Item {
                 }
 
                 Repeater {
-                    model: dummyModel
+                    model: id_dummyModel
 
                     Item {
-                        id: cellItem
-                        
-                        width: root.cellW
-                        height: root.cellH
+                        width: id_root.cellW
+                        height: id_root.cellH
 
                         Behavior on width  {
                             NumberAnimation {
@@ -107,7 +105,7 @@ Item {
 
                         Loader {
                             anchors.fill: parent
-                            sourceComponent: root.gridSize === "default" ? defaultCoverCard : smallCoverCard
+                            sourceComponent: id_root.gridSize === "default" ? id_defaultCoverCard : id_smallCoverCard
 
                             onLoaded: {
                                 item.title            = model.title
@@ -126,7 +124,7 @@ Item {
 
     // Card components
     Component {
-        id: defaultCoverCard
+        id: id_defaultCoverCard
 
         Card {
             miniAchievementsBadgeEnabled: true
@@ -137,7 +135,7 @@ Item {
     }
 
     Component {
-        id: smallCoverCard
+        id: id_smallCoverCard
 
         CardSmall {
             miniAchievementsBadgeEnabled: true

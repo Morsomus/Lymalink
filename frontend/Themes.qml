@@ -2,8 +2,6 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    id: instance
-
     // General
     readonly property QtObject general: QtObject {
         readonly property QtObject colors: QtObject {
@@ -177,13 +175,13 @@ QtObject {
             readonly property color star: "#55cc88"
             readonly property color lastPlayed: "#666677"
 
-            readonly property color progressTrack: "#2a2a3a"
-            readonly property color progressFill: "#55cc88"
+            readonly property color achievementsProgressTrack: "#2a2a3a"
+            readonly property color achievementsProgressFill: "#55cc88"
 
-            readonly property color statusBackgroundInstalled: Qt.rgba(0.2, 0.7, 0.4, 0.25)
-            readonly property color statusBackgroundDefault: Qt.rgba(0.5, 0.5, 0.5, 0.15)
-            readonly property color statusTextInstalled: "#55cc88"
-            readonly property color statusTextDefault: "#888899"
+            readonly property color installationStatusBackgroundInstalled: Qt.rgba(0.2, 0.7, 0.4, 0.25)
+            readonly property color installationStatusBackgroundDefault: Qt.rgba(0.5, 0.5, 0.5, 0.15)
+            readonly property color installationStatusTextInstalled: "#55cc88"
+            readonly property color installationStatusTextNotInstalled: "#888899"
         }
 
         readonly property QtObject fontSizes: QtObject {
@@ -200,7 +198,7 @@ QtObject {
     readonly property QtObject cardSmall: QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color cardBackground: "transparent"
-            readonly property color coverPlaceholder: "#2a2a3a"
+            readonly property color cover: "#2a2a3a"
             readonly property color imageErrorBlock: "#555"
             readonly property color imageErrorText: "#aaa"
             readonly property color titleFallback: "white"
@@ -212,20 +210,20 @@ QtObject {
             readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
             readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
             readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
-            readonly property color hoverOverlay: "transparent"
-            readonly property color hoverGradientStart: "transparent"
-            readonly property color hoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
+            readonly property color rootHoverOverlay: "transparent"
+            readonly property color rootHoverGradientStart: "transparent"
+            readonly property color rootHoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
 
             readonly property color hoverTitle: "white"
             readonly property color hoverLastPlayed: "#cccccc"
-            readonly property color hoverAchievements: "#aaaaaa"
+            readonly property color hoverAchievements: "#cccccc"
 
-            readonly property color badgeGradientStart: "transparent"
-            readonly property color badgeGradientEnd: Qt.rgba(0, 0, 0, 0.85)
-            readonly property color badgeText: "white"
+            readonly property color achievementsBadgeGradientStart: "transparent"
+            readonly property color achievementsBadgeGradientEnd: Qt.rgba(0, 0, 0, 0.85)
+            readonly property color achievementsBadgeText: "#aaaaaa"
 
-            readonly property color statusBadgeBackground: "black"
-            readonly property color shadow: "#000000"
+            readonly property color installationStatusBadgeBackground: "black"
+            readonly property color rootDropshadow: "#000000"
         }
 
         readonly property QtObject fontSizes: QtObject {
@@ -233,7 +231,7 @@ QtObject {
             readonly property int titleFallback: 13
             readonly property int hoverTitle: 13
             readonly property int hoverMeta: 11
-            readonly property int badge: 10
+            readonly property int achievementsBadge: 10
         }
 
         readonly property QtObject opacity: QtObject {
@@ -248,7 +246,7 @@ QtObject {
     readonly property QtObject card: QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color cardBackground: "transparent"
-            readonly property color coverPlaceholder: "#2a2a3a"
+            readonly property color cover: "#2a2a3a"
             readonly property color imageErrorBlock: "#555"
             readonly property color imageErrorText: "#aaa"
             readonly property color titleFallback: "white"
@@ -260,20 +258,20 @@ QtObject {
             readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
             readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
             readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
-            readonly property color hoverOverlay: "transparent"
-            readonly property color hoverGradientStart: "transparent"
-            readonly property color hoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
+            readonly property color rootHoverOverlay: "transparent"
+            readonly property color rootHoverGradientStart: "transparent"
+            readonly property color rootHoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
 
             readonly property color hoverTitle: "white"
             readonly property color hoverLastPlayed: "#cccccc"
             readonly property color hoverAchievements: "#aaaaaa"
 
-            readonly property color badgeGradientStart: "transparent"
-            readonly property color badgeGradientEnd: Qt.rgba(0, 0, 0, 0.85)
-            readonly property color badgeText: "white"
+            readonly property color achievementsBadgeGradientStart: "transparent"
+            readonly property color achievementsBadgeGradientEnd: Qt.rgba(0, 0, 0, 0.85)
+            readonly property color achievementsBadgeText: "#cccccc"
 
-            readonly property color statusBadgeBackground: "black"
-            readonly property color shadow: "#000000"
+            readonly property color installationStatusBadgeBackground: "black"
+            readonly property color rootDropshadow: "#000000"
         }
 
         readonly property QtObject fontSizes: QtObject {
@@ -281,7 +279,7 @@ QtObject {
             readonly property int titleFallback: 14
             readonly property int hoverTitle: 15
             readonly property int hoverMeta: 13
-            readonly property int badge: 12
+            readonly property int achievementsBadge: 12
         }
 
         readonly property QtObject opacity: QtObject {
@@ -291,5 +289,4 @@ QtObject {
             readonly property real shadowIdle: 0.0
         }
     }
-
 }

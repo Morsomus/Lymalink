@@ -14,7 +14,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Button {
-    id: root
+    id: id_root
     
     property bool collapsed: false
     property url iconSource: "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_White_Clearspace.png"
@@ -24,7 +24,7 @@ Button {
     Layout.preferredHeight: 42
 
     flat: true
-    text: root.collapsed ? "GH" : qsTr("GitHub")
+    text: id_root.collapsed ? "GH" : qsTr("GitHub")
     
     ToolTip.visible: hovered
     ToolTip.delay: 300
@@ -38,10 +38,10 @@ Button {
         spacing: 10
 
         Image {
-            Layout.fillWidth: root.collapsed ? true : false
+            Layout.fillWidth: id_root.collapsed ? true : false
             Layout.preferredWidth: 32
             Layout.preferredHeight: 32
-            source: root.iconSource
+            source: id_root.iconSource
             fillMode: Image.PreserveAspectFit
             smooth: true
             mipmap: true
@@ -49,7 +49,7 @@ Button {
 
         Label {
             Layout.fillWidth: true
-            visible: !root.collapsed
+            visible: !id_root.collapsed
             text: qsTr("Project on GitHub")
             color: Themes.general.colors.linkText
             font.pixelSize: Themes.general.fontSizes.link
@@ -59,9 +59,9 @@ Button {
 
     background: Rectangle {
         radius: 8
-        color: root.down
+        color: id_root.down
             ? Themes.general.colors.linkBackgroundPressed
-            : (root.hovered
+            : (id_root.hovered
                 ? Themes.general.colors.linkBackgroundHover
                 : Themes.general.colors.linkBackground)
     }

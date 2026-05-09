@@ -14,7 +14,7 @@ import QtQuick.Layouts
 import app.themes 1.0
 
 Item {
-    id: root
+    id: id_root
 
     property string activeGridSize: "default"
     property string activePanel: ""
@@ -23,10 +23,10 @@ Item {
 
     signal gridSizeSelected(string size)
 
-    implicitHeight: toolbarCol.implicitHeight
+    implicitHeight: id_toolbar.implicitHeight
 
     ColumnLayout {
-        id: toolbarCol
+        id: id_toolbar
 
         anchors {
             left: parent.left
@@ -103,26 +103,26 @@ Item {
 
             // Filter pill
             Rectangle {
-                id: filterPill
+                id: id_filterPill
 
-                readonly property bool isOpen: root.activePanel === "filter"
+                readonly property bool isOpen: id_root.activePanel === "filter"
 
                 implicitHeight: 32
-                implicitWidth: filterRow.implicitWidth + 20
+                implicitWidth: id_filterRow.implicitWidth + 20
                 radius: 16
                 color: isOpen
                     ? Themes.dashboardToolbar.colors.pillOpen
-                    : filterPillMouseArea.pressed
+                    : id_filterPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillPressed
-                        : filterPillMouseArea.containsMouse
+                        : id_filterPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillHover
                             : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
                 border.color: isOpen
                     ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : filterPillMouseArea.pressed
+                    : id_filterPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : filterPillMouseArea.containsMouse
+                        : id_filterPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillBorderHover
                             : Themes.dashboardToolbar.colors.pillBorder
 
@@ -133,7 +133,7 @@ Item {
                 }
 
                 RowLayout {
-                    id: filterRow
+                    id: id_filterRow
 
                     anchors.centerIn: parent
                     spacing: 6
@@ -145,7 +145,7 @@ Item {
 
                     Text {
                         text: {
-                            switch (root.activeFilter) {
+                            switch (id_root.activeFilter) {
                                 case "none":         return qsTr("None")
                                 case "installed":    return qsTr("Installed")
                                 case "notInstalled": return qsTr("Not Installed")
@@ -155,42 +155,42 @@ Item {
                                 default:             return qsTr("Error")
                             }
                         }
-                        color: root.activeFilter !== "" ? Themes.dashboardToolbar.colors.pillValueActive : Themes.dashboardToolbar.colors.pillLabel
+                        color: id_root.activeFilter !== "" ? Themes.dashboardToolbar.colors.pillValueActive : Themes.dashboardToolbar.colors.pillLabel
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
                     }
                 }
 
                 MouseArea {
-                    id: filterPillMouseArea
+                    id: id_filterPillMouseArea
 
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: root.activePanel = filterPill.isOpen ? "" : "filter"
+                    onClicked: id_root.activePanel = id_filterPill.isOpen ? "" : "filter"
                 }
             }
 
             // Sort pill
             Rectangle {
-                id: sortPill
+                id: id_sortPill
 
-                readonly property bool isOpen: root.activePanel === "sort"
+                readonly property bool isOpen: id_root.activePanel === "sort"
 
                 implicitHeight: 32
-                implicitWidth: sortRow.implicitWidth + 20
+                implicitWidth: id_sortRow.implicitWidth + 20
                 radius: 16
                 color: isOpen
                     ? Themes.dashboardToolbar.colors.pillOpen
-                    : sortPillMouseArea.pressed
+                    : id_sortPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillPressed
-                        : sortPillMouseArea.containsMouse
+                        : id_sortPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillHover
                             : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
                 border.color: isOpen
                     ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : sortPillMouseArea.pressed
+                    : id_sortPillMouseArea.pressed
                         ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : sortPillMouseArea.containsMouse
+                        : id_sortPillMouseArea.containsMouse
                             ? Themes.dashboardToolbar.colors.pillBorderHover
                             : Themes.dashboardToolbar.colors.pillBorder
 
@@ -201,7 +201,7 @@ Item {
                 }
 
                 RowLayout {
-                    id: sortRow
+                    id: id_sortRow
 
                     anchors.centerIn: parent
                     spacing: 6
@@ -212,7 +212,7 @@ Item {
                     }
                     Text {
                         text: {
-                            switch (root.activeSort) {
+                            switch (id_root.activeSort) {
                                 case "lastPlayed": return qsTr("Last Played")
                                 case "title":      return qsTr("Title")
                                 case "dateAdded":  return qsTr("Date Added")
@@ -226,11 +226,11 @@ Item {
                 }
 
                 MouseArea {
-                    id: sortPillMouseArea
+                    id: id_sortPillMouseArea
 
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: root.activePanel = sortPill.isOpen ? "" : "sort"
+                    onClicked: id_root.activePanel = id_sortPill.isOpen ? "" : "sort"
                 }
             }
 
@@ -238,22 +238,22 @@ Item {
             // \u2193 Downward arrow
             // \u2191 Upward arrow
             Rectangle {
-                id: orderPill
+                id: id_orderPill
 
                 property bool isDescending: true
 
                 implicitHeight: 32
-                implicitWidth: orderRow.implicitWidth + 20
+                implicitWidth: id_orderRow.implicitWidth + 20
                 radius: 16
-                color: orderPillMouseArea.pressed
+                color: id_orderPillMouseArea.pressed
                     ? Themes.dashboardToolbar.colors.pillPressed
-                    : orderPillMouseArea.containsMouse
+                    : id_orderPillMouseArea.containsMouse
                         ? Themes.dashboardToolbar.colors.pillHover
                         : Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
-                border.color: orderPillMouseArea.pressed
+                border.color: id_orderPillMouseArea.pressed
                     ? Themes.dashboardToolbar.colors.pillBorderPressed
-                    : orderPillMouseArea.containsMouse
+                    : id_orderPillMouseArea.containsMouse
                         ? Themes.dashboardToolbar.colors.pillBorderHover
                         : Themes.dashboardToolbar.colors.pillBorder
 
@@ -264,7 +264,7 @@ Item {
                 }
 
                 RowLayout {
-                    id: orderRow
+                    id: id_orderRow
 
                     anchors.centerIn: parent
                     spacing: 6
@@ -274,13 +274,12 @@ Item {
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
                     }
                     Text {
-                        id: arrowIcon
                         text: "\u2191"
                         color: Themes.dashboardToolbar.colors.pillValueActive
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillOrderValue
                         
                         // Transform
-                        rotation: orderPill.isDescending ? 180 : 0
+                        rotation: id_orderPill.isDescending ? 180 : 0
                         
                         Behavior on rotation {
                             RotationAnimation {
@@ -292,11 +291,11 @@ Item {
                 }
 
                 MouseArea {
-                    id: orderPillMouseArea
+                    id: id_orderPillMouseArea
 
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: orderPill.isDescending = !orderPill.isDescending
+                    onClicked: id_orderPill.isDescending = !id_orderPill.isDescending
                 }
             }
 
@@ -311,14 +310,14 @@ Item {
             // Segmented control: List | Small | Default
             Rectangle {
                 implicitHeight: 32
-                implicitWidth: pillRow.implicitWidth + 4
+                implicitWidth: id_pillRow.implicitWidth + 4
                 radius: 16
                 color: Themes.dashboardToolbar.colors.pillBackground
                 border.width: 1
                 border.color: Themes.dashboardToolbar.colors.pillBorder
 
                 RowLayout {
-                    id: pillRow
+                    id: id_pillRow
 
                     anchors.centerIn: parent
                     spacing: 2
@@ -326,15 +325,15 @@ Item {
                     Repeater {
                         model: ["list", "small", "default"]
                         delegate: Rectangle {
-                            readonly property bool active: modelData === root.activeGridSize
-                            implicitWidth: pillLabel.implicitWidth + 20
+                            readonly property bool active: modelData === id_root.activeGridSize
+                            implicitWidth: id_pillLabel.implicitWidth + 20
                             implicitHeight: 26
                             radius: 13
                             color: active
                                 ? Themes.dashboardToolbar.colors.segmentActive
-                                : pillMouseArea.pressed
+                                : id_pillMouseArea.pressed
                                     ? Themes.dashboardToolbar.colors.segmentPressed
-                                    : pillMouseArea.containsMouse
+                                    : id_pillMouseArea.containsMouse
                                         ? Themes.dashboardToolbar.colors.segmentHover
                                         : Themes.dashboardToolbar.colors.segmentBackground
 
@@ -345,7 +344,7 @@ Item {
                             }
 
                             Text {
-                                id: pillLabel
+                                id: id_pillLabel
 
                                 anchors.centerIn: parent
                                 text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
@@ -361,11 +360,11 @@ Item {
                             }
 
                             MouseArea {
-                                id: pillMouseArea
+                                id: id_pillMouseArea
 
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                onClicked: root.gridSizeSelected(modelData)
+                                onClicked: id_root.gridSizeSelected(modelData)
                             }
                         }
                     }
@@ -376,10 +375,10 @@ Item {
         // Sort/Filter selection bar
         Item {
             Layout.fillWidth: true
-            implicitHeight: root.activePanel === "sort" 
-                ? sortBar.implicitHeight
-                : root.activePanel === "filter"
-                    ? filterBar.implicitHeight
+            implicitHeight: id_root.activePanel === "sort" 
+                ? id_sortBar.implicitHeight
+                : id_root.activePanel === "filter"
+                    ? id_filterBar.implicitHeight
                     : 0
             clip: true
 
@@ -392,13 +391,13 @@ Item {
 
             // Sort selection
             Flow {
-                id: sortBar
+                id: id_sortBar
 
                 width: parent.width
                 spacing: 8
-                visible: root.activePanel === "sort"
-                y: root.activePanel === "sort" ? 0 : -12
-                opacity: root.activePanel === "sort" ? 1 : 0
+                visible: id_root.activePanel === "sort"
+                y: id_root.activePanel === "sort" ? 0 : -12
+                opacity: id_root.activePanel === "sort" ? 1 : 0
 
                 Behavior on y {
                     NumberAnimation {
@@ -422,23 +421,23 @@ Item {
                 Repeater {
                     model: ["lastPlayed", "title", "dateAdded", "playtime"]
                     delegate: Rectangle {
-                        readonly property bool active: modelData === root.activeSort
+                        readonly property bool active: modelData === id_root.activeSort
                         implicitHeight: 26
-                        implicitWidth: sortChipLabel.implicitWidth + 20
+                        implicitWidth: id_sortChipLabel.implicitWidth + 20
                         radius: 13
                         color: active
                             ? Themes.dashboardToolbar.colors.chipsActive
-                            : sortBarMouseArea.pressed
+                            : id_sortBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsPressed
-                                : sortBarMouseArea.containsMouse
+                                : id_sortBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsHover
                                     : Themes.dashboardToolbar.colors.pillBackground
                         border.width: 1
                         border.color: active
                             ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : sortBarMouseArea.pressed
+                            : id_sortBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : sortBarMouseArea.containsMouse
+                                : id_sortBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsBorderHover
                                     : Themes.dashboardToolbar.colors.pillBorder
 
@@ -449,7 +448,7 @@ Item {
                         }
 
                         Text {
-                            id: sortChipLabel
+                            id: id_sortChipLabel
 
                             anchors.centerIn: parent
                             text: {
@@ -473,13 +472,13 @@ Item {
                         }
 
                         MouseArea {
-                            id: sortBarMouseArea
+                            id: id_sortBarMouseArea
 
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                root.activeSort = modelData
-                                root.activePanel = ""
+                                id_root.activeSort = modelData
+                                id_root.activePanel = ""
                             }
                         }
                     }
@@ -488,13 +487,13 @@ Item {
 
             // Filter selection
             Flow {
-                id: filterBar
+                id: id_filterBar
 
                 width: parent.width
                 spacing: 8
-                visible: root.activePanel === "filter"
-                y: root.activePanel === "filter" ? 0 : -12
-                opacity: root.activePanel === "filter" ? 1 : 0
+                visible: id_root.activePanel === "filter"
+                y: id_root.activePanel === "filter" ? 0 : -12
+                opacity: id_root.activePanel === "filter" ? 1 : 0
 
                 Behavior on y {
                     NumberAnimation {
@@ -518,23 +517,23 @@ Item {
                 Repeater {
                     model: ["none", "installed", "notInstalled", "hidden", "completed", "uncompleted"]
                     delegate: Rectangle {
-                        readonly property bool active: modelData === root.activeFilter
+                        readonly property bool active: modelData === id_root.activeFilter
                         implicitHeight: 26
-                        implicitWidth: chipLabel.implicitWidth + 20
+                        implicitWidth: id_filterChipLabel.implicitWidth + 20
                         radius: 13
                         color: active
                             ? Themes.dashboardToolbar.colors.chipsActive
-                            : filterBarMouseArea.pressed
+                            : id_filterBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsPressed
-                                : filterBarMouseArea.containsMouse
+                                : id_filterBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsHover
                                     : Themes.dashboardToolbar.colors.pillBackground
                         border.width: 1
                         border.color: active
                             ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : filterBarMouseArea.pressed
+                            : id_filterBarMouseArea.pressed
                                 ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : filterBarMouseArea.containsMouse
+                                : id_filterBarMouseArea.containsMouse
                                     ? Themes.dashboardToolbar.colors.chipsBorderHover
                                     : Themes.dashboardToolbar.colors.pillBorder
 
@@ -545,7 +544,7 @@ Item {
                         }
 
                         Text {
-                            id: chipLabel
+                            id: id_filterChipLabel
 
                             anchors.centerIn: parent
                             text: {
@@ -570,13 +569,13 @@ Item {
                         }
 
                         MouseArea {
-                            id: filterBarMouseArea
+                            id: id_filterBarMouseArea
 
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                root.activeFilter = modelData
-                                root.activePanel = ""
+                                id_root.activeFilter = modelData
+                                id_root.activePanel = ""
                             }
                         }
                     }

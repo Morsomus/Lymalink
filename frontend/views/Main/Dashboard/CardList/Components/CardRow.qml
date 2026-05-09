@@ -14,7 +14,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
-    id: root
+    id: id_root
 
     property string title: "Title"
     property string coverSource: ""     // Full cover image (fallback)
@@ -35,27 +35,27 @@ Rectangle {
     // width: set by parent (ListView delegate width: listView.width)
     radius: 6
     clip: true
-    color: rootMouseArea.pressed
+    color: id_rootMouseArea.pressed
         ? Themes.cardRow.colors.rowBackgroundPressed
-        : (rootMouseArea.containsMouse
+        : (id_rootMouseArea.containsMouse
             ? Themes.cardRow.colors.rowBackgroundHover
             : Themes.cardRow.colors.rowBackground)
 
     // Hover border highlight
-    border.width: rootMouseArea.containsMouse || rootMouseArea.pressed ? 1 : 0
+    border.width: id_rootMouseArea.containsMouse || id_rootMouseArea.pressed ? 1 : 0
     border.color: Themes.cardRow.colors.rowBorder
 
     function restartProgressAnimation() {
-        progressIntroAnimation.stop()
+        id_progressIntroAnimation.stop()
         animatedProgress = 0.0
-        progressIntroAnimation.restart()
+        id_progressIntroAnimation.restart()
     }
 
     Connections {
-        target: root.ListView.view
+        target: id_root.ListView.view
         function onVisibleChanged() {
-            if (root.ListView.view.visible) {
-                root.restartProgressAnimation()
+            if (id_root.ListView.view.visible) {
+                id_root.restartProgressAnimation()
             }
         }
     }
@@ -65,23 +65,23 @@ Rectangle {
     }
 
     SequentialAnimation {
-        id: progressIntroAnimation
+        id: id_progressIntroAnimation
 
         PauseAnimation {
-            duration: Math.min(root.delegateIndex * 40, 300)
+            duration: Math.min(id_root.delegateIndex * 40, 300)
         }
         NumberAnimation {
-            target: root
+            target: id_root
             property: "animatedProgress"
             from: 0.0
-            to: root.progress
+            to: id_root.progress
             duration: 550
             easing.type: Easing.OutCubic
         }
     }
 
     onProgressChanged: {
-        if (!progressIntroAnimation.running) {
+        if (!id_progressIntroAnimation.running) {
             restartProgressAnimation()
         }
     }
@@ -96,7 +96,7 @@ Rectangle {
         anchors {
             fill: parent
             leftMargin: 10
-            rightMargin: root.hasVerticalScroll ? 40 : 10
+            rightMargin: id_root.hasVerticalScroll ? 40 : 10
             topMargin: 0
             bottomMargin: 0
 
@@ -110,8 +110,6 @@ Rectangle {
 
         // Icon / Logo
         Rectangle {
-            id: iconContainer
-
             width:  44
             height: 44
             radius: 4
@@ -124,9 +122,9 @@ Rectangle {
                 anchors.margins: -1
                 radius: parent.radius + 1
                 color: Themes.cardRow.colors.rowBackground
-                border.width: root.isCompleted ? 1 : 0
+                border.width: id_root.isCompleted ? 1 : 0
                 border.color: Themes.cardRow.colors.completedRing
-                opacity: root.isCompleted ? 0.7 : 0.0
+                opacity: id_root.isCompleted ? 0.7 : 0.0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -142,18 +140,18 @@ Rectangle {
             }
 
             Image {
-                id: logoImage
+                id: id_logoImage
 
                 anchors.fill: parent
                 anchors.margins: 3
-                source: root.logoSource !== "" ? root.logoSource : root.coverSource
+                source: id_root.logoSource !== "" ? id_root.logoSource : id_root.coverSource
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 asynchronous: true
 
                 BusyIndicator {
                     anchors.centerIn: parent
-                    running: logoImage.status === Image.Loading
+                    running: id_logoImage.status === Image.Loading
                     visible: running
                     width: 40
                     height: 40
@@ -163,11 +161,11 @@ Rectangle {
                     anchors.fill: parent
                     radius: parent.parent.radius
                     color: Themes.cardRow.colors.fallbackBackground
-                    visible: logoImage.status === Image.Error || root.logoSource === "" && root.coverSource === ""
+                    visible: id_logoImage.status === Image.Error || id_root.logoSource === "" && id_root.coverSource === ""
 
                     Text {
                         anchors.centerIn: parent
-                        text: root.title.length > 0 ? root.title.charAt(0).toUpperCase() : "?"
+                        text: id_root.title.length > 0 ? id_root.title.charAt(0).toUpperCase() : "?"
                         color: Themes.cardRow.colors.fallbackText
                         font.pixelSize: Themes.cardRow.fontSizes.fallbackText
                         font.bold: true
@@ -189,7 +187,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    text: root.title
+                    text: id_root.title
                     color: Themes.cardRow.colors.titleText
                     font.pixelSize: Themes.cardRow.fontSizes.title
                     font.bold: true
@@ -198,15 +196,13 @@ Rectangle {
 
                 RowLayout {
                     spacing: 4
-                    visible: root.achievementTotal > 0
+                    visible: id_root.achievementTotal > 0
 
                     Text {
-                        id: fractionText
-                        
-                        text: root.achievementCount + " / " + root.achievementTotal
-                        color: root.isCompleted ? Themes.cardRow.colors.completedText : Themes.cardRow.colors.fractionText
+                        text: id_root.achievementCount + " / " + id_root.achievementTotal
+                        color: id_root.isCompleted ? Themes.cardRow.colors.completedText : Themes.cardRow.colors.fractionText
                         font.pixelSize: Themes.cardRow.fontSizes.fraction
-                        font.bold: root.isCompleted
+                        font.bold: id_root.isCompleted
 
                         Behavior on color {
                             ColorAnimation {
@@ -220,8 +216,8 @@ Rectangle {
                         text: "★"
                         color: Themes.cardRow.colors.star
                         font.pixelSize: Themes.cardRow.fontSizes.star
-                        visible: root.isCompleted
-                        opacity: root.isCompleted ? 1.0 : 0.0
+                        visible: id_root.isCompleted
+                        opacity: id_root.isCompleted ? 1.0 : 0.0
 
                         Behavior on opacity {
                             NumberAnimation {
@@ -235,10 +231,10 @@ Rectangle {
             // Last played metadata
             Text {
                 Layout.fillWidth: true
-                text: root.lastPlayed
+                text: id_root.lastPlayed
                 color: Themes.cardRow.colors.lastPlayed
                 font.pixelSize: Themes.cardRow.fontSizes.lastPlayed
-                visible: root.lastPlayed !== ""
+                visible: id_root.lastPlayed !== ""
                 elide: Text.ElideRight
             }
 
@@ -247,33 +243,33 @@ Rectangle {
                 Layout.fillWidth: true
                 height: 3
                 radius: 2
-                color: Themes.cardRow.colors.progressTrack
-                visible: root.achievementTotal > 0
+                color: Themes.cardRow.colors.achievementsProgressTrack
+                visible: id_root.achievementTotal > 0
 
                 Rectangle {
-                    width: parent.width * root.animatedProgress
+                    width: parent.width * id_root.animatedProgress
                     height: parent.height
                     radius: parent.radius
-                    color: Themes.cardRow.colors.progressFill
+                    color: Themes.cardRow.colors.achievementsProgressFill
                 }
             }
         }
 
         // Installation status indicator
         Rectangle {
-            visible: root.status !== ""
+            visible: id_root.status !== ""
             Layout.alignment: Qt.AlignVCenter
-            width:  statusText.implicitWidth + 14
+            width:  id_installStatusText.implicitWidth + 14
             height: 20
             radius: 10
-            color: root.status === "Installed" ? Themes.cardRow.colors.statusBackgroundInstalled : Themes.cardRow.colors.statusBackgroundDefault
+            color: id_root.status === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
 
             Text {
-                id: statusText
+                id: id_installStatusText
 
                 anchors.centerIn: parent
-                text: root.status
-                color: root.status === "Installed" ? Themes.cardRow.colors.statusTextInstalled : Themes.cardRow.colors.statusTextDefault
+                text: id_root.status
+                color: id_root.status === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
                 font.pixelSize: Themes.cardRow.fontSizes.status
                 font.bold: true
             }
@@ -282,7 +278,7 @@ Rectangle {
 
     // Mouse Area for hover
     MouseArea {
-        id: rootMouseArea
+        id: id_rootMouseArea
 
         anchors.fill: parent
         hoverEnabled: true

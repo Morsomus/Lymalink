@@ -12,6 +12,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+// TODO
+// - Planning
+// - Tooltips
+
 Item {
     ColumnLayout {
         anchors.fill: parent
@@ -155,17 +159,7 @@ Item {
             }
 
             Label {
-                text: qsTr("Hide Lymalink Logo")
-                color: Themes.settings.colors.labelText
-                font.pixelSize: Themes.settings.fontSizes.label
-            }
-            Switch {
-                checked: false
-                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-            }
-
-            Label {
-                text: qsTr("Disable collapse button")
+                text: qsTr("Lymalink Logo")
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
@@ -175,12 +169,22 @@ Item {
             }
 
             Label {
-                text: qsTr("Disable collapse border")
+                text: qsTr("Collapse button")
                 color: Themes.settings.colors.labelText
                 font.pixelSize: Themes.settings.fontSizes.label
             }
             Switch {
                 checked: false
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+            }
+
+            Label {
+                text: qsTr("Collapse border")
+                color: Themes.settings.colors.labelText
+                font.pixelSize: Themes.settings.fontSizes.label
+            }
+            Switch {
+                checked: true
                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
             }
         }

@@ -14,11 +14,11 @@ import QtQuick
 import QtQuick.Controls
 
 Item {
-    id: root
+    id: id_root
 
     // TERMPORARY: Dummy model
     ListModel {
-        id: dummyModel
+        id: id_dummyModel
 
         ListElement { title: "Hollow Warden";           coverSource: ""; logoSource: ""; achievementCount: 45; achievementTotal: 63; status: "Installed"; lastPlayed: "2 days ago" }
         ListElement { title: "Frostpeak";               coverSource: ""; logoSource: ""; achievementCount: 12; achievementTotal: 24; status: "Installed"; lastPlayed: "1 week ago" }
@@ -33,19 +33,19 @@ Item {
 
     // List view
     ListView {
-        id: listView
+        id: id_listView
         
         anchors.fill: parent
         spacing: 6
 
-        model: dummyModel
+        model: id_dummyModel
 
         ScrollBar.vertical: ScrollBar {
             policy: ScrollBar.AsNeeded
         }
 
         delegate: CardRow {
-            width:            listView.width
+            width:            id_listView.width
             title:            model.title
             coverSource:      model.coverSource
             logoSource:       model.logoSource

@@ -15,7 +15,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    id: root
+    id: id_root
 
     property int currentPage: 0
     property bool collapsed: false
@@ -39,7 +39,7 @@ Item {
     }
 
     Rectangle {
-        id: panel
+        id: id_panel
 
         anchors.fill: parent
         color: Themes.sidebar.colors.panel
@@ -80,22 +80,22 @@ Item {
 
                 SidebarButton {
                     Layout.fillWidth: true
-                    collapsed: root.collapsed
-                    selected: root.currentPage === 0
+                    collapsed: id_root.collapsed
+                    selected: id_root.currentPage === 0
                     iconText: "□"
                     iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00005_ED.png"
                     label: qsTr("Dashboard")
-                    onClicked: root.currentPage = 0
+                    onClicked: id_root.currentPage = 0
                 }
 
                 SidebarButton {
                     Layout.fillWidth: true
-                    collapsed: root.collapsed
-                    selected: root.currentPage === 1
+                    collapsed: id_root.collapsed
+                    selected: id_root.currentPage === 1
                     iconText: "⚙"
                     iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
                     label: qsTr("Settings")
-                    onClicked: root.currentPage = 1
+                    onClicked: id_root.currentPage = 1
                 }
             }
 
@@ -104,11 +104,11 @@ Item {
             }
 
             BackendServiceElement {
-                collapsed: root.collapsed 
+                collapsed: id_root.collapsed 
             }
 
             GHElement {
-                collapsed: root.collapsed 
+                collapsed: id_root.collapsed 
                 linkUrl: "https://github.com/Morsomus/Lymalink"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 42
@@ -117,7 +117,7 @@ Item {
             // Version Info
             Label {
                 Layout.fillWidth: true
-                text: root.collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
+                text: id_root.collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
                 color: Themes.sidebar.colors.versionText
                 font.pixelSize: Themes.sidebar.fontSizes.version
                 horizontalAlignment: Text.AlignHCenter
@@ -127,9 +127,9 @@ Item {
 
         // Collapse border - Collapse sidebar
         Item {
-            id: collapseBorder
+            id: id_collapseBorder
 
-            visible: !root.disableCollapseBorder
+            visible: !id_root.disableCollapseBorder
             width: 10
             anchors.top: parent.top
             anchors.bottom: parent.bottom
@@ -138,31 +138,30 @@ Item {
             property bool showDivider: false
 
             MouseArea {
-                id: collapseBorderMouseArea
+                id: id_collapseBorderMouseArea
 
-                anchors.fill: collapseBorder
+                anchors.fill: id_collapseBorder
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.collapsed = !root.collapsed
-	            onExited: collapseBorder.showDivider = false
+                onClicked: id_root.collapsed = !id_root.collapsed
+	            onExited: id_collapseBorder.showDivider = false
             }
 
             // Timer to prevent collapse border flickering by passing mouse cursor
             Timer {
-                id: delayTimer
-                interval: collapseBorderMouseArea.containsMouse ? 100 : 0
-                running: collapseBorderMouseArea.containsMouse && !collapseBorder.showDivider
+                interval: id_collapseBorderMouseArea.containsMouse ? 100 : 0
+                running: id_collapseBorderMouseArea.containsMouse && !id_collapseBorder.showDivider
                 repeat: false
-                onTriggered: collapseBorder.showDivider = true
+                onTriggered: id_collapseBorder.showDivider = true
             }
             
             Rectangle {
-                width: collapseBorder.width
-                anchors.top: collapseBorder.top
-                anchors.bottom: collapseBorder.bottom
-                anchors.right: collapseBorder.right
+                width: id_collapseBorder.width
+                anchors.top: id_collapseBorder.top
+                anchors.bottom: id_collapseBorder.bottom
+                anchors.right: id_collapseBorder.right
                 color: Themes.sidebar.colors.divider
-                opacity: collapseBorder.showDivider ? 0.5 : 0.0
+                opacity: id_collapseBorder.showDivider ? 0.5 : 0.0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -182,9 +181,9 @@ Item {
     }
 
     Button {
-        id: collapseButton
+        id: id_collapseButton
         
-        visible: !root.disableCollapseButton
+        visible: !id_root.disableCollapseButton
         width: 34
         height: 48
         anchors.right: parent.right
@@ -192,17 +191,17 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -6
         z: 10
-        text: root.collapsed ? ">" : "<"
+        text: id_root.collapsed ? ">" : "<"
         focusPolicy: Qt.NoFocus
         ToolTip.visible: hovered
         ToolTip.delay: 300
-        ToolTip.text: root.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
-        onClicked: root.collapsed = !root.collapsed
+        ToolTip.text: id_root.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
+        onClicked: id_root.collapsed = !id_root.collapsed
 
         contentItem: Label {
             anchors.left: parent.left
             anchors.leftMargin: -8
-            text: collapseButton.text
+            text: id_collapseButton.text
             color: Themes.sidebar.colors.collapseText
             font.pixelSize: Themes.sidebar.fontSizes.collapseButton
             font.bold: true
@@ -212,9 +211,9 @@ Item {
 
         background: Rectangle {
             radius: 8
-            color: collapseButton.down 
+            color: id_collapseButton.down 
                 ? Themes.sidebar.colors.collapseBackgroundPressed
-                : (collapseButton.hovered 
+                : (id_collapseButton.hovered 
                     ? Themes.sidebar.colors.collapseBackgroundHover 
                     : Themes.sidebar.colors.collapseBackground)
 

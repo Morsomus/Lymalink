@@ -28,7 +28,7 @@ ApplicationWindow {
         spacing: 0
 
         Sidebar {
-            id: sidebar
+            id: id_sidebar
         }
 
         // Main content area
@@ -46,11 +46,9 @@ ApplicationWindow {
             }
 
             StackLayout {
-                id: stackLayout
-                
                 anchors.fill: parent
                 anchors.leftMargin: 18
-                currentIndex: sidebar.currentPage
+                currentIndex: id_sidebar.currentPage
 
                 Dashboard{}
                 Settings{}

@@ -13,7 +13,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Button {
-    id: root
+    id: id_root
 
     property bool collapsed: false
     property bool selected: false
@@ -50,19 +50,19 @@ Button {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             visible: iconUrl ? false : true
-            text: root.iconText
-            color: root.selected ? Themes.sidebarButton.colors.navTextSelected : Themes.sidebarButton.colors.navText
+            text: id_root.iconText
+            color: id_root.selected ? Themes.sidebarButton.colors.navTextSelected : Themes.sidebarButton.colors.navText
             font.pixelSize: Themes.sidebarButton.fontSizes.navIcon
         }
 
         Label {
             Layout.fillWidth: true
-            visible: !root.collapsed
-            opacity: root.collapsed ? 0 : 1
-            text: root.label
-            color: root.selected ? Themes.sidebarButton.colors.navTextSelected : Themes.sidebarButton.colors.navText
+            visible: !id_root.collapsed
+            opacity: id_root.collapsed ? 0 : 1
+            text: id_root.label
+            color: id_root.selected ? Themes.sidebarButton.colors.navTextSelected : Themes.sidebarButton.colors.navText
             font.pixelSize: Themes.sidebarButton.fontSizes.navLabel
-            font.bold: root.selected
+            font.bold: id_root.selected
             elide: Text.ElideRight
 
             Behavior on opacity {
@@ -75,16 +75,16 @@ Button {
 
     background: Rectangle {
         radius: 8
-        color: root.down 
+        color: id_root.down 
             ? Themes.sidebarButton.colors.navBackgroundPressed
-            : (root.selected 
+            : (id_root.selected 
                 ? Themes.sidebarButton.colors.navBackgroundSelected 
-                : (root.hovered 
+                : (id_root.hovered 
                     ? Themes.sidebarButton.colors.navBackgroundHover 
                     : Themes.sidebarButton.colors.navBackground))
 
         Behavior on color {
-            enabled: !root.down
+            enabled: !id_root.down
             
             ColorAnimation {
                 duration: 200

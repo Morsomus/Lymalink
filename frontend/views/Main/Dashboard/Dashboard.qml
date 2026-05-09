@@ -14,7 +14,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    id: root
+    id: id_root
 
     property string activeGridSize: "default"
     property bool isEmpty: false
@@ -27,8 +27,8 @@ Item {
 
         DashboardToolbar {
             Layout.fillWidth: true
-            activeGridSize: root.activeGridSize
-            onGridSizeSelected: (size) => root.activeGridSize = size
+            activeGridSize: id_root.activeGridSize
+            onGridSizeSelected: (size) => id_root.activeGridSize = size
         }
 
         Rectangle {
@@ -41,7 +41,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.isEmpty
+            visible: id_root.isEmpty
 
             Image {
                 anchors.centerIn: parent
@@ -79,40 +79,40 @@ Item {
 
         // Main content: CardGrid or CardList
         Loader {
-            id: contentLoader
+            id: id_cardLayoutLoader
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.isEmpty
-            sourceComponent: root.activeGridSize === "list" ? listComponent : gridComponent
+            visible: !id_root.isEmpty
+            sourceComponent: id_root.activeGridSize === "list" ? id_cardListLayout : id_cardGridLayout
 
             onLoaded: {
-                if (root.activeGridSize !== "list") {
-                    item.gridSize = root.activeGridSize
+                if (id_root.activeGridSize !== "list") {
+                    item.gridSize = id_root.activeGridSize
                 } 
             }
         }
 
         Binding {
-            when: root.activeGridSize !== "list"
-                  && contentLoader.status === Loader.Ready
-                  && contentLoader.sourceComponent === gridComponent
-            target: contentLoader.item
+            when: id_root.activeGridSize !== "list"
+                  && id_cardLayoutLoader.status === Loader.Ready
+                  && id_cardLayoutLoader.sourceComponent === id_cardGridLayout
+            target: id_cardLayoutLoader.item
             property: "gridSize"
-            value: root.activeGridSize
+            value: id_root.activeGridSize
         }
     }
 
     Component {
-        id: gridComponent
+        id: id_cardGridLayout
 
         CardGrid {
-            gridSize: root.activeGridSize
+            gridSize: id_root.activeGridSize
         }
     }
 
     Component {
-        id: listComponent
+        id: id_cardListLayout
         
         CardList {}
     }
