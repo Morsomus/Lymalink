@@ -118,7 +118,7 @@ Rectangle {
     Item {
         id: id_edgeProgressFrame
         
-        z: 2
+        z: 3
         anchors.fill: parent
         visible: id_root.edgeProgressFrameEnabled && id_root.achievementTotal > 0
 
@@ -381,19 +381,31 @@ Rectangle {
 
     // Uninstalled Status Badge (top-left)
     Item {
+        id: id_installStatusBadgeContainer
+
         z: 2
+        anchors.fill: parent
         visible: id_root.status === "Not Installed"
+
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: id_installStatusBadgeContainerMask
+        }
 
         Rectangle {
             id: id_installStatusBadgeBackground
 
+            clip: true
             anchors {
-                top: parent.top
-                left: parent.left
-                margins: 6
+                horizontalCenter: parent.left
+                horizontalCenterOffset: 5
+                
+                verticalCenter: parent.top
+                verticalCenterOffset: 5
             }
-            width: 28
-            height: 28
+            width: 52
+            height: 52
             radius: width / 2
             color: Themes.cardSmall.colors.installationStatusBadgeBackground
             opacity: Themes.cardSmall.opacity.statusBadge
@@ -409,7 +421,12 @@ Rectangle {
         }
 
         Image {
-            anchors.centerIn: id_installStatusBadgeBackground
+            anchors {
+                top: id_installStatusBadgeBackground.top
+                left: id_installStatusBadgeBackground.left
+                topMargin: id_installStatusBadgeBackground.width / 2
+                leftMargin: id_installStatusBadgeBackground.height / 2
+            }
             width: 18
             height: 18
             source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00005_2_ED.png"
@@ -417,6 +434,17 @@ Rectangle {
             smooth: true
             mipmap: true
             opacity: Themes.cardSmall.opacity.statusIcon
+        }
+
+        // Mask using full card shape
+        Rectangle {
+            id: id_installStatusBadgeContainerMask
+            
+            anchors.fill: parent
+            color: "white"
+            visible: false
+            layer.enabled: true
+            radius: id_root.radius
         }
     }
 
