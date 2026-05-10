@@ -19,9 +19,67 @@ Item {
     property string activeGridSize: "default"
     property string activePanel: ""
     property string activeFilter: "none"
+    property var activeFilters: ["none"]
+    readonly property int activeFilterCount: activeFilters.length
     property string activeSort: "title"
+    readonly property var controlModel: ["list", "small", "default"]
+    readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
+    readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "official", "hidden", "installed", "notInstalled"]
 
     signal gridSizeSelected(string size)
+
+    function sortLabel(sort) {
+        switch (sort) {
+            case "title":        return qsTr("Title")
+            case "progress":     return qsTr("Progress")
+            case "recentUnlock": return qsTr("Recent Unlock")
+            case "playtime":     return qsTr("Playtime")
+            case "lastPlayed":   return qsTr("Last Played")
+            case "dateAdded":    return qsTr("Date Added")
+            default:             return qsTr("Error")
+        }
+    }
+
+    function filterLabel(filter) {
+        switch (filter) {
+            case "none":         return qsTr("None")
+            case "completed":    return qsTr("Completed")
+            case "uncompleted":  return qsTr("Uncompleted")
+            case "custom":       return qsTr("Custom")
+            case "emulator":     return qsTr("Emulator")
+            case "official":     return qsTr("Official")
+            case "hidden":       return qsTr("Hidden")
+            case "installed":    return qsTr("Installed")
+            case "notInstalled": return qsTr("Not Installed")
+            default:             return qsTr("Error")
+        }
+    }
+
+    function hasFilter(filter) {
+        return activeFilters.indexOf(filter) !== -1
+    }
+
+    function setActiveFilters(filters) {
+        activeFilters = filters
+        activeFilter = filters.length > 1 ? "multiple" : filters[0]
+    }
+
+    function toggleFilter(filter) {
+        if (filter === "none") {
+            setActiveFilters(["none"])
+            return
+        }
+
+        let filters = activeFilters.filter((item) => item !== "none")
+        const index = filters.indexOf(filter)
+        if (index === -1) {
+            filters.push(filter)
+        } else {
+            filters.splice(index, 1)
+        }
+
+        setActiveFilters(filters.length > 0 ? filters : ["none"])
+    }
 
     implicitHeight: id_toolbar.implicitHeight
 
@@ -145,15 +203,10 @@ Item {
 
                     Text {
                         text: {
-                            switch (id_root.activeFilter) {
-                                case "none":         return qsTr("None")
-                                case "installed":    return qsTr("Installed")
-                                case "notInstalled": return qsTr("Not Installed")
-                                case "hidden":       return qsTr("Hidden")
-                                case "completed":    return qsTr("Completed")
-                                case "uncompleted":  return qsTr("Uncompleted")
-                                default:             return qsTr("Error")
+                            if (id_root.activeFilterCount > 1) {
+                                return qsTr("Multiple") + (" (%1)").arg(id_root.activeFilterCount)
                             }
+                            return id_root.filterLabel(id_root.activeFilter)
                         }
                         color: id_root.activeFilter !== "" ? Themes.dashboardToolbar.colors.pillValueActive : Themes.dashboardToolbar.colors.pillLabel
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
@@ -211,15 +264,7 @@ Item {
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
                     }
                     Text {
-                        text: {
-                            switch (id_root.activeSort) {
-                                case "lastPlayed": return qsTr("Last Played")
-                                case "title":      return qsTr("Title")
-                                case "dateAdded":  return qsTr("Date Added")
-                                case "playtime":   return qsTr("Playtime")
-                                default:           return qsTr("Error")
-                            }
-                        }
+                        text: id_root.sortLabel(id_root.activeSort)
                         color: Themes.dashboardToolbar.colors.pillValueActive
                         font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
                     }
@@ -323,7 +368,7 @@ Item {
                     spacing: 2
 
                     Repeater {
-                        model: ["list", "small", "default"]
+                        model: id_root.controlModel
                         delegate: Rectangle {
                             readonly property bool active: modelData === id_root.activeGridSize
                             implicitWidth: id_pillLabel.implicitWidth + 20
@@ -419,7 +464,7 @@ Item {
                 }
 
                 Repeater {
-                    model: ["lastPlayed", "title", "dateAdded", "playtime"]
+                    model: id_root.sortModel
                     delegate: Rectangle {
                         readonly property bool active: modelData === id_root.activeSort
                         implicitHeight: 26
@@ -451,15 +496,7 @@ Item {
                             id: id_sortChipLabel
 
                             anchors.centerIn: parent
-                            text: {
-                                switch (modelData) {
-                                    case "lastPlayed": return qsTr("Last Played")
-                                    case "title":      return qsTr("Title")
-                                    case "dateAdded":  return qsTr("Date Added")
-                                    case "playtime":   return qsTr("Playtime")
-                                    default:           return modelData
-                                }
-                            }
+                            text: id_root.sortLabel(modelData)
                             color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
                             font.bold: active
@@ -515,9 +552,9 @@ Item {
                 }
 
                 Repeater {
-                    model: ["none", "installed", "notInstalled", "hidden", "completed", "uncompleted"]
+                    model: id_root.filterModel
                     delegate: Rectangle {
-                        readonly property bool active: modelData === id_root.activeFilter
+                        readonly property bool active: id_root.hasFilter(modelData)
                         implicitHeight: 26
                         implicitWidth: id_filterChipLabel.implicitWidth + 20
                         radius: 13
@@ -547,17 +584,7 @@ Item {
                             id: id_filterChipLabel
 
                             anchors.centerIn: parent
-                            text: {
-                                switch (modelData) {
-                                    case "none":         return qsTr("None")
-                                    case "installed":    return qsTr("Installed")
-                                    case "notInstalled": return qsTr("Not Installed")
-                                    case "hidden":       return qsTr("Hidden")
-                                    case "completed":    return qsTr("Completed")
-                                    case "uncompleted":  return qsTr("Uncompleted")
-                                    default:             return modelData
-                                }
-                            }
+                            text: id_root.filterLabel(modelData)
                             color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
                             font.bold: active
@@ -574,8 +601,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                id_root.activeFilter = modelData
-                                id_root.activePanel = ""
+                                id_root.toggleFilter(modelData)
                             }
                         }
                     }
