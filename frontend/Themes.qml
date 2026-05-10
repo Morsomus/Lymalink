@@ -185,6 +185,7 @@ QtObject {
             readonly property color completedText: "#55cc88"
             readonly property color star: "#55cc88"
             readonly property color lastPlayed: "#666677"
+            readonly property color recentUnlock: "#666677"
 
             readonly property color achievementsProgressTrack: "#2a2a3a"
             readonly property color achievementsProgressFill: "#55cc88"
@@ -201,6 +202,7 @@ QtObject {
             readonly property int fraction: 11
             readonly property int star: 16
             readonly property int lastPlayed: 11
+            readonly property int recentUnlock: 11
             readonly property int status: 10
         }
     }

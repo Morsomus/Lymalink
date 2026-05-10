@@ -24,6 +24,7 @@ Rectangle {
     property int achievementTotal: 0    // e.g. 73
     property string status: ""          // "Installed" | "Not Installed"
     property string lastPlayed: ""      // e.g. "2 days ago"
+    property string recentUnlock: ""    // e.g. "1 hour ago"
     property int delegateIndex: 0
 
     // Internals
@@ -231,14 +232,25 @@ Rectangle {
                 }
             }
 
-            // Last played metadata
-            Text {
-                Layout.fillWidth: true
-                text: id_root.lastPlayed
-                color: Themes.cardRow.colors.lastPlayed
-                font.pixelSize: Themes.cardRow.fontSizes.lastPlayed
-                visible: id_root.lastPlayed !== ""
-                elide: Text.ElideRight
+            // Last played and recent unlock metadata
+            RowLayout { 
+                Text {
+                    text: id_root.lastPlayed !== "" ? "🎮 " + id_root.lastPlayed : "🎮 " + qsTr("Never")
+                    color: Themes.cardRow.colors.lastPlayed
+                    font.pixelSize: Themes.cardRow.fontSizes.lastPlayed
+                    elide: Text.ElideRight
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: id_root.recentUnlock !== "" ? qsTr("Recent unlock ") + id_root.recentUnlock : ""
+                    color: Themes.cardRow.colors.recentUnlock
+                    font.pixelSize: Themes.cardRow.fontSizes.recentUnlock
+                    elide: Text.ElideRight
+                }
             }
 
             // Progress bar

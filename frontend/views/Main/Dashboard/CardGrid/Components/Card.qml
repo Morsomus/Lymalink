@@ -283,7 +283,7 @@ Rectangle {
                 width: parent.width
             }
             Text {
-                text: id_root.lastPlayed
+                text: "🎮 " + id_root.lastPlayed
                 color: Themes.card.colors.hoverLastPlayed
                 font.pixelSize: Themes.card.fontSizes.hoverMeta
                 visible: id_root.lastPlayed !== ""

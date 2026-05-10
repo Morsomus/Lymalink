@@ -285,13 +285,13 @@ Rectangle {
                 width: parent.width
             }
             Text {
-                text: id_root.achievementTotal > 0 ? id_root.achievementCount + " / " + id_root.achievementTotal : ""
+                text: id_root.achievementTotal > 0 ? "🏆 " + id_root.achievementCount + " / " + id_root.achievementTotal : ""
                 color: Themes.cardSmall.colors.hoverAchievements
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
                 visible: id_root.achievementTotal > 0
             }
             Text {
-                text: id_root.lastPlayed
+                text: "🎮 " + id_root.lastPlayed
                 color: Themes.cardSmall.colors.hoverLastPlayed
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
                 visible: id_root.lastPlayed !== ""
