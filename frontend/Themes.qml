@@ -39,7 +39,7 @@ QtObject {
         readonly property QtObject fontSizes: QtObject {
             readonly property int title: 28
             readonly property int body: 15
-            readonly property int emptyTitle: 18
+            readonly property int emptyTitle: 25
             readonly property int emptyBody: 13
         }
     }
@@ -101,6 +101,17 @@ QtObject {
         readonly property QtObject fontSizes: QtObject {
             readonly property int navIcon: 16
             readonly property int navLabel: 16
+        }
+    }
+
+    // ErrorImage.qml
+    readonly property QtObject errorImage: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color errorImageText: "#b10000"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int errorImageText: 48
         }
     }
 
@@ -228,7 +239,7 @@ QtObject {
 
         readonly property QtObject fontSizes: QtObject {
             readonly property int imageError: 10
-            readonly property int titleFallback: 13
+            readonly property int titleFallback: 12
             readonly property int hoverTitle: 13
             readonly property int hoverMeta: 11
             readonly property int achievementsBadge: 10

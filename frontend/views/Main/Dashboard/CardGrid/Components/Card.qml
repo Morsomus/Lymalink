@@ -7,6 +7,7 @@
 //              a tracked achievement as a default sized card.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -48,6 +49,7 @@ Rectangle {
         Image {
             id: id_coverImage
 
+            z: id_errorImage.errorActive ? 2 : 0
             anchors.fill: parent
             source: id_root.coverSource
             fillMode: Image.PreserveAspectCrop
@@ -60,10 +62,11 @@ Rectangle {
                 maskSource: id_coverMask
             }
 
-            BusyIndicator {
+            CustomBusyIndicator {
                 anchors.centerIn: parent
-                running: id_coverImage.status === Image.Loading
                 visible: running
+                indicatorSize: 64
+                running: id_coverImage.status === Image.Loading
             }
 
             Column {
@@ -71,20 +74,13 @@ Rectangle {
                 spacing: 6
                 visible: id_coverImage.status === Image.Error
 
-                // TODO: Replace with Error IMG
-                Rectangle {
-                    width: 32
-                    height: 32
-                    color: Themes.card.colors.imageErrorBlock
-                    radius: 4
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
+                ErrorImage {
+                    id: id_errorImage
 
-                Text {
-                    text: qsTr("Image error")
-                    color: Themes.card.colors.imageErrorText
-                    font.pixelSize: Themes.card.fontSizes.imageError
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    property bool errorActive: id_coverImage.status === Image.Error
+                    
+                    size: 128
+                    visible: id_coverImage.status === Image.Error
                 }
             }
         }

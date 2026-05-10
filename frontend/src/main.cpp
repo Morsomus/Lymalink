@@ -8,6 +8,7 @@
 #include <QGuiApplication>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFontDatabase>
 
 int main(int argc, char *argv[]) {
     // Enable QML console.log/console.debug output on Fedora
@@ -17,6 +18,12 @@ int main(int argc, char *argv[]) {
     #endif
 
     QApplication app(argc, argv);
+
+    QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf");
+    QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf");
+    QFont defaultFont("Inter");
+    defaultFont.setPixelSize(13);
+    QGuiApplication::setFont(defaultFont);
 
     // Set titlebar icon
     app.setWindowIcon(QIcon(":/qt/qml/Lymalink/res/img/BlankBackground_MFC_00002_E.png"));

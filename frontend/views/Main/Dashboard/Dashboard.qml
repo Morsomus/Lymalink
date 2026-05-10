@@ -43,36 +43,28 @@ Item {
             Layout.fillHeight: true
             visible: id_root.isEmpty
 
-            Image {
-                anchors.centerIn: parent
-                width:  Math.min(parent.width, parent.height) * 0.75
-                height: width
-                source: "qrc:/resources/images/empty_state.png"
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                opacity: 0.35
-            }
-
             Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.verticalCenter
-                anchors.topMargin: 16
-                spacing: 6
+                anchors.centerIn: parent
+                width: Math.min(parent.width, 520)
+                spacing: 18
+
+                CustomBusyIndicator {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    indicatorSize: 280
+                    speed: 8400
+                    running: id_root.isEmpty
+                    opacity: 0.5
+                }
 
                 Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Your collection is empty.")
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    text: qsTr("All quiet here, nothing to track yet.")
                     font.pixelSize: Themes.dashboard.fontSizes.emptyTitle
                     font.bold: true
                     color: Themes.dashboard.colors.titleText
-                    opacity: 0.7
-                }
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Start by scanning a directory in Settings.")
-                    font.pixelSize: Themes.dashboard.fontSizes.emptyBody
-                    color: Themes.dashboard.colors.bodyText
-                    opacity: 0.5
+                    opacity: 0.4
                 }
             }
         }

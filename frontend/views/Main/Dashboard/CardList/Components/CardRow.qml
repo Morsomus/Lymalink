@@ -7,6 +7,7 @@
 //              a tracked achievement or target in row format.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -147,6 +148,7 @@ Rectangle {
                 source: id_root.logoSource !== "" ? id_root.logoSource : id_root.coverSource
                 fillMode: Image.PreserveAspectFit
                 smooth: true
+                mipmap: true
                 asynchronous: true
 
                 BusyIndicator {
@@ -157,6 +159,7 @@ Rectangle {
                     height: 40
                 }
 
+                // Show first letter of the title if icon/logo missing
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.parent.radius
