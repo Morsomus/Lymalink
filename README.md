@@ -23,17 +23,19 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 
 ## Project Status
 
+Current progress toward Version 1.0.0
+
 ### Linux
 | Component | Status |
 |-----------|--------|
 | **Frontend** | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | 📋 Planning |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy |
 | &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | 📋 Planning |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | 📋 Planning |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started |
