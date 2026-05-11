@@ -18,6 +18,7 @@ Item {
 
     property string activeGridSize: "default"
     property bool isEmpty: false
+    readonly property int requiredWindowMinimumWidth: activeGridSize === "details" ? 1280 : 900
 
     ColumnLayout {
         anchors.fill: parent
@@ -76,10 +77,10 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !id_root.isEmpty
-            sourceComponent: id_root.activeGridSize === "list" ? id_cardListLayout : id_cardGridLayout
+            sourceComponent: id_root.activeGridSize === "list" || id_root.activeGridSize === "details" ? id_cardListLayout : id_cardGridLayout
 
             onLoaded: {
-                if (id_root.activeGridSize !== "list") {
+                if (id_root.activeGridSize !== "list" && id_root.activeGridSize !== "details") {
                     item.gridSize = id_root.activeGridSize
                 } 
             }
@@ -87,8 +88,9 @@ Item {
 
         Binding {
             when: id_root.activeGridSize !== "list"
-                  && id_cardLayoutLoader.status === Loader.Ready
-                  && id_cardLayoutLoader.sourceComponent === id_cardGridLayout
+                && id_root.activeGridSize !== "details"
+                && id_cardLayoutLoader.status === Loader.Ready
+                && id_cardLayoutLoader.sourceComponent === id_cardGridLayout
             target: id_cardLayoutLoader.item
             property: "gridSize"
             value: id_root.activeGridSize
@@ -106,6 +108,8 @@ Item {
     Component {
         id: id_cardListLayout
         
-        CardList {}
+        CardList {
+            listMode: id_root.activeGridSize
+        }
     }
 }

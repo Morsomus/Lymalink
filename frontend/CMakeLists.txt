@@ -73,6 +73,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/CardGrid/Components/CardSmall.qml
         views/Main/Dashboard/CardList/CardList.qml
         views/Main/Dashboard/CardList/Components/CardRow.qml
+        views/Main/Dashboard/CardList/Components/CardRowDetailed.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml
         views/Main/Settings/Settings.qml

@@ -207,6 +207,46 @@ QtObject {
         }
     }
 
+    // CardRowDetailed.qml
+    readonly property QtObject cardRowDetailed: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color rowBackgroundHover: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color rowBackgroundPressed: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color rowBackground: "transparent"
+            readonly property color rowBorder: Qt.rgba(1, 1, 1, 0.08)
+
+            readonly property color iconBackground: "#2a2a3a"
+            readonly property color completedRing: "#55cc88"
+            readonly property color fallbackBackground: "#3a3a5a"
+            readonly property color fallbackText: "#aaaacc"
+
+            readonly property color titleText: "#ffffff"
+            readonly property color fractionText: "#888899"
+            readonly property color completedText: "#55cc88"
+            readonly property color star: "#55cc88"
+            readonly property color lastPlayed: "#666677"
+            readonly property color recentUnlock: "#666677"
+
+            readonly property color achievementsProgressTrack: "#2a2a3a"
+            readonly property color achievementsProgressFill: "#55cc88"
+
+            readonly property color installationStatusBackgroundInstalled: Qt.rgba(0.2, 0.7, 0.4, 0.25)
+            readonly property color installationStatusBackgroundDefault: Qt.rgba(0.5, 0.5, 0.5, 0.15)
+            readonly property color installationStatusTextInstalled: "#55cc88"
+            readonly property color installationStatusTextNotInstalled: "#888899"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int fallbackText: 18
+            readonly property int title: 13
+            readonly property int fraction: 11
+            readonly property int star: 16
+            readonly property int lastPlayed: 11
+            readonly property int recentUnlock: 11
+            readonly property int status: 10
+        }
+    }
+
     // CardSmall.qml
     readonly property QtObject cardSmall: QtObject {
         readonly property QtObject colors: QtObject {

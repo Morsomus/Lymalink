@@ -12,31 +12,45 @@ import app.themes 1.0
 
 import QtQuick
 import QtQuick.Controls
+import QtQml.Models
 
 Item {
     id: id_root
+
+    property string listMode: "list"
+    readonly property string rowLayout: listMode === "details" ? "details" : "list"
+
+    function syncRowLayout() {
+        for (let i = 0; i < id_dummyModel.count; ++i) {
+            id_dummyModel.setProperty(i, "rowLayout", id_root.rowLayout)
+        }
+    }
+
+    Component.onCompleted: syncRowLayout()
+    onRowLayoutChanged: syncRowLayout()
 
     // TERMPORARY: Dummy model
     ListModel {
         id: id_dummyModel
 
-        ListElement { title: "Hollow Warden";           coverSource: ""; logoSource: ""; achievementCount: 45; achievementTotal: 63; status: "Installed"; lastPlayed: "2 days ago"; recentUnlock: "1 hour ago" }
-        ListElement { title: "Frostpeak";               coverSource: ""; logoSource: ""; achievementCount: 12; achievementTotal: 24; status: "Installed"; lastPlayed: "1 week ago"; recentUnlock: "" }
-        ListElement { title: "Acheron";                 coverSource: ""; logoSource: ""; achievementCount: 0; achievementTotal: 49; status: "Not Installed"; lastPlayed: ""; recentUnlock: "" }
-        ListElement { title: "Dissonant Reverie";       coverSource: ""; logoSource: ""; achievementCount: 8; achievementTotal: 27; status: "Installed"; lastPlayed: "Yesterday"; recentUnlock: "" }
-        ListElement { title: "Twilight Hollow";         coverSource: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; logoSource: ""; achievementCount: 30; achievementTotal: 40; status: "Installed"; lastPlayed: "3 days ago"; recentUnlock: "" }
-        ListElement { title: "The Lost Meridian";       coverSource: ""; logoSource: ""; achievementCount: 0; achievementTotal: 16; status: "Not Installed"; lastPlayed: ""; recentUnlock: "2 days ago" }
-        ListElement { title: "Aris and the Shroudwood"; coverSource: ""; logoSource: ""; achievementCount: 20; achievementTotal: 35; status: "Installed"; lastPlayed: "5 days ago"; recentUnlock: "2 months ago" }
-        ListElement { title: "The Mischievous Fowl";    coverSource: ""; logoSource: ""; achievementCount: 5; achievementTotal: 12; status: "Installed"; lastPlayed: "2 weeks ago"; recentUnlock: "" }
-        ListElement { title: "Aethelwald III";          coverSource: ""; logoSource: ""; achievementCount: 102; achievementTotal: 102; status: "Installed"; lastPlayed: "1 hour ago"; recentUnlock: "4 weeks ago" }
+        ListElement { rowLayout: "list"; title: "Hollow Warden";           coverSource: ""; logoSource: ""; achievementCount: 45; achievementTotal: 63; status: "Installed"; lastPlayed: "2 days ago"; recentUnlock: "1 hour ago";  lastAchievementIcon: ""; lastAchievementName: "Into the Depths"; lastAchievementDesc: "Descend below the third sanctum." }
+        ListElement { rowLayout: "list"; title: "Frostpeak";               coverSource: ""; logoSource: ""; achievementCount: 12; achievementTotal: 24; status: "Installed"; lastPlayed: "1 week ago"; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: "Cold Blooded"; lastAchievementDesc: "Survive the blizzard without shelter." }
+        ListElement { rowLayout: "list"; title: "Acheron";                 coverSource: ""; logoSource: ""; achievementCount: 0;  achievementTotal: 49; status: "Not Installed"; lastPlayed: ""; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: ""; lastAchievementDesc: "" }
+        ListElement { rowLayout: "list"; title: "Dissonant Reverie";       coverSource: ""; logoSource: ""; achievementCount: 8;  achievementTotal: 27; status: "Installed"; lastPlayed: "Yesterday"; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: "Echo Chamber"; lastAchievementDesc: "Hear all seven memory fragments." }
+        ListElement { rowLayout: "list"; title: "Twilight Hollow";         coverSource: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; logoSource: ""; achievementCount: 30; achievementTotal: 40; status: "Installed"; lastPlayed: "3 days ago"; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: "Dusk Wanderer"; lastAchievementDesc: "Explore every region at nightfall." }
+        ListElement { rowLayout: "list"; title: "The Lost Meridian";       coverSource: ""; logoSource: ""; achievementCount: 0;  achievementTotal: 16; status: "Not Installed"; lastPlayed: ""; recentUnlock: "2 days ago"; lastAchievementIcon: ""; lastAchievementName: ""; lastAchievementDesc: "" }
+        ListElement { rowLayout: "list"; title: "Aris and the Shroudwood"; coverSource: ""; logoSource: ""; achievementCount: 20; achievementTotal: 35; status: "Installed"; lastPlayed: "5 days ago"; recentUnlock: "2 months ago"; lastAchievementIcon: ""; lastAchievementName: "Rootbound"; lastAchievementDesc: "Befriend the ancient grove spirit." }
+        ListElement { rowLayout: "list"; title: "The Mischievous Fowl";    coverSource: ""; logoSource: ""; achievementCount: 5;  achievementTotal: 12; status: "Installed"; lastPlayed: "2 weeks ago"; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: "Feathered Fury"; lastAchievementDesc: "Defeat an enemy using only the peck." }
+        ListElement { rowLayout: "list"; title: "Aethelwald III";          coverSource: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; logoSource: ""; achievementCount: 102; achievementTotal: 102; status: "Installed"; lastPlayed: "1 hour ago"; recentUnlock: "4 weeks ago"; lastAchievementIcon: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; lastAchievementName: "The Long Road"; lastAchievementDesc: "Complete every quest in all three kingdoms." }
     }
 
     // List view
     ListView {
         id: id_listView
-        
+
         anchors.fill: parent
         spacing: 6
+        clip: true
 
         model: id_dummyModel
 
@@ -44,17 +58,44 @@ Item {
             policy: ScrollBar.AsNeeded
         }
 
-        delegate: CardRow {
-            width:            id_listView.width
-            title:            model.title
-            coverSource:      model.coverSource
-            logoSource:       model.logoSource
-            achievementCount: model.achievementCount
-            achievementTotal: model.achievementTotal
-            status:           model.status
-            lastPlayed:       model.lastPlayed
-            recentUnlock:     model.recentUnlock
-            delegateIndex:    model.index
+        delegate: DelegateChooser {
+            role: "rowLayout"
+
+            DelegateChoice {
+                roleValue: "details"
+
+                CardRowDetailed {
+                    width:            id_listView.width
+                    title:            model.title
+                    coverSource:      model.coverSource
+                    achievementCount: model.achievementCount
+                    achievementTotal: model.achievementTotal
+                    status:           model.status
+                    lastPlayed:       model.lastPlayed
+                    recentUnlock:     model.recentUnlock
+                    lastAchievementIcon: model.lastAchievementIcon
+                    lastAchievementName: model.lastAchievementName
+                    lastAchievementDesc: model.lastAchievementDesc
+                    delegateIndex:    index
+                }
+            }
+
+            DelegateChoice {
+                roleValue: "list"
+
+                CardRow {
+                    width:            id_listView.width
+                    title:            model.title
+                    coverSource:      model.coverSource
+                    logoSource:       model.logoSource
+                    achievementCount: model.achievementCount
+                    achievementTotal: model.achievementTotal
+                    status:           model.status
+                    lastPlayed:       model.lastPlayed
+                    recentUnlock:     model.recentUnlock
+                    delegateIndex:    index
+                }
+            }
         }
     }
 }

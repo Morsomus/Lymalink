@@ -12,12 +12,22 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 ApplicationWindow {
+    id: id_root
+
+    readonly property int defaultMinimumWidth: 900
+
     visible: true
     width: 1510
     height: 900
     title: qsTr("Lymalink")
-    minimumWidth: 900
+    minimumWidth: id_sidebar.currentPage === 0 ? id_dashboard.requiredWindowMinimumWidth : defaultMinimumWidth
     minimumHeight: 600
+
+    onMinimumWidthChanged: {
+        if (width < minimumWidth) {
+            width = minimumWidth
+        }
+    }
 
     background: Rectangle {
         color: "#181818"
@@ -50,7 +60,9 @@ ApplicationWindow {
                 anchors.leftMargin: 18
                 currentIndex: id_sidebar.currentPage
 
-                Dashboard{}
+                Dashboard{
+                    id: id_dashboard
+                }
                 Settings{}
             }
         }

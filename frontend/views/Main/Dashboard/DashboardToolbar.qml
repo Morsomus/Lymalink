@@ -22,7 +22,7 @@ Item {
     property var activeFilters: ["none"]
     readonly property int activeFilterCount: activeFilters.length
     property string activeSort: "title"
-    readonly property var controlModel: ["list", "small", "default"]
+    readonly property var controlModel: ["list", "details", "small", "default"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
     readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "official", "hidden", "installed", "notInstalled"]
 
@@ -352,7 +352,7 @@ Item {
                 opacity: 0.5
             }
 
-            // Segmented control: List | Small | Default
+            // Segmented control: List | Details | Small | Default
             Rectangle {
                 implicitHeight: 32
                 implicitWidth: id_pillRow.implicitWidth + 4

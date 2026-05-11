@@ -32,20 +32,12 @@ Rectangle {
     readonly property bool isCompleted: achievementTotal > 0 && achievementCount >= achievementTotal
     readonly property bool hasVerticalScroll: ListView.view ? ListView.view.contentHeight > ListView.view.height : false
     property real animatedProgress: 0.0
+    readonly property int progressDelay: Math.max(0, Math.min(delegateIndex * 40, 300))
 
     height: 64
     // width: set by parent (ListView delegate width: listView.width)
-    radius: 6
     clip: true
-    color: id_rootMouseArea.pressed
-        ? Themes.cardRow.colors.rowBackgroundPressed
-        : (id_rootMouseArea.containsMouse
-            ? Themes.cardRow.colors.rowBackgroundHover
-            : Themes.cardRow.colors.rowBackground)
-
-    // Hover border highlight
-    border.width: id_rootMouseArea.containsMouse || id_rootMouseArea.pressed ? 1 : 0
-    border.color: Themes.cardRow.colors.rowBorder
+    color: Themes.cardRow.colors.rowBackground
 
     function restartProgressAnimation() {
         id_progressIntroAnimation.stop()
@@ -70,7 +62,7 @@ Rectangle {
         id: id_progressIntroAnimation
 
         PauseAnimation {
-            duration: Math.min(id_root.delegateIndex * 40, 300)
+            duration: id_root.progressDelay
         }
         NumberAnimation {
             target: id_root
@@ -88,19 +80,48 @@ Rectangle {
         }
     }
 
-    Behavior on color {
-        ColorAnimation {
-            duration: 120
+    // Mouse Area for hover
+    MouseArea {
+        id: id_rootMouseArea
+
+        anchors.fill: parent
+        hoverEnabled: true
+
+        onClicked: {
+            // Open detailed information
+        }
+
+        // Card Row Hover
+        Rectangle {
+            anchors {
+                fill: parent
+                rightMargin: id_root.hasVerticalScroll ? 30 : 0
+            }
+            color: id_rootMouseArea.pressed
+                ? Themes.cardRow.colors.rowBackgroundPressed
+                : (id_rootMouseArea.containsMouse
+                    ? Themes.cardRow.colors.rowBackgroundHover
+                    : Themes.cardRow.colors.rowBackground)
+            // Hover border highlight
+            border.width: id_rootMouseArea.containsMouse || id_rootMouseArea.pressed ? 1 : 0
+            border.color: Themes.cardRow.colors.rowBorder
+            radius: 6
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 120
+                }
+            }
         }
     }
-
+    
+    // Card Row
     RowLayout {
+        anchors.fill: parent
         anchors {
             fill: parent
             leftMargin: 10
             rightMargin: id_root.hasVerticalScroll ? 40 : 10
-            topMargin: 0
-            bottomMargin: 0
 
             Behavior on rightMargin {
                 NumberAnimation {
@@ -152,12 +173,11 @@ Rectangle {
                 mipmap: true
                 asynchronous: true
 
-                BusyIndicator {
+                CustomBusyIndicator {
                     anchors.centerIn: parent
-                    running: id_logoImage.status === Image.Loading
                     visible: running
-                    width: 40
-                    height: 40
+                    indicatorSize: 32
+                    running: id_logoImage.status === Image.Loading
                 }
 
                 // Show first letter of the title if icon/logo missing
@@ -288,18 +308,6 @@ Rectangle {
                 font.pixelSize: Themes.cardRow.fontSizes.status
                 font.bold: true
             }
-        }
-    }
-
-    // Mouse Area for hover
-    MouseArea {
-        id: id_rootMouseArea
-
-        anchors.fill: parent
-        hoverEnabled: true
-
-        onClicked: {
-            // Open detailed information
         }
     }
 }
