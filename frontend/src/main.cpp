@@ -10,6 +10,10 @@
 #include <QDebug>
 #include <QFontDatabase>
 
+// TODO: Move elsewhere
+#include <QTimer>
+#include <QWindow>
+
 int main(int argc, char *argv[]) {
     // Enable QML console.log/console.debug output on Fedora
     // QT debug output is disabled by default in Fedora >= 22
@@ -49,6 +53,25 @@ int main(int argc, char *argv[]) {
 
     // Load main QML component
     engine.loadFromModule("Lymalink", "Main");
+
+    // TODO: Move elsewhere
+    // Window size tracking
+    const QList<QObject*> rootObjects = engine.rootObjects();
+    if (!rootObjects.isEmpty()) {
+        QWindow *window = qobject_cast<QWindow *>(rootObjects.first());
+
+        if (window != nullptr) {
+            QTimer *resizeTimer = new QTimer(window);
+            resizeTimer->setSingleShot(true);
+            resizeTimer->setInterval(2000);
+
+            QObject::connect(window, &QWindow::widthChanged, resizeTimer, qOverload<>(&QTimer::start));
+            QObject::connect(window, &QWindow::heightChanged, resizeTimer, qOverload<>(&QTimer::start));
+            QObject::connect(resizeTimer, &QTimer::timeout, window, [window]() {
+                qDebug() << "Size:" << window->width() << window->height();
+            });
+        }
+    }
 
     return app.exec();
 }

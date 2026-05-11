@@ -50,11 +50,16 @@ QtObject {
             readonly property color titleText: "#ffffff"
             readonly property color divider: "#2a2a2a"
             readonly property color labelText: "#d8d8d8"
+            readonly property color sectionTitle: "#666677"
+            readonly property color sectionInfo: "#666677"
+            readonly property color applyFlash: "#55cc88"
         }
 
         readonly property QtObject fontSizes: QtObject {
-            readonly property int title: 28
-            readonly property int label: 14
+            readonly property int titleText: 28
+            readonly property int labelText: 14
+            readonly property int sectionTitle: 15
+            readonly property int sectionInfo: 11
         }
     }
 
