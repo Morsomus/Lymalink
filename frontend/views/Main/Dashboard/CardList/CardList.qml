@@ -17,17 +17,13 @@ import QtQml.Models
 Item {
     id: id_root
 
-    property string listMode: "list"
-    readonly property string rowLayout: listMode === "details" ? "details" : "list"
+    // Public ________________________________________________
+    property string p_listMode: "list"
 
-    function syncRowLayout() {
-        for (let i = 0; i < id_dummyModel.count; ++i) {
-            id_dummyModel.setProperty(i, "rowLayout", id_root.rowLayout)
-        }
-    }
+    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
 
-    Component.onCompleted: syncRowLayout()
-    onRowLayoutChanged: syncRowLayout()
+    // Internals _____________________________________________
+    readonly property string rowLayout: p_listMode === "detailedList" ? "detailedList" : "list"
 
     // TERMPORARY: Dummy model
     ListModel {
@@ -43,6 +39,19 @@ Item {
         ListElement { rowLayout: "list"; title: "The Mischievous Fowl";    coverSource: ""; logoSource: ""; achievementCount: 5;  achievementTotal: 12; status: "Installed"; lastPlayed: "2 weeks ago"; recentUnlock: ""; lastAchievementIcon: ""; lastAchievementName: "Feathered Fury"; lastAchievementDesc: "Defeat an enemy using only the peck." }
         ListElement { rowLayout: "list"; title: "Aethelwald III";          coverSource: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; logoSource: ""; achievementCount: 102; achievementTotal: 102; status: "Installed"; lastPlayed: "1 hour ago"; recentUnlock: "4 weeks ago"; lastAchievementIcon: "qrc:/qt/qml/Lymalink/res/img/library_600x900_2x.jpg"; lastAchievementName: "The Long Road"; lastAchievementDesc: "Complete every quest in all three kingdoms." }
     }
+
+    onRowLayoutChanged: syncRowLayout()
+    Component.onCompleted: syncRowLayout()
+
+    function syncRowLayout() {
+        for (let i = 0; i < id_dummyModel.count; ++i) {
+            id_dummyModel.setProperty(i, "rowLayout", id_root.rowLayout)
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    ///////////////////////////////////////////////////////////////////// 
 
     // List view
     ListView {
@@ -62,21 +71,33 @@ Item {
             role: "rowLayout"
 
             DelegateChoice {
-                roleValue: "details"
+                roleValue: "detailedList"
 
                 CardRowDetailed {
                     width:            id_listView.width
-                    title:            model.title
-                    coverSource:      model.coverSource
-                    achievementCount: model.achievementCount
-                    achievementTotal: model.achievementTotal
-                    status:           model.status
-                    lastPlayed:       model.lastPlayed
-                    recentUnlock:     model.recentUnlock
-                    lastAchievementIcon: model.lastAchievementIcon
-                    lastAchievementName: model.lastAchievementName
-                    lastAchievementDesc: model.lastAchievementDesc
-                    delegateIndex:    index
+                    p_title:            model.title
+                    p_coverSource:      model.coverSource
+                    p_achievementCount: model.achievementCount
+                    p_achievementTotal: model.achievementTotal
+                    p_status:           model.status
+                    p_lastPlayed:       model.lastPlayed
+                    p_recentUnlock:     model.recentUnlock
+                    p_lastAchievementIcon: model.lastAchievementIcon
+                    p_lastAchievementName: model.lastAchievementName
+                    p_lastAchievementDesc: model.lastAchievementDesc
+                    p_delegateIndex:    index
+
+                    onOpenTargetDetails: function(title, coverSource, achievementCount, achievementTotal, status, lastPlayed, recentUnlock) {
+                        id_root.openTargetDetails(
+                            title,
+                            coverSource,
+                            achievementCount,
+                            achievementTotal,
+                            status,
+                            lastPlayed,
+                            recentUnlock
+                        )
+                    }
                 }
             }
 
@@ -85,15 +106,27 @@ Item {
 
                 CardRow {
                     width:            id_listView.width
-                    title:            model.title
-                    coverSource:      model.coverSource
-                    logoSource:       model.logoSource
-                    achievementCount: model.achievementCount
-                    achievementTotal: model.achievementTotal
-                    status:           model.status
-                    lastPlayed:       model.lastPlayed
-                    recentUnlock:     model.recentUnlock
-                    delegateIndex:    index
+                    p_title:            model.title
+                    p_coverSource:      model.coverSource
+                    p_logoSource:       model.logoSource
+                    p_achievementCount: model.achievementCount
+                    p_achievementTotal: model.achievementTotal
+                    p_status:           model.status
+                    p_lastPlayed:       model.lastPlayed
+                    p_recentUnlock:     model.recentUnlock
+                    p_delegateIndex:    index
+
+                    onOpenTargetDetails: function(title, coverSource, achievementCount, achievementTotal, status, lastPlayed, recentUnlock) {
+                        id_root.openTargetDetails(
+                            title,
+                            coverSource,
+                            achievementCount,
+                            achievementTotal,
+                            status,
+                            lastPlayed,
+                            recentUnlock
+                        )
+                    }
                 }
             }
         }

@@ -16,9 +16,63 @@ import QtQuick.Layouts
 Item {
     id: id_root
 
-    property string activeGridSize: "default"
-    property bool isEmpty: false
-    readonly property int requiredWindowMinimumWidth: activeGridSize === "details" ? 1280 : 900
+    // Internals _____________________________________________
+    property string activeLayout: "defaultCardGrid" // list, detailedList, smallCardGrid, defaultCardGrid
+    property bool noTargetsAvailable: false
+    property var pendingTargetDetails: null
+    property bool showingTargetDetails: false
+    readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
+
+    function onTargetSelected(title, coverSource, achievementCount, achievementTotal, installationStatus, lastPlayed, recentUnlock) {
+        id_root.pendingTargetDetails = {
+            title: title,
+            coverSource: coverSource,
+            achievementCount: achievementCount,
+            achievementTotal: achievementTotal,
+            installationStatus: installationStatus,
+            lastPlayed: lastPlayed,
+            recentUnlock: recentUnlock
+        }
+        id_root.showingTargetDetails = true
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// LAYOUTS //////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    Component {
+        id: id_cardGridLayout
+
+        CardGrid {
+            p_gridSize: id_root.activeLayout
+        }
+    }
+
+    Component {
+        id: id_cardListLayout
+        
+        CardList {
+            p_listMode: id_root.activeLayout
+        }
+    }
+
+    Component {
+        id: id_targetDetailsLayout
+
+        TargetDetails {
+            p_title: id_root.pendingTargetDetails?.title ?? ""
+            p_coverSource: id_root.pendingTargetDetails?.coverSource ?? ""
+            p_achievementCount: id_root.pendingTargetDetails?.achievementCount ?? 0
+            p_achievementTotal: id_root.pendingTargetDetails?.achievementTotal ?? 0
+            p_installationStatus: id_root.pendingTargetDetails?.installationStatus ?? ""
+            p_lastPlayed: id_root.pendingTargetDetails?.lastPlayed ?? ""
+            p_recentUnlock: id_root.pendingTargetDetails?.recentUnlock ?? ""
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     ColumnLayout {
         anchors.fill: parent
@@ -26,10 +80,20 @@ Item {
         anchors.topMargin: 48
         spacing: 12
 
+        // Dashboard Title and dynamic Toolbar
         DashboardToolbar {
             Layout.fillWidth: true
-            activeGridSize: id_root.activeGridSize
-            onGridSizeSelected: (size) => id_root.activeGridSize = size
+            p_toolbarTitle: id_root.showingTargetDetails ? id_root.pendingTargetDetails.title : qsTr("Dashboard")
+            p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
+            p_activeLayout: id_root.activeLayout
+
+            // Layout selection
+            onLayoutSelected: (size) => id_root.activeLayout = size
+
+            // Close Target Details
+            onReturnClicked: {
+                id_root.showingTargetDetails = false
+            }
         }
 
         Rectangle {
@@ -42,7 +106,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: id_root.isEmpty
+            visible: id_root.noTargetsAvailable
 
             Column {
                 anchors.centerIn: parent
@@ -53,7 +117,7 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     indicatorSize: 280
                     speed: 8400
-                    running: id_root.isEmpty
+                    running: id_root.noTargetsAvailable
                     opacity: 0.5
                 }
 
@@ -76,40 +140,35 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !id_root.isEmpty
-            sourceComponent: id_root.activeGridSize === "list" || id_root.activeGridSize === "details" ? id_cardListLayout : id_cardGridLayout
+            visible: !id_root.noTargetsAvailable
+            sourceComponent: {
+                if (id_root.showingTargetDetails) {
+                    return id_targetDetailsLayout
+                } else if (id_root.activeLayout === "list" || id_root.activeLayout === "detailedList") {
+                    return id_cardListLayout
+                } else if (id_root.activeLayout === "smallCardGrid" || id_root.activeLayout === "defaultCardGrid") {
+                    return id_cardGridLayout
+                } else {
+                    console.error("Dashboard - sourceComponent not defined")
+                }  
+            }
 
             onLoaded: {
-                if (id_root.activeGridSize !== "list" && id_root.activeGridSize !== "details") {
-                    item.gridSize = id_root.activeGridSize
-                } 
+                if (typeof item.openTargetDetails !== "undefined") {
+                    item.openTargetDetails.connect(id_root.onTargetSelected)
+                }
             }
         }
 
-        Binding {
-            when: id_root.activeGridSize !== "list"
-                && id_root.activeGridSize !== "details"
-                && id_cardLayoutLoader.status === Loader.Ready
-                && id_cardLayoutLoader.sourceComponent === id_cardGridLayout
-            target: id_cardLayoutLoader.item
-            property: "gridSize"
-            value: id_root.activeGridSize
-        }
-    }
-
-    Component {
-        id: id_cardGridLayout
-
-        CardGrid {
-            gridSize: id_root.activeGridSize
-        }
-    }
-
-    Component {
-        id: id_cardListLayout
-        
-        CardList {
-            listMode: id_root.activeGridSize
-        }
+        // Binding {
+        //     when: !id_root.showingTargetDetails
+        //         && id_root.activeLayout !== "list"
+        //         && id_root.activeLayout !== "detailedList"
+        //         && id_cardLayoutLoader.status === Loader.Ready
+        //         && id_cardLayoutLoader.sourceComponent === id_cardGridLayout
+        //     target: id_cardLayoutLoader.item
+        //     property: "p_gridSize"
+        //     value: id_root.activeLayout
+        // }
     }
 }

@@ -41,6 +41,7 @@ Rectangle {
 
         transform: Rotation {
             id: id_rotation
+            
             origin.x: id_spinnerImage.width  / 2
             origin.y: id_spinnerImage.height / 2
             angle: 0

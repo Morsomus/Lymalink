@@ -8,25 +8,64 @@
 //              dropdown, and filter chips.
 /////////////////////////////////////////////////////////
 
+import app.themes 1.0
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import app.themes 1.0
 
 Item {
     id: id_root
 
-    property string activeGridSize: "default"
+    // Public ________________________________________________
+    property bool p_targetDetailsVisible: false
+    property string p_toolbarTitle: ""
+    property string p_activeLayout: "defaultCardGrid"
+
+    signal layoutSelected(string size)
+    signal returnClicked()
+    
+    // Internals _____________________________________________
     property string activePanel: ""
+    property string activeSort: "title"
     property string activeFilter: "none"
     property var activeFilters: ["none"]
     readonly property int activeFilterCount: activeFilters.length
-    property string activeSort: "title"
-    readonly property var controlModel: ["list", "details", "small", "default"]
+    property string targetDetailsActivePanel: ""
+    property string targetDetailsActiveSort: "name"
+    property string targetDetailsActiveFilter: "all"
+    property var targetDetailsActiveFilters: ["all"]
+    readonly property int targetDetailsActiveFilterCount: targetDetailsActiveFilters.length
+    readonly property var targetDetailsSortModel: ["name", "unlockDate"]
+    readonly property var targetDetailsFilterModel: ["all", "unlocked", "locked", "hidden"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
     readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "official", "hidden", "installed", "notInstalled"]
+    readonly property var controlModel: [
+        { value: "list", label: "List" },
+        { value: "detailedList", label: "Details" },
+        { value: "smallCardGrid", label: "Small" },
+        { value: "defaultCardGrid", label: "Default" }
+    ]
 
-    signal gridSizeSelected(string size)
+    implicitHeight: !p_targetDetailsVisible ? id_toolbar.implicitHeight : id_targetDetailsToolbar.implicitHeight
+
+    Shortcut {
+        sequence: "Esc"
+        enabled: id_root.p_targetDetailsVisible
+        onActivated: {
+            id_root.targetDetailsActivePanel = false
+            id_root.returnClicked()
+        }
+    }
+
+    Shortcut {
+        sequence: "Backspace"
+        enabled: id_root.p_targetDetailsVisible
+        onActivated: {
+            id_root.targetDetailsActivePanel = false
+            id_root.returnClicked()
+        }
+    }
 
     function sortLabel(sort) {
         switch (sort) {
@@ -55,41 +94,526 @@ Item {
         }
     }
 
-    function hasFilter(filter) {
-        return activeFilters.indexOf(filter) !== -1
+    function targetDetailsSortLabel(sort) {
+        switch (sort) {
+            case "name":       return qsTr("Name")
+            case "unlockDate": return qsTr("Unlock Date")
+            default:           return qsTr("Error")
+        }
     }
 
-    function setActiveFilters(filters) {
-        activeFilters = filters
-        activeFilter = filters.length > 1 ? "multiple" : filters[0]
+    function targetDetailsFilterLabel(filter) {
+        switch (filter) {
+            case "all":      return qsTr("All")
+            case "unlocked": return qsTr("Unlocked")
+            case "locked":   return qsTr("Locked")
+            case "hidden":   return qsTr("Hidden")
+            default:         return qsTr("Error")
+        }
     }
 
-    function toggleFilter(filter) {
-        if (filter === "none") {
-            setActiveFilters(["none"])
+    function hasFilter(filter, toolbar) {
+        const selectedToolbar = toolbar === "targetDetails" ? "targetDetails" : "default"
+
+        if (selectedToolbar === "targetDetails") {
+            return targetDetailsActiveFilters.indexOf(filter) !== -1
+        } else {
+            return activeFilters.indexOf(filter) !== -1
+        }
+    }
+
+    function setActiveFilters(filters, toolbar) {
+        const selectedToolbar = toolbar === "targetDetails" ? "targetDetails" : "default"
+
+        if (selectedToolbar === "targetDetails") {
+            targetDetailsActiveFilters = filters
+            targetDetailsActiveFilter = filters.length > 1 ? "multiple" : filters[0]
+        } else {
+            activeFilters = filters
+            activeFilter = filters.length > 1 ? "multiple" : filters[0]
+        }
+    }
+
+    function toggleFilter(filter, toolbar) {
+        const validToolbars = ["targetDetails", "default"]
+        
+        if (!validToolbars.includes(toolbar)) {
+            console.error("DashboardToolbar - toggleFilter: Invalid toolbar param -", toolbar)
             return
         }
 
-        let filters = activeFilters.filter((item) => item !== "none")
-        const index = filters.indexOf(filter)
-        if (index === -1) {
-            filters.push(filter)
-        } else {
-            filters.splice(index, 1)
+        if (filter === "none") {
+            setActiveFilters(["none"], toolbar)
+            return
         }
 
-        setActiveFilters(filters.length > 0 ? filters : ["none"])
+        let currentFilters = (toolbar === "default")
+            ? activeFilters.filter(item => item !== "none")
+            : targetDetailsActiveFilters.filter(item => item !== "all")
+
+        const index = currentFilters.indexOf(filter)
+        if (index === -1) {
+            currentFilters.push(filter)
+        } else {
+            currentFilters.splice(index, 1)
+        }
+
+        const fallback = (toolbar === "default") ? "none" : "all"
+        setActiveFilters(currentFilters.length > 0 ? currentFilters : [fallback], toolbar)
     }
 
-    implicitHeight: id_toolbar.implicitHeight
+    /////////////////////////////////////////////////////////////////////
+    //////////////////////////// COMPONENTS /////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
+    // Component - A pill button used for Filter, Sort, and Order controls.
+    component C_SortFilterPill: Rectangle {
+        id: id_pill
+
+        property string pillLabel: ""       // e.g. "Filter:", "Sort:", "Order:"
+        property string pillValue: ""       // displayed value text
+        property bool isOpen: false         // drives the open colour state
+        property bool isValueActive: true   // false keeps value in label colour
+
+        signal pillClicked()
+
+        implicitHeight: 32
+        implicitWidth: id_pillInnerRow.implicitWidth + 20
+        radius: 16
+
+        color: isOpen
+            ? Themes.dashboardToolbar.colors.pillOpen
+            : id_pillMouseArea.pressed
+                ? Themes.dashboardToolbar.colors.pillPressed
+                : id_pillMouseArea.containsMouse
+                    ? Themes.dashboardToolbar.colors.pillHover
+                    : Themes.dashboardToolbar.colors.pillBackground
+
+        border.width: 1
+        border.color: isOpen
+            ? Themes.dashboardToolbar.colors.pillBorderOpen
+            : id_pillMouseArea.pressed
+                ? Themes.dashboardToolbar.colors.pillBorderPressed
+                : id_pillMouseArea.containsMouse
+                    ? Themes.dashboardToolbar.colors.pillBorderHover
+                    : Themes.dashboardToolbar.colors.pillBorder
+
+        Behavior on color {
+            ColorAnimation {
+                duration: 120
+            }
+        }
+
+        RowLayout {
+            id: id_pillInnerRow
+
+            anchors.centerIn: parent
+            spacing: 6
+
+            Text {
+                text: id_pill.pillLabel
+                color: Themes.dashboardToolbar.colors.pillLabel
+                font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+            }
+
+            Text {
+                text: id_pill.pillValue
+                color: id_pill.isValueActive
+                    ? Themes.dashboardToolbar.colors.pillValueActive
+                    : Themes.dashboardToolbar.colors.pillLabel
+                font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
+            }
+        }
+
+        MouseArea {
+            id: id_pillMouseArea
+
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: id_pill.pillClicked()
+        }
+    }
+
+    // Component - A chip row used for Sort-by and Filter-by selection bars.
+    component C_ChipBar: Flow {
+        id: id_chipBar
+
+        property string barLabel: ""                            // e.g. "Sort by:", "Filter by:"
+        property var chipModel: []                              // array of value strings
+        property var labelFn: function(v) { return v }          // value → display string
+        property var isActiveFn: function(v) { return false }   // value → bool
+
+        signal chipClicked(string value)
+
+        spacing: 8
+
+        Label {
+            text: id_chipBar.barLabel
+            font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsLabel
+            color: Themes.dashboardToolbar.colors.chipsLabel
+        }
+
+        Repeater {
+            model: id_chipBar.chipModel
+            delegate: Rectangle {
+                readonly property bool active: id_chipBar.isActiveFn(modelData)
+
+                implicitHeight: 26
+                implicitWidth: id_chipLabel.implicitWidth + 20
+                radius: 13
+
+                color: active
+                    ? Themes.dashboardToolbar.colors.chipsActive
+                    : id_chipMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.chipsPressed
+                        : id_chipMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.chipsHover
+                            : Themes.dashboardToolbar.colors.pillBackground
+
+                border.width: 1
+                border.color: active
+                    ? Themes.dashboardToolbar.colors.chipsBorderActive
+                    : id_chipMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.chipsBorderPressed
+                        : id_chipMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.chipsBorderHover
+                            : Themes.dashboardToolbar.colors.pillBorder
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Text {
+                    id: id_chipLabel
+
+                    anchors.centerIn: parent
+                    text: id_chipBar.labelFn(modelData)
+                    color: active
+                        ? Themes.dashboardToolbar.colors.chipsTextActive
+                        : Themes.dashboardToolbar.colors.chipsText
+                    font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
+                    font.bold: active
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+                }
+
+                MouseArea {
+                    id: id_chipMouseArea
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: id_chipBar.chipClicked(modelData)
+                }
+            }
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // Target Details Toolbar
+    ColumnLayout {
+        id: id_targetDetailsToolbar
+
+        visible: p_targetDetailsVisible
+        anchors.fill: parent
+
+        // Toolbar row: back image, wrapping title, toolbar column.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 20
+
+            // Back arrow image
+            Item {
+                Layout.preferredWidth: id_backArrowRow.implicitWidth
+                Layout.preferredHeight: id_backArrowRow.implicitHeight
+                Layout.alignment: Qt.AlignTop
+
+                MouseArea {
+                    id: id_backArrorIconMouseArea
+
+                    anchors.fill: parent
+                    enabled: p_targetDetailsVisible
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        id_root.targetDetailsActivePanel = false
+                        id_root.returnClicked()
+                    }
+
+                    RowLayout {
+                        id: id_backArrowRow
+
+                        spacing: 10
+
+                        ToolTip.visible: id_backArrorIconMouseArea.containsMouse
+                        ToolTip.text: qsTr("Backspace / Escape key")
+                        ToolTip.delay: 500
+
+                        Image {
+                            id: id_backArrowIcon
+
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00033_ED.png"
+                            Layout.preferredWidth: 35
+                            Layout.preferredHeight: 35
+                            rotation: 180
+                            opacity: id_backArrorIconMouseArea.containsMouse ? 0.7 : 1.0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 120
+                                }
+                            }
+                        }
+
+                        Label {
+                            id: id_titleLabel
+
+                            Layout.minimumWidth: 80
+                            Layout.preferredWidth: Math.min(implicitWidth, 450)
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.title
+                            font.bold: true
+                            color: Themes.dashboardToolbar.colors.titleText
+                            opacity: id_backArrorIconMouseArea.containsMouse ? 0.7 : 1.0
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                            text: id_root.p_toolbarTitle
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 120
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Divider
+            Rectangle {
+                width: 2
+                Layout.fillHeight: true
+                color: Themes.dashboardToolbar.colors.divider
+                opacity: 0.5
+            }
+
+            // Settings Icon for Selected Target
+            Item {
+                Layout.preferredWidth: id_settingsIcon.width
+                Layout.preferredHeight: id_settingsIcon.height
+                Layout.alignment: Qt.AlignTop
+
+                MouseArea {
+                    id: id_settingsIconMouseArea
+
+                    anchors.fill: parent
+                    enabled: p_targetDetailsVisible
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        // TODO: Open Selected Target Settings
+                    }
+
+                    Image {
+                        id: id_settingsIcon
+
+                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
+                        width: 32
+                        height: 32
+                        anchors.centerIn: parent
+                        opacity: id_settingsIconMouseArea.containsMouse ? 0.7 : 1.0
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 120
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Target Details Toolbar controls
+            ColumnLayout {
+                id: id_detailsToolbarColumn
+
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredWidth: id_detailsToolbarFlow.implicitWidth
+                spacing: 8
+
+                Flow {
+                    id: id_detailsToolbarFlow
+
+                    spacing: 12
+
+                    // Filter pill
+                    C_SortFilterPill {
+                        id: id_detailsFilterPill
+
+                        pillLabel: qsTr("Filter:")
+                        isOpen: id_root.targetDetailsActivePanel === "detailsFilter"
+                        isValueActive: id_root.targetDetailsActiveFilter !== ""
+                        pillValue: {
+                            if (id_root.targetDetailsActiveFilterCount > 1) {
+                                return qsTr("Multiple") + (" (%1)").arg(id_root.targetDetailsActiveFilterCount)
+                            }
+                            return id_root.targetDetailsFilterLabel(id_root.targetDetailsActiveFilter)
+                        }
+                        onPillClicked: id_root.targetDetailsActivePanel = id_detailsFilterPill.isOpen ? "" : "detailsFilter"
+                    }
+
+                    // Sort pill
+                    C_SortFilterPill {
+                        id: id_detailsSortPill
+
+                        pillLabel: qsTr("Sort:")
+                        isOpen: id_root.targetDetailsActivePanel === "detailsSort"
+                        isValueActive: true
+                        pillValue: id_root.targetDetailsSortLabel(id_root.targetDetailsActiveSort)
+                        onPillClicked: id_root.targetDetailsActivePanel = id_detailsSortPill.isOpen ? "" : "detailsSort"
+                    }
+
+                    // Order pill
+                    Rectangle {
+                        id: id_detailsOrderPill
+
+                        property bool isDescending: true
+
+                        implicitHeight: 32
+                        implicitWidth: id_detailsOrderRow.implicitWidth + 20
+                        radius: 16
+                        color: id_detailsOrderMouseArea.pressed
+                            ? Themes.dashboardToolbar.colors.pillPressed
+                            : id_detailsOrderMouseArea.containsMouse
+                                ? Themes.dashboardToolbar.colors.pillHover
+                                : Themes.dashboardToolbar.colors.pillBackground
+                        border.width: 1
+                        border.color: id_detailsOrderMouseArea.pressed
+                            ? Themes.dashboardToolbar.colors.pillBorderPressed
+                            : id_detailsOrderMouseArea.containsMouse
+                                ? Themes.dashboardToolbar.colors.pillBorderHover
+                                : Themes.dashboardToolbar.colors.pillBorder
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+
+                        RowLayout {
+                            id: id_detailsOrderRow
+
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Text {
+                                text: qsTr("Order:")
+                                color: Themes.dashboardToolbar.colors.pillLabel
+                                font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                            }
+                            Text {
+                                text: "\u2191"
+                                color: Themes.dashboardToolbar.colors.pillValueActive
+                                font.pixelSize: Themes.dashboardToolbar.fontSizes.pillOrderValue
+                                rotation: id_detailsOrderPill.isDescending ? 180 : 0
+
+                                Behavior on rotation {
+                                    RotationAnimation {
+                                        duration: 200
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: id_detailsOrderMouseArea
+
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: id_detailsOrderPill.isDescending = !id_detailsOrderPill.isDescending
+                        }
+                    }
+                }
+
+                // Details Sort/Filter chip bar
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: id_root.targetDetailsActivePanel === "detailsSort"
+                        ? id_detailsSortBar.implicitHeight
+                        : id_root.targetDetailsActivePanel === "detailsFilter"
+                            ? id_detailsFilterBar.implicitHeight
+                            : 0
+
+                    Behavior on implicitHeight {
+                        NumberAnimation {
+                            duration: 180
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+
+                    // Sort chips
+                    C_ChipBar {
+                        id: id_detailsSortBar
+
+                        width: parent.width
+                        barLabel: qsTr("Sort by:")
+                        chipModel: id_root.targetDetailsSortModel
+                        labelFn: id_root.targetDetailsSortLabel
+                        isActiveFn: function(v) { return v === id_root.targetDetailsActiveSort }
+                        visible: id_root.targetDetailsActivePanel === "detailsSort"
+                        opacity: id_root.targetDetailsActivePanel === "detailsSort" ? 1 : 0
+                        onChipClicked: function(value) {
+                            id_root.targetDetailsActiveSort  = value
+                            id_root.targetDetailsActivePanel = ""
+                        }
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 150
+                            }
+                        }
+                    }
+
+                    // Filter chips
+                    C_ChipBar {
+                        id: id_detailsFilterBar
+
+                        width: parent.width
+                        barLabel: qsTr("Filter by:")
+                        chipModel: id_root.targetDetailsFilterModel
+                        labelFn: id_root.targetDetailsFilterLabel
+                        isActiveFn: function(v) { return id_root.hasFilter(v, "targetDetails") }
+                        visible: id_root.targetDetailsActivePanel === "detailsFilter"
+                        opacity: id_root.targetDetailsActivePanel === "detailsFilter" ? 1 : 0
+                        onChipClicked: function(value) {
+                            id_root.toggleFilter(value, "targetDetails")
+                        }
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 150
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Dashboard Toolbar
     ColumnLayout {
         id: id_toolbar
 
-        anchors {
-            left: parent.left
-            right: parent.right
-        }
+        visible: !p_targetDetailsVisible
+        anchors.fill: parent
         spacing: 8
 
         // Toolbar
@@ -99,7 +623,7 @@ Item {
 
             // Title
             Label {
-                text: qsTr("Dashboard")
+                text: id_root.p_toolbarTitle
                 font.pixelSize: Themes.dashboardToolbar.fontSizes.title
                 font.bold: true
                 color: Themes.dashboardToolbar.colors.titleText
@@ -160,123 +684,30 @@ Item {
             }
 
             // Filter pill
-            Rectangle {
+            C_SortFilterPill {
                 id: id_filterPill
 
-                readonly property bool isOpen: id_root.activePanel === "filter"
-
-                implicitHeight: 32
-                implicitWidth: id_filterRow.implicitWidth + 20
-                radius: 16
-                color: isOpen
-                    ? Themes.dashboardToolbar.colors.pillOpen
-                    : id_filterPillMouseArea.pressed
-                        ? Themes.dashboardToolbar.colors.pillPressed
-                        : id_filterPillMouseArea.containsMouse
-                            ? Themes.dashboardToolbar.colors.pillHover
-                            : Themes.dashboardToolbar.colors.pillBackground
-                border.width: 1
-                border.color: isOpen
-                    ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : id_filterPillMouseArea.pressed
-                        ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : id_filterPillMouseArea.containsMouse
-                            ? Themes.dashboardToolbar.colors.pillBorderHover
-                            : Themes.dashboardToolbar.colors.pillBorder
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
+                pillLabel: qsTr("Filter:")
+                isOpen: id_root.activePanel === "filter"
+                isValueActive: id_root.activeFilter !== ""
+                pillValue: {
+                    if (id_root.activeFilterCount > 1) {
+                        return qsTr("Multiple") + (" (%1)").arg(id_root.activeFilterCount)
                     }
+                    return id_root.filterLabel(id_root.activeFilter)
                 }
-
-                RowLayout {
-                    id: id_filterRow
-
-                    anchors.centerIn: parent
-                    spacing: 6
-                    Text {
-                        text: qsTr("Filter:")
-                        color: Themes.dashboardToolbar.colors.pillLabel
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
-                    }
-
-                    Text {
-                        text: {
-                            if (id_root.activeFilterCount > 1) {
-                                return qsTr("Multiple") + (" (%1)").arg(id_root.activeFilterCount)
-                            }
-                            return id_root.filterLabel(id_root.activeFilter)
-                        }
-                        color: id_root.activeFilter !== "" ? Themes.dashboardToolbar.colors.pillValueActive : Themes.dashboardToolbar.colors.pillLabel
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
-                    }
-                }
-
-                MouseArea {
-                    id: id_filterPillMouseArea
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: id_root.activePanel = id_filterPill.isOpen ? "" : "filter"
-                }
+                onPillClicked: id_root.activePanel = id_filterPill.isOpen ? "" : "filter"
             }
 
             // Sort pill
-            Rectangle {
+            C_SortFilterPill {
                 id: id_sortPill
 
-                readonly property bool isOpen: id_root.activePanel === "sort"
-
-                implicitHeight: 32
-                implicitWidth: id_sortRow.implicitWidth + 20
-                radius: 16
-                color: isOpen
-                    ? Themes.dashboardToolbar.colors.pillOpen
-                    : id_sortPillMouseArea.pressed
-                        ? Themes.dashboardToolbar.colors.pillPressed
-                        : id_sortPillMouseArea.containsMouse
-                            ? Themes.dashboardToolbar.colors.pillHover
-                            : Themes.dashboardToolbar.colors.pillBackground
-                border.width: 1
-                border.color: isOpen
-                    ? Themes.dashboardToolbar.colors.pillBorderOpen
-                    : id_sortPillMouseArea.pressed
-                        ? Themes.dashboardToolbar.colors.pillBorderPressed
-                        : id_sortPillMouseArea.containsMouse
-                            ? Themes.dashboardToolbar.colors.pillBorderHover
-                            : Themes.dashboardToolbar.colors.pillBorder
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-
-                RowLayout {
-                    id: id_sortRow
-
-                    anchors.centerIn: parent
-                    spacing: 6
-                    Text {
-                        text: qsTr("Sort:")
-                        color: Themes.dashboardToolbar.colors.pillLabel
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
-                    }
-                    Text {
-                        text: id_root.sortLabel(id_root.activeSort)
-                        color: Themes.dashboardToolbar.colors.pillValueActive
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
-                    }
-                }
-
-                MouseArea {
-                    id: id_sortPillMouseArea
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: id_root.activePanel = id_sortPill.isOpen ? "" : "sort"
-                }
+                pillLabel: qsTr("Sort:")
+                isOpen: id_root.activePanel === "sort"
+                isValueActive: true
+                pillValue: id_root.sortLabel(id_root.activeSort)
+                onPillClicked: id_root.activePanel = id_sortPill.isOpen ? "" : "sort"
             }
 
             // Order pill
@@ -370,7 +801,7 @@ Item {
                     Repeater {
                         model: id_root.controlModel
                         delegate: Rectangle {
-                            readonly property bool active: modelData === id_root.activeGridSize
+                            readonly property bool active: modelData.value === id_root.p_activeLayout
                             implicitWidth: id_pillLabel.implicitWidth + 20
                             implicitHeight: 26
                             radius: 13
@@ -392,7 +823,7 @@ Item {
                                 id: id_pillLabel
 
                                 anchors.centerIn: parent
-                                text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                                text: modelData.label
                                 color: active ? Themes.dashboardToolbar.colors.segmentLabelActive : Themes.dashboardToolbar.colors.segmentLabel
                                 font.pixelSize: Themes.dashboardToolbar.fontSizes.segmentLabel
                                 font.bold: active
@@ -409,7 +840,7 @@ Item {
 
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                onClicked: id_root.gridSizeSelected(modelData)
+                                onClicked: id_root.layoutSelected(modelData.value)
                             }
                         }
                     }
@@ -425,7 +856,6 @@ Item {
                 : id_root.activePanel === "filter"
                     ? id_filterBar.implicitHeight
                     : 0
-            clip: true
 
             Behavior on implicitHeight {
                 NumberAnimation {
@@ -435,175 +865,46 @@ Item {
             }
 
             // Sort selection
-            Flow {
+            C_ChipBar {
                 id: id_sortBar
 
                 width: parent.width
-                spacing: 8
+                barLabel: qsTr("Sort by:")
+                chipModel: id_root.sortModel
+                labelFn: id_root.sortLabel
+                isActiveFn: function(v) { return v === id_root.activeSort }
                 visible: id_root.activePanel === "sort"
-                y: id_root.activePanel === "sort" ? 0 : -12
                 opacity: id_root.activePanel === "sort" ? 1 : 0
-
-                Behavior on y {
-                    NumberAnimation {
-                        duration: 180
-                        easing.type: Easing.OutCubic
-                    }
+                onChipClicked: function(value) {
+                    id_root.activeSort  = value
+                    id_root.activePanel = ""
                 }
 
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 150
-                    }
-                }
-
-                Label {
-                    text: qsTr("Sort by:")
-                    font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsLabel
-                    color: Themes.dashboardToolbar.colors.chipsLabel
-                }
-
-                Repeater {
-                    model: id_root.sortModel
-                    delegate: Rectangle {
-                        readonly property bool active: modelData === id_root.activeSort
-                        implicitHeight: 26
-                        implicitWidth: id_sortChipLabel.implicitWidth + 20
-                        radius: 13
-                        color: active
-                            ? Themes.dashboardToolbar.colors.chipsActive
-                            : id_sortBarMouseArea.pressed
-                                ? Themes.dashboardToolbar.colors.chipsPressed
-                                : id_sortBarMouseArea.containsMouse
-                                    ? Themes.dashboardToolbar.colors.chipsHover
-                                    : Themes.dashboardToolbar.colors.pillBackground
-                        border.width: 1
-                        border.color: active
-                            ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : id_sortBarMouseArea.pressed
-                                ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : id_sortBarMouseArea.containsMouse
-                                    ? Themes.dashboardToolbar.colors.chipsBorderHover
-                                    : Themes.dashboardToolbar.colors.pillBorder
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 120
-                            }
-                        }
-
-                        Text {
-                            id: id_sortChipLabel
-
-                            anchors.centerIn: parent
-                            text: id_root.sortLabel(modelData)
-                            color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
-                            font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
-                            font.bold: active
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: id_sortBarMouseArea
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                id_root.activeSort = modelData
-                                id_root.activePanel = ""
-                            }
-                        }
                     }
                 }
             }
 
             // Filter selection
-            Flow {
+            C_ChipBar {
                 id: id_filterBar
 
                 width: parent.width
-                spacing: 8
+                barLabel: qsTr("Filter by:")
+                chipModel: id_root.filterModel
+                labelFn: id_root.filterLabel
+                isActiveFn: function(v) { return id_root.hasFilter(v, "default") }
                 visible: id_root.activePanel === "filter"
-                y: id_root.activePanel === "filter" ? 0 : -12
                 opacity: id_root.activePanel === "filter" ? 1 : 0
-
-                Behavior on y {
-                    NumberAnimation {
-                        duration: 180
-                        easing.type: Easing.OutCubic
-                    }
+                onChipClicked: function(value) {
+                    id_root.toggleFilter(value, "default")
                 }
 
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 150
-                    }
-                }
-
-                Label {
-                    text: qsTr("Filter by:")
-                    font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsLabel
-                    color: Themes.dashboardToolbar.colors.chipsLabel
-                }
-
-                Repeater {
-                    model: id_root.filterModel
-                    delegate: Rectangle {
-                        readonly property bool active: id_root.hasFilter(modelData)
-                        implicitHeight: 26
-                        implicitWidth: id_filterChipLabel.implicitWidth + 20
-                        radius: 13
-                        color: active
-                            ? Themes.dashboardToolbar.colors.chipsActive
-                            : id_filterBarMouseArea.pressed
-                                ? Themes.dashboardToolbar.colors.chipsPressed
-                                : id_filterBarMouseArea.containsMouse
-                                    ? Themes.dashboardToolbar.colors.chipsHover
-                                    : Themes.dashboardToolbar.colors.pillBackground
-                        border.width: 1
-                        border.color: active
-                            ? Themes.dashboardToolbar.colors.chipsBorderActive
-                            : id_filterBarMouseArea.pressed
-                                ? Themes.dashboardToolbar.colors.chipsBorderPressed
-                                : id_filterBarMouseArea.containsMouse
-                                    ? Themes.dashboardToolbar.colors.chipsBorderHover
-                                    : Themes.dashboardToolbar.colors.pillBorder
-
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 120
-                            }
-                        }
-
-                        Text {
-                            id: id_filterChipLabel
-
-                            anchors.centerIn: parent
-                            text: id_root.filterLabel(modelData)
-                            color: active ? Themes.dashboardToolbar.colors.chipsTextActive : Themes.dashboardToolbar.colors.chipsText
-                            font.pixelSize: Themes.dashboardToolbar.fontSizes.chipsText
-                            font.bold: active
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: id_filterBarMouseArea
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                id_root.toggleFilter(modelData)
-                            }
-                        }
                     }
                 }
             }

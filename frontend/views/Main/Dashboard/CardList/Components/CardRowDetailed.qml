@@ -16,55 +16,33 @@ import QtQuick.Layouts
 Rectangle {
     id: id_root
 
-    property string title: "Title"
-    property string coverSource: ""
-    property int achievementCount: 0
-    property int achievementTotal: 0
-    property string status: ""
-    property string lastPlayed: ""
-    property string recentUnlock: ""
-    property int delegateIndex: 0
+    // Public ________________________________________________
+    property string p_title: "Title"
+    property string p_coverSource: ""
+    property int p_achievementCount: 0
+    property int p_achievementTotal: 0
+    property string p_status: ""
+    property string p_lastPlayed: ""
+    property string p_recentUnlock: ""
+    property string p_lastAchievementIcon: ""
+    property string p_lastAchievementName: ""
+    property string p_lastAchievementDesc: ""
+    property int p_delegateIndex: 0
 
-    property string lastAchievementIcon: ""
-    property string lastAchievementName: ""
-    property string lastAchievementDesc: ""
+    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
 
-    // Internals
-    readonly property real progress: achievementTotal > 0 ? achievementCount / achievementTotal : 0.0
-    readonly property bool isCompleted: achievementTotal > 0 && achievementCount >= achievementTotal
+    // Internals _____________________________________________
+    readonly property real progress: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
+    readonly property bool isCompleted: p_achievementTotal > 0 && p_achievementCount >= p_achievementTotal
     readonly property bool hasVerticalScroll: ListView.view ? ListView.view.contentHeight > ListView.view.height : false
-    property real animatedProgress: 0.0
-    readonly property int progressDelay: Math.max(0, Math.min(delegateIndex * 40, 300))
-
+    readonly property int progressDelay: Math.max(0, Math.min(p_delegateIndex * 40, 300))
     readonly property int coverHeight: 120
     readonly property int coverWidth: Math.round(coverHeight * (2 / 3))
+    property real animatedProgress: 0.0
 
     height: coverHeight + 16
     clip: true
     color: Themes.cardRowDetailed.colors.rowBackground
-
-    function restartProgressAnimation() {
-        id_progressAnim.stop()
-        animatedProgress = 0.0
-        id_progressAnim.restart()
-    }
-
-    Connections {
-        target: id_root.ListView.view
-        function onVisibleChanged() {
-            if (id_root.ListView.view.visible) {
-                id_root.restartProgressAnimation()
-            }
-        }
-    }
-
-    Component.onCompleted: Qt.callLater(restartProgressAnimation)
-
-    onProgressChanged: {
-        if (!id_progressAnim.running) {
-            restartProgressAnimation()
-        }
-    }
 
     SequentialAnimation {
         id: id_progressAnim
@@ -82,6 +60,35 @@ Rectangle {
         }
     }
 
+    Connections {
+        target: id_root.ListView.view
+        function onVisibleChanged() {
+            if (id_root.ListView.view.visible) {
+                id_root.restartProgressAnimation()
+            }
+        }
+    }
+
+    onProgressChanged: {
+        if (!id_progressAnim.running) {
+            restartProgressAnimation()
+        }
+    }
+
+    Component.onCompleted: {
+        Qt.callLater(restartProgressAnimation)
+    } 
+
+    function restartProgressAnimation() {
+        id_progressAnim.stop()
+        animatedProgress = 0.0
+        id_progressAnim.restart()
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     // Mouse Area for hover
     MouseArea {
         id: id_rootMouseArea
@@ -90,7 +97,15 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            // Open detailed information
+            id_root.openTargetDetails(
+                id_root.p_title,
+                id_root.p_coverSource,
+                id_root.p_achievementCount,
+                id_root.p_achievementTotal,
+                id_root.p_status,
+                id_root.p_lastPlayed,
+                id_root.p_recentUnlock
+            )
         }
 
         // Card Row Hover
@@ -137,7 +152,7 @@ Rectangle {
             height: id_root.coverHeight
             Layout.alignment: Qt.AlignVCenter
 
-            // Completed glow ring — outside the clipped cover
+            // Completed glow ring - outside the clipped cover
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: -2
@@ -166,7 +181,7 @@ Rectangle {
                     id: id_coverImage
 
                     anchors.fill: parent
-                    source: id_root.coverSource
+                    source: id_root.p_coverSource
                     fillMode: Image.PreserveAspectCrop
                     smooth: true
                     asynchronous: true
@@ -182,11 +197,11 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent
                         color: Themes.cardRowDetailed.colors.fallbackBackground
-                        visible: id_coverImage.status === Image.Error || id_root.coverSource === ""
+                        visible: id_coverImage.status === Image.Error || id_root.p_coverSource === ""
 
                         Text {
                             anchors.centerIn: parent
-                            text: id_root.title.length > 0 ? id_root.title.charAt(0).toUpperCase() : "?"
+                            text: id_root.p_title.length > 0 ? id_root.p_title.charAt(0).toUpperCase() : "?"
                             color: Themes.cardRowDetailed.colors.fallbackText
                             font.pixelSize: Themes.cardRowDetailed.fontSizes.fallbackText
                             font.bold: true
@@ -210,7 +225,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                text: id_root.title
+                text: id_root.p_title
                 color: Themes.cardRowDetailed.colors.titleText
                 font.pixelSize: Themes.cardRowDetailed.fontSizes.title + 2
                 font.bold: true
@@ -220,19 +235,20 @@ Rectangle {
             }
 
             Rectangle {
-                visible: id_root.status !== ""
+                visible: id_root.p_status !== ""
                 width: id_statusText.implicitWidth + 14
                 height: 20
                 radius: 10
-                color: id_root.status === "Installed"
+                color: id_root.p_status === "Installed"
                     ? Themes.cardRowDetailed.colors.installationStatusBackgroundInstalled
                     : Themes.cardRowDetailed.colors.installationStatusBackgroundDefault
 
                 Text {
                     id: id_statusText
+                    
                     anchors.centerIn: parent
-                    text: id_root.status
-                    color: id_root.status === "Installed"
+                    text: id_root.p_status
+                    color: id_root.p_status === "Installed"
                         ? Themes.cardRowDetailed.colors.installationStatusTextInstalled
                         : Themes.cardRowDetailed.colors.installationStatusTextNotInstalled
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.status
@@ -262,7 +278,7 @@ Rectangle {
             Layout.leftMargin: 16
             Layout.rightMargin: 16
             spacing: 6
-            visible: id_root.achievementTotal > 0
+            visible: id_root.p_achievementTotal > 0
 
             Item {
                 Layout.fillHeight: true
@@ -279,7 +295,7 @@ Rectangle {
                 spacing: 6
 
                 Text {
-                    text: id_root.achievementCount + " / " + id_root.achievementTotal
+                    text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
                     color: id_root.isCompleted
                         ? Themes.cardRowDetailed.colors.completedText
                         : Themes.cardRowDetailed.colors.titleText
@@ -359,7 +375,7 @@ Rectangle {
 
         // Last Achievement
         RowLayout {
-            visible: id_root.lastAchievementName !== ""
+            visible: id_root.p_lastAchievementName !== ""
             Layout.preferredWidth: 240
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -383,7 +399,7 @@ Rectangle {
                     id: id_achievementIcon
 
                     anchors.fill: parent
-                    source: id_root.lastAchievementIcon
+                    source: id_root.p_lastAchievementIcon
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                     // mipmap: true
@@ -395,12 +411,12 @@ Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
                     color: Themes.cardRowDetailed.colors.fallbackBackground
-                    visible: id_achievementIcon.status !== Image.Ready || id_root.lastAchievementIcon === ""
+                    visible: id_achievementIcon.status !== Image.Ready || id_root.p_lastAchievementIcon === ""
 
                     Text {
                         anchors.centerIn: parent
-                        text: id_root.lastAchievementName.length > 0
-                            ? id_root.lastAchievementName.charAt(0).toUpperCase()
+                        text: id_root.p_lastAchievementName.length > 0
+                            ? id_root.p_lastAchievementName.charAt(0).toUpperCase()
                             : "?"
                         color: Themes.cardRowDetailed.colors.fallbackText
                         font.pixelSize: Themes.cardRowDetailed.fontSizes.fallbackText
@@ -423,7 +439,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    text: id_root.lastAchievementName
+                    text: id_root.p_lastAchievementName
                     color: Themes.cardRowDetailed.colors.titleText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.lastPlayed
                     font.bold: true
@@ -432,7 +448,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    text: id_root.lastAchievementDesc
+                    text: id_root.p_lastAchievementDesc
                     color: Themes.cardRowDetailed.colors.fractionText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.recentUnlock
                     elide: Text.ElideRight
@@ -448,7 +464,7 @@ Rectangle {
 
         // Divider - only shown when there is a last achievement to display
         Rectangle {
-            visible: id_root.lastAchievementName !== ""
+            visible: id_root.p_lastAchievementName !== ""
             width: 1
             Layout.fillHeight: true
             Layout.topMargin: 12
@@ -479,7 +495,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: id_root.lastPlayed !== "" ? id_root.lastPlayed : qsTr("Never")
+                    text: id_root.p_lastPlayed !== "" ? id_root.p_lastPlayed : qsTr("Never")
                     color: Themes.cardRowDetailed.colors.titleText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.lastPlayed
                     font.bold: true
@@ -488,7 +504,7 @@ Rectangle {
 
             ColumnLayout {
                 spacing: 2
-                visible: id_root.recentUnlock !== ""
+                visible: id_root.p_recentUnlock !== ""
 
                 Text {
                     text: qsTr("Recent Unlock")
@@ -497,7 +513,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: id_root.recentUnlock
+                    text: id_root.p_recentUnlock
                     color: Themes.cardRowDetailed.colors.titleText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.recentUnlock
                     font.bold: true

@@ -1,0 +1,587 @@
+/////////////////////////////////////////////////////////
+// File: TargetDetails.qml
+// Date: 2026-05-12
+// Author: Morsomus
+// Copyright: see /LICENSE
+// Description: Detail view for a tracked target. 
+/////////////////////////////////////////////////////////
+
+import Lymalink
+import app.themes 1.0
+
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Effects
+
+Item {
+    id: id_root
+
+    // Public ________________________________________________
+    property string p_title: "Aethelwald III"
+    property string p_coverSource: ""
+    property string p_lastPlayed: ""
+    property string p_recentUnlock: ""
+    property string p_playtime: "28 hours" // minutes or hours
+    property string p_installationStatus: ""
+    property int p_achievementCount: 0
+    property int p_achievementTotal: 0
+    property bool p_enabledAchievementRowDynamicWidth: true
+    property alias p_achievementModel: id_achievementList.model
+
+    // Internals _____________________________________________
+    readonly property int coverPanelWidth: 240
+    readonly property int coverHeight: 360
+    readonly property real fixedPanelClearance: id_coverColumn.implicitHeight
+    readonly property real fixedPanelInset: id_root.coverPanelWidth + 24
+    readonly property bool hasVerticalScroll: id_achievementList.ScrollBar.vertical.size < 1.0
+    // Completion ratio used to drive the progress bar gradient and opacity
+    readonly property real completionRatio: p_achievementTotal > 0
+        ? p_achievementCount / p_achievementTotal
+        : 0.0
+
+    // TEMPORARY: Dummy achievement model
+    ListModel {
+        id: id_dummyAchievementModel
+
+        // Unlocked
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "First Blood";    description: "Kill your first enemy.";                    globalUnlockPercent: 91.2; unlockDate: "12 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Explorer";       description: "Discover all areas in the first chapter.";   globalUnlockPercent: 74.5; unlockDate: "13 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Hoarder";        description: "Collect 100 items.";                         globalUnlockPercent: 58.3; unlockDate: "15 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Speed Demon";    description: "Complete a level in under 2 minutes.";       globalUnlockPercent: 43.1; unlockDate: "20 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Untouchable";    description: "Finish a level without taking damage.";      globalUnlockPercent: 31.7; unlockDate: "22 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Shadow Step";    description: "???";                                        globalUnlockPercent: 8.1;  unlockDate: "25 Apr 2024"; unlocked: true;  hidden: true;  sectionKey: "unlocked" }
+
+        // Locked
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "The Long Road";  description: "Play for more than 50 hours.";               globalUnlockPercent: 28.4; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Completionist";  description: "Unlock all other achievements.";             globalUnlockPercent: 4.1;  unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Ghost";          description: "Complete the game without being detected.";  globalUnlockPercent: 11.9; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Iron Will";      description: "Die 0 times in a single playthrough.";       globalUnlockPercent: 7.6;  unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Lorekeeper";     description: "Read every note and journal entry.";         globalUnlockPercent: 19.2; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
+
+        // Hidden + locked
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "True Ending";    description: "Witness the secret final cutscene.";         globalUnlockPercent: 3.3;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Pacifist";       description: "Complete the game without killing anyone.";  globalUnlockPercent: 5.8;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
+        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Void Walker";    description: "Reach a place that should not exist.";       globalUnlockPercent: 1.2;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
+    }
+
+    // TEMPORARY for Dummy achievement model
+    Component.onCompleted: {
+        id_root.p_achievementModel = id_dummyAchievementModel
+        // console.log("width: " + id_achievementList.width)
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    //////////////////////////// COMPONENTS /////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // Component - Label + optional icon, value row used in the meta panel
+    component C_MetaRow: RowLayout {
+        property string icon:  ""
+        property string label: ""
+        property string value: ""
+
+        width: parent.width
+        spacing: 6
+
+        Text {
+            visible: icon !== ""
+            text: icon
+            font.pixelSize: Themes.targetDetails.fontSizes.metaIcon
+        }
+        Text {
+            text: label + ":  "
+            color: Themes.targetDetails.colors.text
+            font.pixelSize: Themes.targetDetails.fontSizes.metaLabel
+            opacity: 0.55
+        }
+        Item {
+            Layout.fillWidth: true
+        }
+        Text {
+            text: value
+            color: Themes.targetDetails.colors.text
+            font.pixelSize: Themes.targetDetails.fontSizes.metaValue
+            font.bold: true
+            Layout.alignment: Qt.AlignRight
+        }
+    }
+
+    // Component - Section divider shown between "Achievements" / "Locked" / "Hidden" groups
+    component C_SectionHeader: Item {
+        id: id_sectionHeader
+
+        property real leftInset: 0
+
+        width: ListView.view.width
+        height: 36
+
+        Behavior on leftInset {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        Rectangle {
+            anchors {
+                left: parent.left
+                right: parent.right
+                verticalCenter: parent.verticalCenter
+                leftMargin: id_sectionHeader.leftInset
+                rightMargin: hasVerticalScroll ? 50 : 0
+            }
+            height: 1
+            color: Themes.targetDetails.colors.divider
+        }
+
+        Text {
+            anchors {
+                left: parent.left
+                verticalCenter: parent.verticalCenter
+                leftMargin: id_sectionHeader.leftInset + 12
+            }
+            text: section === "unlocked"
+                ? qsTr("Achievements")
+                : section === "locked"
+                    ? qsTr("Locked")
+                    : qsTr("Hidden")
+            color: Themes.targetDetails.colors.text
+            font.pixelSize: Themes.targetDetails.fontSizes.sectionTitle
+            font.bold: true
+            opacity: 0.55
+        }
+    }
+
+    // Component - Achievement Row
+    component C_AchievementRow: Item {
+        id: id_row
+
+        property alias iconSource: id_icon.source
+        property string name: ""
+        property string description: ""
+        property real globalUnlockPercent: 0.0
+        property string unlockDate: ""
+        property bool unlocked: false
+        property bool hidden: false
+        property bool revealed: false
+
+        // leftInset: positive = content shifted right, used for cover-zone indent
+        property real leftInset: 0
+
+        height: 82
+
+        Behavior on leftInset {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        TapHandler {
+            enabled: id_row.hidden && !id_row.unlocked
+            onTapped: id_row.revealed = !id_row.revealed
+            cursorShape: Qt.PointingHandCursor
+        }
+
+        HoverHandler {
+            id: id_hoverHandler
+
+            enabled: id_row.hidden && !id_row.unlocked
+            cursorShape: Qt.PointingHandCursor
+        }
+
+        RowLayout {
+            anchors {
+                fill: parent
+                leftMargin: id_row.leftInset
+                rightMargin: hasVerticalScroll ? 50 : 16
+                topMargin: 12
+                bottomMargin: 12
+            }
+            spacing: 14
+
+            // Achievement icon
+            Rectangle {
+                width: 52
+                height: 52
+                color: Themes.targetDetails.colors.coverBackground
+
+                Image {
+                    id: id_icon
+
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                    asynchronous: true
+                    visible: !id_row.hidden || id_row.unlocked || id_row.revealed
+                    opacity: id_row.unlocked ? 1.0 : 0.35
+                    layer.enabled: !id_row.unlocked
+                    layer.effect: MultiEffect {
+                        saturation: -1.0    // greyscale when locked
+                    }
+                }
+
+                // "?" shown instead of icon for concealed hidden achievements
+                Text {
+                    anchors.centerIn: parent
+                    visible: id_row.hidden && !id_row.unlocked && !id_row.revealed
+                    text: "?"
+                    color: Themes.targetDetails.colors.text
+                    font.pixelSize: Themes.targetDetails.fontSizes.hiddenIcon
+                    font.bold: true
+                    opacity: 0.35
+                }
+            }
+
+            // Name + description
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: id_nameDescCol.implicitHeight
+
+                // Hover highlight for concealed hidden achievements
+                Rectangle {
+                    anchors.fill: parent
+                    color: Themes.targetDetails.colors.hiddenHoverOverlay
+                    opacity: id_hoverHandler.hovered ? 0.06 : 0.0
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 120
+                        }
+                    }
+                }
+
+                Column {
+                    id: id_nameDescCol
+
+                    width: parent.width
+                    spacing: 4
+
+                    Text {
+                        width: parent.width
+                        text: (id_row.hidden && !id_row.unlocked && !id_row.revealed) ? qsTr("Hidden") : id_row.name
+                        color: Themes.targetDetails.colors.text
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowName
+                        font.bold: true
+                        elide: Text.ElideRight
+                        opacity: (id_row.hidden && !id_row.unlocked && !id_row.revealed) ? 0.35 : (id_row.unlocked ? 1.0 : 0.55)
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: !id_row.hidden || id_row.unlocked || id_row.revealed
+                        text: id_row.description
+                        color: Themes.targetDetails.colors.text
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowDescription
+                        opacity: 0.50
+                        elide: Text.ElideRight
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
+                    }
+                }
+            }
+
+            // Global unlock %
+            Row {
+                spacing: 3
+                Text {
+                    text: id_row.globalUnlockPercent.toFixed(1) + "%"
+                    color: Themes.targetDetails.colors.text
+                    font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalPercent
+                    horizontalAlignment: Text.AlignRight
+                    opacity: 0.65
+                }
+                Text {
+                    text: qsTr("of players have this achievement")
+                    color: Themes.targetDetails.colors.text
+                    font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalLabel
+                    horizontalAlignment: Text.AlignRight
+                    opacity: 0.35
+                }
+            }
+
+            // Unlock date (or locked indicator)
+            Text {
+                Layout.preferredWidth: 110
+                text: id_row.unlocked ? id_row.unlockDate : qsTr("Locked")
+                color: id_row.unlocked
+                    ? Themes.targetDetails.colors.unlockedAccent
+                    : Themes.targetDetails.colors.text
+                font.pixelSize: Themes.targetDetails.fontSizes.rowUnlockDate
+                font.bold: id_row.unlocked
+                horizontalAlignment: Text.AlignRight
+                opacity: id_row.unlocked ? 1.0 : 0.35
+            }
+        }
+
+        // Bottom separator
+        Rectangle {
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+                leftMargin: id_row.leftInset
+                rightMargin: hasVerticalScroll ? 50 : 0
+            }
+            height: 1
+            color: Themes.targetDetails.colors.divider
+            opacity: 0.4
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // Left fixed panel - cover + meta
+    Item {
+        z: 2
+        anchors {
+            top: parent.top
+            left: parent.left
+            bottom: parent.bottom
+            topMargin: 28
+        }
+        width: id_root.coverPanelWidth
+
+        Column {
+            id: id_coverColumn
+
+            width: parent.width
+            spacing: 14
+
+            // Cover image
+            Rectangle {
+                width: id_root.coverPanelWidth
+                height: id_root.coverHeight
+                color: Themes.targetDetails.colors.coverBackground
+                clip: true
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    maskEnabled: true
+                    maskSource: id_coverMask
+                }
+
+                Image {
+                    id: id_coverImage
+
+                    anchors.fill: parent
+                    source: id_root.p_coverSource
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    mipmap: true
+                    asynchronous: true
+
+                    CustomBusyIndicator {
+                        anchors.centerIn: parent
+                        visible: running
+                        indicatorSize: 64
+                        running: id_coverImage.status === Image.Loading
+                    }
+
+                    ErrorImage {
+                        anchors.centerIn: parent
+                        size: 96
+                        visible: id_coverImage.status === Image.Error
+                    }
+                }
+
+                // Fallback title
+                Text {
+                    anchors.centerIn: parent
+                    width: parent.width - 16
+                    visible: id_coverImage.status !== Image.Ready
+                    text: id_root.p_title
+                    color: Themes.targetDetails.colors.coverFallbackText
+                    font.pixelSize: Themes.targetDetails.fontSizes.coverFallback
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+
+            Rectangle {
+                id: id_coverMask
+
+                width: id_root.coverPanelWidth
+                height: id_root.coverHeight
+                radius: 8
+                visible: false
+                layer.enabled: true
+            }
+
+            // Meta rows
+            Column {
+                width: parent.width
+                spacing: 6
+
+                // Achievement Progress Bar
+                Rectangle {
+                    visible: id_root.p_achievementTotal > 0
+                    width: parent.width
+                    height: 26
+                    color: Themes.targetDetails.colors.progressBarTrack
+                    clip: true
+                    radius: 6
+
+                    // Gradient fill
+                    Rectangle {
+                        width: parent.width * id_root.completionRatio
+                        height: parent.height
+                        radius: 6
+
+                        // Opacity: 0.55 at 0%, 1.0 at 100%
+                        opacity: 0.55 + 0.45 * id_root.completionRatio
+
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            // Left stop: cool color, always fixed
+                            GradientStop {
+                                position: 0.0
+                                color: Themes.targetDetails.colors.progressBarGradientStart
+                            }
+                            // Right stop: interpolates color to brighter
+                            GradientStop {
+                                position: 1.0
+                                color: Qt.rgba(
+                                    0.20 + 0.15 * id_root.completionRatio,
+                                    0.85 - 0.10 * id_root.completionRatio,
+                                    0.45 - 0.20 * id_root.completionRatio,
+                                    1.0
+                                )
+                            }
+                        }
+
+                        Behavior on width {
+                            NumberAnimation {
+                                duration: 400
+                                easing.type: Easing.OutQuad
+                            }
+                        }
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 400
+                                easing.type: Easing.OutQuad
+                            }
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
+                        color: "white"
+                        font.pixelSize: Themes.targetDetails.fontSizes.progressBar
+                        font.bold: true
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: parent.implicitWidth + 14
+                            height: parent.implicitHeight + 4
+                            radius: 4
+                            color: Qt.rgba(0, 0, 0, 0.35)
+                            z: -1
+                        }
+                    }
+                }
+
+                C_MetaRow {
+                    label: qsTr("Status")
+                    value: id_root.p_installationStatus
+                    visible: id_root.p_installationStatus !== ""
+                }
+                C_MetaRow {
+                    label: qsTr("Playtime")
+                    value: id_root.p_playtime
+                    visible: id_root.p_playtime !== ""
+                }
+                C_MetaRow {
+                    label: qsTr("Last played")
+                    value: id_root.p_lastPlayed
+                    visible: id_root.p_lastPlayed !== ""
+                }
+                C_MetaRow {
+                    label: qsTr("Recent unlock")
+                    value: id_root.p_recentUnlock
+                    visible: id_root.p_recentUnlock !== ""
+                }
+
+                // Bottom separator
+                Rectangle {
+                    width: parent.width
+                    height: 3
+                    color: Themes.targetDetails.colors.divider
+                    opacity: 0.8
+                }
+            }
+        }
+    }
+
+    // Achievement list scrolls under the fixed panel
+    // Delegates are inset while their viewport position intersects the fixed cover/meta column
+    ListView {
+        id: id_achievementList
+
+        anchors {
+            fill: parent
+
+            rightMargin: Math.max(0, parent.width - 1152) // Width cap for wider window
+            leftMargin: id_root.p_enabledAchievementRowDynamicWidth ? 0 : id_root.coverPanelWidth + 24
+            topMargin: 28
+            bottomMargin: 28
+        }
+        spacing: 1
+        clip: true
+
+        ScrollBar.vertical: ScrollBar {
+            id: id_verticalScrollBar
+
+            policy: ScrollBar.AsNeeded
+        }
+
+        // Anchor ScrollBar to the right after content loaded
+        Component.onCompleted: {
+            id_verticalScrollBar.parent = id_root
+            id_verticalScrollBar.anchors.top = id_achievementList.top
+            id_verticalScrollBar.anchors.bottom = id_achievementList.bottom
+            id_verticalScrollBar.anchors.right = id_root.right
+        }
+
+        // Section header - unlocked, locked, hidden
+        section.property: "sectionKey"
+        section.criteria: ViewSection.FullString
+        section.delegate: C_SectionHeader {
+            readonly property real viewportTop: y - id_achievementList.contentY
+            leftInset: id_root.p_enabledAchievementRowDynamicWidth && viewportTop < id_root.fixedPanelClearance ? id_root.fixedPanelInset : 0
+        }
+
+        delegate: C_AchievementRow {
+            width: id_achievementList.width
+
+            readonly property real viewportTop: y - id_achievementList.contentY
+            leftInset: id_root.p_enabledAchievementRowDynamicWidth && viewportTop < id_root.fixedPanelClearance ? id_root.fixedPanelInset : 0
+
+            iconSource: model.iconSource
+            name: model.name
+            description: model.description
+            globalUnlockPercent: model.globalUnlockPercent
+            unlockDate: model.unlockDate
+            unlocked: model.unlocked
+
+            hidden:  model.hidden
+        }
+
+        // Empty state
+        Text {
+            anchors.centerIn: parent
+            visible: id_achievementList.count === 0
+            text: qsTr("No achievements found.")
+            color: Themes.targetDetails.colors.text
+            opacity: 0.4
+            font.pixelSize: Themes.targetDetails.fontSizes.emptyState
+        }
+    }
+}

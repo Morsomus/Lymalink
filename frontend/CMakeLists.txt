@@ -63,6 +63,7 @@ qt_add_qml_module(Lymalink
         res/img/BlankBackground_MFC_Glow_00006_ED.png
         res/img/BlankBackground_MFC_Glow_00006_.png
         res/img/BlankBackground_MFC_Glow_00032_ED.png
+        res/img/BlankBackground_MFC_Glow_00033_ED.png
     QML_FILES
         Main.qml 
         Themes.qml
@@ -74,6 +75,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/CardList/CardList.qml
         views/Main/Dashboard/CardList/Components/CardRow.qml
         views/Main/Dashboard/CardList/Components/CardRowDetailed.qml
+        views/Main/Dashboard/TargetDetails/TargetDetails.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml
         views/Main/Settings/Settings.qml

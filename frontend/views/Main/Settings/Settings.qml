@@ -16,7 +16,11 @@ import QtQuick.Window
 Item {
     id: id_root
 
-    // Section header component
+    /////////////////////////////////////////////////////////////////////
+    //////////////////////////// COMPONENTS /////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // Component - Section header component
     component C_SettingsSection: ColumnLayout {
         id: id_sectionRoot
 
@@ -59,12 +63,14 @@ Item {
 
         Item {
             id: id_contentHost
+            
             visible: false
         }
 
         // Two columns on same row (2 x C_SettingRow)
         GridLayout {
             id: id_contentGrid
+
             visible: !id_sectionRoot.fullRowMode
             Layout.fillWidth: true
             columns: 2
@@ -75,6 +81,7 @@ Item {
         // Single column on same row (1 x C_SettingRow)
         ColumnLayout {
             id: id_rowSectionContent
+
             visible: id_sectionRoot.fullRowMode
             Layout.fillWidth: true
             spacing: 12
@@ -92,7 +99,7 @@ Item {
         onFullRowModeChanged: applyContentLayout()
     }
 
-    // Row for Single Settings Option
+    // Component - Row for Single Settings Option
     component C_SettingRow: RowLayout {
         id: id_rowRoot
 
@@ -123,7 +130,7 @@ Item {
         }
     }
 
-    // Input field
+    // Component - Input field
     component C_ApplyInput: RowLayout {
         id: id_maskedInputRoot
 
@@ -138,6 +145,7 @@ Item {
 
         Rectangle {
             id: id_inputFrame
+
             property bool masked: false
             property real flashOpacity: 0.0
 
@@ -151,6 +159,7 @@ Item {
 
             TextInput {
                 id: id_input
+
                 anchors.fill: parent
                 anchors.leftMargin: 10
                 anchors.rightMargin: 10
@@ -197,6 +206,7 @@ Item {
 
         NumberAnimation {
             id: id_flashAnim
+
             target: id_inputFrame
             property: "flashOpacity"
             from: 0.45
@@ -205,9 +215,14 @@ Item {
         }
     }
 
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     // Fixed page header
     Item {
         id: id_fixedHeader
+
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -215,6 +230,7 @@ Item {
 
         ColumnLayout {
             id: id_fixedHeaderLayout
+
             anchors.left: parent.left
             anchors.leftMargin: 40
             anchors.right: parent.right
@@ -479,6 +495,19 @@ Item {
                                 ToolTip.text: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
                                 ToolTip.delay: 600
                                 HoverHandler { id: id_progressAnimHover }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Dynamic achievement rows")
+                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            Switch {
+                                checked: true
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                ToolTip.visible: id_dynamicAchievementRows.hovered
+                                ToolTip.text: qsTr("Achievement rows resize automatically to use available window space")
+                                ToolTip.delay: 600
+                                HoverHandler { id: id_dynamicAchievementRows }
                             }
                         }
                     }

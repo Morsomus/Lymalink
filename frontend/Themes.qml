@@ -124,6 +124,7 @@ QtObject {
     readonly property QtObject dashboardToolbar: QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color titleText: "#ffffff"
+            readonly property color titleHover: Qt.rgba(1, 1, 1, 0.08)
             readonly property color divider: "#2a2a2a"
             readonly property color searchBackground: Qt.rgba(1, 1, 1, 0.06)
             readonly property color searchBorder: Qt.rgba(1, 1, 1, 0.10)
@@ -345,6 +346,37 @@ QtObject {
             readonly property real statusIcon: 0.85
             readonly property real shadowHover: 0.55
             readonly property real shadowIdle: 0.0
+        }
+    }
+
+    // TargetDetails.qml
+    readonly property QtObject targetDetails: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color text: "#ffffff"
+            readonly property color divider: "#2a2a2a"
+            readonly property color coverBackground: "#2a2a3a"
+            readonly property color coverFallbackText: "white"
+            readonly property color progressBarTrack: "#2a2a3a"
+            readonly property color progressBarGradientStart: "#2a9e5c"
+            readonly property color progressBarText: "white"
+            readonly property color unlockedAccent: "#55cc88"
+            readonly property color hiddenHoverOverlay: "white"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int progressBar: 13
+            readonly property int coverFallback: 15
+            readonly property int emptyState: 16
+            readonly property int metaIcon: 14
+            readonly property int metaLabel: 14
+            readonly property int metaValue: 14
+            readonly property int sectionTitle: 15
+            readonly property int rowName: 14
+            readonly property int rowDescription: 13
+            readonly property int rowGlobalPercent: 13
+            readonly property int rowGlobalLabel: 11
+            readonly property int rowUnlockDate: 13
+            readonly property int hiddenIcon: 22
         }
     }
 }

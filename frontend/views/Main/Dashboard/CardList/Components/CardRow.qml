@@ -17,46 +17,30 @@ import QtQuick.Layouts
 Rectangle {
     id: id_root
 
-    property string title: "Title"
-    property string coverSource: ""     // Full cover image (fallback)
-    property string logoSource: ""      // Prefer transparent library logo
-    property int achievementCount: 0    // e.g. 5
-    property int achievementTotal: 0    // e.g. 73
-    property string status: ""          // "Installed" | "Not Installed"
-    property string lastPlayed: ""      // e.g. "2 days ago"
-    property string recentUnlock: ""    // e.g. "1 hour ago"
-    property int delegateIndex: 0
+    // Public ________________________________________________
+    property string p_title: "Title"
+    property string p_coverSource: ""     // Full cover image (fallback)
+    property string p_logoSource: ""      // Prefer transparent library logo
+    property int p_achievementCount: 0    // e.g. 5
+    property int p_achievementTotal: 0    // e.g. 73
+    property string p_status: ""          // "Installed" | "Not Installed"
+    property string p_lastPlayed: ""      // e.g. "2 days ago"
+    property string p_recentUnlock: ""    // e.g. "1 hour ago"
+    property int p_delegateIndex: 0
 
-    // Internals
-    readonly property real progress: achievementTotal > 0 ? achievementCount / achievementTotal : 0.0
-    readonly property bool isCompleted: achievementTotal > 0 && achievementCount >= achievementTotal
+    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
+
+    // Internals _____________________________________________
+    readonly property real progress: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
+    readonly property bool isCompleted: p_achievementTotal > 0 && p_achievementCount >= p_achievementTotal
     readonly property bool hasVerticalScroll: ListView.view ? ListView.view.contentHeight > ListView.view.height : false
+    readonly property int progressDelay: Math.max(0, Math.min(p_delegateIndex * 40, 300))
     property real animatedProgress: 0.0
-    readonly property int progressDelay: Math.max(0, Math.min(delegateIndex * 40, 300))
 
     height: 64
     // width: set by parent (ListView delegate width: listView.width)
     clip: true
     color: Themes.cardRow.colors.rowBackground
-
-    function restartProgressAnimation() {
-        id_progressIntroAnimation.stop()
-        animatedProgress = 0.0
-        id_progressIntroAnimation.restart()
-    }
-
-    Connections {
-        target: id_root.ListView.view
-        function onVisibleChanged() {
-            if (id_root.ListView.view.visible) {
-                id_root.restartProgressAnimation()
-            }
-        }
-    }
-
-    Component.onCompleted: {
-        Qt.callLater(restartProgressAnimation)
-    }
 
     SequentialAnimation {
         id: id_progressIntroAnimation
@@ -74,11 +58,34 @@ Rectangle {
         }
     }
 
+    Connections {
+        target: id_root.ListView.view
+        function onVisibleChanged() {
+            if (id_root.ListView.view.visible) {
+                id_root.restartProgressAnimation()
+            }
+        }
+    }
+
     onProgressChanged: {
         if (!id_progressIntroAnimation.running) {
             restartProgressAnimation()
         }
     }
+
+    Component.onCompleted: {
+        Qt.callLater(restartProgressAnimation)
+    }
+
+    function restartProgressAnimation() {
+        id_progressIntroAnimation.stop()
+        animatedProgress = 0.0
+        id_progressIntroAnimation.restart()
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     // Mouse Area for hover
     MouseArea {
@@ -88,7 +95,15 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            // Open detailed information
+            id_root.openTargetDetails(
+                id_root.p_title,
+                id_root.p_coverSource,
+                id_root.p_achievementCount,
+                id_root.p_achievementTotal,
+                id_root.p_status,
+                id_root.p_lastPlayed,
+                id_root.p_recentUnlock
+            )
         }
 
         // Card Row Hover
@@ -167,7 +182,7 @@ Rectangle {
 
                 anchors.fill: parent
                 anchors.margins: 3
-                source: id_root.logoSource !== "" ? id_root.logoSource : id_root.coverSource
+                source: id_root.p_logoSource !== "" ? id_root.p_logoSource : id_root.p_coverSource
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 mipmap: true
@@ -185,11 +200,11 @@ Rectangle {
                     anchors.fill: parent
                     radius: parent.parent.radius
                     color: Themes.cardRow.colors.fallbackBackground
-                    visible: id_logoImage.status === Image.Error || id_root.logoSource === "" && id_root.coverSource === ""
+                    visible: id_logoImage.status === Image.Error || id_root.p_logoSource === "" && id_root.p_coverSource === ""
 
                     Text {
                         anchors.centerIn: parent
-                        text: id_root.title.length > 0 ? id_root.title.charAt(0).toUpperCase() : "?"
+                        text: id_root.p_title.length > 0 ? id_root.p_title.charAt(0).toUpperCase() : "?"
                         color: Themes.cardRow.colors.fallbackText
                         font.pixelSize: Themes.cardRow.fontSizes.fallbackText
                         font.bold: true
@@ -211,7 +226,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    text: id_root.title
+                    text: id_root.p_title
                     color: Themes.cardRow.colors.titleText
                     font.pixelSize: Themes.cardRow.fontSizes.title
                     font.bold: true
@@ -220,10 +235,10 @@ Rectangle {
 
                 RowLayout {
                     spacing: 4
-                    visible: id_root.achievementTotal > 0
+                    visible: id_root.p_achievementTotal > 0
 
                     Text {
-                        text: id_root.achievementCount + " / " + id_root.achievementTotal
+                        text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
                         color: id_root.isCompleted ? Themes.cardRow.colors.completedText : Themes.cardRow.colors.fractionText
                         font.pixelSize: Themes.cardRow.fontSizes.fraction
                         font.bold: id_root.isCompleted
@@ -255,7 +270,7 @@ Rectangle {
             // Last played and recent unlock metadata
             RowLayout { 
                 Text {
-                    text: id_root.lastPlayed !== "" ? "🎮 " + id_root.lastPlayed : "🎮 " + qsTr("Never")
+                    text: id_root.p_lastPlayed !== "" ? "🎮 " + id_root.p_lastPlayed : "🎮 " + qsTr("Never")
                     color: Themes.cardRow.colors.lastPlayed
                     font.pixelSize: Themes.cardRow.fontSizes.lastPlayed
                     elide: Text.ElideRight
@@ -266,7 +281,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: id_root.recentUnlock !== "" ? qsTr("Recent unlock ") + id_root.recentUnlock : ""
+                    text: id_root.p_recentUnlock !== "" ? qsTr("Recent unlock ") + id_root.p_recentUnlock : ""
                     color: Themes.cardRow.colors.recentUnlock
                     font.pixelSize: Themes.cardRow.fontSizes.recentUnlock
                     elide: Text.ElideRight
@@ -279,7 +294,7 @@ Rectangle {
                 height: 3
                 radius: 2
                 color: Themes.cardRow.colors.achievementsProgressTrack
-                visible: id_root.achievementTotal > 0
+                visible: id_root.p_achievementTotal > 0
 
                 Rectangle {
                     width: parent.width * id_root.animatedProgress
@@ -292,19 +307,19 @@ Rectangle {
 
         // Installation status indicator
         Rectangle {
-            visible: id_root.status !== ""
+            visible: id_root.p_status !== ""
             Layout.alignment: Qt.AlignVCenter
             width:  id_installStatusText.implicitWidth + 14
             height: 20
             radius: 10
-            color: id_root.status === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
+            color: id_root.p_status === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
 
             Text {
                 id: id_installStatusText
 
                 anchors.centerIn: parent
-                text: id_root.status
-                color: id_root.status === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
+                text: id_root.p_status
+                color: id_root.p_status === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
                 font.pixelSize: Themes.cardRow.fontSizes.status
                 font.bold: true
             }

@@ -21,7 +21,7 @@ ApplicationWindow {
     height: 900
     title: qsTr("Lymalink")
     minimumWidth: id_sidebar.currentPage === 0 ? id_dashboard.requiredWindowMinimumWidth : defaultMinimumWidth
-    minimumHeight: 600
+    minimumHeight: 700
 
     onMinimumWidthChanged: {
         if (width < minimumWidth) {
@@ -60,10 +60,10 @@ ApplicationWindow {
                 anchors.leftMargin: 18
                 currentIndex: id_sidebar.currentPage
 
-                Dashboard{
+                Dashboard {
                     id: id_dashboard
                 }
-                Settings{}
+                Settings {}
             }
         }
     }

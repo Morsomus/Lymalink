@@ -19,26 +19,33 @@ import QtQuick.Shapes
 Rectangle {
     id: id_root
 
-    property string title: "Title"
-    property string coverSource: ""
-    property int achievementCount: 0
-    property int achievementTotal: 0
-    property string status: ""
-    property string lastPlayed: ""
+    // Public ________________________________________________
+    property string p_title: "Title"
+    property string p_coverSource: ""
+    property int p_achievementCount: 0
+    property int p_achievementTotal: 0
+    property string p_status: ""
+    property string p_lastPlayed: ""
+    property string p_recentUnlock: ""
+    property bool p_miniAchievementsBadgeEnabled: false
+    property bool p_edgeProgressFrameEnabled: false
+    property bool p_edgeProgressFrameStaticGrayColor: false
+    property bool p_edgeProgressFrameCompletionAnimation: false
 
-    property bool miniAchievementsBadgeEnabled: false
-    property bool edgeProgressFrameEnabled: false
-    property bool edgeProgressFrameStaticGrayColor: false
-    property bool edgeProgressFrameCompletionAnimation: false
+    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
 
-    // Internals
-    readonly property real edgeProgressFrameCompletion: achievementTotal > 0 ? achievementCount / achievementTotal : 0.0
+    // Internals _____________________________________________
+    readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
 
     width: 150
     height: 225
     radius: 8
     clip: true
     color: Themes.cardSmall.colors.cardBackground
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     // Cover Image / Placeholder
     Rectangle {
@@ -51,7 +58,7 @@ Rectangle {
 
             z: id_errorImage.errorActive ? 2 : 0
             anchors.fill: parent
-            source: id_root.coverSource
+            source: id_root.p_coverSource
             fillMode: Image.PreserveAspectCrop
             smooth: true
             asynchronous: true
@@ -100,7 +107,7 @@ Rectangle {
             anchors.centerIn: parent
             width: parent.width - 16
             visible: id_coverImage.status !== Image.Ready
-            text: id_root.title
+            text: id_root.p_title
             color: Themes.cardSmall.colors.titleFallback
             font.pixelSize: Themes.cardSmall.fontSizes.titleFallback
             font.bold: true
@@ -116,7 +123,7 @@ Rectangle {
         
         z: 3
         anchors.fill: parent
-        visible: id_root.edgeProgressFrameEnabled && id_root.achievementTotal > 0
+        visible: id_root.p_edgeProgressFrameEnabled && id_root.p_achievementTotal > 0
 
         // Colors
         readonly property color grayModeColor: Themes.card.colors.edgeFrameGray
@@ -139,7 +146,7 @@ Rectangle {
         // Breathes between two gold tones when complete - only runs when animation is enabled
         property color breathingColor: completionColorA
         SequentialAnimation {
-            running: id_root.edgeProgressFrameCompletion >= 1.0 && id_root.edgeProgressFrameCompletionAnimation && !id_root.edgeProgressFrameStaticGrayColor
+            running: id_root.edgeProgressFrameCompletion >= 1.0 && id_root.p_edgeProgressFrameCompletionAnimation && !id_root.p_edgeProgressFrameStaticGrayColor
             loops: Animation.Infinite
 
             ColorAnimation {
@@ -158,10 +165,10 @@ Rectangle {
             }
         }
 
-        readonly property color activeColor: id_root.edgeProgressFrameStaticGrayColor
+        readonly property color activeColor: id_root.p_edgeProgressFrameStaticGrayColor
             ? grayModeColor
             : id_root.edgeProgressFrameCompletion >= 1.0
-                ? (id_root.edgeProgressFrameCompletionAnimation ? breathingColor : completionColorStatic)
+                ? (id_root.p_edgeProgressFrameCompletionAnimation ? breathingColor : completionColorStatic)
                 : incompleteColor
 
         // Geometry
@@ -275,7 +282,7 @@ Rectangle {
             spacing: 2
 
             Text {
-                text: id_root.title
+                text: id_root.p_title
                 color: Themes.cardSmall.colors.hoverTitle
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverTitle
                 font.bold: true
@@ -285,16 +292,16 @@ Rectangle {
                 width: parent.width
             }
             Text {
-                text: id_root.achievementTotal > 0 ? "🏆 " + id_root.achievementCount + " / " + id_root.achievementTotal : ""
+                text: id_root.p_achievementTotal > 0 ? "🏆 " + id_root.p_achievementCount + " / " + id_root.p_achievementTotal : ""
                 color: Themes.cardSmall.colors.hoverAchievements
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
-                visible: id_root.achievementTotal > 0
+                visible: id_root.p_achievementTotal > 0
             }
             Text {
-                text: "🎮 " + id_root.lastPlayed
+                text: "🎮 " + id_root.p_lastPlayed
                 color: Themes.cardSmall.colors.hoverLastPlayed
                 font.pixelSize: Themes.cardSmall.fontSizes.hoverMeta
-                visible: id_root.lastPlayed !== ""
+                visible: id_root.p_lastPlayed !== ""
             }
         }
     }
@@ -309,7 +316,7 @@ Rectangle {
         }
         width: id_achievementsBadgeText.implicitWidth + 6
         height: id_achievementsBadgeText.implicitHeight + 15
-        opacity: id_root.miniAchievementsBadgeEnabled && id_root.achievementTotal > 0 && !id_rootMouseArea.containsMouse ? 1.0 : 0.0
+        opacity: id_root.p_miniAchievementsBadgeEnabled && id_root.p_achievementTotal > 0 && !id_rootMouseArea.containsMouse ? 1.0 : 0.0
 
         Behavior on opacity {
             NumberAnimation {
@@ -352,6 +359,7 @@ Rectangle {
         // Mask with top-right radius matching the card
         Rectangle {
             id: id_achievementsBadgeGradientMask
+            
             anchors.fill: id_achievementsBadgeGradient
             color: "white"
             visible: false
@@ -365,10 +373,10 @@ Rectangle {
             anchors {
                 top: parent.top
                 right: parent.right
-                topMargin: id_root.edgeProgressFrameEnabled ? 6 : 5
+                topMargin: id_root.p_edgeProgressFrameEnabled ? 6 : 5
                 rightMargin: 6
             }
-            text: id_root.achievementCount + "/" + id_root.achievementTotal
+            text: id_root.p_achievementCount + "/" + id_root.p_achievementTotal
             color: Themes.cardSmall.colors.achievementsBadgeText
             font.pixelSize: Themes.cardSmall.fontSizes.achievementsBadge
             font.bold: true
@@ -381,7 +389,7 @@ Rectangle {
 
         z: 2
         anchors.fill: parent
-        visible: id_root.status === "Not Installed"
+        visible: id_root.p_status === "Not Installed"
 
         layer.enabled: true
         layer.effect: MultiEffect {
@@ -410,10 +418,6 @@ Rectangle {
             HoverHandler {
                 id: id_installStatusBadgeHoverHandler
             }
-            
-            ToolTip.visible: id_installStatusBadgeHoverHandler.hovered
-            ToolTip.text: qsTr("Installation not found")
-            ToolTip.delay: 300
         }
 
         Image {
@@ -430,6 +434,10 @@ Rectangle {
             smooth: true
             mipmap: true
             opacity: Themes.cardSmall.opacity.statusIcon
+
+            ToolTip.visible: id_installStatusBadgeHoverHandler.hovered
+            ToolTip.text: qsTr("Installation not found")
+            ToolTip.delay: 300
         }
 
         // Mask using full card shape
@@ -453,7 +461,15 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            // Open detailed information
+            id_root.openTargetDetails(
+                id_root.p_title,
+                id_root.p_coverSource,
+                id_root.p_achievementCount,
+                id_root.p_achievementTotal,
+                id_root.p_status,
+                id_root.p_lastPlayed,
+                id_root.p_recentUnlock
+            )
         }
     }
 
