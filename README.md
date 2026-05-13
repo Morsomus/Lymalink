@@ -23,23 +23,25 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 
 ## Project Status
 
-Current progress toward Version 1.0.0
+Current progress towards the first working version, platform-wise
 
 ### Linux
 | Component | Status |
 |-----------|--------|
 | **Frontend** | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy |
 | &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | 📋 Planning |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | 📋 Planning |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | 🚧 In Development |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | 🚧 In Development |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started |
 | **Backend Service** | 📋 Planning |
+| **Compatibility & Testing** | 🔴 To Be Started |
+| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🔴 To Be Started |
 
 ### Windows
 | Component | Status |
