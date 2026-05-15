@@ -121,6 +121,10 @@ bool Settings::LoadConfig()
     m_steamId = m_settings->value("SteamId", m_steamId).toString();
     m_settings->endGroup();
 
+    m_settings->beginGroup(GROUP_SYSTEM);
+    m_backendService = m_settings->value("BackendService", m_backendService).toBool();
+    m_settings->endGroup();
+
     LoadEncryptedValues();
 
     emit signalConfigChanged();
@@ -294,6 +298,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
                 return SaveSteamWebApiKey();
             }
         }
+        case BackendService:
+        {
+            m_backendService = value.toBool();
+            group = GROUP_SYSTEM;
+            settingsKey = "BackendService";
+            settingsValue = m_backendService;
+            break;
+        }
         default:
         {
             qDebug() << "Settings::SaveValue - unknown setting key:" << key;
@@ -328,7 +340,7 @@ void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
         if (window != nullptr) {
             QTimer *resizeTimer = new QTimer(window);
             resizeTimer->setSingleShot(true);
-            resizeTimer->setInterval(2000);
+            resizeTimer->setInterval(1000);
 
             QObject::connect(window, &QWindow::widthChanged, resizeTimer, qOverload<>(&QTimer::start));
             QObject::connect(window, &QWindow::heightChanged, resizeTimer, qOverload<>(&QTimer::start));
@@ -366,6 +378,7 @@ void Settings::SetDefaults()
     m_windowSizeY = m_windowSizeYDefault;
     m_steamId = "";
     m_steamWebApiKey = "";
+    m_backendService = false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -419,6 +432,10 @@ void Settings::SavePlainValues()
 
     m_settings->beginGroup(GROUP_STEAM_WEB_API);
     m_settings->setValue("SteamId", m_steamId);
+    m_settings->endGroup();
+
+    m_settings->beginGroup(GROUP_SYSTEM);
+    m_settings->setValue("BackendService", m_backendService);
     m_settings->endGroup();
 }
 

@@ -39,7 +39,8 @@ class Settings : public QObject
     Q_PROPERTY(uint16_t windowSizeYDefault READ GetWindowSizeYDefault NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamId READ GetSteamId NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
-    
+    Q_PROPERTY(bool backendService READ GetBackendService NOTIFY signalConfigChanged)
+
 public:
     explicit Settings(QObject *parent = nullptr);
     ~Settings();
@@ -63,7 +64,8 @@ public:
         WindowSizeX,
         WindowSizeY,
         SteamId,
-        SteamWebApiKey 
+        SteamWebApiKey,
+        BackendService
     };
     Q_ENUM(Key)
 
@@ -94,6 +96,7 @@ public:
     inline uint16_t GetWindowSizeYDefault() const { return m_windowSizeYDefault; }
     inline QString GetSteamId() const { return m_steamId; }
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
+    inline bool GetBackendService() const { return m_backendService; }
 
 signals:
     void signalConfigChanged();
@@ -122,6 +125,7 @@ private:
     uint16_t m_windowSizeYDefault;
     QString m_steamId;
     QString m_steamWebApiKey;
+    bool m_backendService;
 
     void SetDefaults();
     bool SaveSteamWebApiKey();

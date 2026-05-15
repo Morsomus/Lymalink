@@ -10,6 +10,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -83,7 +84,7 @@ Rectangle {
                     id: id_backgroundServiceSwitch
                     
                     Layout.preferredWidth: id_root.collapsed ? 36 : 46
-                    checked: false
+                    checked: ctxSettings.backendService
                     focusPolicy: Qt.NoFocus
                     visible: id_root.collapsed == false
 
@@ -92,6 +93,8 @@ Rectangle {
                         delay: 300
                         text: qsTr("Keep tracking active even when the application is closed")
                     }
+
+                    onToggled: ctxSettings.SaveValue(Settings.BackendService, checked)
                 }
             }
 
