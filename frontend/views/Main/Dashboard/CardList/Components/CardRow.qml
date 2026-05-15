@@ -23,7 +23,7 @@ Rectangle {
     property string p_logoSource: ""      // Prefer transparent library logo
     property int p_achievementCount: 0    // e.g. 5
     property int p_achievementTotal: 0    // e.g. 73
-    property string p_status: ""          // "Installed" | "Not Installed"
+    property string p_installationStatus: ""    // "Installed" | "Not Installed"
     property string p_lastPlayed: ""      // e.g. "2 days ago"
     property string p_recentUnlock: ""    // e.g. "1 hour ago"
     property int p_delegateIndex: 0
@@ -100,7 +100,7 @@ Rectangle {
                 id_root.p_coverSource,
                 id_root.p_achievementCount,
                 id_root.p_achievementTotal,
-                id_root.p_status,
+                id_root.p_installationStatus,
                 id_root.p_lastPlayed,
                 id_root.p_recentUnlock
             )
@@ -307,19 +307,19 @@ Rectangle {
 
         // Installation status indicator
         Rectangle {
-            visible: id_root.p_status !== ""
+            visible: id_root.p_installationStatus !== ""
             Layout.alignment: Qt.AlignVCenter
             width:  id_installStatusText.implicitWidth + 14
             height: 20
             radius: 10
-            color: id_root.p_status === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
+            color: id_root.p_installationStatus === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
 
             Text {
                 id: id_installStatusText
 
                 anchors.centerIn: parent
-                text: id_root.p_status
-                color: id_root.p_status === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
+                text: id_root.p_installationStatus
+                color: id_root.p_installationStatus === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
                 font.pixelSize: Themes.cardRow.fontSizes.status
                 font.bold: true
             }

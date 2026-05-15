@@ -8,6 +8,7 @@
 //              dropdown, and filter chips.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -353,9 +354,11 @@ Item {
 
                         spacing: 10
 
-                        ToolTip.visible: id_backArrorIconMouseArea.containsMouse
-                        ToolTip.text: qsTr("Backspace / Escape key")
-                        ToolTip.delay: 500
+                        CustomTooltip {
+                            active: id_backArrorIconMouseArea.containsMouse
+                            delay: 500
+                            text: qsTr("Backspace / Escape key")
+                        }
 
                         Image {
                             id: id_backArrowIcon

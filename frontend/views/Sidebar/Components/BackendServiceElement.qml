@@ -8,6 +8,7 @@
 //              and setting.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -41,11 +42,10 @@ Rectangle {
         enabled: id_root.collapsed
         hoverEnabled: true
 
-        // Mouse area doesn't have ToolTip property by default, so we need to create one manually.
-        ToolTip {
-            text: qsTr("Keep tracking active even when the application is closed")
-            visible: id_rootMouseArea.containsMouse
+        CustomTooltip {
+            active: id_rootMouseArea.containsMouse
             delay: 300
+            text: qsTr("Keep tracking active even when the application is closed")
         }
 
         onClicked: {
@@ -86,9 +86,12 @@ Rectangle {
                     checked: false
                     focusPolicy: Qt.NoFocus
                     visible: id_root.collapsed == false
-                    ToolTip.visible: hovered
-                    ToolTip.delay: 300
-                    ToolTip.text: qsTr("Keep tracking active even when the application is closed")
+
+                    CustomTooltip {
+                        active: id_backgroundServiceSwitch.hovered
+                        delay: 300
+                        text: qsTr("Keep tracking active even when the application is closed")
+                    }
                 }
             }
 

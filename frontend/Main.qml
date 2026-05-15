@@ -10,6 +10,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 
 ApplicationWindow {
     id: id_root
@@ -17,8 +18,8 @@ ApplicationWindow {
     readonly property int defaultMinimumWidth: 900
 
     visible: true
-    width: 1510
-    height: 900
+    width: ctxSettings.windowSizeX
+    height: ctxSettings.windowSizeY
     title: qsTr("Lymalink")
     minimumWidth: id_sidebar.currentPage === 0 ? id_dashboard.requiredWindowMinimumWidth : defaultMinimumWidth
     minimumHeight: 700
@@ -31,6 +32,35 @@ ApplicationWindow {
 
     background: Rectangle {
         color: "#181818"
+    }
+
+    onClosing: function(close) {
+        if (ctxSettings.closeToTray) {
+            id_root.hide()          // Hide Window
+            close.accepted = true
+            
+            ctxSysTray.SetTrayIconVisibility(true)
+
+            if (ctxSettings.closeToTrayToast) {
+                ctxSysTray.ShowToastNotification(
+                    "Running in background",
+                    "Application minimized to tray"
+                )
+            }
+        }
+    }
+
+    Connections {
+        target: ctxSysTray
+
+        function onSignalOpenWindow() {
+            if (ctxSettings.closeToTray) {
+                ctxSysTray.SetTrayIconVisibility(false)
+                id_root.show()
+                id_root.raise()
+                id_root.requestActivate()
+            }
+        }
     }
 
     RowLayout {

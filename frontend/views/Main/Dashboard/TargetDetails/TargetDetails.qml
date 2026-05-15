@@ -26,7 +26,6 @@ Item {
     property string p_installationStatus: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
-    property bool p_enabledAchievementRowDynamicWidth: true
     property alias p_achievementModel: id_achievementList.model
 
     // Internals _____________________________________________
@@ -35,6 +34,7 @@ Item {
     readonly property real fixedPanelClearance: id_coverColumn.implicitHeight
     readonly property real fixedPanelInset: id_root.coverPanelWidth + 24
     readonly property bool hasVerticalScroll: id_achievementList.ScrollBar.vertical.size < 1.0
+    readonly property bool p_enabledAchievementRowDynamicWidth: ctxSettings.enableDynamicAchievementRows
     // Completion ratio used to drive the progress bar gradient and opacity
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal

@@ -6,6 +6,7 @@
 // Description: Sidebar button
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -26,9 +27,12 @@ Button {
 
     flat: true
     focusPolicy: Qt.NoFocus
-    ToolTip.visible: collapsed && hovered
-    ToolTip.delay: 300
-    ToolTip.text: label
+
+    CustomTooltip {
+        active: id_root.collapsed && id_root.hovered
+        delay: 300
+        text: id_root.label
+    }
 
     contentItem: RowLayout {
         spacing: 10

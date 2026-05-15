@@ -22,9 +22,9 @@ Item {
     property real expandedWidth: 260
     property real collapsedWidth: 72
     property real panelWidth: collapsed ? collapsedWidth : expandedWidth
-    property bool hideLogo: false
-    property bool disableCollapseBorder: false
-    property bool disableCollapseButton: true
+    property bool hideLogo: !ctxSettings.showLymalinkLogo
+    property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
+    property bool disableCollapseButton: !ctxSettings.showCollapseButton
 
     Layout.preferredWidth: panelWidth
     Layout.fillHeight: true
@@ -193,10 +193,13 @@ Item {
         z: 10
         text: id_root.collapsed ? ">" : "<"
         focusPolicy: Qt.NoFocus
-        ToolTip.visible: hovered
-        ToolTip.delay: 300
-        ToolTip.text: id_root.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
         onClicked: id_root.collapsed = !id_root.collapsed
+
+        CustomTooltip {
+            active: id_collapseButton.hovered
+            delay: 300
+            text: id_root.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
+        }
 
         contentItem: Label {
             anchors.left: parent.left

@@ -7,6 +7,7 @@
 //              a clickable GitHub link to the project.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -25,10 +26,12 @@ Button {
 
     flat: true
     text: id_root.collapsed ? "GH" : qsTr("GitHub")
-    
-    ToolTip.visible: hovered
-    ToolTip.delay: 300
-    ToolTip.text: qsTr("View project on GitHub")
+
+    CustomTooltip {
+        active: id_root.hovered
+        delay: 300
+        text: qsTr("View project on GitHub")
+    }
 
     onClicked: {
         Qt.openUrlExternally(linkUrl)

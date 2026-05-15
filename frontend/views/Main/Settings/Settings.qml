@@ -6,7 +6,9 @@
 // Description: Settings page.
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -56,6 +58,7 @@ Item {
         Label {
             visible: id_sectionRoot.infoText !== ""
             text: id_sectionRoot.infoText
+            Layout.fillWidth: true
             color: Themes.settings.colors.sectionInfo
             font.pixelSize: Themes.settings.fontSizes.sectionInfo
             wrapMode: Text.WordWrap
@@ -120,12 +123,14 @@ Item {
             
             elide: Text.ElideRight
 
-            ToolTip.visible: id_rowRoot.tooltip !== "" && id_labelHover.hovered
-            ToolTip.text: id_rowRoot.tooltip
-            ToolTip.delay: 600
-
             HoverHandler {
                 id: id_labelHover
+            }
+
+            CustomTooltip {
+                active: id_rowRoot.tooltip !== "" && id_labelHover.hovered
+                delay: 600
+                text: id_rowRoot.tooltip
             }
         }
     }
@@ -136,18 +141,31 @@ Item {
 
         property alias inputText: id_input.text
         property bool enableMasking: false
+        property bool initiallyMasked: false
         property string maskedText: "**********"
         property int fieldWidth: 280
         property int fieldHeight: 32
         property int flashDuration: 550
+        signal applyClicked(string text)
 
         spacing: 8
+        onInitiallyMaskedChanged: {
+            if (!initiallyMasked) {
+                id_input.text = ""
+                id_inputFrame.masked = false
+            }
+        }
 
         Rectangle {
             id: id_inputFrame
 
-            property bool masked: false
+            property bool masked: id_maskedInputRoot.initiallyMasked
             property real flashOpacity: 0.0
+
+            function beginEditing() {
+                masked = false
+                id_input.forceActiveFocus()
+            }
 
             Layout.preferredWidth: id_maskedInputRoot.fieldWidth
             Layout.preferredHeight: id_maskedInputRoot.fieldHeight
@@ -182,6 +200,11 @@ Item {
                 visible: id_inputFrame.masked
             }
 
+            TapHandler {
+                enabled: id_inputFrame.masked
+                onTapped: id_inputFrame.beginEditing()
+            }
+
             Rectangle {
                 anchors.fill: parent
                 radius: parent.radius
@@ -193,7 +216,10 @@ Item {
         Button {
             text: qsTr("Apply")
             onClicked: {
-                if (id_maskedInputRoot.enableMasking && id_input.text.length > 0) {
+                const submittedText = id_input.text
+                id_maskedInputRoot.applyClicked(submittedText)
+
+                if (id_maskedInputRoot.enableMasking && submittedText.length > 0) {
                     id_input.text = ""
                     id_inputFrame.masked = true
                     id_flashAnim.restart()
@@ -298,7 +324,7 @@ Item {
                             tooltip: qsTr("Controls the application's color theme")
                             ComboBox {
                                 model: ["system", "dark", "light"]
-                                currentIndex: 1
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.theme))
                                 implicitWidth: 140
                                 displayText: {
                                     switch (model[currentIndex]) {
@@ -318,6 +344,7 @@ Item {
                                     }
                                     enabled: modelData === "dark"
                                 }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.Theme, model[index])
                             }
                         }
 
@@ -325,12 +352,15 @@ Item {
                             label: qsTr("Lymalink Logo")
                             tooltip: qsTr("Show or hide the Lymalink logo in the sidebar")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.showLymalinkLogo
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_logoSwitchHover.hovered
-                                ToolTip.text: qsTr("Show or hide the Lymalink logo in the sidebar")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_logoSwitchHover }
+                                CustomTooltip {
+                                    active: id_logoSwitchHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show or hide the Lymalink logo in the sidebar")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowLymalinkLogo, checked)
                             }
                         }
 
@@ -339,7 +369,7 @@ Item {
                             tooltip: qsTr("Sets the application's display language")
                             ComboBox {
                                 model: ["English", "Finnish", "Svenska"]
-                                currentIndex: 0
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.language))
                                 implicitWidth: 140
                                 displayText: model[currentIndex]
                                 delegate: ItemDelegate {
@@ -347,6 +377,7 @@ Item {
                                     text: modelData
                                     enabled: modelData === "English"
                                 }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.Language, model[index])
                             }
                         }
 
@@ -365,11 +396,11 @@ Item {
                                         return
                                     }
                                     win.showNormal()
-                                    win.width = 1510
-                                    win.height = 900
+                                    win.width = ctxSettings.windowSizeXDefault
+                                    win.height = ctxSettings.windowSizeYDefault
                                 }
                             }
-                        }        
+                        }
                     }
 
                     // Interface
@@ -377,15 +408,18 @@ Item {
                         title: qsTr("Interface")
 
                         C_SettingRow {
-                            label: qsTr("Minimize to tray")
+                            label: qsTr("Close to tray")
                             tooltip: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.closeToTray
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_trayHover.hovered
-                                ToolTip.text: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_trayHover }
+                                CustomTooltip {
+                                    active: id_trayHover.hovered
+                                    delay: 600
+                                    text: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.CloseToTray, checked)
                             }
                         }
 
@@ -393,25 +427,32 @@ Item {
                             label: qsTr("Collapse button")
                             tooltip: qsTr("Show a button for collapsing the sidebar")
                             Switch {
-                                checked: false
+                                checked: ctxSettings.showCollapseButton
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_collapseButtonHover.hovered
-                                ToolTip.text: qsTr("Show a button for collapsing the sidebar")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_collapseButtonHover }
+                                CustomTooltip {
+                                    active: id_collapseButtonHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show a button for collapsing the sidebar")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowCollapseButton, checked)
                             }
                         }
 
                         C_SettingRow {
-                            label: qsTr("Tooltips")
-                            tooltip: qsTr("Show tooltips")
+                            label: qsTr("Close to tray notification")
+                            tooltip: qsTr("Show system notification while closing to tray")
                             Switch {
-                                checked: true
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_tooltipsHover.hovered
-                                ToolTip.text: qsTr("Show tooltips")
-                                ToolTip.delay: 600
-                                HoverHandler { id: id_tooltipsHover }
+                                enabled: ctxSettings.closeToTray
+                                checked: ctxSettings.closeToTrayToast && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_trayToastHover }
+                                CustomTooltip {
+                                    active: id_trayToastHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show system notification while closing to tray")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.CloseToTrayToast, checked)
                             }
                         }
 
@@ -419,12 +460,31 @@ Item {
                             label: qsTr("Collapse border button")
                             tooltip: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.enableCollapseBorderButton
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_collapseBorderHover.hovered
-                                ToolTip.text: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_collapseBorderHover }
+                                CustomTooltip {
+                                    active: id_collapseBorderHover.hovered
+                                    delay: 600
+                                    text: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableCollapseBorderButton, checked)
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Tooltips")
+                            tooltip: qsTr("Show tooltips")
+                            Switch {
+                                checked: ctxSettings.showTooltips
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_tooltipsHover }
+                                CustomTooltip {
+                                    active: id_tooltipsHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show tooltips")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowTooltips, checked)
                             }
                         }
                     }
@@ -437,12 +497,15 @@ Item {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Show an overall achievement progress frame around cards")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.showProgressFrame
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_progressFrameHover.hovered
-                                ToolTip.text: qsTr("Show an overall achievement progress frame around cards")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_progressFrameHover }
+                                CustomTooltip {
+                                    active: id_progressFrameHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show an overall achievement progress frame around cards")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
                             }
                         }
 
@@ -450,12 +513,15 @@ Item {
                             label: qsTr("Installation status badge")
                             tooltip: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.showInstallationStatusBadge
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_installIconHover.hovered
-                                ToolTip.text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_installIconHover }
+                                CustomTooltip {
+                                    active: id_installIconHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowInstallationStatusBadge, checked)
                             }
                         }
 
@@ -463,12 +529,16 @@ Item {
                             label: qsTr("Progress frame grayscale mode")
                             tooltip: qsTr("Render the progress frame in grayscale instead of color - disables animations")
                             Switch {
-                                checked: false
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_progressGrayHover.hovered
-                                ToolTip.text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
-                                ToolTip.delay: 600
+                                enabled: ctxSettings.showProgressFrame
+                                checked: ctxSettings.progressFrameGrayscaleMode && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressGrayHover }
+                                CustomTooltip {
+                                    active: id_progressGrayHover.hovered
+                                    delay: 600
+                                    text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ProgressFrameGrayscaleMode, checked)
                             }
                         }
 
@@ -476,12 +546,15 @@ Item {
                             label: qsTr("Total achievements badge")
                             tooltip: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.showTotalAchievementsBadge
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_achieveBadgeHover.hovered
-                                ToolTip.text: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_achieveBadgeHover }
+                                CustomTooltip {
+                                    active: id_achieveBadgeHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowTotalAchievementsBadge, checked)
                             }
                         }
 
@@ -489,12 +562,16 @@ Item {
                             label: qsTr("Progress frame completion animation")
                             tooltip: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
                             Switch {
-                                checked: true
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_progressAnimHover.hovered
-                                ToolTip.text: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
-                                ToolTip.delay: 600
+                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressAnimHover }
+                                CustomTooltip {
+                                    active: id_progressAnimHover.hovered
+                                    delay: 600
+                                    text: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
                             }
                         }
 
@@ -502,12 +579,15 @@ Item {
                             label: qsTr("Dynamic achievement rows")
                             tooltip: qsTr("Achievement rows resize automatically to use available window space")
                             Switch {
-                                checked: true
+                                checked: ctxSettings.enableDynamicAchievementRows
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                ToolTip.visible: id_dynamicAchievementRows.hovered
-                                ToolTip.text: qsTr("Achievement rows resize automatically to use available window space")
-                                ToolTip.delay: 600
                                 HoverHandler { id: id_dynamicAchievementRows }
+                                CustomTooltip {
+                                    active: id_dynamicAchievementRows.hovered
+                                    delay: 600
+                                    text: qsTr("Achievement rows resize automatically to use available window space")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
                             }
                         }
                     }
@@ -516,14 +596,17 @@ Item {
                     C_SettingsSection {
                         fullRowMode: true
                         title: qsTr("Steam Web API")
-                        infoText: qsTr("Steam Web API can be used to import your Steam achievement progress into Lymalink")
+                        infoText: qsTr("Steam Web API can be used to import your Steam achievement progress into Lymalink\n\nNote: Currently, API key is saved to the local config file using the default encryption key, which is not secure for long-term storage. This will be improved in a future update.")
 
                         C_SettingRow {
                             label: qsTr("Steam ID")
                             tooltip: qsTr("Steam ID is a long numeric account identifier - You can find it on your Steam Account page")
                             fixedWidthInt: 500
 
-                            C_ApplyInput {}
+                            C_ApplyInput {
+                                inputText: ctxSettings.steamId
+                                onApplyClicked: (text) => ctxSettings.SaveValue(Settings.SteamId, text)
+                            }
                         }
 
                         C_SettingRow {
@@ -531,7 +614,38 @@ Item {
                             tooltip: qsTr("Get your Steam Web API key from https://steamcommunity.com/dev/apikey")
                             fixedWidthInt: 500
 
-                            C_ApplyInput { enableMasking: true }
+                            C_ApplyInput {
+                                enableMasking: true
+                                initiallyMasked: ctxSettings.steamWebApiKey !== ""
+                                onApplyClicked: (text) => {
+                                    if (text.length > 0 || text === "") {
+                                        let val = text === "" ? "reset" : text
+                                        ctxSettings.SaveValue(Settings.SteamWebApiKey, val)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Defaults
+                    C_SettingsSection {
+                        C_SettingRow {
+                            Button {
+                                Layout.preferredWidth: 140
+                                text: qsTr("Reset Defaults")
+                                onClicked: {
+                                    ctxSettings.ResetDefaults()
+
+                                    // Also reset window size
+                                    const win = id_root.Window.window
+                                    if (!win) {
+                                        return
+                                    }
+                                    win.showNormal()
+                                    win.width = ctxSettings.windowSizeXDefault
+                                    win.height = ctxSettings.windowSizeYDefault
+                                }
+                            }
                         }
                     }
                 }

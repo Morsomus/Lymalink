@@ -21,7 +21,7 @@ Rectangle {
     property string p_coverSource: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
-    property string p_status: ""
+    property string p_installationStatus: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
     property string p_lastAchievementIcon: ""
@@ -102,7 +102,7 @@ Rectangle {
                 id_root.p_coverSource,
                 id_root.p_achievementCount,
                 id_root.p_achievementTotal,
-                id_root.p_status,
+                id_root.p_installationStatus,
                 id_root.p_lastPlayed,
                 id_root.p_recentUnlock
             )
@@ -235,11 +235,11 @@ Rectangle {
             }
 
             Rectangle {
-                visible: id_root.p_status !== ""
+                visible: id_root.p_installationStatus !== ""
                 width: id_statusText.implicitWidth + 14
                 height: 20
                 radius: 10
-                color: id_root.p_status === "Installed"
+                color: id_root.p_installationStatus === "Installed"
                     ? Themes.cardRowDetailed.colors.installationStatusBackgroundInstalled
                     : Themes.cardRowDetailed.colors.installationStatusBackgroundDefault
 
@@ -247,8 +247,8 @@ Rectangle {
                     id: id_statusText
                     
                     anchors.centerIn: parent
-                    text: id_root.p_status
-                    color: id_root.p_status === "Installed"
+                    text: id_root.p_installationStatus
+                    color: id_root.p_installationStatus === "Installed"
                         ? Themes.cardRowDetailed.colors.installationStatusTextInstalled
                         : Themes.cardRowDetailed.colors.installationStatusTextNotInstalled
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.status

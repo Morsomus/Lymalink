@@ -79,7 +79,7 @@ Item {
                     p_coverSource:      model.coverSource
                     p_achievementCount: model.achievementCount
                     p_achievementTotal: model.achievementTotal
-                    p_status:           model.status
+                    p_installationStatus:   model.status
                     p_lastPlayed:       model.lastPlayed
                     p_recentUnlock:     model.recentUnlock
                     p_lastAchievementIcon: model.lastAchievementIcon
@@ -111,7 +111,7 @@ Item {
                     p_logoSource:       model.logoSource
                     p_achievementCount: model.achievementCount
                     p_achievementTotal: model.achievementTotal
-                    p_status:           model.status
+                    p_installationStatus:   model.status
                     p_lastPlayed:       model.lastPlayed
                     p_recentUnlock:     model.recentUnlock
                     p_delegateIndex:    index

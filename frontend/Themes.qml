@@ -13,6 +13,7 @@ QtObject {
             readonly property color statusInactive: "#777777"
             readonly property color titleText: "#e6e6e6"
             readonly property color bodyText: "#9b9b9b"
+            readonly property color tooltipBackground: "#222222"
             readonly property color linkText: "#dcdcdc"
             readonly property color linkBackground: "transparent"
             readonly property color linkBackgroundHover: "#252525"
@@ -24,6 +25,7 @@ QtObject {
             readonly property int statusExpanded: 14
             readonly property int title: 13
             readonly property int body: 11
+            readonly property int tooltip: 12
             readonly property int link: 14
         }
     }

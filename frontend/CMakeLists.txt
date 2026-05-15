@@ -11,10 +11,23 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets)
+find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
 
 qt_add_executable(Lymalink
     src/main.cpp
+    src/Lymalink.h
+    src/Lymalink.cpp
+    src/sys/Settings.h
+    src/sys/Settings.cpp
+    src/sys/SysTray.h
+    src/sys/SysTray.cpp
+    src/database/SQLiteManager.h
+    src/database/SQLiteManager.cpp
+    src/tools/Encryption.h
+    src/tools/Encryption.cpp
+    src/tools/FileManager.h
+    src/tools/FileManager.cpp
 )
 
 target_compile_definitions(Lymalink PRIVATE
@@ -68,6 +81,7 @@ qt_add_qml_module(Lymalink
         Main.qml 
         Themes.qml
         common/CustomBusyIndicator.qml
+        common/CustomTooltip.qml
         common/ErrorImage.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
         views/Main/Dashboard/CardGrid/Components/Card.qml
@@ -91,4 +105,49 @@ target_link_libraries(Lymalink PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::Widgets
+    Qt6::Sql
+    OpenSSL::Crypto
 )
+
+##############################################################
+## Testing
+##############################################################
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    find_package(Qt6 REQUIRED COMPONENTS Test Sql)
+    enable_testing()
+    qt_add_executable(FileManagerTests
+        tests/FileManagerTests.cpp
+        src/tools/FileManager.h
+        src/tools/FileManager.cpp
+    )
+    target_link_libraries(FileManagerTests PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+    add_test(NAME FileManagerTests COMMAND FileManagerTests)
+
+    qt_add_executable(EncryptionTests
+        tests/EncryptionTests.cpp
+        src/tools/Encryption.h
+        src/tools/Encryption.cpp
+    )
+    target_link_libraries(EncryptionTests PRIVATE
+        Qt6::Core
+        Qt6::Test
+        OpenSSL::Crypto
+    )
+    add_test(NAME EncryptionTests COMMAND EncryptionTests)
+
+    qt_add_executable(SQLiteManagerTests
+        tests/SQLiteManagerTests.cpp
+        src/database/SQLiteManager.h
+        src/database/SQLiteManager.cpp
+    )
+    target_link_libraries(SQLiteManagerTests PRIVATE
+        Qt6::Core
+        Qt6::Sql
+        Qt6::Test
+    )
+    add_test(NAME SQLiteManagerTests COMMAND SQLiteManagerTests)
+endif()

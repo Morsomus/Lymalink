@@ -24,7 +24,7 @@ Rectangle {
     property string p_coverSource: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
-    property string p_status: ""
+    property string p_installationStatus: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
     property bool p_miniAchievementsBadgeEnabled: false
@@ -389,7 +389,7 @@ Rectangle {
 
         z: 2
         anchors.fill: parent
-        visible: id_root.p_status === "Not Installed"
+        visible: id_root.p_installationStatus === "Not Installed" && ctxSettings.showInstallationStatusBadge
 
         layer.enabled: true
         layer.effect: MultiEffect {
@@ -435,9 +435,11 @@ Rectangle {
             mipmap: true
             opacity: Themes.cardSmall.opacity.statusIcon
 
-            ToolTip.visible: id_installStatusBadgeHoverHandler.hovered
-            ToolTip.text: qsTr("Installation not found")
-            ToolTip.delay: 300
+            CustomTooltip {
+                active: id_installStatusBadgeHoverHandler.hovered
+                delay: 300
+                text: qsTr("Installation not found")
+            }
         }
 
         // Mask using full card shape
@@ -466,7 +468,7 @@ Rectangle {
                 id_root.p_coverSource,
                 id_root.p_achievementCount,
                 id_root.p_achievementTotal,
-                id_root.p_status,
+                id_root.p_installationStatus,
                 id_root.p_lastPlayed,
                 id_root.p_recentUnlock
             )

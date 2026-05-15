@@ -11,6 +11,8 @@
 #   ./build.sh clean        - Clean build directory
 #   ./build.sh deploy       - Clean + Release build + deploy to DEPLOY_DIR
 #   ./build.sh dev          - Clean + Debug build + Execute
+#   ./build.sh test         - Clean + Debug build + Test
+#   ./build.sh test --silent - Clean + Debug build + Test with failures only
 #########################################################
 
 set -e
@@ -130,21 +132,52 @@ dev() {
 
 ##############################################################################
 
+run_tests() {
+    local TEST_OUTPUT_MODE="${1:-}"
+
+    if [ -n "$TEST_OUTPUT_MODE" ] && [ "$TEST_OUTPUT_MODE" != "--silent" ]; then
+        echo "==> ERROR: Unknown test option: $TEST_OUTPUT_MODE"
+        echo "==> Usage: $0 test [--silent]"
+        exit 1
+    fi
+
+    clean
+    build Debug
+
+    if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
+        local BUILD_DIR="/tmp/lymalink-build/debug"
+    else
+        local BUILD_DIR="$SCRIPT_DIR/build/debug"
+    fi
+
+    echo "==> Running tests..."
+    if [ "$TEST_OUTPUT_MODE" = "--silent" ]; then
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
+    else
+        ctest --test-dir "$BUILD_DIR" --verbose
+    fi
+}
+
+##############################################################################
+
 case "${1:-}" in
     clean)   clean ;;
     debug)   build Debug ;;
     release) build Release ;;
     deploy)  deploy ;;
     dev)     dev ;;
+    test)    run_tests "${2:-}" ;;
     *)
-        echo "Usage: $0 [clean|debug|release|deploy]"
+        echo "Usage: $0 [clean|debug|release|deploy|dev|test]"
         echo ""
-        echo "  clean    - Remove build/"
-        echo "  debug    - Debug build   -> build/debug/"
-        echo "  release  - Release build -> build/release/"
-        echo "  deploy   - clean + release build + strip + copy to $DEPLOY_DIR"
-        echo "  dev      - clean + debug build + launch"
-        echo "             + create desktop entry at $DESKTOP_FILE"
+        echo "  clean          - Remove build/"
+        echo "  debug          - Debug build   -> build/debug/"
+        echo "  release        - Release build -> build/release/"
+        echo "  deploy         - clean + release build + strip + copy to $DEPLOY_DIR"
+        echo "                   + create desktop entry at $DESKTOP_FILE"
+        echo "  dev            - clean + debug build + launch"
+        echo "  test           - clean + debug build + test (full verbosity)"
+        echo "  test --silent  - clean + debug build + test (failures only)"    
         exit 1
         ;;
 esac

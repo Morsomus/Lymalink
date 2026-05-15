@@ -52,10 +52,10 @@ Item {
         id: id_defaultCoverCard
 
         Card {
-            p_miniAchievementsBadgeEnabled: true
-            p_edgeProgressFrameEnabled: true
-            p_edgeProgressFrameStaticGrayColor: false
-            p_edgeProgressFrameCompletionAnimation: true
+            p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
+            p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
+            p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
         }
     }
 
@@ -63,10 +63,10 @@ Item {
         id: id_smallCoverCard
 
         CardSmall {
-            p_miniAchievementsBadgeEnabled: true
-            p_edgeProgressFrameEnabled: true
-            p_edgeProgressFrameStaticGrayColor: false
-            p_edgeProgressFrameCompletionAnimation: true
+            p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
+            p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
+            p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
         }
     }
 
@@ -145,7 +145,7 @@ Item {
                                 item.p_coverSource      = model.coverSource
                                 item.p_achievementCount = model.achievementCount
                                 item.p_achievementTotal = model.achievementTotal
-                                item.p_status           = model.status
+                                item.p_installationStatus   = model.status
                                 item.p_lastPlayed       = model.lastPlayed
                                 item.p_recentUnlock     = model.recentUnlock
                                 item.openTargetDetails.connect(id_root.openTargetDetails)
