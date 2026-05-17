@@ -33,6 +33,7 @@ class Settings : public QObject
     Q_PROPERTY(bool showTotalAchievementsBadge READ GetShowTotalAchievementsBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableProgressFrameCompletionAnimation READ GetEnableProgressFrameCompletionAnimation NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableDynamicAchievementRows READ GetEnableDynamicAchievementRows NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool sidebarCollapsed READ GetSidebarCollapsed NOTIFY signalConfigChanged)
     Q_PROPERTY(uint16_t windowSizeX READ GetWindowSizeX NOTIFY signalConfigChanged)
     Q_PROPERTY(uint16_t windowSizeY READ GetWindowSizeY NOTIFY signalConfigChanged)
     Q_PROPERTY(uint16_t windowSizeXDefault READ GetWindowSizeXDefault NOTIFY signalConfigChanged)
@@ -61,6 +62,7 @@ public:
         ShowTotalAchievementsBadge,
         EnableProgressFrameCompletionAnimation,
         EnableDynamicAchievementRows,
+        SidebarCollapsed,
         WindowSizeX,
         WindowSizeY,
         SteamId,
@@ -84,6 +86,7 @@ public:
     inline bool GetShowCollapseButton() const { return m_showCollapseButton; }
     inline bool GetShowTooltips() const { return m_showTooltips; }
     inline bool GetEnableCollapseBorderButton() const { return m_enableCollapseBorderButton; }
+    inline bool GetSidebarCollapsed() const { return m_sidebarCollapsed; }
     inline bool GetShowProgressFrame() const { return m_showProgressFrame; }
     inline bool GetShowInstallationStatusBadge() const { return m_showInstallationStatusBadge; }
     inline bool GetProgressFrameGrayscaleMode() const { return m_progressFrameGrayscaleMode; }
@@ -119,6 +122,7 @@ private:
     bool m_showTotalAchievementsBadge;
     bool m_enableProgressFrameCompletionAnimation;
     bool m_enableDynamicAchievementRows;
+    bool m_sidebarCollapsed;
     uint16_t m_windowSizeX;
     uint16_t m_windowSizeY;
     uint16_t m_windowSizeXDefault;

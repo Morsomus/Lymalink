@@ -9,6 +9,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -18,13 +19,17 @@ Item {
     id: id_root
 
     property int currentPage: 0
-    property bool collapsed: false
+    property bool collapsed: ctxSettings.sidebarCollapsed
     property real expandedWidth: 260
     property real collapsedWidth: 72
     property real panelWidth: collapsed ? collapsedWidth : expandedWidth
     property bool hideLogo: !ctxSettings.showLymalinkLogo
     property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
     property bool disableCollapseButton: !ctxSettings.showCollapseButton
+
+    onCollapsedChanged: {
+        ctxSettings.SaveValue(Settings.SidebarCollapsed, collapsed)
+    }
 
     Layout.preferredWidth: panelWidth
     Layout.fillHeight: true

@@ -97,7 +97,7 @@ chmod +x frontend/build.sh
 frontend/build.sh clean       # Remove build/
 frontend/build.sh debug       # Debug build   -> frontend/build/debug/
 frontend/build.sh release     # Release build -> frontend/build/release/
-frontend/build.sh deploy      # Clean + release build, strip binary, copy to ~/Apps/Lymalink/ and create desktop entry
+frontend/build.sh deploy      # Clean + release build, strip binary, install to XDG user dirs
 frontend/build.sh dev         # Clean + debug build, launch
 ```
 
@@ -107,8 +107,16 @@ frontend/build.sh dev         # Clean + debug build, launch
 |---------------|-----------|-------------------------------|--------------------------------------|
 | `debug`       | Debug     | `frontend/build/debug/`       | `build/debug/bin/Lymalink`           |
 | `release`     | Release   | `frontend/build/release/`     | `build/release/bin/Lymalink`         |
-| `deploy`      | Release   | `~/Apps/Lymalink/`            | `~/Apps/Lymalink/Lymalink`           |
-| `dev`         | Debug     | `~/Apps/Lymalink/` + launch   | `~/Apps/Lymalink/Lymalink`           |
+| `deploy`      | Release   | XDG user dirs (see below)     | `~/.local/bin/Lymalink`              |
+| `dev`         | Debug     | `/tmp/lymalink-build/` + launch | `build/debug/bin/Lymalink`         |
+
+**Deploy installs to standard XDG directories:**
+
+| File | Location |
+|------|----------|
+| Binary | `~/.local/bin/Lymalink` |
+| Icon | `~/.local/share/icons/hicolor/256x256/apps/lymalink.png` |
+| Desktop entry | `~/.local/share/applications/lymalink.desktop` |
 
 ---
 

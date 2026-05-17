@@ -9,7 +9,7 @@
 #   ./build.sh debug        - Debug build
 #   ./build.sh release      - Release build
 #   ./build.sh clean        - Clean build directory
-#   ./build.sh deploy       - Clean + Release build + deploy to DEPLOY_DIR
+#   ./build.sh deploy       - Clean + Release build + deploy
 #   ./build.sh dev          - Clean + Debug build + Execute
 #   ./build.sh test         - Clean + Debug build + Test
 #   ./build.sh test --silent - Clean + Debug build + Test with failures only
@@ -18,8 +18,14 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_DIR="$HOME/Apps/Lymalink"
-DESKTOP_FILE="$HOME/.local/share/applications/lymalink.desktop"
+
+DEPLOY_BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
+DEPLOY_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+ICON_DIR="$DEPLOY_DATA_DIR/icons/hicolor/256x256/apps"
+DESKTOP_FILE="$DEPLOY_DATA_DIR/applications/lymalink.desktop"
+
+APP_NAME="lymalink"
+ICON_NAME="$APP_NAME"
 
 # When enabled, build output is diverted to /tmp (RAMfs)
 BUILD_TO_TMP=1
@@ -83,31 +89,34 @@ deploy() {
 
     local BINARY_PATH="$BUILD_DIR/bin/Lymalink"
 
-    echo "==> Deploying to $DEPLOY_DIR..."
-    mkdir -p "$DEPLOY_DIR"
-
-    # Copy and strip binary
-    cp "$BINARY_PATH" "$DEPLOY_DIR/Lymalink"
-    strip "$DEPLOY_DIR/Lymalink"
+    # Copy and stric binary
+    mkdir -p "$DEPLOY_BIN_DIR"
+    cp "$BINARY_PATH" "$DEPLOY_BIN_DIR/Lymalink"
+    strip "$DEPLOY_BIN_DIR/Lymalink"
 
     # Copy icon
-    cp "$SCRIPT_DIR/res/img/BlankBackground_MFC_00002_E.png" "$DEPLOY_DIR/BlankBackground_MFC_00002_E.png"
+    mkdir -p "$ICON_DIR"
+    cp "$SCRIPT_DIR/res/img/BlankBackground_MFC_00002_E_256x256.png" "$ICON_DIR/${ICON_NAME}.png"
+    if command -v gtk-update-icon-cache &>/dev/null; then
+        gtk-update-icon-cache -f -t "$DEPLOY_DATA_DIR/icons/hicolor" 2>/dev/null || true
+    fi
 
-    # Create desktop entry
+    # Desktop entry -> ~/.local/share/applications/
     mkdir -p "$(dirname "$DESKTOP_FILE")"
     cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Name=Lymalink
-Exec=$DEPLOY_DIR/Lymalink
-Icon=$DEPLOY_DIR/BlankBackground_MFC_00002_E.png
+Exec=$DEPLOY_BIN_DIR/Lymalink
+Icon=$ICON_NAME
 Type=Application
 Terminal=false
 Categories=Game;Utility;
 EOF
 
-    update-desktop-database "$DESKTOP_FILE" 2>/dev/null || true
+    update-desktop-database "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
 
-    echo "==> Deployed to:     $DEPLOY_DIR"
+    echo "==> Binary:          $DEPLOY_BIN_DIR/Lymalink"
+    echo "==> Icon:            $ICON_DIR/${ICON_NAME}.png"
     echo "==> Desktop entry:   $DESKTOP_FILE"
 }
 
@@ -116,9 +125,6 @@ EOF
 dev() {
     clean
     build Debug
-
-    local MODE_LOWER
-    MODE_LOWER="debug"
 
     if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
         local BINARY_PATH="/tmp/lymalink-build/debug/bin/Lymalink"
@@ -173,11 +179,13 @@ case "${1:-}" in
         echo "  clean          - Remove build/"
         echo "  debug          - Debug build   -> build/debug/"
         echo "  release        - Release build -> build/release/"
-        echo "  deploy         - clean + release build + strip + copy to $DEPLOY_DIR"
-        echo "                   + create desktop entry at $DESKTOP_FILE"
+        echo "  deploy         - clean + release build + strip"
+        echo "                   + binary    -> $DEPLOY_BIN_DIR/"
+        echo "                   + icon      -> $ICON_DIR/"
+        echo "                   + desktop   -> $DESKTOP_FILE"
         echo "  dev            - clean + debug build + launch"
         echo "  test           - clean + debug build + test (full verbosity)"
-        echo "  test --silent  - clean + debug build + test (failures only)"    
+        echo "  test --silent  - clean + debug build + test (failures only)"
         exit 1
         ;;
 esac

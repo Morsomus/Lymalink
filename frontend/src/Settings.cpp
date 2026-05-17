@@ -104,6 +104,7 @@ bool Settings::LoadConfig()
     m_showCollapseButton = m_settings->value("ShowCollapseButton", m_showCollapseButton).toBool();
     m_showTooltips = m_settings->value("ShowTooltips", m_showTooltips).toBool();
     m_enableCollapseBorderButton = m_settings->value("EnableCollapseBorderButton", m_enableCollapseBorderButton).toBool();
+    m_sidebarCollapsed = m_settings->value("SidebarCollapsed", m_sidebarCollapsed).toBool();
     m_settings->endGroup();
 
     m_settings->beginGroup(GROUP_DISPLAY);
@@ -207,6 +208,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             group = GROUP_INTERFACE;
             settingsKey = "EnableCollapseBorderButton";
             settingsValue = m_enableCollapseBorderButton;
+            break;
+        }
+        case SidebarCollapsed:
+        {
+            m_sidebarCollapsed = value.toBool();
+            group = GROUP_INTERFACE;
+            settingsKey = "SidebarCollapsed";
+            settingsValue = m_sidebarCollapsed;
             break;
         }
         case ShowProgressFrame:
@@ -368,6 +377,7 @@ void Settings::SetDefaults()
     m_showCollapseButton = true;
     m_showTooltips = true;
     m_enableCollapseBorderButton = true;
+    m_sidebarCollapsed = false;
     m_showProgressFrame = true;
     m_showInstallationStatusBadge = true;
     m_progressFrameGrayscaleMode = false;
@@ -417,6 +427,7 @@ void Settings::SavePlainValues()
     m_settings->setValue("ShowCollapseButton", m_showCollapseButton);
     m_settings->setValue("ShowTooltips", m_showTooltips);
     m_settings->setValue("EnableCollapseBorderButton", m_enableCollapseBorderButton);
+    m_settings->setValue("SidebarCollapsed", m_sidebarCollapsed);
     m_settings->endGroup();
 
     m_settings->beginGroup(GROUP_DISPLAY);
