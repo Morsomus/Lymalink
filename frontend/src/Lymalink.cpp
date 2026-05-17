@@ -3,10 +3,12 @@
 // Date: 2026-05-14
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Implements Lymalink backend orchestrator 
+// Description: Implements Lymalink backend orchestrator
+//              which handles api calls, database etc.
 /////////////////////////////////////////////////////////
 
 #include "Lymalink.h"
+#include "Error.h"
 
 #include <QDebug>
 

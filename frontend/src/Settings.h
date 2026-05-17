@@ -8,13 +8,13 @@
 
 #pragma once
 
+#include "Defines.h"
+
 #include <QObject>
 #include <QSettings>
 #include <QString>
 #include <QVariant>
 #include <QQmlApplicationEngine>
-
-#include "../Defines.h"
 
 class Settings : public QObject
 {

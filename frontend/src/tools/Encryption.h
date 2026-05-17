@@ -15,12 +15,13 @@
 class Encryption : public QObject
 {
     Q_OBJECT
+    
 public:
     explicit Encryption(QObject *parent = nullptr);
     ~Encryption();
 
-    Q_INVOKABLE QString Encrypt(const QString &value, const QString &key) const;
-    Q_INVOKABLE QString Decrypt(const QString &value, const QString &key) const;
+    QString Encrypt(const QString &value, const QString &key) const;
+    QString Decrypt(const QString &value, const QString &key) const;
 
 private:
     QByteArray DeriveKey(const QString &key, const QByteArray &saltData) const;

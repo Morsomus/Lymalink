@@ -35,12 +35,10 @@ bool FileManager::DeleteFile(const QString &filePath)
     if (file.remove())
     {
         qDebug() << "Successfully deleted file:" << filePath;
-        emit signalFileDeleted(filePath, true);
         return true;
     }
 
     qDebug() << "Failed to delete file:" << filePath << "Error:" << file.errorString();
-    emit signalFileDeleted(filePath, false);
     return false;
 }
 

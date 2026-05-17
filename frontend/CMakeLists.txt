@@ -10,7 +10,7 @@ project(Lymalink VERSION ${LYMALINK_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network)
 find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
 
@@ -18,16 +18,18 @@ qt_add_executable(Lymalink
     src/main.cpp
     src/Lymalink.h
     src/Lymalink.cpp
-    src/sys/Settings.h
-    src/sys/Settings.cpp
-    src/sys/SysTray.h
-    src/sys/SysTray.cpp
+    src/Settings.h
+    src/Settings.cpp
+    src/SysTray.h
+    src/SysTray.cpp
     src/database/SQLiteManager.h
     src/database/SQLiteManager.cpp
     src/tools/Encryption.h
     src/tools/Encryption.cpp
     src/tools/FileManager.h
     src/tools/FileManager.cpp
+    src/api/SteamApi.h
+    src/api/SteamApi.cpp
 )
 
 target_compile_definitions(Lymalink PRIVATE
@@ -106,6 +108,7 @@ target_link_libraries(Lymalink PRIVATE
     Qt6::Quick
     Qt6::Widgets
     Qt6::Sql
+    Qt6::Network
     OpenSSL::Crypto
 )
 
@@ -150,4 +153,16 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         Qt6::Test
     )
     add_test(NAME SQLiteManagerTests COMMAND SQLiteManagerTests)
+
+#    qt_add_executable(SteamApiTests
+#        tests/SteamApiTests.cpp
+#        src/api/SteamApi.h
+#        src/api/SteamApi.cpp
+#    )
+#    target_link_libraries(SteamApiTests PRIVATE
+#        Qt6::Core
+#        Qt6::Network
+#        Qt6::Test
+#    )
+#    add_test(NAME SteamApiTests COMMAND SteamApiTests)
 endif()

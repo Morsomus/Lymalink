@@ -7,7 +7,7 @@
 /////////////////////////////////////////////////////////
 
 #include "Settings.h"
-#include "../tools/Encryption.h"
+#include "tools/Encryption.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -35,7 +35,7 @@ Settings::Settings(QObject *parent) : QObject(parent)
 
 Settings::~Settings()
 {
-    // Destructor
+    delete m_settings;
 }
 
 /////////////////////////////////////////////////////////////////////

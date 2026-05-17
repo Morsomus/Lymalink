@@ -63,19 +63,6 @@ void FileManagerTests::initTestCase()
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManagerTests::createFile(const QString &filePath, const QByteArray &data)
-{
-    QFile file(filePath);
-
-    if (!file.open(QIODevice::WriteOnly)) {
-        return false;
-    }
-
-    return file.write(data) == data.size();
-}
-
-/////////////////////////////////////////////////////////////////////
-
 void FileManagerTests::deleteFile_removesExistingFile()
 {
     QTemporaryDir tempDir;
@@ -221,6 +208,22 @@ void FileManagerTests::folderListCreate_returnsOnlyFolders()
     QCOMPARE(folders.size(), 2);
     QVERIFY(folders.contains(QFileInfo(firstFolder).absoluteFilePath()));
     QVERIFY(folders.contains(QFileInfo(secondFolder).absoluteFilePath()));
+}
+
+
+/////////////////////////////////////////////////////////////////////
+///////////////////////////// PRIVATE ///////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+bool FileManagerTests::createFile(const QString &filePath, const QByteArray &data)
+{
+    QFile file(filePath);
+
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+
+    return file.write(data) == data.size();
 }
 
 /////////////////////////////////////////////////////////////////////

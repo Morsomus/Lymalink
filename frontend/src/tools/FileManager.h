@@ -20,17 +20,14 @@ public:
     explicit FileManager(QObject *parent = nullptr);
     ~FileManager();
 
-    Q_INVOKABLE bool DeleteFile(const QString &filePath);
-    Q_INVOKABLE bool DeleteFolder(const QString &folderPath);
-    Q_INVOKABLE bool MoveFile(const QString &sourceFilePath, const QString &destinationFilePath);
-    Q_INVOKABLE bool MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);
-    Q_INVOKABLE bool RenameFile(const QString &filePath, const QString &newFilePath);
-    Q_INVOKABLE bool RenameFolder(const QString &folderPath, const QString &newFolderPath);
-    Q_INVOKABLE QStringList FileListCreate(const QString &folderPath);
-    Q_INVOKABLE QStringList FolderListCreate(const QString &folderPath);
-
-signals:
-    void signalFileDeleted(const QString &filePath, bool success);
+    bool DeleteFile(const QString &filePath);
+    bool DeleteFolder(const QString &folderPath);
+    bool MoveFile(const QString &sourceFilePath, const QString &destinationFilePath);
+    bool MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);
+    bool RenameFile(const QString &filePath, const QString &newFilePath);
+    bool RenameFolder(const QString &folderPath, const QString &newFolderPath);
+    QStringList FileListCreate(const QString &folderPath);
+    QStringList FolderListCreate(const QString &folderPath);
 
 private:
     bool CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);

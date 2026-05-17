@@ -28,39 +28,39 @@ public:
     ~SQLiteManager();
 
     // Connection methods
-    Q_INVOKABLE bool openDatabase(const QString &connectionName, const QString &dbPath);
-    Q_INVOKABLE void closeDatabase(const QString &connectionName);
-    Q_INVOKABLE bool isDatabaseOpen(const QString &connectionName) const;
+    bool openDatabase(const QString &connectionName, const QString &dbPath);
+    void closeDatabase(const QString &connectionName);
+    bool isDatabaseOpen(const QString &connectionName) const;
 
     // Database
-    Q_INVOKABLE bool createDatabase(const QString &connectionName, const QString &dbPath);
-    Q_INVOKABLE bool deleteDatabase(const QString &connectionName, const QString &dbPath);
-    Q_INVOKABLE bool databaseFileExists(const QString &dbPath) const;
+    bool createDatabase(const QString &connectionName, const QString &dbPath);
+    bool deleteDatabase(const QString &connectionName, const QString &dbPath);
+    bool databaseFileExists(const QString &dbPath) const;
 
     // Schema / initialization
-    Q_INVOKABLE bool createTable(const QString &connectionName, const QString &tableName, const QStringList &columnDefs);
-    Q_INVOKABLE bool tableExists(const QString &connectionName, const QString &tableName) const;
-    Q_INVOKABLE bool dropTable(const QString &connectionName, const QString &tableName);
-    Q_INVOKABLE bool executeSql(const QString &connectionName, const QString &sql);
+    bool createTable(const QString &connectionName, const QString &tableName, const QStringList &columnDefs);
+    bool tableExists(const QString &connectionName, const QString &tableName) const;
+    bool dropTable(const QString &connectionName, const QString &tableName);
+    bool executeSql(const QString &connectionName, const QString &sql);
 
     // Write
-    Q_INVOKABLE bool insert(const QString &connectionName, const QString &tableName, const QVariantMap &data);
-    Q_INVOKABLE bool update(const QString &connectionName, const QString &tableName, const QVariantMap &data, const QString &whereClause, const QVariantList &whereValues = {});
-    Q_INVOKABLE bool remove(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues = {});
+    bool insert(const QString &connectionName, const QString &tableName, const QVariantMap &data);
+    bool update(const QString &connectionName, const QString &tableName, const QVariantMap &data, const QString &whereClause, const QVariantList &whereValues = {});
+    bool remove(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues = {});
 
     // Read
-    Q_INVOKABLE QVariantList selectAll(const QString &connectionName, const QString &tableName, const QStringList &columns = {});
-    Q_INVOKABLE QVariantList selectWhere(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues = {}, const QStringList &columns = {});
-    Q_INVOKABLE QVariantMap  selectFirst(const QString &connectionName, const QString &tableName, const QString &whereClause = {}, const QVariantList &whereValues = {});
-    Q_INVOKABLE int          count(const QString &connectionName, const QString &tableName, const QString &whereClause = {}, const QVariantList &whereValues = {});
+    QVariantList selectAll(const QString &connectionName, const QString &tableName, const QStringList &columns = {});
+    QVariantList selectWhere(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues = {}, const QStringList &columns = {});
+    QVariantMap  selectFirst(const QString &connectionName, const QString &tableName, const QString &whereClause = {}, const QVariantList &whereValues = {});
+    int          count(const QString &connectionName, const QString &tableName, const QString &whereClause = {}, const QVariantList &whereValues = {});
 
     // Transaction helpers
-    Q_INVOKABLE bool beginTransaction(const QString &connectionName);
-    Q_INVOKABLE bool commitTransaction(const QString &connectionName);
-    Q_INVOKABLE bool rollbackTransaction(const QString &connectionName);
+    bool beginTransaction(const QString &connectionName);
+    bool commitTransaction(const QString &connectionName);
+    bool rollbackTransaction(const QString &connectionName);
 
     // Error handling
-    Q_INVOKABLE QString lastError() const;
+    QString lastError() const;
 
 signals:
     void signalDatabaseError(const QString &error);

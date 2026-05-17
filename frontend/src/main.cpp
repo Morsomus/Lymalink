@@ -6,8 +6,8 @@
 // Description: Lymalink Application entry
 /////////////////////////////////////////////////////////
 
-#include "sys/SysTray.h"
-#include "sys/Settings.h"
+#include "SysTray.h"
+#include "Settings.h"
 
 #include <QApplication>
 #include <QIcon>
