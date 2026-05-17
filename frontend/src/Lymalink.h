@@ -8,7 +8,11 @@
 
 #pragma once
 
+#include "Error.h"
+#include "database/SQLiteManager.h"
+
 #include <QObject>
+#include <QString>
 
 class Lymalink : public QObject
 {
@@ -18,8 +22,14 @@ public:
     explicit Lymalink(QObject *parent = nullptr);
     ~Lymalink();
 
+    Error Initialize();
+
 signals:
     
 private:
-    
+    Error DatabaseInit();
+
+    SQLiteManager m_databaseManager;
+    QString m_databaseConnectionName;
+    QString m_databasePath;
 };

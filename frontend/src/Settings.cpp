@@ -16,14 +16,14 @@
 
 /////////////////////////////////////////////////////////////////////
 
-Settings::Settings(QObject *parent) : QObject(parent)
+Settings::Settings(QObject *parent) : QObject(parent),
+    m_settings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION)
 {
-    m_settings = new QSettings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION, this);
     m_windowSizeXDefault = 1510;
     m_windowSizeYDefault = 900;
     SetDefaults();
 
-    if (!QFileInfo::exists(m_settings->fileName()))
+    if (!QFileInfo::exists(m_settings.fileName()))
     {
         SaveConfig();
     }
@@ -35,7 +35,7 @@ Settings::Settings(QObject *parent) : QObject(parent)
 
 Settings::~Settings()
 {
-    delete m_settings;
+    // Destructor
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -58,7 +58,7 @@ bool Settings::ResetDefaults()
     qDebug() << "Settings::ResetDefaults - Resetting configuration to defaults...";
 
     SetDefaults();
-    m_settings->clear();
+    m_settings.clear();
 
     return SaveConfig();
 }
@@ -75,9 +75,9 @@ bool Settings::SaveConfig()
         return false;
     }
 
-    m_settings->sync();
+    m_settings.sync();
 
-    const bool saved = (m_settings->status() == QSettings::NoError);
+    const bool saved = (m_settings.status() == QSettings::NoError);
     if (saved)
     {
         emit signalConfigChanged();
@@ -90,47 +90,47 @@ bool Settings::SaveConfig()
 
 bool Settings::LoadConfig()
 {
-    qDebug() << "Settings::LoadConfig - Loading configuration from: " << m_settings->fileName();
+    qDebug() << "Settings::LoadConfig - Loading configuration from: " << m_settings.fileName();
 
-    m_settings->beginGroup(GROUP_APPEARANCE);
-    m_theme = m_settings->value("Theme", m_theme).toString();
-    m_showLymalinkLogo = m_settings->value("ShowLymalinkLogo", m_showLymalinkLogo).toBool();
-    m_language = m_settings->value("Language", m_language).toString();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_APPEARANCE);
+    m_theme = m_settings.value("Theme", m_theme).toString();
+    m_showLymalinkLogo = m_settings.value("ShowLymalinkLogo", m_showLymalinkLogo).toBool();
+    m_language = m_settings.value("Language", m_language).toString();
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_INTERFACE);
-    m_closeToTray = m_settings->value("CloseToTray", m_closeToTray).toBool();
-    m_closeToTrayToast = m_settings->value("CloseToTrayToast", m_closeToTrayToast).toBool();
-    m_showCollapseButton = m_settings->value("ShowCollapseButton", m_showCollapseButton).toBool();
-    m_showTooltips = m_settings->value("ShowTooltips", m_showTooltips).toBool();
-    m_enableCollapseBorderButton = m_settings->value("EnableCollapseBorderButton", m_enableCollapseBorderButton).toBool();
-    m_sidebarCollapsed = m_settings->value("SidebarCollapsed", m_sidebarCollapsed).toBool();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_INTERFACE);
+    m_closeToTray = m_settings.value("CloseToTray", m_closeToTray).toBool();
+    m_closeToTrayToast = m_settings.value("CloseToTrayToast", m_closeToTrayToast).toBool();
+    m_showCollapseButton = m_settings.value("ShowCollapseButton", m_showCollapseButton).toBool();
+    m_showTooltips = m_settings.value("ShowTooltips", m_showTooltips).toBool();
+    m_enableCollapseBorderButton = m_settings.value("EnableCollapseBorderButton", m_enableCollapseBorderButton).toBool();
+    m_sidebarCollapsed = m_settings.value("SidebarCollapsed", m_sidebarCollapsed).toBool();
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_DISPLAY);
-    m_showProgressFrame = m_settings->value("ShowProgressFrame", m_showProgressFrame).toBool();
-    m_showInstallationStatusBadge = m_settings->value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
-    m_progressFrameGrayscaleMode = m_settings->value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
-    m_showTotalAchievementsBadge = m_settings->value("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge).toBool();
-    m_enableProgressFrameCompletionAnimation = m_settings->value("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation).toBool();
-    m_enableDynamicAchievementRows = m_settings->value("EnableDynamicAchievementRows", m_enableDynamicAchievementRows).toBool();
-    m_windowSizeX = m_settings->value("WindowSizeX", m_windowSizeX).toUInt();
-    m_windowSizeY = m_settings->value("WindowSizeY", m_windowSizeY).toUInt();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_DISPLAY);
+    m_showProgressFrame = m_settings.value("ShowProgressFrame", m_showProgressFrame).toBool();
+    m_showInstallationStatusBadge = m_settings.value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
+    m_progressFrameGrayscaleMode = m_settings.value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
+    m_showTotalAchievementsBadge = m_settings.value("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge).toBool();
+    m_enableProgressFrameCompletionAnimation = m_settings.value("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation).toBool();
+    m_enableDynamicAchievementRows = m_settings.value("EnableDynamicAchievementRows", m_enableDynamicAchievementRows).toBool();
+    m_windowSizeX = m_settings.value("WindowSizeX", m_windowSizeX).toUInt();
+    m_windowSizeY = m_settings.value("WindowSizeY", m_windowSizeY).toUInt();
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_STEAM_WEB_API);
-    m_steamId = m_settings->value("SteamId", m_steamId).toString();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_steamId = m_settings.value("SteamId", m_steamId).toString();
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_SYSTEM);
-    m_backendService = m_settings->value("BackendService", m_backendService).toBool();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_SYSTEM);
+    m_backendService = m_settings.value("BackendService", m_backendService).toBool();
+    m_settings.endGroup();
 
     LoadEncryptedValues();
 
     emit signalConfigChanged();
 
-    return (m_settings->status() == QSettings::NoError);
+    return (m_settings.status() == QSettings::NoError);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -322,13 +322,13 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         } 
     }
 
-    m_settings->beginGroup(group);
-    m_settings->setValue(settingsKey, settingsValue);
-    m_settings->endGroup();
+    m_settings.beginGroup(group);
+    m_settings.setValue(settingsKey, settingsValue);
+    m_settings.endGroup();
 
-    m_settings->sync();
+    m_settings.sync();
 
-    const bool saved = (m_settings->status() == QSettings::NoError);
+    const bool saved = (m_settings.status() == QSettings::NoError);
     if (emitSignal && saved)
     {
         emit signalConfigChanged();
@@ -400,9 +400,9 @@ bool Settings::SaveSteamWebApiKey()
         return false;
     }
 
-    m_settings->sync();
+    m_settings.sync();
 
-    const bool saved = (m_settings->status() == QSettings::NoError);
+    const bool saved = (m_settings.status() == QSettings::NoError);
     if (saved)
     {
         emit signalConfigChanged();
@@ -415,39 +415,39 @@ bool Settings::SaveSteamWebApiKey()
 
 void Settings::SavePlainValues()
 {
-    m_settings->beginGroup(GROUP_APPEARANCE);
-    m_settings->setValue("Theme", m_theme);
-    m_settings->setValue("ShowLymalinkLogo", m_showLymalinkLogo);
-    m_settings->setValue("Language", m_language);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_APPEARANCE);
+    m_settings.setValue("Theme", m_theme);
+    m_settings.setValue("ShowLymalinkLogo", m_showLymalinkLogo);
+    m_settings.setValue("Language", m_language);
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_INTERFACE);
-    m_settings->setValue("CloseToTray", m_closeToTray);
-    m_settings->setValue("CloseToTrayToast", m_closeToTrayToast);
-    m_settings->setValue("ShowCollapseButton", m_showCollapseButton);
-    m_settings->setValue("ShowTooltips", m_showTooltips);
-    m_settings->setValue("EnableCollapseBorderButton", m_enableCollapseBorderButton);
-    m_settings->setValue("SidebarCollapsed", m_sidebarCollapsed);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_INTERFACE);
+    m_settings.setValue("CloseToTray", m_closeToTray);
+    m_settings.setValue("CloseToTrayToast", m_closeToTrayToast);
+    m_settings.setValue("ShowCollapseButton", m_showCollapseButton);
+    m_settings.setValue("ShowTooltips", m_showTooltips);
+    m_settings.setValue("EnableCollapseBorderButton", m_enableCollapseBorderButton);
+    m_settings.setValue("SidebarCollapsed", m_sidebarCollapsed);
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_DISPLAY);
-    m_settings->setValue("ShowProgressFrame", m_showProgressFrame);
-    m_settings->setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
-    m_settings->setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);
-    m_settings->setValue("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge);
-    m_settings->setValue("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation);
-    m_settings->setValue("EnableDynamicAchievementRows", m_enableDynamicAchievementRows);
-    m_settings->setValue("WindowSizeX", m_windowSizeX);
-    m_settings->setValue("WindowSizeY", m_windowSizeY);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_DISPLAY);
+    m_settings.setValue("ShowProgressFrame", m_showProgressFrame);
+    m_settings.setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
+    m_settings.setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);
+    m_settings.setValue("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge);
+    m_settings.setValue("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation);
+    m_settings.setValue("EnableDynamicAchievementRows", m_enableDynamicAchievementRows);
+    m_settings.setValue("WindowSizeX", m_windowSizeX);
+    m_settings.setValue("WindowSizeY", m_windowSizeY);
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_STEAM_WEB_API);
-    m_settings->setValue("SteamId", m_steamId);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("SteamId", m_steamId);
+    m_settings.endGroup();
 
-    m_settings->beginGroup(GROUP_SYSTEM);
-    m_settings->setValue("BackendService", m_backendService);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_SYSTEM);
+    m_settings.setValue("BackendService", m_backendService);
+    m_settings.endGroup();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -469,9 +469,9 @@ bool Settings::SaveEncryptedValues()
         return false;
     }
 
-    m_settings->beginGroup(GROUP_STEAM_WEB_API);
-    m_settings->setValue("WebApiKey", encryptedWebApiKey);
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("WebApiKey", encryptedWebApiKey);
+    m_settings.endGroup();
 
     return true;
 }
@@ -482,9 +482,9 @@ void Settings::LoadEncryptedValues()
 {
     qDebug() << "Settings::LoadEncryptedValues - Loading encrypted values from config...";
 
-    m_settings->beginGroup(GROUP_STEAM_WEB_API);
-    const QString encryptedWebApiKey = m_settings->value("WebApiKey").toString();
-    m_settings->endGroup();
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    const QString encryptedWebApiKey = m_settings.value("WebApiKey").toString();
+    m_settings.endGroup();
 
     if (encryptedWebApiKey.isEmpty())
     {

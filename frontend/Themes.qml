@@ -144,6 +144,14 @@ QtObject {
             readonly property color pillLabel: "#aaaacc"
             readonly property color pillValueActive: "white"
 
+            readonly property color addTargetBackground: Qt.rgba(0.05, 0.16, 0.52, 0.18)
+            readonly property color addTargetBackgroundHover: Qt.rgba(0.05, 0.16, 0.52, 0.26)
+            readonly property color addTargetBackgroundPressed: Qt.rgba(0.05, 0.16, 0.52, 0.35)
+            readonly property color addTargetBorder: Qt.rgba(0.20, 0.38, 0.82, 0.62)
+            readonly property color addTargetBorderHover: Qt.rgba(0.20, 0.38, 0.82, 0.75)
+            readonly property color addTargetBorderPressed: Qt.rgba(0.20, 0.38, 0.82, 0.90)
+            readonly property color addTargetText: Qt.rgba(0.86, 0.92, 1.00, 1.00)
+
             readonly property color segmentActive: Qt.rgba(1, 1, 1, 0.15)
             readonly property color segmentPressed: Qt.rgba(1, 1, 1, 0.12)
             readonly property color segmentHover: Qt.rgba(1, 1, 1, 0.08)
@@ -379,6 +387,31 @@ QtObject {
             readonly property int rowGlobalLabel: 11
             readonly property int rowUnlockDate: 13
             readonly property int hiddenIcon: 22
+        }
+    }
+
+    // NewTarget.qml
+    readonly property QtObject newTarget: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color titleText: "#ffffff"
+            readonly property color cardBackground: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color cardBackgroundHover: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color cardBackgroundPressed: Qt.rgba(1, 1, 1, 0.06)
+            readonly property color cardBorder: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color cardBorderHover: Qt.rgba(1, 1, 1, 0.14)
+            readonly property color labelText: "#ffffff"
+            readonly property color descriptionText: "#999999"
+            readonly property color icon: "#ffffff"
+            readonly property color arrow: "#999999"
+            readonly property color arrowHover: "#ffffff"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 28
+            readonly property int label: 13
+            readonly property int description: 11
+            readonly property int icon: 22
+            readonly property int arrow: 18
         }
     }
 }

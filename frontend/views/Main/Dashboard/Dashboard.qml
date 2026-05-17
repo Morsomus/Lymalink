@@ -21,6 +21,7 @@ Item {
     property bool noTargetsAvailable: false
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
+    property bool showingAddTarget: false
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
 
     function onTargetSelected(title, coverSource, achievementCount, achievementTotal, installationStatus, lastPlayed, recentUnlock) {
@@ -70,6 +71,13 @@ Item {
         }
     }
 
+    Component {
+        id: id_newTargetLayout
+
+        NewTarget {
+        }
+    }
+
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
@@ -83,8 +91,13 @@ Item {
         // Dashboard Title and dynamic Toolbar
         DashboardToolbar {
             Layout.fillWidth: true
-            p_toolbarTitle: id_root.showingTargetDetails ? id_root.pendingTargetDetails.title : qsTr("Dashboard")
+            p_toolbarTitle: id_root.showingAddTarget
+                ? qsTr("Add Target")
+                : id_root.showingTargetDetails
+                    ? id_root.pendingTargetDetails.title
+                    : qsTr("Dashboard")
             p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
+            p_addTargetVisible: id_root.showingAddTarget ? true : false
             p_activeLayout: id_root.activeLayout
 
             // Layout selection
@@ -93,6 +106,13 @@ Item {
             // Close Target Details
             onReturnClicked: {
                 id_root.showingTargetDetails = false
+                id_root.showingAddTarget = false
+            }
+
+            // Add target
+            onAddTargetClicked: {
+                id_root.showingTargetDetails = false
+                id_root.showingAddTarget = true
             }
         }
 
@@ -106,7 +126,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: id_root.noTargetsAvailable
+            visible: id_root.noTargetsAvailable && !id_root.showingAddTarget && !id_root.showingTargetDetails
 
             Column {
                 anchors.centerIn: parent
@@ -140,9 +160,11 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !id_root.noTargetsAvailable
+            visible: !id_root.noTargetsAvailable || id_root.showingAddTarget || id_root.showingTargetDetails
             sourceComponent: {
-                if (id_root.showingTargetDetails) {
+                if (id_root.showingAddTarget) {
+                    return id_newTargetLayout
+                } else if (id_root.showingTargetDetails) {
                     return id_targetDetailsLayout
                 } else if (id_root.activeLayout === "list" || id_root.activeLayout === "detailedList") {
                     return id_cardListLayout

@@ -105,7 +105,7 @@ signals:
     void signalConfigChanged();
 
 private:
-    QSettings *m_settings;
+    QSettings m_settings;
     QString m_pinCode;
 
     QString m_theme;

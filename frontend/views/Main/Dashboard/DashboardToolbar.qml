@@ -20,11 +20,13 @@ Item {
 
     // Public ________________________________________________
     property bool p_targetDetailsVisible: false
+    property bool p_addTargetVisible: false
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
 
     signal layoutSelected(string size)
     signal returnClicked()
+    signal addTargetClicked()
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -48,11 +50,15 @@ Item {
         { value: "defaultCardGrid", label: "Default" }
     ]
 
-    implicitHeight: !p_targetDetailsVisible ? id_toolbar.implicitHeight : id_targetDetailsToolbar.implicitHeight
+    implicitHeight: p_addTargetVisible
+        ? id_addTargetToolbar.implicitHeight
+        : p_targetDetailsVisible
+            ? id_targetDetailsToolbar.implicitHeight
+            : id_toolbar.implicitHeight
 
     Shortcut {
         sequence: "Esc"
-        enabled: id_root.p_targetDetailsVisible
+        enabled: id_root.p_targetDetailsVisible || id_root.p_addTargetVisible
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -61,7 +67,7 @@ Item {
 
     Shortcut {
         sequence: "Backspace"
-        enabled: id_root.p_targetDetailsVisible
+        enabled: id_root.p_targetDetailsVisible || id_root.p_addTargetVisible
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -319,11 +325,94 @@ Item {
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
+    // Add New Target Toolbar
+    ColumnLayout {
+        id: id_addTargetToolbar
+
+        visible: p_addTargetVisible
+        anchors.fill: parent
+
+        // Toolbar row: back image, wrapping title, toolbar column.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 20
+
+            // Back arrow image
+            Item {
+                Layout.preferredWidth: id_addTargetBackArrowRow.implicitWidth
+                Layout.preferredHeight: id_addTargetBackArrowRow.implicitHeight
+                Layout.alignment: Qt.AlignTop
+
+                MouseArea {
+                    id: id_addTargetBackArrowMouseArea
+
+                    anchors.fill: parent
+                    enabled: p_addTargetVisible
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        id_root.targetDetailsActivePanel = false
+                        id_root.returnClicked()
+                    }
+
+                    RowLayout {
+                        id: id_addTargetBackArrowRow
+
+                        spacing: 10
+
+                        CustomTooltip {
+                            active: id_addTargetBackArrowMouseArea.containsMouse
+                            delay: 500
+                            text: qsTr("Backspace / Escape key")
+                        }
+
+                        Image {
+                            id: id_addTargetBackArrowIcon
+
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00033_ED.png"
+                            Layout.preferredWidth: 35
+                            Layout.preferredHeight: 35
+                            rotation: 180
+                            opacity: id_addTargetBackArrowMouseArea.containsMouse ? 0.7 : 1.0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 120
+                                }
+                            }
+                        }
+
+                        Label {
+                            id: id_addTargetTitleLabel
+
+                            Layout.minimumWidth: 80
+                            Layout.preferredWidth: Math.min(implicitWidth, 450)
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.title
+                            font.bold: true
+                            color: Themes.dashboardToolbar.colors.titleText
+                            opacity: id_addTargetBackArrowMouseArea.containsMouse ? 0.7 : 1.0
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                            text: id_root.p_toolbarTitle
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 120
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Target Details Toolbar
     ColumnLayout {
         id: id_targetDetailsToolbar
 
-        visible: p_targetDetailsVisible
+        visible: p_targetDetailsVisible && !p_addTargetVisible
         anchors.fill: parent
 
         // Toolbar row: back image, wrapping title, toolbar column.
@@ -615,7 +704,7 @@ Item {
     ColumnLayout {
         id: id_toolbar
 
-        visible: !p_targetDetailsVisible
+        visible: !p_targetDetailsVisible && !p_addTargetVisible
         anchors.fill: parent
         spacing: 8
 
@@ -642,7 +731,7 @@ Item {
 
             // Search bar
             Rectangle {
-                implicitWidth: 220
+                implicitWidth: 200
                 implicitHeight: 32
                 radius: 16
                 color: Themes.dashboardToolbar.colors.searchBackground
@@ -847,6 +936,58 @@ Item {
                             }
                         }
                     }
+                }
+            }
+
+            // Divider
+            Rectangle {
+                width: 1
+                implicitHeight: 32
+                color: Themes.dashboardToolbar.colors.divider
+                opacity: 0.5
+            }
+
+            // Add Target Button
+            Rectangle {
+                id: id_addTarget
+
+                implicitHeight: 32
+                implicitWidth: id_addTargetLabel.implicitWidth + 24
+                radius: 16
+
+                color: id_addTargetMouseArea.pressed
+                    ? Themes.dashboardToolbar.colors.addTargetBackgroundPressed
+                    : id_addTargetMouseArea.containsMouse
+                    ? Themes.dashboardToolbar.colors.addTargetBackgroundHover
+                    : Themes.dashboardToolbar.colors.addTargetBackground
+
+                border.width: 1
+                border.color: id_addTargetMouseArea.pressed
+                    ? Themes.dashboardToolbar.colors.addTargetBorderPressed
+                    : id_addTargetMouseArea.containsMouse
+                    ? Themes.dashboardToolbar.colors.addTargetBorderHover
+                    : Themes.dashboardToolbar.colors.addTargetBorder
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Text {
+                    id: id_addTargetLabel
+                    anchors.centerIn: parent
+                    text: qsTr("Add Target")
+                    color: Themes.dashboardToolbar.colors.addTargetText
+                    font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                }
+
+                MouseArea {
+                    id: id_addTargetMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: addTargetClicked()
                 }
             }
         }

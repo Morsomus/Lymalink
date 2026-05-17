@@ -6,6 +6,7 @@
 // Description: Lymalink Application entry
 /////////////////////////////////////////////////////////
 
+#include "Lymalink.h"
 #include "SysTray.h"
 #include "Settings.h"
 
@@ -39,14 +40,22 @@ int main(int argc, char *argv[]) {
     // Set titlebar icon
     app.setWindowIcon(QIcon(":/qt/qml/Lymalink/res/img/BlankBackground_MFC_00002_E.png"));
 
-    Settings* settings = new Settings;
-    SysTray* sysTray = new SysTray;
+    Settings* settings = new Settings(&app);
+    SysTray* sysTray = new SysTray(&app);
+    Lymalink* lymalink = new Lymalink(&app);
+    const Error lymalinkInitError = lymalink->Initialize();
+    if (lymalinkInitError != Error::NoError)
+    {
+        qCritical() << "Failed to initialize Lymalink backend:" << static_cast<int>(lymalinkInitError);
+        return -1;
+    }
 
     QQmlApplicationEngine engine;
 
     // Set context
     engine.rootContext()->setContextProperty("LYMALINK_APP_VERSION", QStringLiteral(LYMALINK_VERSION));
     engine.rootContext()->setContextProperty("LICENSE_APP_VERSION", QStringLiteral(LICENSE_VERSION));
+    engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);
 

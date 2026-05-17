@@ -1,19 +1,19 @@
 /////////////////////////////////////////////////////////
-// File: Error.h
+// File: Utils.h
 // Date: 2026-05-17
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares Error
+// Description: Declares shared utility functions
 /////////////////////////////////////////////////////////
 
 #pragma once
 
-enum class Error {
-    NoError,
-    DatabaseError,
-    FileSystemError,
-    InvalidParameter,
-    NotFound,
-    Nullptr,
-    ParseError
-};
+#include <QString>
+
+namespace Utils
+{
+
+qint64 IsoDateToEpoch(const QString &isoDate);
+QString EpochToIsoDate(qint64 epochTime);
+
+}

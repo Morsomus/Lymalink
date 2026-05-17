@@ -28,6 +28,8 @@ qt_add_executable(Lymalink
     src/tools/Encryption.cpp
     src/tools/FileManager.h
     src/tools/FileManager.cpp
+    src/tools/Utils.h
+    src/tools/Utils.cpp
     src/api/SteamApi.h
     src/api/SteamApi.cpp
 )
@@ -91,6 +93,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/CardList/CardList.qml
         views/Main/Dashboard/CardList/Components/CardRow.qml
         views/Main/Dashboard/CardList/Components/CardRowDetailed.qml
+        views/Main/Dashboard/NewTarget/NewTarget.qml
         views/Main/Dashboard/TargetDetails/TargetDetails.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml
