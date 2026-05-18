@@ -9,9 +9,12 @@
 #pragma once
 
 #include "Error.h"
+#include "api/SteamApi.h"
 #include "database/SQLiteManager.h"
 
 #include <QObject>
+#include <QVariantList>
+#include <QVariantMap>
 #include <QString>
 
 class Lymalink : public QObject
@@ -23,6 +26,7 @@ public:
     ~Lymalink();
 
     Error Initialize();
+    Q_INVOKABLE QVariantList SearchSteamAppIds(const QString &term);
 
 signals:
     
@@ -30,6 +34,7 @@ private:
     Error DatabaseInit();
 
     SQLiteManager m_databaseManager;
+    SteamApi m_steamApi;
     QString m_databaseConnectionName;
     QString m_databasePath;
 };

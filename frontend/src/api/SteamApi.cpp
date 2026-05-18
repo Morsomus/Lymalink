@@ -660,6 +660,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
         return gameInfo;
     }
     gameInfo.appId = responseAppId;
+    gameInfo.type = static_cast<SteamAppType>(storeItem["type"].toInt(-1));
 
     gameInfo.gameName = storeItem["name"].toString();
     if (gameInfo.gameName.isEmpty())

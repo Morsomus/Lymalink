@@ -400,7 +400,11 @@ QtObject {
             readonly property color cardBorder: Qt.rgba(1, 1, 1, 0.07)
             readonly property color cardBorderHover: Qt.rgba(1, 1, 1, 0.14)
             readonly property color labelText: "#ffffff"
-            readonly property color descriptionText: "#999999"
+            readonly property color descriptionText: "#b0b0b0"
+            readonly property color disabledText: "#777777"
+            readonly property color badgeBackground: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color badgeBorder: Qt.rgba(1, 1, 1, 0.10)
+            readonly property color badgeText: "#b8b8b8"
             readonly property color icon: "#ffffff"
             readonly property color arrow: "#999999"
             readonly property color arrowHover: "#ffffff"
@@ -408,10 +412,41 @@ QtObject {
 
         readonly property QtObject fontSizes: QtObject {
             readonly property int title: 28
+            readonly property int label: 16
+            readonly property int description: 13
+            readonly property int icon: 26
+            readonly property int arrow: 22
+            readonly property int badge: 11
+        }
+    }
+
+    // Emulator.qml
+    readonly property QtObject emulatorTarget: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color titleText: "#ffffff"
+            readonly property color labelText: "#ffffff"
+            readonly property color descriptionText: "#999999"
+            readonly property color divider: "#2a2a2a"
+            readonly property color resultBackground: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color resultBackgroundHover: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color resultBackgroundPressed: Qt.rgba(1, 1, 1, 0.06)
+            readonly property color resultBorder: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color resultBorderSelected: Qt.rgba(1, 1, 1, 0.14)
+            readonly property color confirmBackground: Qt.rgba(0.05, 0.16, 0.52, 0.10)
+            readonly property color confirmBackgroundHover: Qt.rgba(0.05, 0.16, 0.52, 0.26)
+            readonly property color confirmBackgroundPressed: Qt.rgba(0.05, 0.16, 0.52, 0.35)
+            readonly property color confirmBorder: Qt.rgba(0.20, 0.38, 0.82, 0.62)
+            readonly property color confirmBorderHover: Qt.rgba(0.20, 0.38, 0.82, 0.75)
+            readonly property color confirmBorderPressed: Qt.rgba(0.20, 0.38, 0.82, 0.90)
+            readonly property color confirmText: "#ffffff"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 28
             readonly property int label: 13
             readonly property int description: 11
-            readonly property int icon: 22
-            readonly property int arrow: 18
+            readonly property int input: 15
+            readonly property int confirmButton: 13
         }
     }
 }

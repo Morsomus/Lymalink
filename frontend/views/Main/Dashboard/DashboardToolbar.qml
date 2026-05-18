@@ -42,7 +42,7 @@ Item {
     readonly property var targetDetailsSortModel: ["name", "unlockDate"]
     readonly property var targetDetailsFilterModel: ["all", "unlocked", "locked", "hidden"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
-    readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "official", "hidden", "installed", "notInstalled"]
+    readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "steam", "hidden", "installed", "notInstalled"]
     readonly property var controlModel: [
         { value: "list", label: "List" },
         { value: "detailedList", label: "Details" },
@@ -93,7 +93,7 @@ Item {
             case "uncompleted":  return qsTr("Uncompleted")
             case "custom":       return qsTr("Custom")
             case "emulator":     return qsTr("Emulator")
-            case "official":     return qsTr("Official")
+            case "steam":        return qsTr("Steam")
             case "hidden":       return qsTr("Hidden")
             case "installed":    return qsTr("Installed")
             case "notInstalled": return qsTr("Not Installed")

@@ -94,6 +94,9 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/CardList/Components/CardRow.qml
         views/Main/Dashboard/CardList/Components/CardRowDetailed.qml
         views/Main/Dashboard/NewTarget/NewTarget.qml
+        views/Main/Dashboard/NewTarget/Targets/Custom.qml
+        views/Main/Dashboard/NewTarget/Targets/Emulator.qml
+        views/Main/Dashboard/NewTarget/Targets/SteamImport.qml
         views/Main/Dashboard/TargetDetails/TargetDetails.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml

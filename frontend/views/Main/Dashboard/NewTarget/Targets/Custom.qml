@@ -1,9 +1,12 @@
 /////////////////////////////////////////////////////////
-// File: Emulator.qml
+// File: Custom.qml
 // Date: 2026-05-17
 // Author: Morsomus
 // Copyright: see /LICENSE
 // Description: Custom Target for active tracking
 /////////////////////////////////////////////////////////
 
-// TBD IN FUTURE
+import QtQuick
+
+Item {
+}

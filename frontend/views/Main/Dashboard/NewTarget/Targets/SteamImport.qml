@@ -1,9 +1,12 @@
 /////////////////////////////////////////////////////////
-// File: NewTarget.qml
+// File: SteamImport.qml
 // Date: 2026-05-17
 // Author: Morsomus
 // Copyright: see /LICENSE
 // Description: Import Steam Achievements to be displayed
 /////////////////////////////////////////////////////////
 
-// TBD IN FUTURE
+import QtQuick
+
+Item {
+}

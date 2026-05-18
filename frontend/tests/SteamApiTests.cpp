@@ -101,6 +101,7 @@ void SteamApiTests::searchGameInfo_arcRaiders_returnsExpectedInfo()
     QVERIFY(error == Error::NoError);
 
     QCOMPARE(gameInfo.appId, 1808500);
+    QCOMPARE(gameInfo.type, SteamAppType::Game);
     QCOMPARE(gameInfo.gameName, QString("ARC Raiders"));
     QVERIFY(!gameInfo.lcSuffix.isEmpty());
     QVERIFY(!gameInfo.ciSuffix.isEmpty());
@@ -321,6 +322,7 @@ void SteamApiTests::debugPrintGameInfo(const SteamGameInfo &gameInfo) const
 {
     qDebug() << "debugPrintGameInfo - SearchGameInfo result:";
     qDebug() << "appId:" << gameInfo.appId;
+    qDebug() << "type:" << static_cast<int>(gameInfo.type);
     qDebug() << "gameName:" << gameInfo.gameName;
     qDebug() << "lcSuffix:" << gameInfo.lcSuffix;
     qDebug() << "ciSuffix:" << gameInfo.ciSuffix;

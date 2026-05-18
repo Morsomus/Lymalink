@@ -11,6 +11,7 @@
 #include "Defines.h"
 #include "tools/Utils.h"
 
+#include <algorithm>
 #include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
@@ -34,6 +35,50 @@ Lymalink::~Lymalink()
 Error Lymalink::Initialize()
 {
     return DatabaseInit();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantList Lymalink::SearchSteamAppIds(const QString &term)
+{
+    QList<SteamSearchResult> results;
+    const Error error = m_steamApi.SearchAppId(term, results);
+
+    QVariantList qmlResults;
+    if (error != Error::NoError)
+    {
+        qDebug() << "Lymalink: Steam app id search failed:" << static_cast<int>(error);
+        return qmlResults;
+    }
+
+    for (const SteamSearchResult &result : results)
+    {
+        SteamGameInfo gameInfo;
+        const Error gameInfoError = m_steamApi.SearchGameInfo(result.appId, gameInfo);
+        if (gameInfoError != Error::NoError)
+        {
+            if (gameInfoError != Error::ParseError)
+            {
+                // Parse error can occur for DLCs, Soundtracks, Packages etc.
+                qDebug() << "Lymalink: Steam game info hydrate failed for app id" << result.appId << ":" << static_cast<int>(gameInfoError);
+            }
+            continue;
+        }
+
+        // Accept only Game types
+        if (gameInfo.type != SteamAppType::Game)
+        {
+            continue;
+        }
+
+        QVariantMap item;
+        item["id"] = gameInfo.appId;
+        item["name"] = gameInfo.gameName;
+
+        qmlResults.append(item);
+    }
+
+    return qmlResults;
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -17,6 +17,14 @@
 #include <QPair>
 #include <QString>
 
+enum class SteamAppType {
+    Unknown = -1,
+    Game = 0,
+    Demo = 1,
+    DLC = 4,
+    Music = 11
+};
+
 struct SteamSearchResult
 {
     QString gameName;
@@ -26,6 +34,7 @@ struct SteamSearchResult
 struct SteamGameInfo
 {
     int appId = 0;
+    SteamAppType type = SteamAppType::Unknown;
     QString gameName;
     QString lcSuffix;
     QString ciSuffix;
