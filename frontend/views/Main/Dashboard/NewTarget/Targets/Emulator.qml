@@ -21,11 +21,15 @@ Item {
     property var searchResults: []
     property bool isSearching: false
     property string statusText: ""
+    property bool statusIsError: false
     property int selectedAppId: 0
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
-    property bool manualAchievementPath: false
+    readonly property bool prefixWarning: {
+        const t = id_prefixLocationField.text.trim()
+        return t.length > 0 && !t.split("/").pop().startsWith("drive_")
+    }
 
     function fileUrlToPath(fileUrl) {
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
@@ -35,6 +39,7 @@ Item {
         const term = id_searchField.text.trim()
         if (term.length === 0) {
             id_root.statusText = qsTr("Enter game name")
+            id_root.statusIsError = false
             id_root.searchResults = []
             return
         }
@@ -42,9 +47,16 @@ Item {
         id_root.isSearching = true
         id_root.searchResults = ctxLymalink.SearchSteamAppIds(term)
         id_root.isSearching = false
-        id_root.statusText = id_root.searchResults.length === 0
-            ? qsTr("No results")
-            : (id_root.searchResults.length === 10 ? qsTr("%1 results - Limited to max 10 results").arg(id_root.searchResults.length) : qsTr("%1 results").arg(id_root.searchResults.length))
+
+        const requestFailed = !ctxLymalink.GetLastSteamAppIdSearchSuccess()
+        id_root.statusIsError = requestFailed
+        id_root.statusText = requestFailed
+            ? qsTr("Couldn't connect to API service")
+            : (id_root.searchResults.length === 0
+                ? qsTr("No results")
+                : (id_root.searchResults.length === 10
+                    ? qsTr("%1 results - Limited to max 10 results").arg(id_root.searchResults.length)
+                    : qsTr("%1 results").arg(id_root.searchResults.length)))
     }
 
     function selectGame(result) {
@@ -57,6 +69,7 @@ Item {
         id_root.manualGameEntry = enabled
         id_root.searchResults = []
         id_root.statusText = ""
+        id_root.statusIsError = false
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -65,21 +78,18 @@ Item {
 
     FileDialog {
         id: id_exeFileDialog
+
         title: qsTr("Select Game Executable")
         fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("Executable files (*.exe)")]
         onAccepted: id_installLocationField.text = id_root.fileUrlToPath(selectedFile)
     }
 
-    FileDialog {
-        id: id_achievementFileDialog
-        title: qsTr("Select Achievement File")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("All files (*)")]
-        onAccepted: {
-            id_root.manualAchievementPath = true
-            id_achievementLocationField.text = id_root.fileUrlToPath(selectedFile)
-        }
+    FolderDialog {
+        id: id_prefixFolderDialog
+
+        title: qsTr("Select Prefix Location (drive_c or equivalent)")
+        onAccepted: id_prefixLocationField.text = id_root.fileUrlToPath(selectedFolder)
     }
 
     ScrollView {
@@ -93,17 +103,163 @@ Item {
             id: id_content
 
             readonly property int sideMargin: 20
-            
+
             x: Math.max(sideMargin, (id_scrollView.availableWidth - width) / 2)
             width: Math.max(0, Math.min(id_scrollView.availableWidth - sideMargin * 2, 760))
 
+            // Info block
+            Rectangle {
+                id: id_infoBlock
+
+                property bool hoverActive: false
+                Layout.fillWidth: true
+                Layout.topMargin: 20
+                radius: 6
+                color: id_infoBlock.hoverActive
+                    ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                    : Themes.emulatorTarget.colors.infoBlockBackground
+                border.width: 1
+                border.color: id_infoBlock.hoverActive
+                    ? Themes.emulatorTarget.colors.infoBlockBorderHover
+                    : Themes.emulatorTarget.colors.infoBlockBorder
+
+                implicitHeight: id_infoBlock.hoverActive
+                    ? id_infoHeaderRow.implicitHeight + id_infoExpandable.implicitHeight + 32
+                    : id_infoHeaderRow.implicitHeight + 28
+
+                Behavior on implicitHeight {
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.InOutQuad
+                    }
+                }
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Timer {
+                    id: id_infoBlockHoverTimer
+                    interval: 200
+                    repeat: false
+                    onTriggered: id_infoBlock.hoverActive = true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.ArrowCursor
+                    onEntered: id_infoBlockHoverTimer.start()
+                    onExited: {
+                        id_infoBlockHoverTimer.stop()
+                        id_infoBlock.hoverActive = false
+                    }
+                }
+
+                ColumnLayout {
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                        margins: 14
+                    }
+                    spacing: 0
+
+                    // Info Header row
+                    RowLayout {
+                        id: id_infoHeaderRow
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Rectangle {
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Themes.emulatorTarget.colors.infoIconBorder
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "i"
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
+                                font.italic: true
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.infoIconText
+                            }
+                        }
+
+                        Text {
+                            text: qsTr("How detection works")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            font.bold: true
+                            color: id_infoBlock.hoverActive
+                                ? Themes.emulatorTarget.colors.labelText
+                                : Themes.emulatorTarget.colors.infoHeaderInactiveText
+
+                            Behavior on color {
+                                ColorAnimation { duration: 120 }
+                            }
+                        }
+                    }
+
+                    // Expandable content
+                    ColumnLayout {
+                        id: id_infoExpandable
+
+                        Layout.fillWidth: true
+                        Layout.topMargin: 10
+                        spacing: 6
+                        opacity: id_infoBlock.hoverActive ? 1.0 : 0.0
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 140
+                                easing.type: Easing.InOutQuad
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Detection is designed to run only when needed. The backend scans for achievement data only while the selected game is active, avoiding unnecessary background activity.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("The backend monitors the game executable to detect when the game is running. Playtime tracking and achievement scanning are both tied to the process. Neither runs unless the game is active.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("The prefix location is used to locate achievement data written by the emulator. Once the backend finds achievement data matching the selected game ID inside the prefix, the path is saved. Future scans access that location directly without searching the prefix again.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                }
+            }
+
+            // Section 1: Search game
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 10
 
                 Text {
                     Layout.topMargin: 20
-                    text: qsTr("1. Search game")
+                    text: qsTr("1. Search game info")
                     font.pixelSize: Themes.emulatorTarget.fontSizes.title
                     font.bold: true
                     color: Themes.emulatorTarget.colors.titleText
@@ -116,6 +272,7 @@ Item {
 
                     TextField {
                         id: id_searchField
+
                         Layout.fillWidth: true
                         placeholderText: qsTr("Game name")
                         font.pixelSize: Themes.emulatorTarget.fontSizes.input
@@ -144,7 +301,9 @@ Item {
                         Layout.fillWidth: true
                         text: id_root.statusText
                         font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.descriptionText
+                        color: id_root.statusIsError
+                            ? Themes.emulatorTarget.colors.errorText
+                            : Themes.emulatorTarget.colors.descriptionText
                     }
 
                     Text {
@@ -176,12 +335,13 @@ Item {
 
                         delegate: Rectangle {
                             id: id_resultRow
+
                             Layout.fillWidth: true
                             height: 44
                             radius: 6
-                            color: id_resultMouseArea.pressed
+                            color: id_resultRowMouseArea.pressed
                                 ? Themes.emulatorTarget.colors.resultBackgroundPressed
-                                : id_resultMouseArea.containsMouse
+                                : id_resultRowMouseArea.containsMouse
                                     ? Themes.emulatorTarget.colors.resultBackgroundHover
                                     : Themes.emulatorTarget.colors.resultBackground
                             border.width: 1
@@ -211,7 +371,8 @@ Item {
                             }
 
                             MouseArea {
-                                id: id_resultMouseArea
+                                id: id_resultRowMouseArea
+
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
@@ -228,6 +389,7 @@ Item {
                 color: Themes.emulatorTarget.colors.divider
             }
 
+            // Section 2: Target details
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 10
@@ -248,6 +410,7 @@ Item {
                     columnSpacing: 14
                     rowSpacing: 10
 
+                    // ID
                     Text {
                         Layout.preferredWidth: 180
                         text: qsTr("ID")
@@ -258,6 +421,7 @@ Item {
 
                     TextField {
                         id: id_appIdField
+
                         Layout.fillWidth: true
                         readOnly: !id_root.manualGameEntry
                         selectByMouse: id_root.manualGameEntry
@@ -267,6 +431,7 @@ Item {
                         onTextEdited: id_root.selectedAppId = text.length > 0 ? parseInt(text) : 0
                     }
 
+                    // Name
                     Text {
                         Layout.preferredWidth: 180
                         text: qsTr("Name")
@@ -284,16 +449,30 @@ Item {
                         onTextEdited: id_root.selectedName = text
                     }
 
-                    Text {
+                    // Game Executable
+                    ColumnLayout {
                         Layout.preferredWidth: 180
-                        text: qsTr("Game Executable Location")
-                        color: Themes.emulatorTarget.colors.descriptionText
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                        wrapMode: Text.Wrap
+                        spacing: 2
+
+                        Text {
+                            text: qsTr("Game Executable")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Used to track activity")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                            color: Themes.emulatorTarget.colors.descriptionMutedText
+                            wrapMode: Text.Wrap
+                        }
                     }
 
                     TextField {
                         id: id_installLocationField
+
                         Layout.fillWidth: true
                         readOnly: true
                         selectByMouse: false
@@ -306,52 +485,65 @@ Item {
                         }
                     }
 
-                    Text {
+                    // Prefix Location
+                    ColumnLayout {
                         Layout.preferredWidth: 180
-                        text: qsTr("Achievement File Location")
-                        color: Themes.emulatorTarget.colors.descriptionText
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                        wrapMode: Text.Wrap
-                    }
+                        spacing: 2
 
-                    TextField {
-                        id: id_achievementLocationField
-                        Layout.fillWidth: true
-                        enabled: id_root.manualAchievementPath
-                        readOnly: true
-                        selectByMouse: false
-                        text: "auto"
-                        placeholderText: qsTr("Manual path override")
+                        Text {
+                            text: qsTr("Prefix Location")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: id_achievementFileDialog.open()
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Select the drive_c or equivalent folder\ninside your Wine/Proton/Bottle prefix")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                            color: Themes.emulatorTarget.colors.descriptionMutedText
+                            wrapMode: Text.Wrap
                         }
                     }
 
-                    Text {
-                        text: ""
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        TextField {
+                            id: id_prefixLocationField
+
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: false
+                            placeholderText: qsTr("e.g. /home/user/prefix/drive_c")
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: id_prefixFolderDialog.open()
+                            }
+                        }
+
+                        Text {
+                            visible: id_root.prefixWarning
+                            Layout.fillWidth: true
+                            text: qsTr("⚠ Expected a drive_c or equivalent folder. Make sure the selected folder contains or will contain a subdirectory matching the game ID (%1). This is required for achievement detection to work.").arg(id_root.selectedAppId > 0
+                                ? id_root.selectedAppId.toString()
+                                : qsTr("not set"))
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
                     }
+
+                    // Confirm row
+                    Text { text: "" }
 
                     RowLayout {
                         Layout.fillWidth: true
 
-                        CheckBox {
-                            text: qsTr("Manual achievement file path")
-                            checked: id_root.manualAchievementPath
-                            focusPolicy: Qt.NoFocus  
-                            onToggled: {
-                                id_root.manualAchievementPath = checked
-                                if (!checked) {
-                                    id_achievementLocationField.text = "auto"
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                        }
+                        Item { Layout.fillWidth: true }
 
                         Rectangle {
                             id: id_confirmTarget
@@ -359,6 +551,7 @@ Item {
                             readonly property bool canConfirm: id_root.selectedAppId > 0
                                 && id_root.selectedName.trim().length > 0
                                 && id_installLocationField.text.trim().length > 0
+                                && id_prefixLocationField.text.trim().length > 0
 
                             implicitHeight: 32
                             implicitWidth: id_confirmTargetLabel.implicitWidth + 60
@@ -387,6 +580,7 @@ Item {
 
                             Text {
                                 id: id_confirmTargetLabel
+
                                 anchors.centerIn: parent
                                 text: qsTr("Confirm")
                                 color: Themes.emulatorTarget.colors.confirmText
@@ -395,6 +589,7 @@ Item {
 
                             MouseArea {
                                 id: id_confirmTargetMouseArea
+                                
                                 anchors.fill: parent
                                 enabled: id_confirmTarget.canConfirm
                                 hoverEnabled: enabled

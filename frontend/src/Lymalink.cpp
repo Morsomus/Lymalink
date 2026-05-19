@@ -21,6 +21,8 @@
 Lymalink::Lymalink(QObject *parent) : QObject(parent)
 {
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
+    m_databasePath = "";
+    m_lastSteamAppIdSearchSuccess = false;
 }
 
 Lymalink::~Lymalink()
@@ -41,6 +43,8 @@ Error Lymalink::Initialize()
 
 QVariantList Lymalink::SearchSteamAppIds(const QString &term)
 {
+    m_lastSteamAppIdSearchSuccess = true;
+
     QList<SteamSearchResult> results;
     const Error error = m_steamApi.SearchAppId(term, results);
 
@@ -48,6 +52,7 @@ QVariantList Lymalink::SearchSteamAppIds(const QString &term)
     if (error != Error::NoError)
     {
         qDebug() << "Lymalink: Steam app id search failed:" << static_cast<int>(error);
+        m_lastSteamAppIdSearchSuccess = false;
         return qmlResults;
     }
 
@@ -115,8 +120,13 @@ Error Lymalink::DatabaseInit()
             "name TEXT NOT NULL",
             "lc2_url TEXT",
             "ci_url TEXT",
+            "emulator_type TEXT",
             "installation_location TEXT",
-            "achievement_file_location TEXT DEFAULT 'auto'",
+            "prefix_location TEXT",
+            "target_dir_found INTEGER DEFAULT 0",
+            "target_dir_location TEXT",
+            "total_amount_achievements INTEGER",
+            "unlocked_amount_achievements INTEGER",
             "hours_played_total INTEGER",
             "last_unlock_date INTEGER",
             "last_played_date INTEGER",

@@ -28,6 +28,8 @@ public:
     Error Initialize();
     Q_INVOKABLE QVariantList SearchSteamAppIds(const QString &term);
 
+    Q_INVOKABLE inline bool GetLastSteamAppIdSearchSuccess() const { return m_lastSteamAppIdSearchSuccess; }
+
 signals:
     
 private:
@@ -37,4 +39,5 @@ private:
     SteamApi m_steamApi;
     QString m_databaseConnectionName;
     QString m_databasePath;
+    bool m_lastSteamAppIdSearchSuccess = false;
 };

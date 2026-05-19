@@ -426,12 +426,22 @@ QtObject {
             readonly property color titleText: "#ffffff"
             readonly property color labelText: "#ffffff"
             readonly property color descriptionText: "#999999"
+            readonly property color errorText: "#d35f5f"
+            readonly property color descriptionMutedText: Qt.rgba(1, 1, 1, 0.3)
             readonly property color divider: "#2a2a2a"
+            readonly property color infoBlockBackground: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color infoBlockBackgroundHover: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color infoBlockBorder: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color infoBlockBorderHover: Qt.rgba(1, 1, 1, 0.12)
+            readonly property color infoIconBorder: Qt.rgba(1, 1, 1, 0.35)
+            readonly property color infoIconText: Qt.rgba(1, 1, 1, 0.35)
+            readonly property color infoHeaderInactiveText: Qt.rgba(1, 1, 1, 0.45)
             readonly property color resultBackground: Qt.rgba(1, 1, 1, 0.02)
             readonly property color resultBackgroundHover: Qt.rgba(1, 1, 1, 0.04)
             readonly property color resultBackgroundPressed: Qt.rgba(1, 1, 1, 0.06)
             readonly property color resultBorder: Qt.rgba(1, 1, 1, 0.07)
             readonly property color resultBorderSelected: Qt.rgba(1, 1, 1, 0.14)
+            readonly property color prefixWarningText: "#e8a838"
             readonly property color confirmBackground: Qt.rgba(0.05, 0.16, 0.52, 0.10)
             readonly property color confirmBackgroundHover: Qt.rgba(0.05, 0.16, 0.52, 0.26)
             readonly property color confirmBackgroundPressed: Qt.rgba(0.05, 0.16, 0.52, 0.35)
@@ -445,6 +455,8 @@ QtObject {
             readonly property int title: 28
             readonly property int label: 13
             readonly property int description: 11
+            readonly property int descriptionSubtle: 10
+            readonly property int infoIcon: 9
             readonly property int input: 15
             readonly property int confirmButton: 13
         }
