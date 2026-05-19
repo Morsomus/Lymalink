@@ -29,6 +29,7 @@ Rectangle {
     property string p_recentUnlock: ""
     property bool p_miniAchievementsBadgeEnabled: false
     property bool p_edgeProgressFrameEnabled: false
+    property int p_edgeProgressFrameColorStyle: 1
     property bool p_edgeProgressFrameStaticGrayColor: false
     property bool p_edgeProgressFrameCompletionAnimation: false
 
@@ -125,50 +126,43 @@ Rectangle {
         anchors.fill: parent
         visible: id_root.p_edgeProgressFrameEnabled && id_root.p_achievementTotal > 0
 
-        // Colors
-        readonly property color grayModeColor: Themes.card.colors.edgeFrameGray
-        readonly property color completionColorA: Themes.card.colors.edgeFrameGlowA
-        readonly property color completionColorB: Themes.card.colors.edgeFrameGlowB
-        readonly property color completionColorStatic: Themes.card.colors.edgeFrameDone
+        // Lerps from neutral grey to vivid color as progress increases
+        readonly property color incompleteColor: Themes.globalStyle.progressBlendColor(
+            id_root.p_edgeProgressFrameColorStyle,
+            id_root.edgeProgressFrameCompletion
+        )
 
-        // Lerps from neutral grey to vivid green-gold as progress increases
-        readonly property color incompleteColor: {
-            const grey = 0.45
-            const p = id_root.edgeProgressFrameCompletion
-            return Qt.rgba(
-                grey + p * (1.0 - grey),
-                grey + p * (0.8 - grey),
-                grey + p * (0.4 - grey),
-                0.60 + p * 0.25
-            )
-        }
-
-        // Breathes between two gold tones when complete - only runs when animation is enabled
-        property color breathingColor: completionColorA
+        // Breathes between two color tones when complete - only runs when animation is enabled
+        property color breathingColor: Themes.globalStyle.edgeFrameAnimAColor(id_root.p_edgeProgressFrameColorStyle)
         SequentialAnimation {
-            running: id_root.edgeProgressFrameCompletion >= 1.0 && id_root.p_edgeProgressFrameCompletionAnimation && !id_root.p_edgeProgressFrameStaticGrayColor
+            id: id_breathingAnim
+            running: id_root.edgeProgressFrameCompletion >= 1.0
+                && id_root.p_edgeProgressFrameCompletionAnimation
+                && !id_root.p_edgeProgressFrameStaticGrayColor
             loops: Animation.Infinite
 
             ColorAnimation {
                 target: id_edgeProgressFrame
                 property: "breathingColor"
-                to: id_edgeProgressFrame.completionColorB
+                to: Themes.globalStyle.edgeFrameAnimBColor(id_root.p_edgeProgressFrameColorStyle)
                 duration: 1500
                 easing.type: Easing.InOutSine
             }
             ColorAnimation {
                 target: id_edgeProgressFrame
                 property: "breathingColor"
-                to: id_edgeProgressFrame.completionColorA
+                to: Themes.globalStyle.edgeFrameAnimAColor(id_root.p_edgeProgressFrameColorStyle)
                 duration: 3000
                 easing.type: Easing.InOutSine
             }
         }
 
         readonly property color activeColor: id_root.p_edgeProgressFrameStaticGrayColor
-            ? grayModeColor
+            ? Themes.globalStyle.colors.edgeFrameGray
             : id_root.edgeProgressFrameCompletion >= 1.0
-                ? (id_root.p_edgeProgressFrameCompletionAnimation ? breathingColor : completionColorStatic)
+                ? (id_root.p_edgeProgressFrameCompletionAnimation
+                    ? breathingColor
+                    : Themes.globalStyle.completionColor(id_root.p_edgeProgressFrameColorStyle))
                 : incompleteColor
 
         // Geometry
@@ -201,7 +195,7 @@ Rectangle {
 
             // Black backing stroke provides contrast separation on any background
             ShapePath {
-                strokeColor: Themes.card.colors.edgeFrameBack
+                strokeColor: Themes.globalStyle.colors.edgeFrameBack
                 strokeWidth: id_edgeProgressFrame.edgeProgressFrameStroke + 2
                 fillColor: "transparent"
                 capStyle: ShapePath.FlatCap

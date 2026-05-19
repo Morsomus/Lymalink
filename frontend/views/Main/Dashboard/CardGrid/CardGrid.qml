@@ -54,6 +54,7 @@ Item {
         Card {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
         }
@@ -65,6 +66,7 @@ Item {
         CardSmall {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
         }

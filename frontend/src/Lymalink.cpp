@@ -11,7 +11,6 @@
 #include "Defines.h"
 #include "tools/Utils.h"
 
-#include <algorithm>
 #include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
@@ -22,12 +21,12 @@ Lymalink::Lymalink(QObject *parent) : QObject(parent)
 {
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
-    m_lastSteamAppIdSearchSuccess = false;
 }
 
 Lymalink::~Lymalink()
 {
-    // Destructor
+    m_workerThread.quit();
+    m_workerThread.wait();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -36,54 +35,33 @@ Lymalink::~Lymalink()
 
 Error Lymalink::Initialize()
 {
+    m_steamApiWorker = new SteamApiWorker();
+    m_steamApiWorker->moveToThread(&m_workerThread);
+
+    connect(&m_workerThread, &QThread::started, m_steamApiWorker, &SteamApiWorker::Init);
+    connect(&m_workerThread, &QThread::finished, m_steamApiWorker, &QObject::deleteLater);
+    
+    connect(this, &Lymalink::signalRequestSearchSteamAppIds, m_steamApiWorker, &SteamApiWorker::SearchSteamAppIds);
+    connect(this, &Lymalink::signalRequestCancel, m_steamApiWorker, &SteamApiWorker::Cancel);
+    connect(m_steamApiWorker, &SteamApiWorker::signalSearchAppIdsFinished, this, &Lymalink::signalSteamAppIdsReady);
+
+    m_workerThread.start();
+
     return DatabaseInit();
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantList Lymalink::SearchSteamAppIds(const QString &term)
+void Lymalink::SearchSteamAppIds(const QString &term)
 {
-    m_lastSteamAppIdSearchSuccess = true;
+    emit signalRequestSearchSteamAppIds(term);
+}
 
-    QList<SteamSearchResult> results;
-    const Error error = m_steamApi.SearchAppId(term, results);
+/////////////////////////////////////////////////////////////////////
 
-    QVariantList qmlResults;
-    if (error != Error::NoError)
-    {
-        qDebug() << "Lymalink: Steam app id search failed:" << static_cast<int>(error);
-        m_lastSteamAppIdSearchSuccess = false;
-        return qmlResults;
-    }
-
-    for (const SteamSearchResult &result : results)
-    {
-        SteamGameInfo gameInfo;
-        const Error gameInfoError = m_steamApi.SearchGameInfo(result.appId, gameInfo);
-        if (gameInfoError != Error::NoError)
-        {
-            if (gameInfoError != Error::ParseError)
-            {
-                // Parse error can occur for DLCs, Soundtracks, Packages etc.
-                qDebug() << "Lymalink: Steam game info hydrate failed for app id" << result.appId << ":" << static_cast<int>(gameInfoError);
-            }
-            continue;
-        }
-
-        // Accept only Game types
-        if (gameInfo.type != SteamAppType::Game)
-        {
-            continue;
-        }
-
-        QVariantMap item;
-        item["id"] = gameInfo.appId;
-        item["name"] = gameInfo.gameName;
-
-        qmlResults.append(item);
-    }
-
-    return qmlResults;
+void Lymalink::CancelSteamAppIdSearch()
+{
+    emit signalRequestCancel();
 }
 
 /////////////////////////////////////////////////////////////////////

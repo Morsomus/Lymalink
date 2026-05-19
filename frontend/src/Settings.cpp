@@ -108,6 +108,7 @@ bool Settings::LoadConfig()
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DISPLAY);
+    m_globalColorStyle = m_settings.value("GlobalColorStyle", m_globalColorStyle).toInt();
     m_showProgressFrame = m_settings.value("ShowProgressFrame", m_showProgressFrame).toBool();
     m_showInstallationStatusBadge = m_settings.value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
     m_progressFrameGrayscaleMode = m_settings.value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
@@ -216,6 +217,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             group = GROUP_INTERFACE;
             settingsKey = "SidebarCollapsed";
             settingsValue = m_sidebarCollapsed;
+            break;
+        }
+        case GlobalColorStyle:
+        {
+            m_globalColorStyle = value.toInt();
+            group = GROUP_DISPLAY;
+            settingsKey = "GlobalColorStyle";
+            settingsValue = m_globalColorStyle;
             break;
         }
         case ShowProgressFrame:
@@ -378,6 +387,7 @@ void Settings::SetDefaults()
     m_showTooltips = true;
     m_enableCollapseBorderButton = true;
     m_sidebarCollapsed = false;
+    m_globalColorStyle = 1;
     m_showProgressFrame = true;
     m_showInstallationStatusBadge = true;
     m_progressFrameGrayscaleMode = false;
@@ -431,6 +441,7 @@ void Settings::SavePlainValues()
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DISPLAY);
+    m_settings.setValue("GlobalColorStyle", m_globalColorStyle);
     m_settings.setValue("ShowProgressFrame", m_showProgressFrame);
     m_settings.setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
     m_settings.setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);

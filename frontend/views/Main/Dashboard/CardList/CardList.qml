@@ -86,6 +86,7 @@ Item {
                     p_lastAchievementName: model.lastAchievementName
                     p_lastAchievementDesc: model.lastAchievementDesc
                     p_delegateIndex:    index
+                    p_globalColorStyle: ctxSettings.globalColorStyle
 
                     onOpenTargetDetails: function(title, coverSource, achievementCount, achievementTotal, status, lastPlayed, recentUnlock) {
                         id_root.openTargetDetails(
@@ -115,6 +116,7 @@ Item {
                     p_lastPlayed:       model.lastPlayed
                     p_recentUnlock:     model.recentUnlock
                     p_delegateIndex:    index
+                    p_globalColorStyle: ctxSettings.globalColorStyle
 
                     onOpenTargetDetails: function(title, coverSource, achievementCount, achievementTotal, status, lastPlayed, recentUnlock) {
                         id_root.openTargetDetails(

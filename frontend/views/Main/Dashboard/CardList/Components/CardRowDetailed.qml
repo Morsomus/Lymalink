@@ -28,6 +28,7 @@ Rectangle {
     property string p_lastAchievementName: ""
     property string p_lastAchievementDesc: ""
     property int p_delegateIndex: 0
+    property int p_globalColorStyle: 1
 
     signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
 
@@ -38,6 +39,8 @@ Rectangle {
     readonly property int progressDelay: Math.max(0, Math.min(p_delegateIndex * 40, 300))
     readonly property int coverHeight: 120
     readonly property int coverWidth: Math.round(coverHeight * (2 / 3))
+    readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
+    readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
     property real animatedProgress: 0.0
 
     height: coverHeight + 16
@@ -159,7 +162,7 @@ Rectangle {
                 radius: 2
                 color: "transparent"
                 border.width: 2
-                border.color: Themes.cardRowDetailed.colors.completedRing
+                border.color: id_root.themedCompletionColor
                 opacity: id_root.isCompleted ? 0.7 : 0.0
                 z: 1
 
@@ -239,9 +242,9 @@ Rectangle {
                 width: id_statusText.implicitWidth + 14
                 height: 20
                 radius: 10
-                color: id_root.p_installationStatus === "Installed"
-                    ? Themes.cardRowDetailed.colors.installationStatusBackgroundInstalled
-                    : Themes.cardRowDetailed.colors.installationStatusBackgroundDefault
+                color: "transparent"
+                border.width: 1
+                border.color: id_statusText.color
 
                 Text {
                     id: id_statusText
@@ -249,7 +252,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: id_root.p_installationStatus
                     color: id_root.p_installationStatus === "Installed"
-                        ? Themes.cardRowDetailed.colors.installationStatusTextInstalled
+                        ? id_root.themedCompletionColor
                         : Themes.cardRowDetailed.colors.installationStatusTextNotInstalled
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.status
                     font.bold: true
@@ -297,7 +300,7 @@ Rectangle {
                 Text {
                     text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
                     color: id_root.isCompleted
-                        ? Themes.cardRowDetailed.colors.completedText
+                        ? id_root.themedCompletionColor
                         : Themes.cardRowDetailed.colors.titleText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.title
                     font.bold: true
@@ -312,7 +315,7 @@ Rectangle {
                 // TODO: Replace star with subtle calm animated icon
                 Text {
                     text: "★"
-                    color: Themes.cardRowDetailed.colors.star
+                    color: id_root.themedCompletionColor
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.star
                     opacity: id_root.isCompleted ? 1.0 : 0.0
 
@@ -339,14 +342,14 @@ Rectangle {
                         width: parent.width * id_root.animatedProgress
                         height: parent.height
                         radius: parent.radius
-                        color: Themes.cardRowDetailed.colors.achievementsProgressFill
+                        color: id_root.isCompleted ? id_root.themedCompletionColor : id_root.themedProgressColor
                     }
                 }
 
                 Text {
                     text: Math.round(id_root.animatedProgress * 100) + "%"
                     color: id_root.isCompleted
-                        ? Themes.cardRowDetailed.colors.completedText
+                        ? id_root.themedCompletionColor
                         : Themes.cardRowDetailed.colors.fractionText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.fraction
                     font.bold: id_root.isCompleted

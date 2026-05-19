@@ -27,6 +27,7 @@ class Settings : public QObject
     Q_PROPERTY(bool showCollapseButton READ GetShowCollapseButton NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showTooltips READ GetShowTooltips NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableCollapseBorderButton READ GetEnableCollapseBorderButton NOTIFY signalConfigChanged)
+    Q_PROPERTY(int globalColorStyle READ GetGlobalColorStyle NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showProgressFrame READ GetShowProgressFrame NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showInstallationStatusBadge READ GetShowInstallationStatusBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool progressFrameGrayscaleMode READ GetProgressFrameGrayscaleMode NOTIFY signalConfigChanged)
@@ -56,6 +57,7 @@ public:
         ShowCollapseButton,
         ShowTooltips,
         EnableCollapseBorderButton,
+        GlobalColorStyle,
         ShowProgressFrame,
         ShowInstallationStatusBadge,
         ProgressFrameGrayscaleMode,
@@ -87,6 +89,7 @@ public:
     inline bool GetShowTooltips() const { return m_showTooltips; }
     inline bool GetEnableCollapseBorderButton() const { return m_enableCollapseBorderButton; }
     inline bool GetSidebarCollapsed() const { return m_sidebarCollapsed; }
+    inline int GetGlobalColorStyle() const { return m_globalColorStyle; }
     inline bool GetShowProgressFrame() const { return m_showProgressFrame; }
     inline bool GetShowInstallationStatusBadge() const { return m_showInstallationStatusBadge; }
     inline bool GetProgressFrameGrayscaleMode() const { return m_progressFrameGrayscaleMode; }
@@ -116,6 +119,7 @@ private:
     bool m_showCollapseButton;
     bool m_showTooltips;
     bool m_enableCollapseBorderButton;
+    int m_globalColorStyle;
     bool m_showProgressFrame;
     bool m_showInstallationStatusBadge;
     bool m_progressFrameGrayscaleMode;

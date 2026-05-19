@@ -68,6 +68,7 @@ Item {
             p_installationStatus: id_root.pendingTargetDetails?.installationStatus ?? ""
             p_lastPlayed: id_root.pendingTargetDetails?.lastPlayed ?? ""
             p_recentUnlock: id_root.pendingTargetDetails?.recentUnlock ?? ""
+            p_globalColorStyle: ctxSettings.globalColorStyle
         }
     }
 

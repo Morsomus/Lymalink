@@ -20,22 +20,65 @@ Item {
     // Internals _____________________________________________
     property var searchResults: []
     property bool isSearching: false
+    property bool suppressNextCancelStatus: false
     property string statusText: ""
     property bool statusIsError: false
     property int selectedAppId: 0
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
+    readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
+    readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
     readonly property bool prefixWarning: {
         const t = id_prefixLocationField.text.trim()
         return t.length > 0 && !t.split("/").pop().startsWith("drive_")
     }
+
+    Connections {
+        target: ctxLymalink
+
+        function onSignalSteamAppIdsReady(success, cancelled, results) {
+            if (!id_root.isSearching && !cancelled) {
+                return
+            }
+
+            id_root.isSearching = false
+
+            if (cancelled) {
+                if (id_root.suppressNextCancelStatus) {
+                    id_root.suppressNextCancelStatus = false
+                    return
+                }
+
+                id_root.searchResults = []
+                id_root.statusText = qsTr("Search cancelled")
+                id_root.statusIsError = false
+                return
+            }
+
+            id_root.searchResults = results
+            id_root.statusIsError = !success
+            id_root.statusText = !success
+                ? qsTr("Couldn't connect to API service")
+                : (id_root.searchResults.length === 0
+                    ? qsTr("No results")
+                    : (id_root.searchResults.length === 10
+                        ? qsTr("%1 results - Limited to max 10 results").arg(id_root.searchResults.length)
+                        : qsTr("%1 results").arg(id_root.searchResults.length)))
+        }
+    }
+
+    Component.onDestruction: id_root.cancelSearch(false)
 
     function fileUrlToPath(fileUrl) {
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
     }
 
     function searchGames() {
+        if (id_root.isSearching) {
+            return
+        }
+
         const term = id_searchField.text.trim()
         if (term.length === 0) {
             id_root.statusText = qsTr("Enter game name")
@@ -45,18 +88,26 @@ Item {
         }
 
         id_root.isSearching = true
-        id_root.searchResults = ctxLymalink.SearchSteamAppIds(term)
-        id_root.isSearching = false
+        id_root.suppressNextCancelStatus = false
+        id_root.statusIsError = false
+        id_root.statusText = qsTr("Searching...")
+        id_root.searchResults = []
+        ctxLymalink.SearchSteamAppIds(term)
+    }
 
-        const requestFailed = !ctxLymalink.GetLastSteamAppIdSearchSuccess()
-        id_root.statusIsError = requestFailed
-        id_root.statusText = requestFailed
-            ? qsTr("Couldn't connect to API service")
-            : (id_root.searchResults.length === 0
-                ? qsTr("No results")
-                : (id_root.searchResults.length === 10
-                    ? qsTr("%1 results - Limited to max 10 results").arg(id_root.searchResults.length)
-                    : qsTr("%1 results").arg(id_root.searchResults.length)))
+    function cancelSearch(showStatus) {
+        if (!id_root.isSearching) {
+            return
+        }
+
+        id_root.isSearching = false
+        id_root.suppressNextCancelStatus = !showStatus
+        ctxLymalink.CancelSteamAppIdSearch()
+
+        if (showStatus) {
+            id_root.statusText = qsTr("Search cancelled")
+            id_root.statusIsError = false
+        }
     }
 
     function selectGame(result) {
@@ -66,6 +117,7 @@ Item {
     }
 
     function setManualGameEntry(enabled) {
+        id_root.cancelSearch(false)
         id_root.manualGameEntry = enabled
         id_root.searchResults = []
         id_root.statusText = ""
@@ -376,7 +428,10 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: id_root.selectGame(modelData)
+                                onClicked: {
+                                    id_root.selectGame(modelData)
+                                    id_searchField.focus = false
+                                }
                             }
                         }
                     }
@@ -543,7 +598,9 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
 
-                        Item { Layout.fillWidth: true }
+                        Item {
+                            Layout.fillWidth: true
+                        }
 
                         Rectangle {
                             id: id_confirmTarget
@@ -560,17 +617,17 @@ Item {
                             opacity: enabled ? 1.0 : 0.45
 
                             color: id_confirmTargetMouseArea.pressed
-                                ? Themes.emulatorTarget.colors.confirmBackgroundPressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
                                 : id_confirmTargetMouseArea.containsMouse
-                                    ? Themes.emulatorTarget.colors.confirmBackgroundHover
-                                    : Themes.emulatorTarget.colors.confirmBackground
+                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                                    : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.10)
 
                             border.width: 1
                             border.color: id_confirmTargetMouseArea.pressed
-                                ? Themes.emulatorTarget.colors.confirmBorderPressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
                                 : id_confirmTargetMouseArea.containsMouse
-                                    ? Themes.emulatorTarget.colors.confirmBorderHover
-                                    : Themes.emulatorTarget.colors.confirmBorder
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
                             Behavior on color {
                                 ColorAnimation {
@@ -583,7 +640,7 @@ Item {
 
                                 anchors.centerIn: parent
                                 text: qsTr("Confirm")
-                                color: Themes.emulatorTarget.colors.confirmText
+                                color: id_root.themedCompletionColor
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.confirmButton
                             }
 

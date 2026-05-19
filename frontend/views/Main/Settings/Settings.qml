@@ -494,6 +494,41 @@ Item {
                         title: qsTr("Display")
 
                         C_SettingRow {
+                            label: qsTr("Color theme")
+                            tooltip: qsTr("Select color theme for the application")
+                            ComboBox {
+                                model: [0, 1, 2, 3, 4, 5]
+                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
+                                implicitWidth: 150
+                                displayText: {
+                                    switch (model[currentIndex]) {
+                                        case 0: return qsTr("Gold")
+                                        case 1: return qsTr("Blue")
+                                        case 2: return qsTr("Purple")
+                                        case 3: return qsTr("Emerald")
+                                        case 4: return qsTr("Ember")
+                                        case 5: return qsTr("Frost")
+                                    }
+                                }
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: {
+                                        switch (modelData) {
+                                            case 0: return qsTr("Gold")
+                                            case 1: return qsTr("Blue")
+                                            case 2: return qsTr("Purple")
+                                            case 3: return qsTr("Emerald")
+                                            case 4: return qsTr("Ember")
+                                            case 5: return qsTr("Frost")
+                                        }
+                                    }
+                                }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.GlobalColorStyle, model[index])
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Show an overall achievement progress frame around cards")
                             Switch {
@@ -506,22 +541,6 @@ Item {
                                     text: qsTr("Show an overall achievement progress frame around cards")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Installation status badge")
-                            tooltip: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
-                            Switch {
-                                checked: ctxSettings.showInstallationStatusBadge
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_installIconHover }
-                                CustomTooltip {
-                                    active: id_installIconHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowInstallationStatusBadge, checked)
                             }
                         }
 
@@ -543,6 +562,23 @@ Item {
                         }
 
                         C_SettingRow {
+                            label: qsTr("Progress frame completion animation")
+                            tooltip: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
+                            Switch {
+                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_progressAnimHover }
+                                CustomTooltip {
+                                    active: id_progressAnimHover.hovered
+                                    delay: 600
+                                    text: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Total achievements badge")
                             tooltip: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
                             Switch {
@@ -559,19 +595,18 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Progress frame completion animation")
-                            tooltip: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
+                            label: qsTr("Installation status badge")
+                            tooltip: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
                             Switch {
-                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
-                                checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
-                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressAnimHover }
+                                checked: ctxSettings.showInstallationStatusBadge
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_installIconHover }
                                 CustomTooltip {
-                                    active: id_progressAnimHover.hovered
+                                    active: id_installIconHover.hovered
                                     delay: 600
-                                    text: qsTr("Play a subtle animation on completed card progress frame - not available in grayscale mode")
+                                    text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
+                                onToggled: ctxSettings.SaveValue(Settings.ShowInstallationStatusBadge, checked)
                             }
                         }
 

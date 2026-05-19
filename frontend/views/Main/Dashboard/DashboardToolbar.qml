@@ -43,6 +43,8 @@ Item {
     readonly property var targetDetailsFilterModel: ["all", "unlocked", "locked", "hidden"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
     readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "steam", "hidden", "installed", "notInstalled"]
+    readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
+    readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
     readonly property var controlModel: [
         { value: "list", label: "List" },
         { value: "detailedList", label: "Details" },
@@ -956,17 +958,17 @@ Item {
                 radius: 16
 
                 color: id_addTargetMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.addTargetBackgroundPressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
                     : id_addTargetMouseArea.containsMouse
-                    ? Themes.dashboardToolbar.colors.addTargetBackgroundHover
-                    : Themes.dashboardToolbar.colors.addTargetBackground
+                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                    : "transparent"
 
                 border.width: 1
                 border.color: id_addTargetMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.addTargetBorderPressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
                     : id_addTargetMouseArea.containsMouse
-                    ? Themes.dashboardToolbar.colors.addTargetBorderHover
-                    : Themes.dashboardToolbar.colors.addTargetBorder
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
                 Behavior on color {
                     ColorAnimation {
@@ -976,14 +978,16 @@ Item {
 
                 Text {
                     id: id_addTargetLabel
+
                     anchors.centerIn: parent
                     text: qsTr("Add Target")
-                    color: Themes.dashboardToolbar.colors.addTargetText
+                    color: id_root.themedCompletionColor
                     font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
                 }
 
                 MouseArea {
                     id: id_addTargetMouseArea
+                    
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor

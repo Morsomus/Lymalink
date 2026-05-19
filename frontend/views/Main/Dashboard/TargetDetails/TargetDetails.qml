@@ -26,6 +26,7 @@ Item {
     property string p_installationStatus: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
+    property int p_globalColorStyle: 1
     property alias p_achievementModel: id_achievementList.model
 
     // Internals _____________________________________________
@@ -35,6 +36,8 @@ Item {
     readonly property real fixedPanelInset: id_root.coverPanelWidth + 24
     readonly property bool hasVerticalScroll: id_achievementList.ScrollBar.vertical.size < 1.0
     readonly property bool p_enabledAchievementRowDynamicWidth: ctxSettings.enableDynamicAchievementRows
+    readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
+    readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
     // Completion ratio used to drive the progress bar gradient and opacity
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
@@ -307,7 +310,7 @@ Item {
                 Layout.preferredWidth: 110
                 text: id_row.unlocked ? id_row.unlockDate : qsTr("Locked")
                 color: id_row.unlocked
-                    ? Themes.targetDetails.colors.unlockedAccent
+                    ? id_root.themedCompletionColor
                     : Themes.targetDetails.colors.text
                 font.pixelSize: Themes.targetDetails.fontSizes.rowUnlockDate
                 font.bold: id_row.unlocked
@@ -441,16 +444,15 @@ Item {
                             // Left stop: cool color, always fixed
                             GradientStop {
                                 position: 0.0
-                                color: Themes.targetDetails.colors.progressBarGradientStart
+                                color: id_root.themedProgressColor
                             }
                             // Right stop: interpolates color to brighter
                             GradientStop {
                                 position: 1.0
-                                color: Qt.rgba(
-                                    0.20 + 0.15 * id_root.completionRatio,
-                                    0.85 - 0.10 * id_root.completionRatio,
-                                    0.45 - 0.20 * id_root.completionRatio,
-                                    1.0
+                                color: Themes.globalStyle.mixColor(
+                                    id_root.themedProgressColor,
+                                    id_root.themedCompletionColor,
+                                    id_root.completionRatio
                                 )
                             }
                         }

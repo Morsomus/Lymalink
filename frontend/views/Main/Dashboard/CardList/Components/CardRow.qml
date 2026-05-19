@@ -27,6 +27,7 @@ Rectangle {
     property string p_lastPlayed: ""      // e.g. "2 days ago"
     property string p_recentUnlock: ""    // e.g. "1 hour ago"
     property int p_delegateIndex: 0
+    property int p_globalColorStyle: 1
 
     signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
 
@@ -35,6 +36,8 @@ Rectangle {
     readonly property bool isCompleted: p_achievementTotal > 0 && p_achievementCount >= p_achievementTotal
     readonly property bool hasVerticalScroll: ListView.view ? ListView.view.contentHeight > ListView.view.height : false
     readonly property int progressDelay: Math.max(0, Math.min(p_delegateIndex * 40, 300))
+    readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
+    readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
     property real animatedProgress: 0.0
 
     height: 64
@@ -161,7 +164,7 @@ Rectangle {
                 radius: parent.radius + 1
                 color: Themes.cardRow.colors.rowBackground
                 border.width: id_root.isCompleted ? 1 : 0
-                border.color: Themes.cardRow.colors.completedRing
+                border.color: id_root.themedCompletionColor
                 opacity: id_root.isCompleted ? 0.7 : 0.0
 
                 Behavior on opacity {
@@ -239,7 +242,7 @@ Rectangle {
 
                     Text {
                         text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
-                        color: id_root.isCompleted ? Themes.cardRow.colors.completedText : Themes.cardRow.colors.fractionText
+                        color: id_root.isCompleted ? id_root.themedCompletionColor : Themes.cardRow.colors.fractionText
                         font.pixelSize: Themes.cardRow.fontSizes.fraction
                         font.bold: id_root.isCompleted
 
@@ -253,7 +256,7 @@ Rectangle {
                     // TODO Replace star with subtle calm animated icon
                     Text {
                         text: "★"
-                        color: Themes.cardRow.colors.star
+                        color: id_root.themedCompletionColor
                         font.pixelSize: Themes.cardRow.fontSizes.star
                         visible: id_root.isCompleted
                         opacity: id_root.isCompleted ? 1.0 : 0.0
@@ -300,7 +303,7 @@ Rectangle {
                     width: parent.width * id_root.animatedProgress
                     height: parent.height
                     radius: parent.radius
-                    color: Themes.cardRow.colors.achievementsProgressFill
+                    color: id_root.isCompleted ? id_root.themedCompletionColor : id_root.themedProgressColor
                 }
             }
         }
@@ -312,14 +315,16 @@ Rectangle {
             width:  id_installStatusText.implicitWidth + 14
             height: 20
             radius: 10
-            color: id_root.p_installationStatus === "Installed" ? Themes.cardRow.colors.installationStatusBackgroundInstalled : Themes.cardRow.colors.installationStatusBackgroundDefault
+            color: "transparent"
+            border.width: 1
+            border.color: id_installStatusText.color
 
             Text {
                 id: id_installStatusText
 
                 anchors.centerIn: parent
                 text: id_root.p_installationStatus
-                color: id_root.p_installationStatus === "Installed" ? Themes.cardRow.colors.installationStatusTextInstalled : Themes.cardRow.colors.installationStatusTextNotInstalled
+                color: id_root.p_installationStatus === "Installed" ? id_root.themedCompletionColor : Themes.cardRow.colors.installationStatusTextNotInstalled
                 font.pixelSize: Themes.cardRow.fontSizes.status
                 font.bold: true
             }

@@ -30,6 +30,114 @@ QtObject {
         }
     }
 
+    // Global style themes shared across application
+    readonly property QtObject globalStyle: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
+
+            // Gray mode
+            readonly property color edgeFrameGray: Qt.rgba(0.50, 0.50, 0.50, 0.70)
+
+            // 0: Gold
+            readonly property color gold_incomplete_hi: Qt.rgba(1.00, 0.80, 0.40, 0.85)
+            readonly property color gold_doneStatic: Qt.rgba(1.00, 0.80, 0.40, 0.90)
+            readonly property color edgeFrameGold_animA: Qt.rgba(0.70, 0.62, 0.15, 0.85)
+            readonly property color edgeFrameGold_animB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
+
+            // 1: Electric Blue
+            readonly property color blue_incomplete_hi: Qt.rgba(0.24, 0.42, 1.00, 0.85)
+            readonly property color blue_doneStatic: Qt.rgba(0.30, 0.54, 1.00, 0.90)
+            readonly property color edgeFrameBlue_animA: Qt.rgba(0.10, 0.33, 1.00, 0.85)
+            readonly property color edgeFrameBlue_animB: Qt.rgba(0.53, 0.67, 1.00, 1.00)
+
+            // 2: Purple
+            readonly property color purple_incomplete_hi: Qt.rgba(0.48, 0.18, 1.00, 0.85)
+            readonly property color purple_doneStatic: Qt.rgba(0.62, 0.36, 1.00, 0.90)
+            readonly property color edgeFramePurple_animA: Qt.rgba(0.48, 0.18, 1.00, 0.85)
+            readonly property color edgeFramePurple_animB: Qt.rgba(0.78, 0.60, 1.00, 1.00)
+
+            // 3: Emerald
+            readonly property color emerald_incomplete_hi: Qt.rgba(0.10, 0.48, 0.29, 0.85)
+            readonly property color emerald_doneStatic: Qt.rgba(0.18, 0.74, 0.43, 0.90)
+            readonly property color edgeFrameEmerald_animA: Qt.rgba(0.10, 0.60, 0.33, 0.85)
+            readonly property color edgeFrameEmerald_animB: Qt.rgba(0.36, 1.00, 0.63, 1.00)
+
+            // 4: Ember
+            readonly property color ember_incomplete_hi: Qt.rgba(0.75, 0.20, 0.10, 0.85)
+            readonly property color ember_doneStatic: Qt.rgba(1.00, 0.38, 0.19, 0.90)
+            readonly property color edgeFrameEmber_animA: Qt.rgba(0.87, 0.25, 0.06, 0.85)
+            readonly property color edgeFrameEmber_animB: Qt.rgba(1.00, 0.67, 0.27, 1.00)
+
+            // 5: Frost
+            readonly property color frost_incomplete_hi: Qt.rgba(1.00, 1.00, 1.00, 0.35)
+            readonly property color frost_doneStatic: Qt.rgba(0.78, 0.90, 1.00, 0.75)
+            readonly property color edgeFrameFrost_animA: Qt.rgba(0.78, 0.90, 1.00, 0.60)
+            readonly property color edgeFrameFrost_animB: Qt.rgba(1.00, 1.00, 1.00, 0.90)
+        }
+
+        function progressColor(s) {
+            if (s === 1) return colors.blue_incomplete_hi
+            if (s === 2) return colors.purple_incomplete_hi
+            if (s === 3) return colors.emerald_incomplete_hi
+            if (s === 4) return colors.ember_incomplete_hi
+            if (s === 5) return colors.frost_incomplete_hi
+            return colors.gold_incomplete_hi
+        }
+
+        function completionColor(s) {
+            if (s === 1) return colors.blue_doneStatic
+            if (s === 2) return colors.purple_doneStatic
+            if (s === 3) return colors.emerald_doneStatic
+            if (s === 4) return colors.ember_doneStatic
+            if (s === 5) return colors.frost_doneStatic
+            return colors.gold_doneStatic
+        }
+
+        function edgeFrameAnimAColor(s) {
+            if (s === 1) return colors.edgeFrameBlue_animA
+            if (s === 2) return colors.edgeFramePurple_animA
+            if (s === 3) return colors.edgeFrameEmerald_animA
+            if (s === 4) return colors.edgeFrameEmber_animA
+            if (s === 5) return colors.edgeFrameFrost_animA
+            return colors.edgeFrameGold_animA
+        }
+
+        function edgeFrameAnimBColor(s) {
+            if (s === 1) return colors.edgeFrameBlue_animB
+            if (s === 2) return colors.edgeFramePurple_animB
+            if (s === 3) return colors.edgeFrameEmerald_animB
+            if (s === 4) return colors.edgeFrameEmber_animB
+            if (s === 5) return colors.edgeFrameFrost_animB
+            return colors.edgeFrameGold_animB
+        }
+
+        function withAlpha(c, a) {
+            return Qt.rgba(c.r, c.g, c.b, a)
+        }
+
+        function mixColor(a, b, t) {
+            t = Math.max(0.0, Math.min(t, 1.0))
+            return Qt.rgba(
+                a.r + (b.r - a.r) * t,
+                a.g + (b.g - a.g) * t,
+                a.b + (b.b - a.b) * t,
+                a.a + (b.a - a.a) * t
+            )
+        }
+
+        function progressBlendColor(s, t) {
+            const grey = 0.45
+            const p = Math.max(0.0, Math.min(t, 1.0))
+            const hi = progressColor(s)
+            return Qt.rgba(
+                grey + p * (hi.r - grey),
+                grey + p * (hi.g - grey),
+                grey + p * (hi.b - grey),
+                0.60 + p * 0.25
+            )
+        }
+    }
+
     // Dashboard.qml
     readonly property QtObject dashboard: QtObject {
         readonly property QtObject colors: QtObject {
@@ -98,13 +206,8 @@ QtObject {
     readonly property QtObject sidebarButton: QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color navText: "#bdbdbd"
-            readonly property color navTextSelected: "#ffffff"
             readonly property color navBackground: "transparent"
-            readonly property color navBackgroundHover: "#252525"
-            readonly property color navBackgroundSelected: "#001b74"
-            readonly property color navBackgroundPressed: "#151515"
         }
-
         readonly property QtObject fontSizes: QtObject {
             readonly property int navIcon: 16
             readonly property int navLabel: 16
@@ -143,14 +246,6 @@ QtObject {
             readonly property color pillBorderHover: Qt.rgba(1, 1, 1, 0.18)
             readonly property color pillLabel: "#aaaacc"
             readonly property color pillValueActive: "white"
-
-            readonly property color addTargetBackground: Qt.rgba(0.05, 0.16, 0.52, 0.18)
-            readonly property color addTargetBackgroundHover: Qt.rgba(0.05, 0.16, 0.52, 0.26)
-            readonly property color addTargetBackgroundPressed: Qt.rgba(0.05, 0.16, 0.52, 0.35)
-            readonly property color addTargetBorder: Qt.rgba(0.20, 0.38, 0.82, 0.62)
-            readonly property color addTargetBorderHover: Qt.rgba(0.20, 0.38, 0.82, 0.75)
-            readonly property color addTargetBorderPressed: Qt.rgba(0.20, 0.38, 0.82, 0.90)
-            readonly property color addTargetText: Qt.rgba(0.86, 0.92, 1.00, 1.00)
 
             readonly property color segmentActive: Qt.rgba(1, 1, 1, 0.15)
             readonly property color segmentPressed: Qt.rgba(1, 1, 1, 0.12)
@@ -273,12 +368,6 @@ QtObject {
             readonly property color titleFallback: "white"
             readonly property color maskFill: "white"
 
-            readonly property color edgeFrame: "transparent"
-            readonly property color edgeFrameGray: Qt.rgba(0.50, 0.50, 0.50, 0.70)
-            readonly property color edgeFrameGlowA: Qt.rgba(0.70, 0.62, 0.15, 0.85)
-            readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
-            readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
-            readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
             readonly property color rootHoverOverlay: "transparent"
             readonly property color rootHoverGradientStart: "transparent"
             readonly property color rootHoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
@@ -321,12 +410,6 @@ QtObject {
             readonly property color titleFallback: "white"
             readonly property color maskFill: "white"
 
-            readonly property color edgeFrame: "transparent"
-            readonly property color edgeFrameGray: Qt.rgba(0.50, 0.50, 0.50, 0.70)
-            readonly property color edgeFrameGlowA: Qt.rgba(0.70, 0.62, 0.15, 0.85)
-            readonly property color edgeFrameGlowB: Qt.rgba(1.00, 0.95, 0.55, 1.00)
-            readonly property color edgeFrameDone: Qt.rgba(1.00, 0.80, 0.40, 0.90)
-            readonly property color edgeFrameBack: Qt.rgba(0, 0, 0, 0.85)
             readonly property color rootHoverOverlay: "transparent"
             readonly property color rootHoverGradientStart: "transparent"
             readonly property color rootHoverGradientEnd: Qt.rgba(0, 0, 0, 0.9)
@@ -367,9 +450,7 @@ QtObject {
             readonly property color coverBackground: "#2a2a3a"
             readonly property color coverFallbackText: "white"
             readonly property color progressBarTrack: "#2a2a3a"
-            readonly property color progressBarGradientStart: "#2a9e5c"
             readonly property color progressBarText: "white"
-            readonly property color unlockedAccent: "#55cc88"
             readonly property color hiddenHoverOverlay: "white"
         }
 
@@ -442,13 +523,6 @@ QtObject {
             readonly property color resultBorder: Qt.rgba(1, 1, 1, 0.07)
             readonly property color resultBorderSelected: Qt.rgba(1, 1, 1, 0.14)
             readonly property color prefixWarningText: "#e8a838"
-            readonly property color confirmBackground: Qt.rgba(0.05, 0.16, 0.52, 0.10)
-            readonly property color confirmBackgroundHover: Qt.rgba(0.05, 0.16, 0.52, 0.26)
-            readonly property color confirmBackgroundPressed: Qt.rgba(0.05, 0.16, 0.52, 0.35)
-            readonly property color confirmBorder: Qt.rgba(0.20, 0.38, 0.82, 0.62)
-            readonly property color confirmBorderHover: Qt.rgba(0.20, 0.38, 0.82, 0.75)
-            readonly property color confirmBorderPressed: Qt.rgba(0.20, 0.38, 0.82, 0.90)
-            readonly property color confirmText: "#ffffff"
         }
 
         readonly property QtObject fontSizes: QtObject {

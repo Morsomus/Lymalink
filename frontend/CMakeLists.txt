@@ -32,6 +32,8 @@ qt_add_executable(Lymalink
     src/tools/Utils.cpp
     src/api/SteamApi.h
     src/api/SteamApi.cpp
+    src/api/SteamApiWorker.h
+    src/api/SteamApiWorker.cpp
 )
 
 target_compile_definitions(Lymalink PRIVATE

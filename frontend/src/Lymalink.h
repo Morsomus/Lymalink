@@ -9,12 +9,12 @@
 #pragma once
 
 #include "Error.h"
-#include "api/SteamApi.h"
+#include "api/SteamApiWorker.h"
 #include "database/SQLiteManager.h"
 
 #include <QObject>
+#include <QThread>
 #include <QVariantList>
-#include <QVariantMap>
 #include <QString>
 
 class Lymalink : public QObject
@@ -26,18 +26,24 @@ public:
     ~Lymalink();
 
     Error Initialize();
-    Q_INVOKABLE QVariantList SearchSteamAppIds(const QString &term);
-
-    Q_INVOKABLE inline bool GetLastSteamAppIdSearchSuccess() const { return m_lastSteamAppIdSearchSuccess; }
+    
+    Q_INVOKABLE void SearchSteamAppIds(const QString &term);
+    Q_INVOKABLE void CancelSteamAppIdSearch();
 
 signals:
+    void signalSteamAppIdsReady(bool success, bool cancelled, QVariantList results);
+
+    // Internal worker signals
+    void signalRequestSearchSteamAppIds(const QString &term);
+    void signalRequestCancel();
     
 private:
     Error DatabaseInit();
 
     SQLiteManager m_databaseManager;
-    SteamApi m_steamApi;
     QString m_databaseConnectionName;
     QString m_databasePath;
-    bool m_lastSteamAppIdSearchSuccess = false;
+
+    QThread m_workerThread;
+    SteamApiWorker *m_steamApiWorker = nullptr;
 };
