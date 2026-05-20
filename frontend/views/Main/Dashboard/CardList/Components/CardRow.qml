@@ -18,6 +18,7 @@ Rectangle {
     id: id_root
 
     // Public ________________________________________________
+    property int p_targetId: 0
     property string p_title: "Title"
     property string p_coverSource: ""     // Full cover image (fallback)
     property string p_logoSource: ""      // Prefer transparent library logo
@@ -26,10 +27,11 @@ Rectangle {
     property string p_installationStatus: ""    // "Installed" | "Not Installed"
     property string p_lastPlayed: ""      // e.g. "2 days ago"
     property string p_recentUnlock: ""    // e.g. "1 hour ago"
+    property bool p_isLoading: false
     property int p_delegateIndex: 0
     property int p_globalColorStyle: 1
 
-    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
+    signal openTargetDetails(int targetId)
 
     // Internals _____________________________________________
     readonly property real progress: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -95,18 +97,11 @@ Rectangle {
         id: id_rootMouseArea
 
         anchors.fill: parent
+        enabled: !id_root.p_isLoading
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(
-                id_root.p_title,
-                id_root.p_coverSource,
-                id_root.p_achievementCount,
-                id_root.p_achievementTotal,
-                id_root.p_installationStatus,
-                id_root.p_lastPlayed,
-                id_root.p_recentUnlock
-            )
+            id_root.openTargetDetails(id_root.p_targetId)
         }
 
         // Card Row Hover
@@ -191,11 +186,19 @@ Rectangle {
                 mipmap: true
                 asynchronous: true
 
+                Rectangle {
+                    anchors.fill: parent
+                    color: "#000000"    // TODO move to Themes
+                    opacity: 0.55
+                    visible: id_root.p_isLoading
+                }
+
                 CustomBusyIndicator {
                     anchors.centerIn: parent
+                    z: 2
                     visible: running
                     indicatorSize: 32
-                    running: id_logoImage.status === Image.Loading
+                    running: id_logoImage.status === Image.Loading || id_root.p_isLoading
                 }
 
                 // Show first letter of the title if icon/logo missing
@@ -203,7 +206,7 @@ Rectangle {
                     anchors.fill: parent
                     radius: parent.parent.radius
                     color: Themes.cardRow.colors.fallbackBackground
-                    visible: id_logoImage.status === Image.Error || id_root.p_logoSource === "" && id_root.p_coverSource === ""
+                    visible: !id_root.p_isLoading && (id_logoImage.status === Image.Error || id_root.p_logoSource === "" && id_root.p_coverSource === "")
 
                     Text {
                         anchors.centerIn: parent
@@ -273,7 +276,7 @@ Rectangle {
             // Last played and recent unlock metadata
             RowLayout { 
                 Text {
-                    text: id_root.p_lastPlayed !== "" ? "🎮 " + id_root.p_lastPlayed : "🎮 " + qsTr("Never")
+                    text: id_root.p_lastPlayed !== "" ? qsTr("Played ") + id_root.p_lastPlayed : qsTr("Never played")
                     color: Themes.cardRow.colors.lastPlayed
                     font.pixelSize: Themes.cardRow.fontSizes.lastPlayed
                     elide: Text.ElideRight

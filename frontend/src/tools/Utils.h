@@ -9,11 +9,16 @@
 #pragma once
 
 #include <QString>
+#include <QVariantMap>
 
 namespace Utils
 {
 
 qint64 IsoDateToEpoch(const QString &isoDate);
 QString EpochToIsoDate(qint64 epochTime);
+QString RelativeTime(qint64 epochSeconds);
+QString LocalDate(qint64 epochSeconds);
+QString MapStringValue(const QVariantMap &row, const QString &key);
+int MapIntValue(const QVariantMap &row, const QString &key);
 
 }

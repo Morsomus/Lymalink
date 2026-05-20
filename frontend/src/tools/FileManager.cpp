@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QUrl>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -175,6 +176,31 @@ QStringList FileManager::FolderListCreate(const QString &folderPath)
     }
 
     return folderList;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString FileManager::LocalFileSource(const QString &filePath)
+{
+    return filePath.isEmpty() ? QString() : QUrl::fromLocalFile(filePath).toString();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString FileManager::FirstImageInDirectory(const QString &directoryPath)
+{
+    QDir directory(directoryPath);
+    if (!directory.exists())
+    {
+        return QString();
+    }
+
+    const QStringList imageFilters = {
+        "*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp"
+    };
+
+    const QFileInfoList imageFiles = directory.entryInfoList(imageFilters, QDir::Files, QDir::Name | QDir::IgnoreCase);
+    return imageFiles.isEmpty() ? QString() : LocalFileSource(imageFiles.first().absoluteFilePath());
 }
 
 /////////////////////////////////////////////////////////////////////

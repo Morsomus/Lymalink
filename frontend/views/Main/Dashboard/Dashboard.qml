@@ -22,19 +22,88 @@ Item {
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
     property bool showingAddTarget: false
+    property var loadingTargetIds: []
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
 
-    function onTargetSelected(title, coverSource, achievementCount, achievementTotal, installationStatus, lastPlayed, recentUnlock) {
-        id_root.pendingTargetDetails = {
-            title: title,
-            coverSource: coverSource,
-            achievementCount: achievementCount,
-            achievementTotal: achievementTotal,
-            installationStatus: installationStatus,
-            lastPlayed: lastPlayed,
-            recentUnlock: recentUnlock
+    ListModel {
+        id: id_targetModel
+    }
+
+    ListModel {
+        id: id_targetDetailsAchievementModel
+    }
+
+    Component.onCompleted: refreshTargets()
+
+    onActiveLayoutChanged: syncTargetRowLayout()
+
+    function refreshTargets() {
+        id_targetModel.clear()
+
+        const targets = ctxLymalink.FetchDashboardTargets()
+        for (let i = 0; i < targets.length; ++i) {
+            const target = targets[i]
+            target.rowLayout = id_root.activeLayout === "detailedList" ? "detailedList" : "list"
+            target.isLoading = id_root.isTargetLoading(target.id)
+            id_targetModel.append(target)
         }
+
+        id_root.noTargetsAvailable = id_targetModel.count === 0
+    }
+
+    function syncTargetRowLayout() {
+        const rowLayout = id_root.activeLayout === "detailedList" ? "detailedList" : "list"
+        for (let i = 0; i < id_targetModel.count; ++i) {
+            id_targetModel.setProperty(i, "rowLayout", rowLayout)
+        }
+    }
+
+    function isTargetLoading(targetId) {
+        return loadingTargetIds.indexOf(targetId) !== -1
+    }
+
+    function setTargetLoading(targetId, loading) {
+        const index = loadingTargetIds.indexOf(targetId)
+        if (loading && index === -1) {
+            loadingTargetIds = loadingTargetIds.concat([targetId])
+        } else if (!loading && index !== -1) {
+            const nextIds = loadingTargetIds.slice()
+            nextIds.splice(index, 1)
+            loadingTargetIds = nextIds
+        }
+
+        for (let i = 0; i < id_targetModel.count; ++i) {
+            if (id_targetModel.get(i).id === targetId) {
+                id_targetModel.setProperty(i, "isLoading", loading)
+                break
+            }
+        }
+    }
+
+    function onTargetSelected(targetId) {
+        const details = ctxLymalink.FetchTargetDetails(targetId)
+
+        id_targetDetailsAchievementModel.clear()
+        const achievements = details.achievements ?? []
+        for (let i = 0; i < achievements.length; ++i) {
+            id_targetDetailsAchievementModel.append(achievements[i])
+        }
+
+        id_root.pendingTargetDetails = details
         id_root.showingTargetDetails = true
+    }
+
+    Connections {
+        target: ctxLymalink
+
+        function onSignalHydrationTaskStarted(appId) {
+            id_root.setTargetLoading(appId, true)
+        }
+
+        function onSignalHydrationTaskFinished(appId, success, cancelled) {
+            id_root.setTargetLoading(appId, false)
+            id_root.refreshTargets()
+        }
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -46,6 +115,7 @@ Item {
 
         CardGrid {
             p_gridSize: id_root.activeLayout
+            p_targetModel: id_targetModel
         }
     }
 
@@ -54,6 +124,7 @@ Item {
         
         CardList {
             p_listMode: id_root.activeLayout
+            p_targetModel: id_targetModel
         }
     }
 
@@ -62,13 +133,15 @@ Item {
 
         TargetDetails {
             p_title: id_root.pendingTargetDetails?.title ?? ""
-            p_coverSource: id_root.pendingTargetDetails?.coverSource ?? ""
+            p_coverSource: id_root.pendingTargetDetails?.coverSourceTargetDetails ?? ""
             p_achievementCount: id_root.pendingTargetDetails?.achievementCount ?? 0
             p_achievementTotal: id_root.pendingTargetDetails?.achievementTotal ?? 0
             p_installationStatus: id_root.pendingTargetDetails?.installationStatus ?? ""
             p_lastPlayed: id_root.pendingTargetDetails?.lastPlayed ?? ""
             p_recentUnlock: id_root.pendingTargetDetails?.recentUnlock ?? ""
+            p_playtime: id_root.pendingTargetDetails?.playtime ?? ""
             p_globalColorStyle: ctxSettings.globalColorStyle
+            p_achievementModel: id_targetDetailsAchievementModel
         }
     }
 
@@ -76,6 +149,13 @@ Item {
         id: id_newTargetLayout
 
         NewTarget {
+            onTargetAdded: function(appId) {
+                id_root.showingAddTarget = false
+                id_root.showingTargetDetails = false
+                id_root.refreshTargets()
+                id_root.setTargetLoading(appId, true)
+                ctxLymalink.EnqueueHydrationTask(appId, true)
+            }
         }
     }
 
@@ -99,6 +179,7 @@ Item {
                     : qsTr("Dashboard")
             p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
             p_addTargetVisible: id_root.showingAddTarget ? true : false
+            p_targetId: id_root.pendingTargetDetails?.id ?? 0
             p_activeLayout: id_root.activeLayout
 
             // Layout selection
@@ -114,6 +195,14 @@ Item {
             onAddTargetClicked: {
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = true
+            }
+
+            onRefreshClicked: id_root.refreshTargets()
+
+            onReloadAssetsRequested: function(targetId) {
+                id_root.setTargetLoading(targetId, true)
+                id_root.showingTargetDetails = false
+                id_root.showingAddTarget = false
             }
         }
 

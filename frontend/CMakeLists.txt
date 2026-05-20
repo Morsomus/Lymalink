@@ -28,12 +28,16 @@ qt_add_executable(Lymalink
     src/tools/Encryption.cpp
     src/tools/FileManager.h
     src/tools/FileManager.cpp
+    src/tools/ImageCacheManager.h
+    src/tools/ImageCacheManager.cpp
     src/tools/Utils.h
     src/tools/Utils.cpp
     src/api/SteamApi.h
     src/api/SteamApi.cpp
-    src/api/SteamApiWorker.h
-    src/api/SteamApiWorker.cpp
+    src/api/SteamApiSearchWorker.h
+    src/api/SteamApiSearchWorker.cpp
+    src/api/SteamApiHydrationWorker.h
+    src/api/SteamApiHydrationWorker.cpp
 )
 
 target_compile_definitions(Lymalink PRIVATE
@@ -48,21 +52,6 @@ set_target_properties(Lymalink PROPERTIES
 set_source_files_properties(Themes.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
-
-# TODO: Remove later
-# Temporary non-commited files - Replace with your own dummy resources
-set(EXTERNAL_ASSETS
-    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/library_capsule_2x.jpg"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/library_600x900_2x.jpg"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/hero_capsule_2x.jpg"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../a_instr/temp/hero_capsule.jpg"
-)
-foreach(asset_path IN LISTS EXTERNAL_ASSETS)
-    get_filename_component(asset_name ${asset_path} NAME)
-    set_source_files_properties(${asset_path} PROPERTIES 
-        QT_RESOURCE_ALIAS "res/img/${asset_name}"
-    )
-endforeach()
 
 qt_add_qml_module(Lymalink
     URI Lymalink
@@ -83,6 +72,11 @@ qt_add_qml_module(Lymalink
         res/img/BlankBackground_MFC_Glow_00006_.png
         res/img/BlankBackground_MFC_Glow_00032_ED.png
         res/img/BlankBackground_MFC_Glow_00033_ED.png
+        res/img/BlankBackground_MFC_Glow_00034_ED.png
+        res/img/BlankBackground_MFC_Glow_00035_ED.png
+        res/img/BlankBackground_MFC_Glow_00036_ED.png
+        res/img/BlankBackground_MFC_Glow_00037_ED.png
+        res/img/BlankBackground_MFC_Glow_00038_ED.png
     QML_FILES
         Main.qml 
         Themes.qml
@@ -100,6 +94,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/NewTarget/Targets/Emulator.qml
         views/Main/Dashboard/NewTarget/Targets/SteamImport.qml
         views/Main/Dashboard/TargetDetails/TargetDetails.qml
+        views/Main/Dashboard/TargetDetails/TargetSettings.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml
         views/Main/Settings/Settings.qml

@@ -16,27 +16,30 @@ import QtQuick.Layouts
 Item {
     id: id_root
 
+    // Public ________________________________________________
+    signal targetAdded(int appId)
+
     // Internals _____________________________________________
     property string activeTarget: ""
     readonly property var targetTypeModel: [
         {
             key: "emulator",
             label: qsTr("Emulator"),
-            icon: "🎮",
+            iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00037_ED.png",
             description: qsTr("Track achievements from a local emulator such as Goldberg and CODEX."),
             enabled: true
         },
         {
             key: "steam",
             label: qsTr("Steam Import"),
-            icon: "☁",
+            iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00036_ED.png",
             description: qsTr("Import official Steam achievements with Steam Web API."),
             enabled: false
         },
         {
             key: "custom",
             label: qsTr("Custom"),
-            icon: "✦",
+            iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00034_ED.png",
             description: qsTr("Track logs, saves, or text files with your own rules."),
             enabled: false
         }
@@ -52,6 +55,7 @@ Item {
         visible: active
         sourceComponent: Component {
             Emulator {
+                onTargetAdded: id_root.targetAdded(appId)
             }
         }
     }
@@ -117,10 +121,13 @@ Item {
                     anchors.rightMargin: 24
                     spacing: 19
 
-                    Text {
-                        text: modelData.icon
-                        font.pixelSize: Themes.newTarget.fontSizes.icon
-                        color: Themes.newTarget.colors.icon
+                    Image {
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 32
+                        source: modelData.iconSource
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
                     }
 
                     ColumnLayout {

@@ -14,6 +14,7 @@ import app.themes 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 Item {
     id: id_root
@@ -21,12 +22,15 @@ Item {
     // Public ________________________________________________
     property bool p_targetDetailsVisible: false
     property bool p_addTargetVisible: false
+    property int p_targetId: 0
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
 
     signal layoutSelected(string size)
     signal returnClicked()
     signal addTargetClicked()
+    signal refreshClicked()
+    signal reloadAssetsRequested(int targetId)
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -60,7 +64,7 @@ Item {
 
     Shortcut {
         sequence: "Esc"
-        enabled: id_root.p_targetDetailsVisible || id_root.p_addTargetVisible
+        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -69,7 +73,7 @@ Item {
 
     Shortcut {
         sequence: "Backspace"
-        enabled: id_root.p_targetDetailsVisible || id_root.p_addTargetVisible
+        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -327,6 +331,16 @@ Item {
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
+    TargetSettings {
+        id: id_targetSettingsPopup
+
+        parent: Overlay.overlay
+        p_targetId: id_root.p_targetId
+        onReloadAssetsRequested: function(targetId) {
+            id_root.reloadAssetsRequested(targetId)
+        }
+    }
+
     // Add New Target Toolbar
     ColumnLayout {
         id: id_addTargetToolbar
@@ -353,7 +367,6 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        id_root.targetDetailsActivePanel = false
                         id_root.returnClicked()
                     }
 
@@ -512,9 +525,7 @@ Item {
                     enabled: p_targetDetailsVisible
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        // TODO: Open Selected Target Settings
-                    }
+                    onClicked: id_targetSettingsPopup.open()
 
                     Image {
                         id: id_settingsIcon
@@ -992,6 +1003,82 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: addTargetClicked()
+                }
+            }
+
+            // Refresh Button
+            Rectangle {
+                id: id_refresh
+
+                width: 32
+                height: 32
+                radius: 16
+
+                property real refreshRotation: 0
+
+                color: id_refreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                    : id_refreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                        : "transparent"
+
+                border.width: 1
+                border.color: id_refreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                    : id_refreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Image {
+                    id: id_refreshIcon
+
+                    anchors.centerIn: parent
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                    width: 19
+                    height: 19
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+
+                    visible: false // MultiEffect draws image
+                }
+
+                // Colorize refresh icon dynamically based on color theme
+                MultiEffect {
+                    anchors.fill: id_refreshIcon
+                    source: id_refreshIcon
+                    colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                    colorization: 1.0 
+                    rotation: id_refresh.refreshRotation
+                }
+
+                NumberAnimation {
+                    id: id_refreshSpinAnimation
+                    
+                    target: id_refresh
+                    property: "refreshRotation"
+                    from: 0
+                    to: 360
+                    duration: 300
+                    easing.type: Easing.Linear
+                }
+
+                MouseArea {
+                    id: id_refreshMouseArea
+                    
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        id_refreshSpinAnimation.restart()
+                        id_root.refreshClicked()
+                    }
                 }
             }
         }

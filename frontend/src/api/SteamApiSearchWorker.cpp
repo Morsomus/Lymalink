@@ -1,23 +1,23 @@
 /////////////////////////////////////////////////////////
-// File: SteamApiWorker.cpp
+// File: SteamApiSearchWorker.cpp
 // Date: 2026-05-19
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Implements Steam API worker
+// Description: Implements Steam API search worker
 /////////////////////////////////////////////////////////
 
-#include "SteamApiWorker.h"
+#include "SteamApiSearchWorker.h"
 
 #include <QDebug>
 
 /////////////////////////////////////////////////////////////////////
 
-SteamApiWorker::SteamApiWorker(QObject *parent) : QObject(parent)
+SteamApiSearchWorker::SteamApiSearchWorker(QObject *parent) : QObject(parent)
 {
     m_steamApi = nullptr;
 }
 
-SteamApiWorker::~SteamApiWorker()
+SteamApiSearchWorker::~SteamApiSearchWorker()
 {
     // Destructor
 }
@@ -26,14 +26,14 @@ SteamApiWorker::~SteamApiWorker()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiWorker::Init()
+void SteamApiSearchWorker::Init()
 {
     m_steamApi = new SteamApi(this);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiWorker::SearchSteamAppIds(const QString &term)
+void SteamApiSearchWorker::SearchSteamAppIds(const QString &term)
 {
     m_cancelled.storeRelease(0);
 
@@ -41,7 +41,7 @@ void SteamApiWorker::SearchSteamAppIds(const QString &term)
     const Error searchError = m_steamApi->SearchAppId(term, searchResults);
     if (searchError != Error::NoError)
     {
-        qDebug() << "SteamApiWorker: SearchAppId failed:" << static_cast<int>(searchError);
+        qDebug() << "SteamApiSearchWorker: SearchAppId failed:" << static_cast<int>(searchError);
         emit signalSearchAppIdsFinished(false, false, {});
         return;
     }
@@ -51,7 +51,7 @@ void SteamApiWorker::SearchSteamAppIds(const QString &term)
     {
         if (m_cancelled.loadAcquire())
         {
-            qDebug() << "SteamApiWorker: SearchSteamAppIds cancelled";
+            qDebug() << "SteamApiSearchWorker: SearchSteamAppIds cancelled";
             emit signalSearchAppIdsFinished(false, true, {});
             return;
         }
@@ -62,7 +62,7 @@ void SteamApiWorker::SearchSteamAppIds(const QString &term)
         {
             if (gameInfoError != Error::ParseError)
             {
-                qDebug() << "SteamApiWorker: SearchGameInfo failed for app id" << result.appId << ":" << static_cast<int>(gameInfoError);
+                qDebug() << "SteamApiSearchWorker: SearchGameInfo failed for app id" << result.appId << ":" << static_cast<int>(gameInfoError);
             }
             continue;
         }
@@ -83,7 +83,7 @@ void SteamApiWorker::SearchSteamAppIds(const QString &term)
 
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiWorker::Cancel()
+void SteamApiSearchWorker::Cancel()
 {
     m_cancelled.storeRelease(1);
 }

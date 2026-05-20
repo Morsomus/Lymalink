@@ -17,12 +17,18 @@ import QtQuick.Layouts
 Item {
     id: id_root
 
+    // Public ________________________________________________
+    signal targetAdded(int appId)
+
     // Internals _____________________________________________
     property var searchResults: []
     property bool isSearching: false
     property bool suppressNextCancelStatus: false
     property string statusText: ""
     property bool statusIsError: false
+    property string targetStatusText: ""
+    property bool targetStatusIsError: false
+    property bool isCreatingTarget: false
     property int selectedAppId: 0
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
@@ -114,6 +120,8 @@ Item {
         id_root.selectedAppId = result.id
         id_root.selectedName = result.name
         id_root.addedDate = Math.floor(Date.now() / 1000)
+        id_root.targetStatusText = ""
+        id_root.targetStatusIsError = false
     }
 
     function setManualGameEntry(enabled) {
@@ -122,6 +130,35 @@ Item {
         id_root.searchResults = []
         id_root.statusText = ""
         id_root.statusIsError = false
+        id_root.targetStatusText = ""
+        id_root.targetStatusIsError = false
+    }
+
+    function createTarget() {
+        if (id_root.isCreatingTarget || !id_confirmTarget.canConfirm) {
+            return
+        }
+
+        id_root.isCreatingTarget = true
+        id_root.targetStatusText = qsTr("Creating target...")
+        id_root.targetStatusIsError = false
+
+        const success = ctxLymalink.CreateNewSteamEmuTarget(
+            id_root.selectedAppId,
+            id_root.selectedName,
+            id_installLocationField.text,
+            id_prefixLocationField.text
+        )
+
+        id_root.isCreatingTarget = false
+        id_root.targetStatusIsError = !success
+        id_root.targetStatusText = success
+            ? qsTr("Target created")
+            : qsTr("Couldn't create target. Emulator target with this ID " + id_root.selectedAppId + " may already exist.")
+
+        if (success) {
+            id_root.targetAdded(id_root.selectedAppId)
+        }
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -134,14 +171,22 @@ Item {
         title: qsTr("Select Game Executable")
         fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("Executable files (*.exe)")]
-        onAccepted: id_installLocationField.text = id_root.fileUrlToPath(selectedFile)
+        onAccepted: {
+            id_installLocationField.text = id_root.fileUrlToPath(selectedFile)
+            id_root.targetStatusText = ""
+            id_root.targetStatusIsError = false
+        }
     }
 
     FolderDialog {
         id: id_prefixFolderDialog
 
         title: qsTr("Select Prefix Location (drive_c or equivalent)")
-        onAccepted: id_prefixLocationField.text = id_root.fileUrlToPath(selectedFolder)
+        onAccepted: {
+            id_prefixLocationField.text = id_root.fileUrlToPath(selectedFolder)
+            id_root.targetStatusText = ""
+            id_root.targetStatusIsError = false
+        }
     }
 
     ScrollView {
@@ -483,7 +528,11 @@ Item {
                         focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
                         text: id_root.selectedAppId > 0 ? id_root.selectedAppId.toString() : ""
                         validator: IntValidator { bottom: 1 }
-                        onTextEdited: id_root.selectedAppId = text.length > 0 ? parseInt(text) : 0
+                        onTextEdited: {
+                            id_root.selectedAppId = text.length > 0 ? parseInt(text) : 0
+                            id_root.targetStatusText = ""
+                            id_root.targetStatusIsError = false
+                        }
                     }
 
                     // Name
@@ -501,7 +550,11 @@ Item {
                         selectByMouse: id_root.manualGameEntry
                         focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
                         text: id_root.selectedName
-                        onTextEdited: id_root.selectedName = text
+                        onTextEdited: {
+                            id_root.selectedName = text
+                            id_root.targetStatusText = ""
+                            id_root.targetStatusIsError = false
+                        }
                     }
 
                     // Game Executable
@@ -592,14 +645,31 @@ Item {
                         }
                     }
 
-                    // Confirm row
-                    Text { text: "" }
-
-                    RowLayout {
+                    Item {
                         Layout.fillWidth: true
+                    }
+
+                    // Confirm row
+                    RowLayout {
+                        spacing: 12
+                        Layout.topMargin: 4
 
                         Item {
                             Layout.fillWidth: true
+                        }
+
+                        Text {
+                            Layout.preferredWidth: 420
+                            Layout.maximumWidth: 420
+                            visible: id_root.targetStatusText.length > 0
+                            text: id_root.targetStatusText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: id_root.targetStatusIsError
+                                ? Themes.emulatorTarget.colors.errorText
+                                : Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                            horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
                         }
 
                         Rectangle {
@@ -609,6 +679,7 @@ Item {
                                 && id_root.selectedName.trim().length > 0
                                 && id_installLocationField.text.trim().length > 0
                                 && id_prefixLocationField.text.trim().length > 0
+                                && !id_root.isCreatingTarget
 
                             implicitHeight: 32
                             implicitWidth: id_confirmTargetLabel.implicitWidth + 60
@@ -651,6 +722,8 @@ Item {
                                 enabled: id_confirmTarget.canConfirm
                                 hoverEnabled: enabled
                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+
+                                onClicked: id_root.createTarget()
                             }
                         }
                     }

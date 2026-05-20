@@ -20,6 +20,7 @@ Rectangle {
     id: id_root
 
     // Public ________________________________________________
+    property int p_targetId: 0
     property string p_title: "Title"
     property string p_coverSource: ""
     property int p_achievementCount: 0
@@ -27,13 +28,14 @@ Rectangle {
     property string p_installationStatus: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
+    property bool p_isLoading: false
     property bool p_miniAchievementsBadgeEnabled: false
     property bool p_edgeProgressFrameEnabled: false
     property int p_edgeProgressFrameColorStyle: 1
     property bool p_edgeProgressFrameStaticGrayColor: false
     property bool p_edgeProgressFrameCompletionAnimation: false
 
-    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
+    signal openTargetDetails(int targetId)
     
     // Internals _____________________________________________
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -61,7 +63,6 @@ Rectangle {
             anchors.fill: parent
             source: id_root.p_coverSource
             fillMode: Image.PreserveAspectCrop
-            smooth: true
             asynchronous: true
 
             layer.enabled: true
@@ -70,11 +71,19 @@ Rectangle {
                 maskSource: id_coverMask
             }
 
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000" // TODO move to Themes
+                opacity: 0.55
+                visible: id_root.p_isLoading
+            }
+
             CustomBusyIndicator {
                 anchors.centerIn: parent
+                z: 2
                 visible: running
                 indicatorSize: 64
-                running: id_coverImage.status === Image.Loading
+                running: id_coverImage.status === Image.Loading || id_root.p_isLoading
             }
 
             Column {
@@ -283,11 +292,24 @@ Rectangle {
                 elide: Text.ElideRight
                 width: parent.width
             }
-            Text {
-                text: "🎮 " + id_root.p_lastPlayed
-                color: Themes.card.colors.hoverLastPlayed
-                font.pixelSize: Themes.card.fontSizes.hoverMeta
+            Row {
+                spacing: 4
                 visible: id_root.p_lastPlayed !== ""
+
+                Image {
+                    width: 16
+                    height: 16
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00037_ED.png"
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                }
+
+                Text {
+                    text: id_root.p_lastPlayed
+                    color: Themes.card.colors.hoverLastPlayed
+                    font.pixelSize: Themes.card.fontSizes.hoverMeta
+                }
             }
             Text {
                 text: id_root.p_achievementTotal > 0 ? id_root.p_achievementCount + " / " + id_root.p_achievementTotal + " " + qsTr("Achievements") : ""
@@ -452,18 +474,11 @@ Rectangle {
 
         z: 1
         anchors.fill: parent
+        enabled: !id_root.p_isLoading
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(
-                id_root.p_title,
-                id_root.p_coverSource,
-                id_root.p_achievementCount,
-                id_root.p_achievementTotal,
-                id_root.p_installationStatus,
-                id_root.p_lastPlayed,
-                id_root.p_recentUnlock
-            )
+            id_root.openTargetDetails(id_root.p_targetId)
         }
     }
 

@@ -1,9 +1,9 @@
 /////////////////////////////////////////////////////////
-// File: SteamApiWorker.h
+// File: SteamApiSearchWorker.h
 // Date: 2026-05-19
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares Steam API worker
+// Description: Declares Steam API search worker
 /////////////////////////////////////////////////////////
 
 #pragma once
@@ -15,12 +15,12 @@
 #include <QObject>
 #include <QVariantList>
 
-class SteamApiWorker : public QObject
+class SteamApiSearchWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit SteamApiWorker(QObject *parent = nullptr);
-    ~SteamApiWorker();
+    explicit SteamApiSearchWorker(QObject *parent = nullptr);
+    ~SteamApiSearchWorker();
 
 public slots:
     void Init();

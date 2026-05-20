@@ -17,6 +17,7 @@ Rectangle {
     id: id_root
 
     // Public ________________________________________________
+    property int p_targetId: 0
     property string p_title: "Title"
     property string p_coverSource: ""
     property int p_achievementCount: 0
@@ -27,10 +28,11 @@ Rectangle {
     property string p_lastAchievementIcon: ""
     property string p_lastAchievementName: ""
     property string p_lastAchievementDesc: ""
+    property bool p_isLoading: false
     property int p_delegateIndex: 0
     property int p_globalColorStyle: 1
 
-    signal openTargetDetails(string title, string coverSource, int achievementCount, int achievementTotal, string status, string lastPlayed, string recentUnlock)
+    signal openTargetDetails(int targetId)
 
     // Internals _____________________________________________
     readonly property real progress: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -97,18 +99,11 @@ Rectangle {
         id: id_rootMouseArea
 
         anchors.fill: parent
+        enabled: !id_root.p_isLoading
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(
-                id_root.p_title,
-                id_root.p_coverSource,
-                id_root.p_achievementCount,
-                id_root.p_achievementTotal,
-                id_root.p_installationStatus,
-                id_root.p_lastPlayed,
-                id_root.p_recentUnlock
-            )
+            id_root.openTargetDetails(id_root.p_targetId)
         }
 
         // Card Row Hover
@@ -186,21 +181,28 @@ Rectangle {
                     anchors.fill: parent
                     source: id_root.p_coverSource
                     fillMode: Image.PreserveAspectCrop
-                    smooth: true
                     asynchronous: true
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#000000"    // TODO move to Themes
+                        opacity: 0.55
+                        visible: id_root.p_isLoading
+                    }
 
                     CustomBusyIndicator {
                         anchors.centerIn: parent
+                        z: 2
                         visible: running
                         indicatorSize: 48
-                        running: id_coverImage.status === Image.Loading
+                        running: id_coverImage.status === Image.Loading || id_root.p_isLoading
                     }
 
                     // Show first letter of the title if icon/logo missing
                     Rectangle {
                         anchors.fill: parent
                         color: Themes.cardRowDetailed.colors.fallbackBackground
-                        visible: id_coverImage.status === Image.Error || id_root.p_coverSource === ""
+                        visible: !id_root.p_isLoading && (id_coverImage.status === Image.Error || id_root.p_coverSource === "")
 
                         Text {
                             anchors.centerIn: parent
@@ -391,8 +393,8 @@ Rectangle {
 
             // Achievement Icon
             Rectangle {
-                width:  44
-                height: 44
+                width:  64
+                height: 64
                 radius: 4
                 color: Themes.cardRowDetailed.colors.iconBackground
                 Layout.alignment: Qt.AlignVCenter
@@ -404,8 +406,6 @@ Rectangle {
                     anchors.fill: parent
                     source: id_root.p_lastAchievementIcon
                     fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    // mipmap: true
                     asynchronous: true
                 }
 

@@ -28,6 +28,8 @@ public:
     bool RenameFolder(const QString &folderPath, const QString &newFolderPath);
     QStringList FileListCreate(const QString &folderPath);
     QStringList FolderListCreate(const QString &folderPath);
+    QString LocalFileSource(const QString &filePath);
+    QString FirstImageInDirectory(const QString &directoryPath);
 
 private:
     bool CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);

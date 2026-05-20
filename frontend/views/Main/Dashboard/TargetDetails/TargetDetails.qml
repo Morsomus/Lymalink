@@ -22,7 +22,7 @@ Item {
     property string p_coverSource: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
-    property string p_playtime: "28 hours" // minutes or hours
+    property string p_playtime: "" // minutes or hours
     property string p_installationStatus: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
@@ -42,37 +42,6 @@ Item {
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
         : 0.0
-
-    // TEMPORARY: Dummy achievement model
-    ListModel {
-        id: id_dummyAchievementModel
-
-        // Unlocked
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "First Blood";    description: "Kill your first enemy.";                    globalUnlockPercent: 91.2; unlockDate: "12 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Explorer";       description: "Discover all areas in the first chapter.";   globalUnlockPercent: 74.5; unlockDate: "13 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Hoarder";        description: "Collect 100 items.";                         globalUnlockPercent: 58.3; unlockDate: "15 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Speed Demon";    description: "Complete a level in under 2 minutes.";       globalUnlockPercent: 43.1; unlockDate: "20 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Untouchable";    description: "Finish a level without taking damage.";      globalUnlockPercent: 31.7; unlockDate: "22 Apr 2024"; unlocked: true;  hidden: false; sectionKey: "unlocked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Shadow Step";    description: "???";                                        globalUnlockPercent: 8.1;  unlockDate: "25 Apr 2024"; unlocked: true;  hidden: true;  sectionKey: "unlocked" }
-
-        // Locked
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "The Long Road";  description: "Play for more than 50 hours.";               globalUnlockPercent: 28.4; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Completionist";  description: "Unlock all other achievements.";             globalUnlockPercent: 4.1;  unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Ghost";          description: "Complete the game without being detected.";  globalUnlockPercent: 11.9; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Iron Will";      description: "Die 0 times in a single playthrough.";       globalUnlockPercent: 7.6;  unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Lorekeeper";     description: "Read every note and journal entry.";         globalUnlockPercent: 19.2; unlockDate: ""; unlocked: false; hidden: false; sectionKey: "locked" }
-
-        // Hidden + locked
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "True Ending";    description: "Witness the secret final cutscene.";         globalUnlockPercent: 3.3;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Pacifist";       description: "Complete the game without killing anyone.";  globalUnlockPercent: 5.8;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
-        ListElement { iconSource: "qrc:/qt/qml/Lymalink/res/img/ach_placeholder.png"; name: "Void Walker";    description: "Reach a place that should not exist.";       globalUnlockPercent: 1.2;  unlockDate: ""; unlocked: false; hidden: true;  sectionKey: "hidden" }
-    }
-
-    // TEMPORARY for Dummy achievement model
-    Component.onCompleted: {
-        id_root.p_achievementModel = id_dummyAchievementModel
-        // console.log("width: " + id_achievementList.width)
-    }
 
     /////////////////////////////////////////////////////////////////////
     //////////////////////////// COMPONENTS /////////////////////////////
@@ -206,8 +175,8 @@ Item {
 
             // Achievement icon
             Rectangle {
-                width: 52
-                height: 52
+                width: 64
+                height: 64
                 color: Themes.targetDetails.colors.coverBackground
 
                 Image {
@@ -215,15 +184,8 @@ Item {
 
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
                     asynchronous: true
                     visible: !id_row.hidden || id_row.unlocked || id_row.revealed
-                    opacity: id_row.unlocked ? 1.0 : 0.35
-                    layer.enabled: !id_row.unlocked
-                    layer.effect: MultiEffect {
-                        saturation: -1.0    // greyscale when locked
-                    }
                 }
 
                 // "?" shown instead of icon for concealed hidden achievements
@@ -374,8 +336,6 @@ Item {
                     anchors.fill: parent
                     source: id_root.p_coverSource
                     fillMode: Image.PreserveAspectCrop
-                    smooth: true
-                    mipmap: true
                     asynchronous: true
 
                     CustomBusyIndicator {
