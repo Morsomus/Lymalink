@@ -18,6 +18,16 @@ import QtQuick.Window
 Item {
     id: id_root
 
+    // Internals _____________________________________________
+    property string pendingSteamWebApiKey: ""
+
+    function saveSteamWebApiKey(apiKey, passcode) {
+        ctxSettings.SetTempEncryptionKey(passcode)
+        if (ctxSettings.SaveValue(Settings.SteamWebApiKey, apiKey)) {
+            id_webApiKeyInput.completeApply(apiKey)
+        }
+    }
+
     /////////////////////////////////////////////////////////////////////
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////
@@ -146,6 +156,7 @@ Item {
         property int fieldWidth: 280
         property int fieldHeight: 32
         property int flashDuration: 550
+        property bool completeOnApply: true
         signal applyClicked(string text)
 
         spacing: 8
@@ -213,19 +224,25 @@ Item {
             }
         }
 
+        function completeApply(submittedText) {
+            if (id_maskedInputRoot.enableMasking && submittedText.length > 0) {
+                id_input.text = ""
+                id_inputFrame.masked = true
+                id_flashAnim.restart()
+            } else {
+                id_inputFrame.masked = false
+                id_flashAnim.restart()
+            }
+        }
+
         Button {
             text: qsTr("Apply")
             onClicked: {
                 const submittedText = id_input.text
                 id_maskedInputRoot.applyClicked(submittedText)
 
-                if (id_maskedInputRoot.enableMasking && submittedText.length > 0) {
-                    id_input.text = ""
-                    id_inputFrame.masked = true
-                    id_flashAnim.restart()
-                } else {
-                    id_inputFrame.masked = false
-                    id_flashAnim.restart()
+                if (id_maskedInputRoot.completeOnApply) {
+                    id_maskedInputRoot.completeApply(submittedText)
                 }
             }
         }
@@ -244,6 +261,22 @@ Item {
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
+
+    // Confirmation popup for API key passcode
+    ConfirmationPopup {
+        id: id_apiKeyConfirmationPopup
+
+        p_title: qsTr("Protect API Key")
+        p_description: qsTr("Set a passcode to encrypt this Steam Web API key before saving it.\n\nThe API key will be saved to: %1").arg(ctxSettings.GetConfigFilePath())
+        p_confirmText: qsTr("Encrypt and Save")
+        p_verificationMode: true
+        onCanceled: id_root.pendingSteamWebApiKey = ""
+        onClosed: id_root.pendingSteamWebApiKey = ""
+        onConfirmed: (passcode) => {
+            id_root.saveSteamWebApiKey(id_root.pendingSteamWebApiKey, passcode)
+            id_root.pendingSteamWebApiKey = ""
+        }
+    }
 
     // Fixed page header
     Item {
@@ -368,7 +401,7 @@ Item {
                             label: qsTr("Language")
                             tooltip: qsTr("Sets the application's display language")
                             ComboBox {
-                                model: ["English", "Finnish", "Svenska"]
+                                model: ["English"] //, "Finnish", "Svenska"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.language))
                                 implicitWidth: 140
                                 displayText: model[currentIndex]
@@ -723,7 +756,7 @@ Item {
                     C_SettingsSection {
                         fullRowMode: true
                         title: qsTr("Steam Web API")
-                        infoText: qsTr("Steam Web API can be used to import your Steam achievement progress into Lymalink\n\nNote: Currently, API key is saved to the local config file using the default encryption key, which is not secure for long-term storage. This will be improved in a future update.")
+                        infoText: qsTr("The Steam Web API can be used to import your Steam achievement progress into Lymalink.\n\nWhen saving an API key, you will be asked to create a passcode with at least 6 characters. The API key will be encrypted with that passcode before being stored locally.")
 
                         C_SettingRow {
                             label: qsTr("Steam ID")
@@ -742,13 +775,20 @@ Item {
                             fixedWidthInt: 500
 
                             C_ApplyInput {
+                                id: id_webApiKeyInput
+
                                 enableMasking: true
+                                completeOnApply: false
                                 initiallyMasked: ctxSettings.steamWebApiKey !== ""
                                 onApplyClicked: (text) => {
-                                    if (text.length > 0 || text === "") {
-                                        let val = text === "" ? "reset" : text
-                                        ctxSettings.SaveValue(Settings.SteamWebApiKey, val)
+                                    if (text === "") {
+                                        ctxSettings.SaveValue(Settings.SteamWebApiKey, "reset")
+                                        id_webApiKeyInput.completeApply(text)
+                                        return
                                     }
+
+                                    id_root.pendingSteamWebApiKey = text
+                                    id_apiKeyConfirmationPopup.open()
                                 }
                             }
                         }

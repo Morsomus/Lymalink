@@ -283,9 +283,6 @@ Popup {
                 danger: true
                 enabled: id_deleteConfirmInput.text === "delete"
                 opacity: enabled ? 1.0 : 0.45
-                tooltipText: enabled
-                    ? qsTr("Confirm target deletion")
-                    : qsTr("Type delete exactly to enable confirmation")
                 onClicked: id_root.deleteTarget()
             }
         }
@@ -294,7 +291,6 @@ Popup {
             id: id_closeButton
 
             text: qsTr("Close")
-            tooltipText: qsTr("Close target settings")
             onClicked: id_root.close()
         }
     }

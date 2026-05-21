@@ -26,22 +26,23 @@ Lymalink is a cross-platform application designed to monitor local game achievem
 Current progress towards the first working version, platform-wise
 
 ### Linux
-| Component | Status |
-|-----------|--------|
-| **Frontend** | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | 🚧 In Development |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started |
-| **Backend Service** | 📋 Planning |
-| **Compatibility & Testing** | 🔴 To Be Started |
-| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🔴 To Be Started |
+| Component | Status<br>v0.8.0-beta | Milestone |
+|-----------|--------|--------|
+| **Frontend** | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 🚧 In Development | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started | v0.9.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started | v0.9.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Localisation | 🔴 To Be Started | |
+| **Backend Service** | 🚧 In Development | v0.8.0-beta |
+| **Compatibility & Testing** | 🔴 To Be Started | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🔴 To Be Started | v1.0.0 |
 
 ### Windows
 | Component | Status |

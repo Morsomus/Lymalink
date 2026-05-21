@@ -519,6 +519,70 @@ QtObject {
         }
     }
 
+    // TargetAchievementEditPopup.qml
+    readonly property QtObject targetAchievementEditPopup: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color overlay: Qt.rgba(0, 0, 0, 0.70)
+            readonly property color background: Qt.rgba(0.14, 0.14, 0.14, 0.96)
+            readonly property color border: Qt.rgba(1, 1, 1, 0.12)
+            readonly property color titleText: "#e6e6e6"
+            readonly property color bodyText: "#9b9b9b"
+            readonly property color labelText: "#cfcfcf"
+            readonly property color inputBackground: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color inputBorder: Qt.rgba(1, 1, 1, 0.09)
+            readonly property color inputBorderFocus: Qt.rgba(1, 1, 1, 0.20)
+            readonly property color buttonBackground: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color buttonBackgroundHover: Qt.rgba(1, 1, 1, 0.08)
+            readonly property color buttonBackgroundPressed: Qt.rgba(1, 1, 1, 0.12)
+            readonly property color buttonBorder: Qt.rgba(1, 1, 1, 0.09)
+            readonly property color buttonBorderHover: Qt.rgba(1, 1, 1, 0.18)
+            readonly property color buttonText: "#e6e6e6"
+            readonly property color dangerBackground: Qt.rgba(0.85, 0.22, 0.22, 0.12)
+            readonly property color dangerBackgroundHover: Qt.rgba(0.85, 0.22, 0.22, 0.20)
+            readonly property color dangerBackgroundPressed: Qt.rgba(0.85, 0.22, 0.22, 0.28)
+            readonly property color dangerBorder: Qt.rgba(0.85, 0.22, 0.22, 0.28)
+            readonly property color dangerBorderHover: Qt.rgba(0.85, 0.22, 0.22, 0.45)
+            readonly property color dangerText: "#f0b8b8"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 16
+            readonly property int body: 12
+            readonly property int label: 11
+            readonly property int input: 13
+            readonly property int button: 13
+        }
+    }
+
+    // ConfirmationPopup.qml
+    readonly property QtObject confirmationPopup: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color overlay: Qt.rgba(0, 0, 0, 0.70)
+            readonly property color background: Qt.rgba(0.14, 0.14, 0.14, 0.94)
+            readonly property color border: Qt.rgba(1, 1, 1, 0.12)
+            readonly property color titleText: "#e6e6e6"
+            readonly property color bodyText: "#9b9b9b"
+            readonly property color buttonBackground: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color buttonBackgroundHover: Qt.rgba(1, 1, 1, 0.08)
+            readonly property color buttonBackgroundPressed: Qt.rgba(1, 1, 1, 0.12)
+            readonly property color buttonBorder: Qt.rgba(1, 1, 1, 0.09)
+            readonly property color buttonBorderHover: Qt.rgba(1, 1, 1, 0.18)
+            readonly property color buttonText: "#e6e6e6"
+            readonly property color dangerBackground: Qt.rgba(0.85, 0.22, 0.22, 0.12)
+            readonly property color dangerBackgroundHover: Qt.rgba(0.85, 0.22, 0.22, 0.20)
+            readonly property color dangerBackgroundPressed: Qt.rgba(0.85, 0.22, 0.22, 0.28)
+            readonly property color dangerBorder: Qt.rgba(0.85, 0.22, 0.22, 0.28)
+            readonly property color dangerBorderHover: Qt.rgba(0.85, 0.22, 0.22, 0.45)
+            readonly property color dangerText: "#f0b8b8"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 16
+            readonly property int body: 12
+            readonly property int button: 13
+        }
+    }
+
     // NewTarget.qml
     readonly property QtObject newTarget: QtObject {
         readonly property QtObject colors: QtObject {

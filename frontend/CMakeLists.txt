@@ -77,11 +77,14 @@ qt_add_qml_module(Lymalink
         res/img/BlankBackground_MFC_Glow_00036_ED.png
         res/img/BlankBackground_MFC_Glow_00037_ED.png
         res/img/BlankBackground_MFC_Glow_00038_ED.png
+        res/img/BlankBackground_MFC_Glow_00039_ED.png
+        res/img/BlankBackground_MFC_Glow_00040_ED.png
     QML_FILES
         Main.qml 
         Themes.qml
         common/CustomBusyIndicator.qml
         common/CustomTooltip.qml
+        common/ConfirmationPopup.qml
         common/ErrorImage.qml
         common/ErrorPopup.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
@@ -95,6 +98,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/NewTarget/Targets/Emulator.qml
         views/Main/Dashboard/NewTarget/Targets/SteamImport.qml
         views/Main/Dashboard/TargetDetails/TargetDetails.qml
+        views/Main/Dashboard/TargetDetails/TargetAchievementEditPopup.qml
         views/Main/Dashboard/TargetDetails/TargetSettings.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardToolbar.qml

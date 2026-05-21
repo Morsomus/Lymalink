@@ -88,11 +88,12 @@ public:
     };
     Q_ENUM(Key)
 
-    Q_INVOKABLE void SetPinCode(const QString &pinCode);
+    Q_INVOKABLE void SetTempEncryptionKey(const QString &encryptionKey);
     Q_INVOKABLE bool ResetDefaults();
     Q_INVOKABLE bool SaveConfig();
     Q_INVOKABLE bool LoadConfig();
     Q_INVOKABLE bool SaveValue(Key key, const QVariant &value, bool emitSignal = true);
+    Q_INVOKABLE QString GetConfigFilePath() const;
     void TrackWindowSizeSetting(QQmlApplicationEngine *engine);
 
     inline QString GetTheme() const { return m_theme; }
@@ -131,7 +132,7 @@ signals:
 
 private:
     QSettings m_settings;
-    QString m_pinCode;
+    QString m_tempEncryptionKey;
 
     QString m_theme;
     bool m_showLymalinkLogo;
@@ -165,8 +166,8 @@ private:
     QString m_dashboardToolbarLayout;
 
     void SetDefaults();
-    bool SaveSteamWebApiKey();
+    bool SaveSteamWebApiKey(const QString &webApiKey);
     void SavePlainValues();
-    bool SaveEncryptedValues();
-    void LoadEncryptedValues();
+    bool SaveEncryptedWebApiKey(const QString &webApiKey);
+    void LoadEncryptedValueState();
 };

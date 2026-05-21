@@ -29,7 +29,7 @@ Item {
     property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
     property string activeSearch: ""
     property var targetDetailsAchievements: []
-    property string targetDetailsActiveSort: "name"
+    property string targetDetailsActiveSort: "unlockDate"
     property bool targetDetailsSortDescending: false
     property var targetDetailsActiveFilters: ["all"]
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
@@ -226,7 +226,10 @@ Item {
 
     function sortTargetDetailsAchievements(achievements) {
         const sort = id_root.targetDetailsActiveSort
-        const direction = id_root.targetDetailsSortDescending ? -1 : 1
+        const descending = sort === "unlockDate"
+            ? !id_root.targetDetailsSortDescending
+            : id_root.targetDetailsSortDescending
+        const direction = descending ? -1 : 1
 
         achievements.sort(function(left, right) {
             const leftSection = id_root.targetDetailsSectionRank(left.sectionKey)
@@ -296,6 +299,18 @@ Item {
         id_root.showingTargetDetails = true
     }
 
+    function reloadTargetDetails(appId) {
+        if (!id_root.pendingTargetDetails || id_root.pendingTargetDetails.id !== appId) {
+            return
+        }
+
+        const details = ctxLymalink.FetchTargetDetails(appId)
+        id_root.targetDetailsAchievements = details.achievements ?? []
+        id_root.refreshTargetDetailsAchievements()
+        id_root.pendingTargetDetails = details
+        id_root.refreshTargets()
+    }
+
     Connections {
         target: ctxLymalink
 
@@ -335,6 +350,7 @@ Item {
         id: id_targetDetailsLayout
 
         TargetDetails {
+            p_appId: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.id : 0
             p_title: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.title : ""
             p_coverSource: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetails : ""
             p_achievementCount: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementCount : 0
@@ -346,6 +362,10 @@ Item {
             p_playtime: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.playtime : ""
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel
+
+            onAchievementStateChanged: function(appId) {
+                id_root.reloadTargetDetails(appId)
+            }
         }
     }
 

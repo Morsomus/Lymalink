@@ -62,28 +62,40 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
         return Error::FileSystemError;
     }
 
-    // Download
-    QNetworkRequest request{QUrl(url)};
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-
-    QNetworkReply *reply = m_network.get(request);
-
-    QEventLoop loop;
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError)
+    QByteArray data;
+    if (m_lastDownloadedUrl == url && !m_lastDownloadedData.isEmpty())
     {
-        qWarning() << "Network error:" << reply->errorString() << url;
-        return Error::NotFound;
+        qDebug() << "Reusing downloaded image data:" << url;
+        data = m_lastDownloadedData;
     }
-
-    const QByteArray data = reply->readAll();
-    if (data.isEmpty())
+    else
     {
-        qWarning() << "Empty response:" << url;
-        return Error::NotFound;
+        // Download
+        QNetworkRequest request{QUrl(url)};
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+        QNetworkReply *reply = m_network.get(request);
+
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+        {
+            qWarning() << "Network error:" << reply->errorString() << url;
+            return Error::NotFound;
+        }
+
+        data = reply->readAll();
+        if (data.isEmpty())
+        {
+            qWarning() << "Empty response:" << url;
+            return Error::NotFound;
+        }
+
+        m_lastDownloadedUrl = url;
+        m_lastDownloadedData = data;
     }
 
     // Decode
@@ -132,6 +144,14 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     qDebug() << "Saved:" << finalPath;
     cachedPath = finalPath;
     return Error::NoError;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void ImageCacheManager::ClearMemoryCache()
+{
+    m_lastDownloadedUrl.clear();
+    m_lastDownloadedData.clear();
 }
 
 /////////////////////////////////////////////////////////////////////

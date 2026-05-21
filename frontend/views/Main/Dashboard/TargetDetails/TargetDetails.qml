@@ -18,6 +18,7 @@ Item {
     id: id_root
 
     // Public ________________________________________________
+    property int p_appId: 0
     property string p_title: "Aethelwald III"
     property string p_coverSource: ""
     property string p_lastPlayed: ""
@@ -29,6 +30,8 @@ Item {
     property int p_achievementTotal: 0
     property int p_globalColorStyle: 1
     property alias p_achievementModel: id_achievementList.model
+
+    signal achievementStateChanged(int appId)
 
     // Internals _____________________________________________
     readonly property int coverPanelWidth: 240
@@ -132,6 +135,7 @@ Item {
         id: id_row
 
         property alias iconSource: id_icon.source
+        property string achievementKey: ""
         property string achievementName: ""
         property string achievementDescription: ""
         property real globalUnlockPercentage: 0.0
@@ -207,13 +211,13 @@ Item {
 
         Behavior on leftInset {
             NumberAnimation {
-                duration: 180
+                duration: 100
                 easing.type: Easing.OutQuad
             }
         }
 
         TapHandler {
-            enabled: id_row.achievementHidden && !id_row.unlocked
+            enabled: id_row.achievementHidden && !id_row.unlocked && !id_row.revealed
             onTapped: id_row.revealed = !id_row.revealed
             cursorShape: Qt.PointingHandCursor
         }
@@ -263,6 +267,75 @@ Item {
                     font.bold: true
                     opacity: id_row.hiddenPlaceholderOpacity
                 }
+
+                Item {
+                    id: id_achievementEditOverlay
+
+                    anchors.fill: parent
+                    z: 10
+                    visible: id_root.p_appId > 0 && id_row.achievementKey.length > 0 && id_row.contentRevealOpacity > 0.95
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: id_row.unlocked
+                            ? id_root.themedCompletionColor
+                            : id_root.themedProgressColor
+                        opacity: id_achievementEditMouseArea.containsMouse ? 0.20 : 0.0
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 120
+                            }
+                        }
+                    }
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: parent.width * 0.7
+                        height: parent.height * 0.7
+                        source: id_row.unlocked
+                            ? "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00040_ED.png"
+                            : "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00039_ED.png"
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        opacity: id_achievementEditMouseArea.containsMouse ? 0.65 : 0.0
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 120
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: id_achievementEditMouseArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: {
+                            id_achievementEditPopup.configure(
+                                id_root.p_appId,
+                                id_row.achievementKey,
+                                id_row.achievementName,
+                                id_row.achievementDescription,
+                                id_row.unlocked
+                            )
+                            id_achievementEditPopup.open()
+                        }
+                    }
+                }
+
+                TargetAchievementEditPopup {
+                    id: id_achievementEditPopup
+
+                    onConfirmed: function(appId, achievementKey, unlock, unlockTimestamp) {
+                        if (ctxLymalink.SetAchievementUnlocked(appId, achievementKey, unlock, unlockTimestamp)) {
+                            id_root.achievementStateChanged(appId)
+                        }
+                    }
+                }
             }
 
             // Name + description
@@ -274,7 +347,11 @@ Item {
                     anchors.fill: parent
                     color: Themes.targetDetails.colors.hiddenHoverOverlay
                     opacity: id_hoverHandler.hovered ? 0.06 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 120
+                        }
+                    }
                 }
 
                 Column {
@@ -640,6 +717,7 @@ Item {
             readonly property real viewportTop: y - id_achievementList.contentY
             leftInset: id_root.p_enabledAchievementRowDynamicWidth && viewportTop < id_root.fixedPanelClearance ? id_root.fixedPanelInset : 0
 
+            achievementKey: model.achievementKey
             iconSource: model.iconSource
             achievementName: model.achievementName
             achievementDescription: model.achievementDescription

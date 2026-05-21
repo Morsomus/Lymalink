@@ -177,6 +177,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_SMALL_TARGET_SIZE, "cover_150x225");
     TryDownloadFirstWorking(lcUrls, coversDir, COVER_ROW_DETAILED_TARGET_SIZE, "cover_80x120");
     TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_DETAILS_TARGET_SIZE, "cover_240x360");
+    m_imageCache->ClearMemoryCache();
 
     if (m_cancelled.loadAcquire())
     {

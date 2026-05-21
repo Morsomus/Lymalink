@@ -221,6 +221,86 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden)
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp)
+{
+    const QString trimmedKey = achievementKey.trimmed();
+    if (appId <= 0 || trimmedKey.isEmpty())
+    {
+        qWarning() << "Lymalink: invalid achievement unlock update:" << appId << trimmedKey;
+        return false;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        qCritical() << "Lymalink: failed to open database for achievement unlock update:" << m_databaseManager.lastError();
+        return false;
+    }
+
+    const QVariantMap existingAchievement = m_databaseManager.selectFirst(
+        m_databaseConnectionName,
+        "steam_emu_achievements",
+        "id = ? AND achievement_key = ?",
+        {appId, trimmedKey}
+    );
+    if (existingAchievement.isEmpty())
+    {
+        qWarning() << "Lymalink: achievement not found for unlock update:" << appId << trimmedKey;
+        return false;
+    }
+
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const qint64 normalizedUnlockTimestamp = unlocked
+        ? (unlockTimestamp > 0 ? unlockTimestamp : now)
+        : 0;
+
+    const bool achievementUpdated = m_databaseManager.update(
+        m_databaseConnectionName,
+        "steam_emu_achievements",
+        {
+            {"date_unlocked", normalizedUnlockTimestamp},
+            {"date_updated", now}
+        },
+        "id = ? AND achievement_key = ?",
+        {appId, trimmedKey}
+    );
+    if (!achievementUpdated)
+    {
+        qCritical() << "Lymalink: failed to update achievement unlock state:" << m_databaseManager.lastError();
+        return false;
+    }
+
+    const int unlockedCount = m_databaseManager.count(
+        m_databaseConnectionName,
+        "steam_emu_achievements",
+        "id = ? AND date_unlocked > 0",
+        {appId}
+    );
+    if (unlockedCount < 0)
+    {
+        qCritical() << "Lymalink: failed to count unlocked achievements:" << m_databaseManager.lastError();
+        return false;
+    }
+
+    const bool targetUpdated = m_databaseManager.update(
+        m_databaseConnectionName,
+        "steam_emu_games",
+        {
+            {"total_unlocked_amount_achievements", unlockedCount},
+            {"date_updated", now}
+        },
+        "id = ?",
+        {appId}
+    );
+    if (!targetUpdated)
+    {
+        qCritical() << "Lymalink: failed to update target achievement count:" << m_databaseManager.lastError();
+    }
+
+    return targetUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::DeleteTarget(int appId)
 {
     if (appId <= 0)
@@ -658,6 +738,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         const QString sectionKey = unlocked ? "unlocked" : (achievementHidden ? "achievementHidden" : "locked");
 
         QVariantMap achievement = {
+            {"achievementKey", Utils::MapStringValue(row, "achievement_key")},
             {"iconSource", AchievementIconFilePath(iconsPath, row)},
             {"achievementName", Utils::MapStringValue(row, "achievement_name")},
             {"achievementDescription", Utils::MapStringValue(row, "achievement_description")},

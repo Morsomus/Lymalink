@@ -50,7 +50,7 @@ Item {
     property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
     readonly property int activeFilterCount: activeFilters.length
     property string targetDetailsActivePanel: ""
-    property string targetDetailsActiveSort: "name"
+    property string targetDetailsActiveSort: "unlockDate"
     property string targetDetailsActiveFilter: "all"
     property var targetDetailsActiveFilters: ["all"]
     readonly property int targetDetailsActiveFilterCount: targetDetailsActiveFilters.length

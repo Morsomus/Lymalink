@@ -11,6 +11,7 @@
 
 #include "../Error.h"
 
+#include <QByteArray>
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QSize>
@@ -25,9 +26,12 @@ public:
     ~ImageCacheManager();
 
     Error DownloadAndCache(const QString &url, const QString &savePath, const QSize &targetSize, QString &cachedPath, const QString &newName = QString());
+    void ClearMemoryCache();
 
 private:
     QNetworkAccessManager m_network;
+    QString m_lastDownloadedUrl;
+    QByteArray m_lastDownloadedData;
 
     QString TempDir() const;
     QString BuildFinalPath(const QString &savePath, const QString &newName, const QString &url, const QSize &targetSize) const;

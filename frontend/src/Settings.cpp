@@ -42,13 +42,9 @@ Settings::~Settings()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void Settings::SetPinCode(const QString &pinCode)
+void Settings::SetTempEncryptionKey(const QString &encryptionKey)
 {
-    m_pinCode = pinCode.isEmpty() ? DEFAULT_PIN_CODE : pinCode;
-
-    // Refresh encrypted config values
-    LoadEncryptedValues();
-    emit signalConfigChanged();
+    m_tempEncryptionKey = encryptionKey;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -70,10 +66,6 @@ bool Settings::SaveConfig()
     qDebug() << "Settings::SaveConfig - Saving configuration...";
 
     SavePlainValues();
-    if (!SaveEncryptedValues())
-    {
-        return false;
-    }
 
     m_settings.sync();
 
@@ -137,7 +129,7 @@ bool Settings::LoadConfig()
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
     m_settings.endGroup();
 
-    LoadEncryptedValues();
+    LoadEncryptedValueState();
 
     emit signalConfigChanged();
 
@@ -335,11 +327,11 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         }
         case SteamWebApiKey:
         {
-            QString val = value.toString();
-            bool resetWebApiKey = val == "reset";
-            m_steamWebApiKey = resetWebApiKey ? "" : val;
+            const QString val = value.toString();
+            const bool resetWebApiKey = val == "reset";
             if (resetWebApiKey)
             {
+                m_steamWebApiKey = "";
                 group = GROUP_STEAM_WEB_API;
                 settingsKey = "WebApiKey";
                 settingsValue = m_steamWebApiKey;
@@ -347,7 +339,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             }
             else
             {
-                return SaveSteamWebApiKey();
+                return SaveSteamWebApiKey(val);
             }
         }
         case BackendService:
@@ -414,6 +406,13 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
 
 /////////////////////////////////////////////////////////////////////
 
+QString Settings::GetConfigFilePath() const
+{
+    return m_settings.fileName();
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
 {
     // Window size tracking
@@ -443,7 +442,7 @@ void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
 
 void Settings::SetDefaults()
 {
-    m_pinCode = DEFAULT_PIN_CODE;
+    m_tempEncryptionKey.clear();
     m_theme = "dark";
     m_showLymalinkLogo = true;
     m_language = "English";
@@ -476,9 +475,12 @@ void Settings::SetDefaults()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Settings::SaveSteamWebApiKey()
+bool Settings::SaveSteamWebApiKey(const QString &webApiKey)
 {
-    if (!SaveEncryptedValues())
+    const bool encrypted = SaveEncryptedWebApiKey(webApiKey);
+    m_tempEncryptionKey.clear();
+
+    if (!encrypted)
     {
         return false;
     }
@@ -488,6 +490,7 @@ bool Settings::SaveSteamWebApiKey()
     const bool saved = (m_settings.status() == QSettings::NoError);
     if (saved)
     {
+        m_steamWebApiKey = "api_key_set";
         emit signalConfigChanged();
     }
 
@@ -546,20 +549,25 @@ void Settings::SavePlainValues()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Settings::SaveEncryptedValues()
+bool Settings::SaveEncryptedWebApiKey(const QString &webApiKey)
 {
-    if (m_steamWebApiKey.isEmpty())
+    if (webApiKey.isEmpty())
     {
-        qDebug() << "Settings::SaveEncryptedValues() - Nothing to save";
+        qDebug() << "Settings::SaveEncryptedWebApiKey() - Nothing to save";
         return true;
     }
 
     Encryption encryption;
-    const QString encryptionKey = m_pinCode.isEmpty() ? DEFAULT_PIN_CODE : m_pinCode;
-    const QString encryptedWebApiKey = encryption.Encrypt(m_steamWebApiKey, encryptionKey);
+    if (m_tempEncryptionKey.isEmpty())
+    {
+        qDebug() << "Settings::SaveEncryptedWebApiKey() - Missing temporary encryption key";
+        return false;
+    }
+
+    const QString encryptedWebApiKey = encryption.Encrypt(webApiKey, m_tempEncryptionKey);
     if (encryptedWebApiKey.isEmpty())
     {
-        qDebug() << "Settings::SaveEncryptedValues() - Creating encryptedWebApiKey failed";
+        qDebug() << "Settings::SaveEncryptedWebApiKey() - Creating encryptedWebApiKey failed";
         return false;
     }
 
@@ -572,22 +580,17 @@ bool Settings::SaveEncryptedValues()
 
 /////////////////////////////////////////////////////////////////////
 
-void Settings::LoadEncryptedValues()
+void Settings::LoadEncryptedValueState()
 {
-    qDebug() << "Settings::LoadEncryptedValues - Loading encrypted values from config...";
-
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     const QString encryptedWebApiKey = m_settings.value("WebApiKey").toString();
     m_settings.endGroup();
 
     if (encryptedWebApiKey.isEmpty())
     {
-        qDebug() << "Settings::LoadEncryptedValues - No Encrypted Web API Key found";
         m_steamWebApiKey.clear();
         return;
     }
 
-    Encryption encryption;
-    const QString encryptionKey = m_pinCode.isEmpty() ? DEFAULT_PIN_CODE : m_pinCode;
-    m_steamWebApiKey = encryption.Decrypt(encryptedWebApiKey, encryptionKey);
+    m_steamWebApiKey = "api_key_set";
 }
