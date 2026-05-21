@@ -10,6 +10,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -34,9 +35,9 @@ Item {
     
     // Internals _____________________________________________
     property string activePanel: ""
-    property string activeSort: "title"
-    property string activeFilter: "none"
-    property var activeFilters: ["none"]
+    property string activeSort: ctxSettings.dashboardToolbarSort
+    property string activeFilter: activeFilters.length > 1 ? "multiple" : activeFilters[0]
+    property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
     readonly property int activeFilterCount: activeFilters.length
     property string targetDetailsActivePanel: ""
     property string targetDetailsActiveSort: "name"
@@ -144,6 +145,7 @@ Item {
         } else {
             activeFilters = filters
             activeFilter = filters.length > 1 ? "multiple" : filters[0]
+            ctxSettings.SaveValue(Settings.DashboardToolbarFilters, filters)
         }
     }
 
@@ -821,7 +823,7 @@ Item {
             Rectangle {
                 id: id_orderPill
 
-                property bool isDescending: true
+                property bool isDescending: ctxSettings.dashboardToolbarSortDescending
 
                 implicitHeight: 32
                 implicitWidth: id_orderRow.implicitWidth + 20
@@ -876,7 +878,10 @@ Item {
 
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: id_orderPill.isDescending = !id_orderPill.isDescending
+                    onClicked: {
+                        id_orderPill.isDescending = !id_orderPill.isDescending
+                        ctxSettings.SaveValue(Settings.DashboardToolbarSortDescending, id_orderPill.isDescending)
+                    }
                 }
             }
 
@@ -960,124 +965,128 @@ Item {
                 opacity: 0.5
             }
 
-            // Add Target Button
-            Rectangle {
-                id: id_addTarget
+            RowLayout {
+                spacing: 8
 
-                implicitHeight: 32
-                implicitWidth: id_addTargetLabel.implicitWidth + 24
-                radius: 16
+                // Add Target Button
+                Rectangle {
+                    id: id_addTarget
 
-                color: id_addTargetMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
-                    : id_addTargetMouseArea.containsMouse
-                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                    : "transparent"
+                    implicitHeight: 32
+                    implicitWidth: id_addTargetLabel.implicitWidth + 24
+                    radius: 16
 
-                border.width: 1
-                border.color: id_addTargetMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
-                    : id_addTargetMouseArea.containsMouse
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-
-                Text {
-                    id: id_addTargetLabel
-
-                    anchors.centerIn: parent
-                    text: qsTr("Add Target")
-                    color: id_root.themedCompletionColor
-                    font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
-                }
-
-                MouseArea {
-                    id: id_addTargetMouseArea
-                    
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: addTargetClicked()
-                }
-            }
-
-            // Refresh Button
-            Rectangle {
-                id: id_refresh
-
-                width: 32
-                height: 32
-                radius: 16
-
-                property real refreshRotation: 0
-
-                color: id_refreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
-                    : id_refreshMouseArea.containsMouse
+                    color: id_addTargetMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                        : id_addTargetMouseArea.containsMouse
                         ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
                         : "transparent"
 
-                border.width: 1
-                border.color: id_refreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
-                    : id_refreshMouseArea.containsMouse
+                    border.width: 1
+                    border.color: id_addTargetMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                        : id_addTargetMouseArea.containsMouse
                         ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
                         : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    Text {
+                        id: id_addTargetLabel
+
+                        anchors.centerIn: parent
+                        text: qsTr("Add Target")
+                        color: id_root.themedCompletionColor
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                    }
+
+                    MouseArea {
+                        id: id_addTargetMouseArea
+                        
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: addTargetClicked()
                     }
                 }
 
-                Image {
-                    id: id_refreshIcon
+                // Refresh Button
+                Rectangle {
+                    id: id_refresh
 
-                    anchors.centerIn: parent
-                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
-                    width: 19
-                    height: 19
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
+                    width: 32
+                    height: 32
+                    radius: 16
 
-                    visible: false // MultiEffect draws image
-                }
+                    property real refreshRotation: 0
 
-                // Colorize refresh icon dynamically based on color theme
-                MultiEffect {
-                    anchors.fill: id_refreshIcon
-                    source: id_refreshIcon
-                    colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
-                    colorization: 1.0 
-                    rotation: id_refresh.refreshRotation
-                }
+                    color: id_refreshMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                        : id_refreshMouseArea.containsMouse
+                            ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                            : "transparent"
 
-                NumberAnimation {
-                    id: id_refreshSpinAnimation
-                    
-                    target: id_refresh
-                    property: "refreshRotation"
-                    from: 0
-                    to: 360
-                    duration: 300
-                    easing.type: Easing.Linear
-                }
+                    border.width: 1
+                    border.color: id_refreshMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                        : id_refreshMouseArea.containsMouse
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                            : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
-                MouseArea {
-                    id: id_refreshMouseArea
-                    
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        id_refreshSpinAnimation.restart()
-                        id_root.refreshClicked()
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    Image {
+                        id: id_refreshIcon
+
+                        anchors.centerIn: parent
+                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                        width: 19
+                        height: 19
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
+
+                        visible: false // MultiEffect draws image
+                    }
+
+                    // Colorize refresh icon dynamically based on color theme
+                    MultiEffect {
+                        anchors.fill: id_refreshIcon
+                        source: id_refreshIcon
+                        colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                        colorization: 1.0 
+                        rotation: id_refresh.refreshRotation
+                    }
+
+                    NumberAnimation {
+                        id: id_refreshSpinAnimation
+                        
+                        target: id_refresh
+                        property: "refreshRotation"
+                        from: 0
+                        to: 360
+                        duration: 300
+                        easing.type: Easing.Linear
+                    }
+
+                    MouseArea {
+                        id: id_refreshMouseArea
+                        
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            id_refreshSpinAnimation.restart()
+                            id_root.refreshClicked()
+                        }
                     }
                 }
             }
@@ -1113,6 +1122,7 @@ Item {
                 onChipClicked: function(value) {
                     id_root.activeSort  = value
                     id_root.activePanel = ""
+                    ctxSettings.SaveValue(Settings.DashboardToolbarSort, value)
                 }
 
                 Behavior on opacity {

@@ -44,6 +44,8 @@ Item {
             p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
+            p_progressBarEnabled: ctxSettings.showProgressBar
+            p_progressBarColorStyle: ctxSettings.progressBarColorStyle
         }
     }
 
@@ -57,6 +59,8 @@ Item {
             p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
+            p_progressBarEnabled: ctxSettings.showProgressBar
+            p_progressBarColorStyle: ctxSettings.progressBarColorStyle
         }
     }
 

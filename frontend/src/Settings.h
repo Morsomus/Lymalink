@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QQmlApplicationEngine>
 
@@ -28,7 +29,9 @@ class Settings : public QObject
     Q_PROPERTY(bool showTooltips READ GetShowTooltips NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableCollapseBorderButton READ GetEnableCollapseBorderButton NOTIFY signalConfigChanged)
     Q_PROPERTY(int globalColorStyle READ GetGlobalColorStyle NOTIFY signalConfigChanged)
+    Q_PROPERTY(int progressBarColorStyle READ GetProgressBarColorStyle NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showProgressFrame READ GetShowProgressFrame NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool showProgressBar READ GetShowProgressBar NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showInstallationStatusBadge READ GetShowInstallationStatusBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool progressFrameGrayscaleMode READ GetProgressFrameGrayscaleMode NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showTotalAchievementsBadge READ GetShowTotalAchievementsBadge NOTIFY signalConfigChanged)
@@ -43,6 +46,10 @@ class Settings : public QObject
     Q_PROPERTY(QString steamId READ GetSteamId NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
     Q_PROPERTY(bool backendService READ GetBackendService NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString dashboardToolbarSort READ GetDashboardToolbarSort NOTIFY signalConfigChanged)
+    Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
 
 public:
     explicit Settings(QObject *parent = nullptr);
@@ -59,7 +66,9 @@ public:
         ShowTooltips,
         EnableCollapseBorderButton,
         GlobalColorStyle,
+        ProgressBarColorStyle,
         ShowProgressFrame,
+        ShowProgressBar,
         ShowInstallationStatusBadge,
         ProgressFrameGrayscaleMode,
         ShowTotalAchievementsBadge,
@@ -71,7 +80,11 @@ public:
         WindowSizeY,
         SteamId,
         SteamWebApiKey,
-        BackendService
+        BackendService,
+        DashboardToolbarSort,
+        DashboardToolbarFilters,
+        DashboardToolbarSortDescending,
+        DashboardToolbarLayout
     };
     Q_ENUM(Key)
 
@@ -92,7 +105,9 @@ public:
     inline bool GetEnableCollapseBorderButton() const { return m_enableCollapseBorderButton; }
     inline bool GetSidebarCollapsed() const { return m_sidebarCollapsed; }
     inline int GetGlobalColorStyle() const { return m_globalColorStyle; }
+    inline int GetProgressBarColorStyle() const { return m_progressBarColorStyle; }
     inline bool GetShowProgressFrame() const { return m_showProgressFrame; }
+    inline bool GetShowProgressBar() const { return m_showProgressBar; }
     inline bool GetShowInstallationStatusBadge() const { return m_showInstallationStatusBadge; }
     inline bool GetProgressFrameGrayscaleMode() const { return m_progressFrameGrayscaleMode; }
     inline bool GetShowTotalAchievementsBadge() const { return m_showTotalAchievementsBadge; }
@@ -106,6 +121,10 @@ public:
     inline QString GetSteamId() const { return m_steamId; }
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
     inline bool GetBackendService() const { return m_backendService; }
+    inline QString GetDashboardToolbarSort() const { return m_dashboardToolbarSort; }
+    inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
+    inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
+    inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
 
 signals:
     void signalConfigChanged();
@@ -123,7 +142,9 @@ private:
     bool m_showTooltips;
     bool m_enableCollapseBorderButton;
     int m_globalColorStyle;
+    int m_progressBarColorStyle;
     bool m_showProgressFrame;
+    bool m_showProgressBar;
     bool m_showInstallationStatusBadge;
     bool m_progressFrameGrayscaleMode;
     bool m_showTotalAchievementsBadge;
@@ -138,6 +159,10 @@ private:
     QString m_steamId;
     QString m_steamWebApiKey;
     bool m_backendService;
+    QString m_dashboardToolbarSort;
+    QStringList m_dashboardToolbarFilters;
+    bool m_dashboardToolbarSortDescending;
+    QString m_dashboardToolbarLayout;
 
     void SetDefaults();
     bool SaveSteamWebApiKey();

@@ -36,6 +36,8 @@ Rectangle {
     property int p_edgeProgressFrameColorStyle: 1
     property bool p_edgeProgressFrameStaticGrayColor: false
     property bool p_edgeProgressFrameCompletionAnimation: false
+    property bool p_progressBarEnabled: true
+    property int p_progressBarColorStyle: 1
 
     signal openTargetDetails(int appId)
 
@@ -546,6 +548,90 @@ Rectangle {
             visible: false
             layer.enabled: true
             radius: id_root.radius
+        }
+    }
+
+    // Segmented Progress Bar
+    Item {
+        id: id_progressBar
+
+        readonly property int segmentCount: 20
+        readonly property int margin: 8
+        readonly property int litSegments: {
+            if (id_root.p_achievementTotal <= 0) return 0
+            if (id_root.p_achievementCount <= 0) return 0
+            if (id_root.edgeProgressFrameCompletion >= 1.0) return segmentCount
+            const natural = Math.floor(id_root.edgeProgressFrameCompletion * segmentCount)
+            return Math.max(1, natural)
+        }
+
+        z: 2
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+            leftMargin: margin
+            rightMargin: margin
+            bottomMargin: margin
+        }
+        height: 11
+        visible: id_root.p_progressBarEnabled && id_root.p_achievementTotal > 0
+        opacity: id_rootMouseArea.containsMouse ? 0.0 : 1.0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 3
+            color: "transparent"
+            border.width: 1
+            border.color: Themes.globalStyle.withAlpha(
+                id_root.edgeProgressFrameCompletion >= 1.0
+                    ? Themes.globalStyle.completionColor(id_root.p_progressBarColorStyle)
+                    : Themes.globalStyle.progressColor(id_root.p_progressBarColorStyle),
+                0.55
+            )
+            z: 2
+        }
+
+        Row {
+            anchors {
+                fill: parent
+                margins: 2
+            }
+            spacing: 1
+
+            Repeater {
+                model: id_progressBar.segmentCount
+
+                Rectangle {
+                    required property int index
+                    readonly property bool lit: index < id_progressBar.litSegments
+                    readonly property color litColor: id_root.edgeProgressFrameCompletion >= 1.0
+                        ? Themes.globalStyle.completionColor(id_root.p_progressBarColorStyle)
+                        : Themes.globalStyle.progressColor(id_root.p_progressBarColorStyle)
+
+                    width: (id_progressBar.width - (id_progressBar.segmentCount - 1) * 1 - 4) / id_progressBar.segmentCount
+                    height: parent.height
+
+                    topLeftRadius: index === 0 ? 1 : 0
+                    bottomLeftRadius: index === 0 ? 1 : 0
+                    topRightRadius: index === id_progressBar.segmentCount - 1 ? 1 : 0
+                    bottomRightRadius: index === id_progressBar.segmentCount - 1 ? 1 : 0
+                    color: lit
+                        ? Qt.rgba(litColor.r, litColor.g, litColor.b, 0.55)
+                        : Qt.rgba(0.15, 0.15, 0.15, 0.40)
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 200
+                        }
+                    }
+                }
+            }
         }
     }
 

@@ -142,8 +142,68 @@ Item {
 
         // leftInset: positive = content shifted right, used for cover-zone indent
         property real leftInset: 0
+        readonly property bool concealedHidden: achievementHidden && !unlocked
+        readonly property bool contentRevealed: !concealedHidden || revealed
+        property real contentRevealOpacity: 0.0
+        property real contentRevealOffset: 8.0
+        property real hiddenPlaceholderOpacity: 0.0
 
         height: 82
+
+        function snapToHidden() {
+            id_contentRevealAnimation.stop()
+            contentRevealOpacity     = 0.0
+            contentRevealOffset      = 8.0
+            hiddenPlaceholderOpacity = concealedHidden ? 0.35 : 0.0
+        }
+
+        function snapToRevealed() {
+            id_contentRevealAnimation.stop()
+            contentRevealOpacity     = 1.0
+            contentRevealOffset      = 0.0
+            hiddenPlaceholderOpacity = 0.0
+        }
+
+        function animateReveal() {
+            id_contentRevealAnimation.stop()
+            contentRevealOpacity     = 0.0
+            contentRevealOffset      = 8.0
+            hiddenPlaceholderOpacity = 0.35
+            id_contentRevealAnimation.start()
+        }
+
+        onRevealedChanged: concealedHidden && (revealed ? animateReveal() : snapToHidden())
+        onAchievementHiddenChanged: contentRevealed ? snapToRevealed() : snapToHidden()
+        onUnlockedChanged: contentRevealed ? snapToRevealed() : snapToHidden()
+        Component.onCompleted: contentRevealed ? snapToRevealed() : snapToHidden()
+
+        SequentialAnimation {
+            id: id_contentRevealAnimation
+
+            ParallelAnimation {
+                NumberAnimation {
+                    target: id_row
+                    property: "contentRevealOpacity"
+                    to: 1.0
+                    duration: 520
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: id_row
+                    property: "contentRevealOffset"
+                    to: 0.0
+                    duration: 520
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: id_row
+                    property: "hiddenPlaceholderOpacity"
+                    to: 0.0
+                    duration: 260
+                    easing.type: Easing.OutQuad
+                }
+            }
+        }
 
         Behavior on leftInset {
             NumberAnimation {
@@ -179,7 +239,9 @@ Item {
             Rectangle {
                 width: 64
                 height: 64
-                color: Themes.targetDetails.colors.coverBackground
+                color: id_row.concealedHidden && id_row.revealed
+                    ? "transparent"
+                    : Themes.targetDetails.colors.coverBackground
 
                 Image {
                     id: id_icon
@@ -187,18 +249,19 @@ Item {
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
-                    visible: !id_row.achievementHidden || id_row.unlocked || id_row.revealed
+                    visible: id_row.contentRevealOpacity > 0
+                    opacity: id_row.contentRevealOpacity
+                    transform: Translate { y: id_row.contentRevealOffset }
                 }
 
-                // "?" shown instead of icon for concealed hidden achievements
                 Text {
                     anchors.centerIn: parent
-                    visible: id_row.achievementHidden && !id_row.unlocked && !id_row.revealed
+                    visible: id_row.concealedHidden && !id_row.revealed
                     text: "?"
                     color: Themes.targetDetails.colors.text
                     font.pixelSize: Themes.targetDetails.fontSizes.hiddenIcon
                     font.bold: true
-                    opacity: 0.35
+                    opacity: id_row.hiddenPlaceholderOpacity
                 }
             }
 
@@ -207,17 +270,11 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: id_nameDescCol.implicitHeight
 
-                // Hover highlight for concealed hidden achievements
                 Rectangle {
                     anchors.fill: parent
                     color: Themes.targetDetails.colors.hiddenHoverOverlay
                     opacity: id_hoverHandler.hovered ? 0.06 : 0.0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 120
-                        }
-                    }
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
 
                 Column {
@@ -226,23 +283,45 @@ Item {
                     width: parent.width
                     spacing: 4
 
-                    Text {
+                    // Fixed-height wrapper prevents Column reflow during the name cross-fade
+                    Item {
                         width: parent.width
-                        text: (id_row.achievementHidden && !id_row.unlocked && !id_row.revealed) ? qsTr("Hidden") : id_row.achievementName
-                        color: Themes.targetDetails.colors.text
-                        font.pixelSize: Themes.targetDetails.fontSizes.rowName
-                        font.bold: true
-                        elide: Text.ElideRight
-                        opacity: (id_row.achievementHidden && !id_row.unlocked && !id_row.revealed) ? 0.35 : (id_row.unlocked ? 1.0 : 0.55)
+                        height: id_realNameText.implicitHeight
+
+                        Text {
+                            width: parent.width
+                            text: qsTr("Hidden")
+                            color: Themes.targetDetails.colors.text
+                            font.pixelSize: Themes.targetDetails.fontSizes.rowName
+                            font.bold: true
+                            elide: Text.ElideRight
+                            visible: id_row.hiddenPlaceholderOpacity > 0
+                            opacity: id_row.hiddenPlaceholderOpacity
+                        }
+
+                        Text {
+                            id: id_realNameText
+
+                            width: parent.width
+                            text: id_row.achievementName
+                            color: Themes.targetDetails.colors.text
+                            font.pixelSize: Themes.targetDetails.fontSizes.rowName
+                            font.bold: true
+                            elide: Text.ElideRight
+                            visible: id_row.contentRevealOpacity > 0
+                            opacity: id_row.contentRevealOpacity * (id_row.unlocked ? 1.0 : 0.55)
+                            transform: Translate { y: id_row.contentRevealOffset }
+                        }
                     }
 
                     Text {
                         width: parent.width
-                        visible: !id_row.achievementHidden || id_row.unlocked || id_row.revealed
+                        visible: id_row.contentRevealOpacity > 0
                         text: id_row.achievementDescription
                         color: Themes.targetDetails.colors.text
                         font.pixelSize: Themes.targetDetails.fontSizes.rowDescription
-                        opacity: 0.50
+                        opacity: 0.50 * id_row.contentRevealOpacity
+                        transform: Translate { y: id_row.contentRevealOffset }
                         elide: Text.ElideRight
                         wrapMode: Text.WordWrap
                         maximumLineCount: 2
@@ -253,6 +332,11 @@ Item {
             // Global unlock %
             Row {
                 spacing: 3
+                opacity: id_row.contentRevealOpacity
+                transform: Translate {
+                    y: id_row.contentRevealOffset
+                }
+
                 Text {
                     text: id_row.globalUnlockPercentage.toFixed(1) + "%"
                     color: Themes.targetDetails.colors.text
@@ -273,9 +357,7 @@ Item {
             Text {
                 Layout.preferredWidth: 110
                 text: id_row.unlocked ? id_row.unlockDate : qsTr("Locked")
-                color: id_row.unlocked
-                    ? id_root.themedCompletionColor
-                    : Themes.targetDetails.colors.text
+                color: id_row.unlocked ? id_root.themedCompletionColor : Themes.targetDetails.colors.text
                 font.pixelSize: Themes.targetDetails.fontSizes.rowUnlockDate
                 font.bold: id_row.unlocked
                 horizontalAlignment: Text.AlignRight
@@ -384,62 +466,87 @@ Item {
                 spacing: 6
 
                 // Achievement Progress Bar
-                Rectangle {
+                Item {
+                    id: id_progressBar
+
+                    readonly property int segmentCount: 25
+                    readonly property int litSegments: {
+                        if (id_root.p_achievementTotal <= 0) return 0
+                        if (id_root.p_achievementCount <= 0) return 0
+                        if (id_root.completionRatio >= 1.0) return segmentCount
+                        const natural = Math.floor(id_root.completionRatio * segmentCount)
+                        return Math.max(1, natural)
+                    }
+
                     visible: id_root.p_achievementTotal > 0
                     width: parent.width
                     height: 26
-                    color: Themes.targetDetails.colors.progressBarTrack
-                    clip: true
-                    radius: 6
 
-                    // Gradient fill
+                    // Outer border
                     Rectangle {
-                        width: parent.width * id_root.completionRatio
-                        height: parent.height
+                        anchors.fill: parent
                         radius: 6
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Themes.globalStyle.withAlpha(
+                            id_root.completionRatio >= 1.0
+                                ? id_root.themedCompletionColor
+                                : id_root.themedProgressColor,
+                            0.55
+                        )
+                        z: 2
+                    }
 
-                        // Opacity: 0.55 at 0%, 1.0 at 100%
-                        opacity: 0.55 + 0.45 * id_root.completionRatio
+                    // Segment row
+                    Row {
+                        anchors {
+                            fill: parent
+                            margins: 2
+                        }
+                        spacing: 1
 
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            // Left stop: cool color, always fixed
-                            GradientStop {
-                                position: 0.0
-                                color: id_root.themedProgressColor
-                            }
-                            // Right stop: interpolates color to brighter
-                            GradientStop {
-                                position: 1.0
-                                color: Themes.globalStyle.mixColor(
+                        Repeater {
+                            model: id_progressBar.segmentCount
+
+                            Rectangle {
+                                required property int index
+                                readonly property bool lit: index < id_progressBar.litSegments
+                                readonly property real segmentRatio: id_progressBar.segmentCount > 1
+                                    ? index / (id_progressBar.segmentCount - 1)
+                                    : 0.0
+                                readonly property color litColor: Themes.globalStyle.mixColor(
                                     id_root.themedProgressColor,
                                     id_root.themedCompletionColor,
-                                    id_root.completionRatio
+                                    id_root.completionRatio * segmentRatio
                                 )
-                            }
-                        }
 
-                        Behavior on width {
-                            NumberAnimation {
-                                duration: 400
-                                easing.type: Easing.OutQuad
-                            }
-                        }
+                                width: (id_progressBar.width - (id_progressBar.segmentCount - 1) * 1 - 4) / id_progressBar.segmentCount
+                                height: parent.height
+                                topLeftRadius: index === 0 ? 4 : 0
+                                bottomLeftRadius: index === 0 ? 4 : 0
+                                topRightRadius: index === id_progressBar.segmentCount - 1 ? 4 : 0
+                                bottomRightRadius: index === id_progressBar.segmentCount - 1 ? 4 : 0
+                                color: lit
+                                    ? Qt.rgba(litColor.r, litColor.g, litColor.b, 0.55 + 0.45 * id_root.completionRatio)
+                                    : Qt.rgba(0.15, 0.15, 0.15, 0.40)
 
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 400
-                                easing.type: Easing.OutQuad
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 400
+                                    }
+                                }
                             }
                         }
                     }
 
+                    // Centered count label
                     Text {
                         anchors.centerIn: parent
                         text: id_root.p_achievementCount + " / " + id_root.p_achievementTotal
                         color: "white"
                         font.pixelSize: Themes.targetDetails.fontSizes.progressBar
                         font.bold: true
+                        z: 3
 
                         Rectangle {
                             anchors.centerIn: parent

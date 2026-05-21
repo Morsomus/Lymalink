@@ -19,7 +19,7 @@
 Settings::Settings(QObject *parent) : QObject(parent),
     m_settings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION)
 {
-    m_windowSizeXDefault = 1510;
+    m_windowSizeXDefault = 1550;
     m_windowSizeYDefault = 900;
     SetDefaults();
 
@@ -109,7 +109,9 @@ bool Settings::LoadConfig()
 
     m_settings.beginGroup(GROUP_DISPLAY);
     m_globalColorStyle = m_settings.value("GlobalColorStyle", m_globalColorStyle).toInt();
+    m_progressBarColorStyle = m_settings.value("ProgressBarColorStyle", m_progressBarColorStyle).toInt();
     m_showProgressFrame = m_settings.value("ShowProgressFrame", m_showProgressFrame).toBool();
+    m_showProgressBar = m_settings.value("ShowProgressBar", m_showProgressBar).toBool();
     m_showInstallationStatusBadge = m_settings.value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
     m_progressFrameGrayscaleMode = m_settings.value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
     m_showTotalAchievementsBadge = m_settings.value("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge).toBool();
@@ -126,6 +128,13 @@ bool Settings::LoadConfig()
 
     m_settings.beginGroup(GROUP_SYSTEM);
     m_backendService = m_settings.value("BackendService", m_backendService).toBool();
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_DASHBOARD);
+    m_dashboardToolbarSort = m_settings.value("ToolbarSort", m_dashboardToolbarSort).toString();
+    m_dashboardToolbarFilters = m_settings.value("ToolbarFilters", m_dashboardToolbarFilters).toStringList();
+    m_dashboardToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_dashboardToolbarSortDescending).toBool();
+    m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
     m_settings.endGroup();
 
     LoadEncryptedValues();
@@ -228,12 +237,28 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_globalColorStyle;
             break;
         }
+        case ProgressBarColorStyle:
+        {
+            m_progressBarColorStyle = value.toInt();
+            group = GROUP_DISPLAY;
+            settingsKey = "ProgressBarColorStyle";
+            settingsValue = m_progressBarColorStyle;
+            break;
+        }
         case ShowProgressFrame:
         {
             m_showProgressFrame = value.toBool();
             group = GROUP_DISPLAY;
             settingsKey = "ShowProgressFrame";
             settingsValue = m_showProgressFrame;
+            break;
+        }
+        case ShowProgressBar:
+        {
+            m_showProgressBar = value.toBool();
+            group = GROUP_DISPLAY;
+            settingsKey = "ShowProgressBar";
+            settingsValue = m_showProgressBar;
             break;
         }
         case ShowInstallationStatusBadge:
@@ -333,6 +358,38 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_backendService;
             break;
         }
+        case DashboardToolbarSort:
+        {
+            m_dashboardToolbarSort = value.toString();
+            group = GROUP_DASHBOARD;
+            settingsKey = "ToolbarSort";
+            settingsValue = m_dashboardToolbarSort;
+            break;
+        }
+        case DashboardToolbarFilters:
+        {
+            m_dashboardToolbarFilters = value.toStringList();
+            group = GROUP_DASHBOARD;
+            settingsKey = "ToolbarFilters";
+            settingsValue = m_dashboardToolbarFilters;
+            break;
+        }
+        case DashboardToolbarSortDescending:
+        {
+            m_dashboardToolbarSortDescending = value.toBool();
+            group = GROUP_DASHBOARD;
+            settingsKey = "ToolbarSortDescending";
+            settingsValue = m_dashboardToolbarSortDescending;
+            break;
+        }
+        case DashboardToolbarLayout:
+        {
+            m_dashboardToolbarLayout = value.toString();
+            group = GROUP_DASHBOARD;
+            settingsKey = "ToolbarLayout";
+            settingsValue = m_dashboardToolbarLayout;
+            break;
+        }
         default:
         {
             qDebug() << "Settings::SaveValue - unknown setting key:" << key;
@@ -397,7 +454,9 @@ void Settings::SetDefaults()
     m_enableCollapseBorderButton = true;
     m_sidebarCollapsed = false;
     m_globalColorStyle = 1;
+    m_progressBarColorStyle = 5;
     m_showProgressFrame = true;
+    m_showProgressBar = true;
     m_showInstallationStatusBadge = true;
     m_progressFrameGrayscaleMode = false;
     m_showTotalAchievementsBadge = true;
@@ -409,6 +468,10 @@ void Settings::SetDefaults()
     m_steamId = "";
     m_steamWebApiKey = "";
     m_backendService = false;
+    m_dashboardToolbarSort = "title";
+    m_dashboardToolbarFilters = QStringList{"none"};
+    m_dashboardToolbarSortDescending = true;
+    m_dashboardToolbarLayout = "defaultCardGrid";
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -452,7 +515,9 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_DISPLAY);
     m_settings.setValue("GlobalColorStyle", m_globalColorStyle);
+    m_settings.setValue("ProgressBarColorStyle", m_progressBarColorStyle);
     m_settings.setValue("ShowProgressFrame", m_showProgressFrame);
+    m_settings.setValue("ShowProgressBar", m_showProgressBar);
     m_settings.setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
     m_settings.setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);
     m_settings.setValue("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge);
@@ -469,6 +534,13 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_SYSTEM);
     m_settings.setValue("BackendService", m_backendService);
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_DASHBOARD);
+    m_settings.setValue("ToolbarSort", m_dashboardToolbarSort);
+    m_settings.setValue("ToolbarFilters", m_dashboardToolbarFilters);
+    m_settings.setValue("ToolbarSortDescending", m_dashboardToolbarSortDescending);
+    m_settings.setValue("ToolbarLayout", m_dashboardToolbarLayout);
     m_settings.endGroup();
 }
 

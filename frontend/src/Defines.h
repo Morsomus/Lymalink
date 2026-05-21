@@ -12,6 +12,7 @@
 #define GROUP_DISPLAY       "Display"
 #define GROUP_STEAM_WEB_API "SteamWebApi"
 #define GROUP_SYSTEM        "System"
+#define GROUP_DASHBOARD     "Dashboard"
 // Encryption Defaults
 #define DEFAULT_PIN_CODE    "83773r7h4nN07h1n9"
 

@@ -529,6 +529,57 @@ Item {
                         }
 
                         C_SettingRow {
+                            label: qsTr("Progress bar color theme")
+                            tooltip: qsTr("Select color theme for the card progress bar")
+                            ComboBox {
+                                model: [0, 1, 2, 3, 4, 5]
+                                enabled: ctxSettings.showProgressBar
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
+                                implicitWidth: 150
+                                displayText: {
+                                    switch (model[currentIndex]) {
+                                        case 0: return qsTr("Gold")
+                                        case 1: return qsTr("Blue")
+                                        case 2: return qsTr("Purple")
+                                        case 3: return qsTr("Emerald")
+                                        case 4: return qsTr("Ember")
+                                        case 5: return qsTr("Frost")
+                                    }
+                                }
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: {
+                                        switch (modelData) {
+                                            case 0: return qsTr("Gold")
+                                            case 1: return qsTr("Blue")
+                                            case 2: return qsTr("Purple")
+                                            case 3: return qsTr("Emerald")
+                                            case 4: return qsTr("Ember")
+                                            case 5: return qsTr("Frost")
+                                        }
+                                    }
+                                }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressBarColorStyle, model[index])
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress bar")
+                            tooltip: qsTr("Show achievement progress bars on cards")
+                            Switch {
+                                checked: ctxSettings.showProgressBar
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_progressBarHover }
+                                CustomTooltip {
+                                    active: id_progressBarHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show achievement progress bars on cards")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressBar, checked)
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Show an overall achievement progress frame around cards")
                             Switch {
@@ -611,22 +662,6 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Dynamic achievement rows")
-                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
-                            Switch {
-                                checked: ctxSettings.enableDynamicAchievementRows
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_dynamicAchievementRows }
-                                CustomTooltip {
-                                    active: id_dynamicAchievementRows.hovered
-                                    delay: 600
-                                    text: qsTr("Achievement rows resize automatically to use available window space")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
-                            }
-                        }
-
-                        C_SettingRow {
                             label: qsTr("Target type badge")
                             tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
                             Switch {
@@ -641,6 +676,22 @@ Item {
                                 onToggled: ctxSettings.SaveValue(Settings.ShowTargetTypeBadge, checked)
                             }
                         }
+
+                        C_SettingRow {
+                            label: qsTr("Dynamic achievement rows")
+                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            Switch {
+                                checked: ctxSettings.enableDynamicAchievementRows
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_dynamicAchievementRows }
+                                CustomTooltip {
+                                    active: id_dynamicAchievementRows.hovered
+                                    delay: 600
+                                    text: qsTr("Achievement rows resize automatically to use available window space")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
+                            }
+                        }        
                     }
 
                     // Backend Service

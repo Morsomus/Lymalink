@@ -8,6 +8,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -17,7 +18,7 @@ Item {
     id: id_root
 
     // Internals _____________________________________________
-    property string activeLayout: "defaultCardGrid" // list, detailedList, smallCardGrid, defaultCardGrid
+    property string activeLayout: ctxSettings.dashboardToolbarLayout // list, detailedList, smallCardGrid, defaultCardGrid
     property bool noTargetsAvailable: false
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
@@ -184,7 +185,10 @@ Item {
             p_activeLayout: id_root.activeLayout
 
             // Layout selection
-            onLayoutSelected: (size) => id_root.activeLayout = size
+            onLayoutSelected: function(size) {
+                id_root.activeLayout = size
+                ctxSettings.SaveValue(Settings.DashboardToolbarLayout, size)
+            }
 
             // Close Target Details
             onReturnClicked: {
