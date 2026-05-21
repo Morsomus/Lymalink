@@ -35,6 +35,8 @@ public:
     Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false);
     Q_INVOKABLE void CancelSteamHydration();
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath);
+    Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden);
+    Q_INVOKABLE bool DeleteTarget(int appId);
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId);
 

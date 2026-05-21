@@ -470,7 +470,7 @@ void Settings::SetDefaults()
     m_backendService = false;
     m_dashboardToolbarSort = "title";
     m_dashboardToolbarFilters = QStringList{"none"};
-    m_dashboardToolbarSortDescending = true;
+    m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
 }
 

@@ -23,6 +23,7 @@ Item {
     // Public ________________________________________________
     property bool p_targetDetailsVisible: false
     property bool p_addTargetVisible: false
+    property bool p_targetHidden: false
     property int p_appId: 0
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
@@ -32,6 +33,14 @@ Item {
     signal addTargetClicked()
     signal refreshClicked()
     signal reloadAssetsRequested(int appId)
+    signal targetHiddenChanged(int appId, bool hidden)
+    signal targetDeleted(int appId)
+    signal sortSelected(string sort)
+    signal sortOrderSelected(bool descending)
+    signal filtersSelected(var filters)
+    signal targetDetailsSortSelected(string sort)
+    signal targetDetailsSortOrderSelected(bool descending)
+    signal targetDetailsFiltersSelected(var filters)
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -44,7 +53,7 @@ Item {
     property string targetDetailsActiveFilter: "all"
     property var targetDetailsActiveFilters: ["all"]
     readonly property int targetDetailsActiveFilterCount: targetDetailsActiveFilters.length
-    readonly property var targetDetailsSortModel: ["name", "unlockDate"]
+    readonly property var targetDetailsSortModel: ["name", "unlockDate", "globalPercentage"]
     readonly property var targetDetailsFilterModel: ["all", "unlocked", "locked", "hidden"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
     readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "steam", "hidden", "installed", "notInstalled"]
@@ -112,6 +121,7 @@ Item {
         switch (sort) {
             case "name":       return qsTr("Name")
             case "unlockDate": return qsTr("Unlock Date")
+            case "globalPercentage": return qsTr("Global Percentage")
             default:           return qsTr("Error")
         }
     }
@@ -142,10 +152,12 @@ Item {
         if (selectedToolbar === "targetDetails") {
             targetDetailsActiveFilters = filters
             targetDetailsActiveFilter = filters.length > 1 ? "multiple" : filters[0]
+            id_root.targetDetailsFiltersSelected(filters)
         } else {
             activeFilters = filters
             activeFilter = filters.length > 1 ? "multiple" : filters[0]
             ctxSettings.SaveValue(Settings.DashboardToolbarFilters, filters)
+            id_root.filtersSelected(filters)
         }
     }
 
@@ -157,8 +169,10 @@ Item {
             return
         }
 
-        if (filter === "none") {
-            setActiveFilters(["none"], toolbar)
+        const fallback = (toolbar === "default") ? "none" : "all"
+
+        if (filter === fallback) {
+            setActiveFilters([fallback], toolbar)
             return
         }
 
@@ -173,7 +187,6 @@ Item {
             currentFilters.splice(index, 1)
         }
 
-        const fallback = (toolbar === "default") ? "none" : "all"
         setActiveFilters(currentFilters.length > 0 ? currentFilters : [fallback], toolbar)
     }
 
@@ -338,8 +351,15 @@ Item {
 
         parent: Overlay.overlay
         p_appId: id_root.p_appId
+        p_targetHidden: id_root.p_targetHidden
         onReloadAssetsRequested: function(appId) {
             id_root.reloadAssetsRequested(appId)
+        }
+        onTargetHiddenChanged: function(appId, hidden) {
+            id_root.targetHiddenChanged(appId, hidden)
+        }
+        onTargetDeleted: function(appId) {
+            id_root.targetDeleted(appId)
         }
     }
 
@@ -591,7 +611,7 @@ Item {
                     Rectangle {
                         id: id_detailsOrderPill
 
-                        property bool isDescending: true
+                        property bool isDescending: false
 
                         implicitHeight: 32
                         implicitWidth: id_detailsOrderRow.implicitWidth + 20
@@ -645,7 +665,10 @@ Item {
 
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: id_detailsOrderPill.isDescending = !id_detailsOrderPill.isDescending
+                            onClicked: {
+                                id_detailsOrderPill.isDescending = !id_detailsOrderPill.isDescending
+                                id_root.targetDetailsSortOrderSelected(id_detailsOrderPill.isDescending)
+                            }
                         }
                     }
                 }
@@ -680,6 +703,7 @@ Item {
                         onChipClicked: function(value) {
                             id_root.targetDetailsActiveSort  = value
                             id_root.targetDetailsActivePanel = ""
+                            id_root.targetDetailsSortSelected(value)
                         }
 
                         Behavior on opacity {
@@ -1079,6 +1103,7 @@ Item {
                         onClicked: {
                             id_orderPill.isDescending = !id_orderPill.isDescending
                             ctxSettings.SaveValue(Settings.DashboardToolbarSortDescending, id_orderPill.isDescending)
+                            id_root.sortOrderSelected(id_orderPill.isDescending)
                         }
                     }
                 }
@@ -1270,6 +1295,7 @@ Item {
                     id_root.activeSort  = value
                     id_root.activePanel = ""
                     ctxSettings.SaveValue(Settings.DashboardToolbarSort, value)
+                    id_root.sortSelected(value)
                 }
 
                 Behavior on opacity {

@@ -24,6 +24,13 @@ Item {
     property bool showingTargetDetails: false
     property bool showingAddTarget: false
     property var loadingTargetAppIds: []
+    property string activeSort: ctxSettings.dashboardToolbarSort
+    property bool activeSortDescending: ctxSettings.dashboardToolbarSortDescending
+    property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
+    property var targetDetailsAchievements: []
+    property string targetDetailsActiveSort: "name"
+    property bool targetDetailsSortDescending: false
+    property var targetDetailsActiveFilters: ["all"]
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
 
     ListModel {
@@ -42,14 +49,165 @@ Item {
         id_targetModel.clear()
 
         const targets = ctxLymalink.FetchDashboardTargets()
-        for (let i = 0; i < targets.length; ++i) {
-            const target = targets[i]
+        const filteredTargets = id_root.filterTargets(targets)
+        id_root.sortTargets(filteredTargets)
+        for (let i = 0; i < filteredTargets.length; ++i) {
+            const target = filteredTargets[i]
             target.rowLayout = id_root.activeLayout === "detailedList" ? "detailedList" : "list"
             target.isLoading = id_root.isTargetLoading(target.id)
             id_targetModel.append(target)
         }
 
         id_root.noTargetsAvailable = id_targetModel.count === 0
+    }
+
+    function matchesFilter(target, filter) {
+        const achievementCount = Number(target.achievementCount ?? 0)
+        const achievementTotal = Number(target.achievementTotal ?? 0)
+        const targetType = (target.targetType ?? "").toString().toLocaleLowerCase()
+        const status = (target.status ?? "").toString().toLocaleLowerCase()
+
+        switch (filter) {
+            case "none":         return true
+            case "completed":    return achievementTotal > 0 && achievementCount >= achievementTotal
+            case "uncompleted":  return achievementTotal <= 0 || achievementCount < achievementTotal
+            case "custom":       return targetType === "custom"
+            case "emulator":     return targetType === "emulator"
+            case "steam":        return targetType === "steam"
+            case "hidden":       return Boolean(target.targetHidden)
+            case "installed":    return status === "installed"
+            case "notInstalled": return status === "not installed"
+            default:             return true
+        }
+    }
+
+    function filterTargets(targets) {
+        const filters = id_root.activeFilters
+        const showingHiddenTargets = filters.indexOf("hidden") !== -1
+        if (filters.indexOf("none") !== -1) {
+            return targets.filter(function(target) { return !Boolean(target.targetHidden) })
+        }
+
+        return targets.filter(function(target) {
+            if (!showingHiddenTargets && Boolean(target.targetHidden)) {
+                return false
+            }
+
+            for (let i = 0; i < filters.length; ++i) {
+                if (id_root.matchesFilter(target, filters[i])) {
+                    return true
+                }
+            }
+            return false
+        })
+    }
+
+    function sortValue(target, sort) {
+        switch (sort) {
+            case "title":        return (target.title ?? "").toString().toLocaleLowerCase()
+            case "progress":     return Number(target.progressValue ?? 0)
+            case "recentUnlock": return Number(target.recentUnlockTimestamp ?? 0)
+            case "playtime":     return Number(target.playtimeSeconds ?? 0)
+            case "lastPlayed":   return Number(target.lastPlayedTimestamp ?? 0)
+            case "dateAdded":    return Number(target.dateAddedTimestamp ?? 0)
+            default:             return (target.title ?? "").toString().toLocaleLowerCase()
+        }
+    }
+
+    function sortTargets(targets) {
+        const sort = id_root.activeSort
+        const direction = id_root.activeSortDescending ? -1 : 1
+
+        targets.sort(function(left, right) {
+            const leftValue = id_root.sortValue(left, sort)
+            const rightValue = id_root.sortValue(right, sort)
+
+            if (leftValue < rightValue) return -1 * direction
+            if (leftValue > rightValue) return 1 * direction
+
+            const leftTitle = (left.title ?? "").toString().toLocaleLowerCase()
+            const rightTitle = (right.title ?? "").toString().toLocaleLowerCase()
+            if (leftTitle < rightTitle) return -1
+            if (leftTitle > rightTitle) return 1
+            return 0
+        })
+    }
+
+    function matchesTargetDetailsFilter(achievement, filter) {
+        switch (filter) {
+            case "all":      return true
+            case "unlocked": return Boolean(achievement.unlocked)
+            case "locked":   return !Boolean(achievement.unlocked) && !Boolean(achievement.achievementHidden)
+            case "hidden":   return !Boolean(achievement.unlocked) && Boolean(achievement.achievementHidden)
+            default:         return true
+        }
+    }
+
+    function filterTargetDetailsAchievements(achievements) {
+        const filters = id_root.targetDetailsActiveFilters
+        if (filters.indexOf("all") !== -1) {
+            return achievements
+        }
+
+        return achievements.filter(function(achievement) {
+            for (let i = 0; i < filters.length; ++i) {
+                if (id_root.matchesTargetDetailsFilter(achievement, filters[i])) {
+                    return true
+                }
+            }
+            return false
+        })
+    }
+
+    function targetDetailsSectionRank(sectionKey) {
+        switch (sectionKey) {
+            case "unlocked":          return 0
+            case "locked":            return 1
+            case "achievementHidden": return 2
+            default:                  return 3
+        }
+    }
+
+    function targetDetailsSortValue(achievement, sort) {
+        switch (sort) {
+            case "name":             return (achievement.achievementName ?? "").toString().toLocaleLowerCase()
+            case "unlockDate":       return Number(achievement.unlockTimestamp ?? 0)
+            case "globalPercentage": return Number(achievement.globalUnlockPercentage ?? 0)
+            default:                 return (achievement.achievementName ?? "").toString().toLocaleLowerCase()
+        }
+    }
+
+    function sortTargetDetailsAchievements(achievements) {
+        const sort = id_root.targetDetailsActiveSort
+        const direction = id_root.targetDetailsSortDescending ? -1 : 1
+
+        achievements.sort(function(left, right) {
+            const leftSection = id_root.targetDetailsSectionRank(left.sectionKey)
+            const rightSection = id_root.targetDetailsSectionRank(right.sectionKey)
+            if (leftSection < rightSection) return -1
+            if (leftSection > rightSection) return 1
+
+            const leftValue = id_root.targetDetailsSortValue(left, sort)
+            const rightValue = id_root.targetDetailsSortValue(right, sort)
+            if (leftValue < rightValue) return -1 * direction
+            if (leftValue > rightValue) return 1 * direction
+
+            const leftName = (left.achievementName ?? "").toString().toLocaleLowerCase()
+            const rightName = (right.achievementName ?? "").toString().toLocaleLowerCase()
+            if (leftName < rightName) return -1
+            if (leftName > rightName) return 1
+            return 0
+        })
+    }
+
+    function refreshTargetDetailsAchievements() {
+        id_targetDetailsAchievementModel.clear()
+
+        const achievements = id_root.filterTargetDetailsAchievements(id_root.targetDetailsAchievements.slice())
+        id_root.sortTargetDetailsAchievements(achievements)
+        for (let i = 0; i < achievements.length; ++i) {
+            id_targetDetailsAchievementModel.append(achievements[i])
+        }
     }
 
     function syncTargetRowLayout() {
@@ -84,11 +242,8 @@ Item {
     function onTargetSelected(appId) {
         const details = ctxLymalink.FetchTargetDetails(appId)
 
-        id_targetDetailsAchievementModel.clear()
-        const achievements = details.achievements ?? []
-        for (let i = 0; i < achievements.length; ++i) {
-            id_targetDetailsAchievementModel.append(achievements[i])
-        }
+        id_root.targetDetailsAchievements = details.achievements ?? []
+        id_root.refreshTargetDetailsAchievements()
 
         id_root.pendingTargetDetails = details
         id_root.showingTargetDetails = true
@@ -182,6 +337,7 @@ Item {
             p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
             p_addTargetVisible: id_root.showingAddTarget ? true : false
             p_appId: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.id : 0
+            p_targetHidden: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.targetHidden) : false
             p_activeLayout: id_root.activeLayout
 
             // Layout selection
@@ -204,10 +360,58 @@ Item {
 
             onRefreshClicked: id_root.refreshTargets()
 
+            onSortSelected: function(sort) {
+                id_root.activeSort = sort
+                id_root.refreshTargets()
+            }
+
+            onSortOrderSelected: function(descending) {
+                id_root.activeSortDescending = descending
+                id_root.refreshTargets()
+            }
+
+            onFiltersSelected: function(filters) {
+                id_root.activeFilters = filters
+                id_root.refreshTargets()
+            }
+
+            onTargetDetailsSortSelected: function(sort) {
+                id_root.targetDetailsActiveSort = sort
+                id_root.refreshTargetDetailsAchievements()
+            }
+
+            onTargetDetailsSortOrderSelected: function(descending) {
+                id_root.targetDetailsSortDescending = descending
+                id_root.refreshTargetDetailsAchievements()
+            }
+
+            onTargetDetailsFiltersSelected: function(filters) {
+                id_root.targetDetailsActiveFilters = filters
+                id_root.refreshTargetDetailsAchievements()
+            }
+
             onReloadAssetsRequested: function(appId) {
                 id_root.setTargetLoading(appId, true)
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
+            }
+
+            onTargetHiddenChanged: function(appId, hidden) {
+                if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
+                    let details = id_root.pendingTargetDetails
+                    details.targetHidden = hidden
+                    id_root.pendingTargetDetails = details
+                }
+                id_root.refreshTargets()
+            }
+
+            onTargetDeleted: function(appId) {
+                id_root.showingTargetDetails = false
+                id_root.showingAddTarget = false
+                id_root.pendingTargetDetails = null
+                id_root.targetDetailsAchievements = []
+                // id_root.refreshTargetDetailsAchievements() TODO TURHA?
+                id_root.refreshTargets()
             }
         }
 
@@ -240,7 +444,7 @@ Item {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    text: qsTr("All quiet here, nothing to track yet.")
+                    text: qsTr("All quiet here, nothing to show.")
                     font.pixelSize: Themes.dashboard.fontSizes.emptyTitle
                     font.bold: true
                     color: Themes.dashboard.colors.titleText
