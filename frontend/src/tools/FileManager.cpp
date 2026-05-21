@@ -30,7 +30,7 @@ FileManager::~FileManager()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::DeleteFile(const QString &filePath)
+bool FileManager::DeleteFile(const QString &filePath) const
 {
     QFile file(filePath);
     if (file.remove())
@@ -45,7 +45,7 @@ bool FileManager::DeleteFile(const QString &filePath)
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::DeleteFolder(const QString &folderPath)
+bool FileManager::DeleteFolder(const QString &folderPath) const
 {
     QDir folder(folderPath);
     if (folder.removeRecursively())
@@ -60,7 +60,7 @@ bool FileManager::DeleteFolder(const QString &folderPath)
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::MoveFile(const QString &sourceFilePath, const QString &destinationFilePath)
+bool FileManager::MoveFile(const QString &sourceFilePath, const QString &destinationFilePath) const
 {
     QFile sourceFile(sourceFilePath);
 
@@ -90,7 +90,7 @@ bool FileManager::MoveFile(const QString &sourceFilePath, const QString &destina
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath)
+bool FileManager::MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath) const
 {
     QDir folder;
 
@@ -120,7 +120,7 @@ bool FileManager::MoveFolder(const QString &sourceFolderPath, const QString &des
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::RenameFile(const QString &filePath, const QString &newFilePath)
+bool FileManager::RenameFile(const QString &filePath, const QString &newFilePath) const
 {
     QFile file(filePath);
     if (file.rename(newFilePath))
@@ -135,7 +135,7 @@ bool FileManager::RenameFile(const QString &filePath, const QString &newFilePath
 
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::RenameFolder(const QString &folderPath, const QString &newFolderPath)
+bool FileManager::RenameFolder(const QString &folderPath, const QString &newFolderPath) const
 {
     QDir folder;
     if (folder.rename(folderPath, newFolderPath))
@@ -150,7 +150,7 @@ bool FileManager::RenameFolder(const QString &folderPath, const QString &newFold
 
 /////////////////////////////////////////////////////////////////////
 
-QStringList FileManager::FileListCreate(const QString &folderPath)
+QStringList FileManager::FileListCreate(const QString &folderPath) const
 {
     QStringList fileList;
     QDir folder(folderPath);
@@ -165,7 +165,7 @@ QStringList FileManager::FileListCreate(const QString &folderPath)
 
 /////////////////////////////////////////////////////////////////////
 
-QStringList FileManager::FolderListCreate(const QString &folderPath)
+QStringList FileManager::FolderListCreate(const QString &folderPath) const
 {
     QStringList folderList;
     QDir folder(folderPath);
@@ -180,14 +180,14 @@ QStringList FileManager::FolderListCreate(const QString &folderPath)
 
 /////////////////////////////////////////////////////////////////////
 
-QString FileManager::LocalFileSource(const QString &filePath)
+QString FileManager::LocalFileSource(const QString &filePath) const
 {
     return filePath.isEmpty() ? QString() : QUrl::fromLocalFile(filePath).toString();
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QString FileManager::FirstImageInDirectory(const QString &directoryPath)
+QString FileManager::FirstImageInDirectory(const QString &directoryPath) const
 {
     QDir directory(directoryPath);
     if (!directory.exists())
@@ -207,7 +207,7 @@ QString FileManager::FirstImageInDirectory(const QString &directoryPath)
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool FileManager::CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath)
+bool FileManager::CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath) const
 {
     QDir sourceFolder(sourceFolderPath);
     if (!sourceFolder.exists())

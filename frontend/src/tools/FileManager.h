@@ -20,17 +20,17 @@ public:
     explicit FileManager(QObject *parent = nullptr);
     ~FileManager();
 
-    bool DeleteFile(const QString &filePath);
-    bool DeleteFolder(const QString &folderPath);
-    bool MoveFile(const QString &sourceFilePath, const QString &destinationFilePath);
-    bool MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);
-    bool RenameFile(const QString &filePath, const QString &newFilePath);
-    bool RenameFolder(const QString &folderPath, const QString &newFolderPath);
-    QStringList FileListCreate(const QString &folderPath);
-    QStringList FolderListCreate(const QString &folderPath);
-    QString LocalFileSource(const QString &filePath);
-    QString FirstImageInDirectory(const QString &directoryPath);
+    bool DeleteFile(const QString &filePath) const;
+    bool DeleteFolder(const QString &folderPath) const;
+    bool MoveFile(const QString &sourceFilePath, const QString &destinationFilePath) const;
+    bool MoveFolder(const QString &sourceFolderPath, const QString &destinationFolderPath) const;
+    bool RenameFile(const QString &filePath, const QString &newFilePath) const;
+    bool RenameFolder(const QString &folderPath, const QString &newFolderPath) const;
+    QStringList FileListCreate(const QString &folderPath) const;
+    QStringList FolderListCreate(const QString &folderPath) const;
+    QString LocalFileSource(const QString &filePath) const;
+    QString FirstImageInDirectory(const QString &directoryPath) const;
 
 private:
-    bool CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath);
+    bool CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath) const;
 };

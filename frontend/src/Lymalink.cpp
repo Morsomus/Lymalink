@@ -9,7 +9,6 @@
 
 #include "Lymalink.h"
 #include "Defines.h"
-#include "tools/FileManager.h"
 #include "tools/Utils.h"
 
 #include <QDateTime>
@@ -53,9 +52,9 @@ Error Lymalink::Initialize()
     m_steamApiSearchWorker->moveToThread(&m_searchWorkerThread);
     connect(&m_searchWorkerThread, &QThread::started,  m_steamApiSearchWorker, &SteamApiSearchWorker::Init);
     connect(&m_searchWorkerThread, &QThread::finished, m_steamApiSearchWorker, &QObject::deleteLater);
-    connect(this, &Lymalink::signalRequestSearchSteamAppIds, m_steamApiSearchWorker, &SteamApiSearchWorker::SearchSteamAppIds);
-    connect(this, &Lymalink::signalRequestCancel,            m_steamApiSearchWorker, &SteamApiSearchWorker::Cancel);
-    connect(m_steamApiSearchWorker, &SteamApiSearchWorker::signalSearchAppIdsFinished, this, &Lymalink::signalSteamAppIdsReady);
+    connect(this, &Lymalink::signalRequestSearchSteamAppIds,        m_steamApiSearchWorker, &SteamApiSearchWorker::SearchAppIds);
+    connect(this, &Lymalink::signalRequestCancelSearchSteamAppIds,  m_steamApiSearchWorker, &SteamApiSearchWorker::CancelSearchAppIds);
+    connect(m_steamApiSearchWorker, &SteamApiSearchWorker::signalSearchAppIdsFinished, this, &Lymalink::signalSteamAppIdsSearchReady);
     m_searchWorkerThread.start();
 
     // SteamApiHydrationWorker
@@ -63,13 +62,13 @@ Error Lymalink::Initialize()
     m_steamApiHydrationWorker->moveToThread(&m_hydrationWorkerThread);
     connect(&m_hydrationWorkerThread, &QThread::started,  m_steamApiHydrationWorker, &SteamApiHydrationWorker::Init);
     connect(&m_hydrationWorkerThread, &QThread::finished, m_steamApiHydrationWorker, &QObject::deleteLater);
-    connect(this, &Lymalink::signalRequestEnqueueHydrationTask, m_steamApiHydrationWorker, &SteamApiHydrationWorker::EnqueueTask);
-    connect(this, &Lymalink::signalRequestCancelHydration,      m_steamApiHydrationWorker, &SteamApiHydrationWorker::Cancel);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalTaskStarted,   this, &Lymalink::signalHydrationTaskStarted);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalTaskProgress,  this, &Lymalink::signalHydrationTaskProgress);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalTaskFinished,  this, &Lymalink::signalHydrationTaskFinished);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalQueueFinished, this, &Lymalink::signalHydrationQueueFinished);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::OnAchievementsReady);
+    connect(this, &Lymalink::signalRequestEnqueueSteamHydrationTask, m_steamApiHydrationWorker, &SteamApiHydrationWorker::EnqueueTask);
+    connect(this, &Lymalink::signalRequestCancelSteamHydration,      m_steamApiHydrationWorker, &SteamApiHydrationWorker::CancelAllEnqueueTasks);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskStarted,   this, &Lymalink::signalSteamHydrationTaskStarted);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskProgress,  this, &Lymalink::signalSteamHydrationTaskProgress);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskFinished,  this, &Lymalink::signalSteamHydrationTaskFinished);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this, &Lymalink::signalSteamHydrationQueueFinished);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::ApplyNewAchievements);
     m_hydrationWorkerThread.start();
 
     return DatabaseInit();
@@ -86,21 +85,21 @@ void Lymalink::SearchSteamAppIds(const QString &term)
 
 void Lymalink::CancelSteamAppIdSearch()
 {
-    emit signalRequestCancel();
+    emit signalRequestCancelSearchSteamAppIds();
 }
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::EnqueueHydrationTask(int appId, bool reloadAssets)
+void Lymalink::EnqueueSteamHydrationTask(int appId, bool reloadAssets)
 {
-    emit signalRequestEnqueueHydrationTask(appId, reloadAssets);
+    emit signalRequestEnqueueSteamHydrationTask(appId, reloadAssets);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::CancelHydration()
+void Lymalink::CancelSteamHydration()
 {
-    emit signalRequestCancelHydration();
+    emit signalRequestCancelSteamHydration();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -207,7 +206,6 @@ QVariantList Lymalink::FetchDashboardTargets()
     );
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    FileManager fileManager;
     QVariantList targets;
     for (const QVariant &rowValue : rows)
     {
@@ -217,11 +215,11 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QDir emulatorAppDir(QDir(appDataPath).filePath("Emulator/" + appIdText));
         const QString coversPath = emulatorAppDir.filePath("covers");
         const QString iconsPath = emulatorAppDir.filePath("icons");
-        const QString coverSourceCard = CoverSource(coversPath, "cover_200x300.jpg");
-        const QString coverSourceCardSmall = CoverSource(coversPath, "cover_150x225.jpg");
-        const QString coverSourceRowDetailed = CoverSource(coversPath, "cover_80x120.jpg");
-        const QString coverSourceTargetDetails = CoverSource(coversPath, "cover_240x360.jpg");
-        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : fileManager.FirstImageInDirectory(coversPath);
+        const QString coverSourceCard = CoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
+        const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath);
 
         const QVariantList achievements = m_databaseManager.selectWhere(
             m_databaseConnectionName,
@@ -245,13 +243,13 @@ QVariantList Lymalink::FetchDashboardTargets()
             {"coverSourceCardSmall", coverSourceCardSmall.isEmpty() ? coverSource : coverSourceCardSmall},
             {"coverSourceRowDetailed", coverSourceRowDetailed.isEmpty() ? coverSource : coverSourceRowDetailed},
             {"coverSourceTargetDetails", coverSourceTargetDetails.isEmpty() ? coverSource : coverSourceTargetDetails},
-            {"logoSource", CommunityIconSource(iconsPath)},
+            {"logoSource", CommunityIconFilePath(iconsPath)},
             {"achievementCount", Utils::MapIntValue(row, "unlocked_amount_achievements")},
             {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
-            {"status", InstallationStatus(row)},
+            {"status", ExecutableInstallationStatus(row)},
             {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
             {"recentUnlock", Utils::LocalDate(latestAchievement.value("unlock_date").toLongLong())},
-            {"lastAchievementIcon", AchievementIconSource(iconsPath, latestAchievement)},
+            {"lastAchievementIcon", AchievementIconFilePath(iconsPath, latestAchievement)},
             {"lastAchievementName", Utils::MapStringValue(latestAchievement, "name")},
             {"lastAchievementDesc", Utils::MapStringValue(latestAchievement, "description")}
         };
@@ -291,9 +289,8 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
     const QString coversPath = emulatorAppDir.filePath("covers");
     const QString iconsPath = emulatorAppDir.filePath("icons");
 
-    FileManager fileManager;
-    const QString coverSourceTargetDetails = CoverSource(coversPath, "cover_240x360.jpg");
-    const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : fileManager.FirstImageInDirectory(coversPath);
+    const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+    const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath);
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
         m_databaseConnectionName,
@@ -310,7 +307,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"coverSourceTargetDetails", coverSource},
         {"achievementCount", Utils::MapIntValue(row, "unlocked_amount_achievements")},
         {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
-        {"installationStatus", InstallationStatus(row)},
+        {"installationStatus", ExecutableInstallationStatus(row)},
         {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("unlock_date").toLongLong())},
         {"playtime", PlaytimeText(Utils::MapIntValue(row, "hours_played_total"))},
@@ -431,7 +428,7 @@ Error Lymalink::FileSystemInit()
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::OnAchievementsReady(int appId, QVariantList achievements)
+void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 {
     int inserted = 0;
 
@@ -547,7 +544,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         const QString sectionKey = unlocked ? "unlocked" : (hidden ? "hidden" : "locked");
 
         QVariantMap achievement = {
-            {"iconSource", AchievementIconSource(iconsPath, row)},
+            {"iconSource", AchievementIconFilePath(iconsPath, row)},
             {"name", Utils::MapStringValue(row, "name")},
             {"description", Utils::MapStringValue(row, "description")},
             {"globalUnlockPercent", row.value("global_percentage").isNull() ? 0.0 : row.value("global_percentage").toDouble()},
@@ -578,7 +575,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
 
 /////////////////////////////////////////////////////////////////////
 
-QString Lymalink::CoverSource(const QString &coversPath, const QString &fileName) const
+QString Lymalink::CoverImageFilePath(const QString &coversPath, const QString &fileName) const
 {
     const QString coverPath = QDir(coversPath).filePath(fileName);
     if (!QFileInfo::exists(coverPath))
@@ -586,13 +583,12 @@ QString Lymalink::CoverSource(const QString &coversPath, const QString &fileName
         return QString();
     }
 
-    FileManager fileManager;
-    return fileManager.LocalFileSource(coverPath);
+    return m_fileManager.LocalFileSource(coverPath);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QString Lymalink::CommunityIconSource(const QString &iconsPath) const
+QString Lymalink::CommunityIconFilePath(const QString &iconsPath) const
 {
     QDir iconsDir(iconsPath);
     if (!iconsDir.exists())
@@ -606,13 +602,12 @@ QString Lymalink::CommunityIconSource(const QString &iconsPath) const
         return QString();
     }
 
-    FileManager fileManager;
-    return fileManager.LocalFileSource(iconFiles.first().filePath());
+    return m_fileManager.LocalFileSource(iconFiles.first().filePath());
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QString Lymalink::AchievementIconSource(const QString &iconsPath, const QVariantMap &achievement) const
+QString Lymalink::AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const
 {
     const QString achievementKey = Utils::MapStringValue(achievement, "achievement_key");
     if (achievementKey.isEmpty())
@@ -629,13 +624,12 @@ QString Lymalink::AchievementIconSource(const QString &iconsPath, const QVariant
         return QString();
     }
 
-    FileManager fileManager;
-    return fileManager.LocalFileSource(iconPath);
+    return m_fileManager.LocalFileSource(iconPath);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QString Lymalink::InstallationStatus(const QVariantMap &row) const
+QString Lymalink::ExecutableInstallationStatus(const QVariantMap &row) const
 {
     const QString executableLocation = Utils::MapStringValue(row, "executable_location");
     if (executableLocation.isEmpty())

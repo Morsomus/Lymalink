@@ -20,7 +20,7 @@ Rectangle {
     id: id_root
 
     // Public ________________________________________________
-    property int p_targetId: 0
+    property int p_appId: 0
     property string p_title: "Title"
     property string p_coverSource: ""
     property int p_achievementCount: 0
@@ -35,7 +35,7 @@ Rectangle {
     property bool p_edgeProgressFrameStaticGrayColor: false
     property bool p_edgeProgressFrameCompletionAnimation: false
 
-    signal openTargetDetails(int targetId)
+    signal openTargetDetails(int appId)
 
     // Internals _____________________________________________
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -493,7 +493,7 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(id_root.p_targetId)
+            id_root.openTargetDetails(id_root.p_appId)
         }
     }
 

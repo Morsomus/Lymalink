@@ -43,7 +43,7 @@ Item {
     Connections {
         target: ctxLymalink
 
-        function onSignalSteamAppIdsReady(success, cancelled, results) {
+        function onSignalSteamAppIdsSearchReady(success, cancelled, results) {
             if (!id_root.isSearching && !cancelled) {
                 return
             }

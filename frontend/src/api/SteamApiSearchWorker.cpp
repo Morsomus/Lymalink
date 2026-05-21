@@ -33,7 +33,7 @@ void SteamApiSearchWorker::Init()
 
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiSearchWorker::SearchSteamAppIds(const QString &term)
+void SteamApiSearchWorker::SearchAppIds(const QString &term)
 {
     m_cancelled.storeRelease(0);
 
@@ -51,7 +51,7 @@ void SteamApiSearchWorker::SearchSteamAppIds(const QString &term)
     {
         if (m_cancelled.loadAcquire())
         {
-            qDebug() << "SteamApiSearchWorker: SearchSteamAppIds cancelled";
+            qDebug() << "SteamApiSearchWorker: SearchAppIds cancelled";
             emit signalSearchAppIdsFinished(false, true, {});
             return;
         }
@@ -83,7 +83,7 @@ void SteamApiSearchWorker::SearchSteamAppIds(const QString &term)
 
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiSearchWorker::Cancel()
+void SteamApiSearchWorker::CancelSearchAppIds()
 {
     m_cancelled.storeRelease(1);
 }

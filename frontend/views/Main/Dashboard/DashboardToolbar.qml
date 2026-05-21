@@ -22,7 +22,7 @@ Item {
     // Public ________________________________________________
     property bool p_targetDetailsVisible: false
     property bool p_addTargetVisible: false
-    property int p_targetId: 0
+    property int p_appId: 0
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
 
@@ -30,7 +30,7 @@ Item {
     signal returnClicked()
     signal addTargetClicked()
     signal refreshClicked()
-    signal reloadAssetsRequested(int targetId)
+    signal reloadAssetsRequested(int appId)
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -335,9 +335,9 @@ Item {
         id: id_targetSettingsPopup
 
         parent: Overlay.overlay
-        p_targetId: id_root.p_targetId
-        onReloadAssetsRequested: function(targetId) {
-            id_root.reloadAssetsRequested(targetId)
+        p_appId: id_root.p_appId
+        onReloadAssetsRequested: function(appId) {
+            id_root.reloadAssetsRequested(appId)
         }
     }
 

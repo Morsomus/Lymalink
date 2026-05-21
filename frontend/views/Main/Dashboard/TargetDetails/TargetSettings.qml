@@ -15,9 +15,9 @@ import QtQuick.Layouts
 Popup {
     id: id_root
 
-    property int p_targetId: 0
+    property int p_appId: 0
 
-    signal reloadAssetsRequested(int targetId)
+    signal reloadAssetsRequested(int appId)
 
     width: 220
     height: id_content.implicitHeight + topPadding + bottomPadding
@@ -50,9 +50,9 @@ Popup {
             Layout.fillWidth: true
             text: qsTr("Reload Assets")
             onClicked: {
-                if (id_root.p_targetId > 0) {
-                    ctxLymalink.EnqueueHydrationTask(id_root.p_targetId, true)
-                    id_root.reloadAssetsRequested(id_root.p_targetId)
+                if (id_root.p_appId > 0) {
+                    ctxLymalink.EnqueueSteamHydrationTask(id_root.p_appId, true)
+                    id_root.reloadAssetsRequested(id_root.p_appId)
                     id_root.close()
                 }
             }

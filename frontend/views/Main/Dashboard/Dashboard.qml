@@ -22,7 +22,7 @@ Item {
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
     property bool showingAddTarget: false
-    property var loadingTargetIds: []
+    property var loadingTargetAppIds: []
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
 
     ListModel {
@@ -58,30 +58,30 @@ Item {
         }
     }
 
-    function isTargetLoading(targetId) {
-        return loadingTargetIds.indexOf(targetId) !== -1
+    function isTargetLoading(appId) {
+        return loadingTargetAppIds.indexOf(appId) !== -1
     }
 
-    function setTargetLoading(targetId, loading) {
-        const index = loadingTargetIds.indexOf(targetId)
+    function setTargetLoading(appId, loading) {
+        const index = loadingTargetAppIds.indexOf(appId)
         if (loading && index === -1) {
-            loadingTargetIds = loadingTargetIds.concat([targetId])
+            loadingTargetAppIds = loadingTargetAppIds.concat([appId])
         } else if (!loading && index !== -1) {
-            const nextIds = loadingTargetIds.slice()
+            const nextIds = loadingTargetAppIds.slice()
             nextIds.splice(index, 1)
-            loadingTargetIds = nextIds
+            loadingTargetAppIds = nextIds
         }
 
         for (let i = 0; i < id_targetModel.count; ++i) {
-            if (id_targetModel.get(i).id === targetId) {
+            if (id_targetModel.get(i).id === appId) {
                 id_targetModel.setProperty(i, "isLoading", loading)
                 break
             }
         }
     }
 
-    function onTargetSelected(targetId) {
-        const details = ctxLymalink.FetchTargetDetails(targetId)
+    function onTargetSelected(appId) {
+        const details = ctxLymalink.FetchTargetDetails(appId)
 
         id_targetDetailsAchievementModel.clear()
         const achievements = details.achievements ?? []
@@ -96,11 +96,11 @@ Item {
     Connections {
         target: ctxLymalink
 
-        function onSignalHydrationTaskStarted(appId) {
+        function onSignalSteamHydrationTaskStarted(appId) {
             id_root.setTargetLoading(appId, true)
         }
 
-        function onSignalHydrationTaskFinished(appId, success, cancelled) {
+        function onSignalSteamHydrationTaskFinished(appId, success, cancelled) {
             id_root.setTargetLoading(appId, false)
             id_root.refreshTargets()
         }
@@ -132,14 +132,14 @@ Item {
         id: id_targetDetailsLayout
 
         TargetDetails {
-            p_title: id_root.pendingTargetDetails?.title ?? ""
-            p_coverSource: id_root.pendingTargetDetails?.coverSourceTargetDetails ?? ""
-            p_achievementCount: id_root.pendingTargetDetails?.achievementCount ?? 0
-            p_achievementTotal: id_root.pendingTargetDetails?.achievementTotal ?? 0
-            p_installationStatus: id_root.pendingTargetDetails?.installationStatus ?? ""
-            p_lastPlayed: id_root.pendingTargetDetails?.lastPlayed ?? ""
-            p_recentUnlock: id_root.pendingTargetDetails?.recentUnlock ?? ""
-            p_playtime: id_root.pendingTargetDetails?.playtime ?? ""
+            p_title: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.title : ""
+            p_coverSource: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetails : ""
+            p_achievementCount: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementCount : 0
+            p_achievementTotal: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementTotal : 0
+            p_installationStatus: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.installationStatus : ""
+            p_lastPlayed: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.lastPlayed : ""
+            p_recentUnlock: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.recentUnlock : ""
+            p_playtime: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.playtime : ""
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel
         }
@@ -154,7 +154,7 @@ Item {
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
                 id_root.setTargetLoading(appId, true)
-                ctxLymalink.EnqueueHydrationTask(appId, true)
+                ctxLymalink.EnqueueSteamHydrationTask(appId, true)
             }
         }
     }
@@ -179,7 +179,7 @@ Item {
                     : qsTr("Dashboard")
             p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
             p_addTargetVisible: id_root.showingAddTarget ? true : false
-            p_targetId: id_root.pendingTargetDetails?.id ?? 0
+            p_appId: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.id : 0
             p_activeLayout: id_root.activeLayout
 
             // Layout selection
@@ -199,8 +199,8 @@ Item {
 
             onRefreshClicked: id_root.refreshTargets()
 
-            onReloadAssetsRequested: function(targetId) {
-                id_root.setTargetLoading(targetId, true)
+            onReloadAssetsRequested: function(appId) {
+                id_root.setTargetLoading(appId, true)
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
             }

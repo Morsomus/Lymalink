@@ -32,14 +32,14 @@ public:
 public slots:
     void Init();
     void EnqueueTask(int appId, bool reloadAssets = false);
-    void Cancel();
+    void CancelAllEnqueueTasks();
 
 signals:
     // Progress reporting
-    void signalTaskStarted(int appId);
-    void signalTaskProgress(int appId, QString stage, int current, int total);
-    void signalTaskFinished(int appId, bool success, bool cancelled);
-    void signalQueueFinished();
+    void signalHydrationTaskStarted(int appId);
+    void signalHydrationTaskProgress(int appId, QString stage, int current, int total);
+    void signalHydrationTaskFinished(int appId, bool success, bool cancelled);
+    void signalHydrationQueueFinished();
 
     // Lymalink write signal
     void signalAchievementsReady(int appId, QVariantList achievements);

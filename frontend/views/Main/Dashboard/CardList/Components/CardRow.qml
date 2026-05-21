@@ -18,7 +18,7 @@ Rectangle {
     id: id_root
 
     // Public ________________________________________________
-    property int p_targetId: 0
+    property int p_appId: 0
     property string p_title: "Title"
     property string p_coverSource: ""     // Full cover image (fallback)
     property string p_logoSource: ""      // Prefer transparent library logo
@@ -31,7 +31,7 @@ Rectangle {
     property int p_delegateIndex: 0
     property int p_globalColorStyle: 1
 
-    signal openTargetDetails(int targetId)
+    signal openTargetDetails(int appId)
 
     // Internals _____________________________________________
     readonly property real progress: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -101,7 +101,7 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(id_root.p_targetId)
+            id_root.openTargetDetails(id_root.p_appId)
         }
 
         // Card Row Hover

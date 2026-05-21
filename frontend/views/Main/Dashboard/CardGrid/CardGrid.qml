@@ -21,7 +21,7 @@ Item {
     property string p_gridSize: "defaultCardGrid"   // "defaultCardGrid" | "smallCardGrid"
     property var p_targetModel: null
 
-    signal openTargetDetails(int targetId)
+    signal openTargetDetails(int appId)
 
     // Internals _____________________________________________
     readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 150
@@ -131,7 +131,7 @@ Item {
                             sourceComponent: id_root.p_gridSize === "defaultCardGrid" ? id_defaultCoverCard : id_smallCoverCard
 
                             onLoaded: {
-                                item.p_targetId         = model.id
+                                item.p_appId            = model.id
                                 item.p_title            = model.title
                                 item.p_coverSource      = id_root.p_gridSize === "defaultCardGrid"
                                     ? model.coverSourceCard

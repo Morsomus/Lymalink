@@ -79,7 +79,7 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
 
 /////////////////////////////////////////////////////////////////////
 
-void SteamApiHydrationWorker::Cancel()
+void SteamApiHydrationWorker::CancelAllEnqueueTasks()
 {
     m_cancelled.storeRelease(1);
     m_taskQueue.clear();
@@ -95,7 +95,7 @@ void SteamApiHydrationWorker::ProcessNext()
     if (m_taskQueue.isEmpty())
     {
         m_running = false;
-        emit signalQueueFinished();
+        emit signalHydrationQueueFinished();
         return;
     }
 
@@ -115,12 +115,12 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     const int appId = task.appId;
     qDebug() << "SteamApiHydrationWorker: starting task for appId:" << appId;
-    emit signalTaskStarted(appId);
+    emit signalHydrationTaskStarted(appId);
 
     if (!m_steamApi || !m_imageCache)
     {
         qCritical() << "SteamApiHydrationWorker: not initialized";
-        emit signalTaskFinished(appId, false, false);
+        emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
 
@@ -128,7 +128,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (appDataPath.isEmpty())
     {
         qCritical() << "SteamApiHydrationWorker: failed to resolve app data location";
-        emit signalTaskFinished(appId, false, false);
+        emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
 
@@ -138,34 +138,34 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     if (task.reloadAssets)
     {
-        emit signalTaskProgress(appId, "ClearingAssets", 0, 0);
+        emit signalHydrationTaskProgress(appId, "ClearingAssets", 0, 0);
         if (!ClearAssetDirectory(coversDir) || !ClearAssetDirectory(iconsDir))
         {
-            emit signalTaskFinished(appId, false, false);
+            emit signalHydrationTaskFinished(appId, false, false);
             return;
         }
     }
 
     // Fetch game info (cover + icon suffixes)
-    emit signalTaskProgress(appId, "FetchingGameInfo", 0, 0);
+    emit signalHydrationTaskProgress(appId, "FetchingGameInfo", 0, 0);
 
     SteamGameInfo gameInfo;
     const Error gameInfoError = m_steamApi->SearchGameInfo(appId, gameInfo);
     if (gameInfoError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to fetch game info for appId:" << appId;
-        emit signalTaskFinished(appId, false, false);
+        emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
 
     if (m_cancelled.loadAcquire())
     {
-        emit signalTaskFinished(appId, false, true);
+        emit signalHydrationTaskFinished(appId, false, true);
         return;
     }
 
     // Download library capsule (cover)
-    emit signalTaskProgress(appId, "DownloadingCover", 0, 0);
+    emit signalHydrationTaskProgress(appId, "DownloadingCover", 0, 0);
 
     QList<QString> lcUrls;
     m_steamApi->GetLibraryCapsuleUrls(appId, gameInfo.lcSuffix, gameInfo.assetUrlFormat, lcUrls);
@@ -176,12 +176,12 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     if (m_cancelled.loadAcquire())
     {
-        emit signalTaskFinished(appId, false, true);
+        emit signalHydrationTaskFinished(appId, false, true);
         return;
     }
 
     // Download community icon
-    emit signalTaskProgress(appId, "DownloadingCommunityIcon", 0, 0);
+    emit signalHydrationTaskProgress(appId, "DownloadingCommunityIcon", 0, 0);
 
     QList<QString> ciUrls;
     m_steamApi->GetCommunityIconUrls(appId, gameInfo.ciSuffix, ciUrls);
@@ -189,25 +189,25 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     if (m_cancelled.loadAcquire())
     {
-        emit signalTaskFinished(appId, false, true);
+        emit signalHydrationTaskFinished(appId, false, true);
         return;
     }
 
     // Fetch achievement data
-    emit signalTaskProgress(appId, "FetchingAchievements", 0, 0);
+    emit signalHydrationTaskProgress(appId, "FetchingAchievements", 0, 0);
 
     QList<SteamAchievementData> achievements;
     const Error achievementsError = m_steamApi->FetchAchievementDataPrimary(appId, achievements);
     if (achievementsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to fetch achievements for appId:" << appId;
-        emit signalTaskFinished(appId, false, false);
+        emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
 
     if (m_cancelled.loadAcquire())
     {
-        emit signalTaskFinished(appId, false, true);
+        emit signalHydrationTaskFinished(appId, false, true);
         return;
     }
 
@@ -217,7 +217,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (iconUrlsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to resolve achievement icon urls for appId:" << appId;
-        emit signalTaskFinished(appId, false, false);
+        emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
 
@@ -226,11 +226,11 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     {
         if (m_cancelled.loadAcquire())
         {
-            emit signalTaskFinished(appId, false, true);
+            emit signalHydrationTaskFinished(appId, false, true);
             return;
         }
 
-        emit signalTaskProgress(appId, "DownloadingAchievementIcons", i + 1, total);
+        emit signalHydrationTaskProgress(appId, "DownloadingAchievementIcons", i + 1, total);
 
         const SteamAchievementIconUrls &iconUrls = achievementIconUrls.at(i);
         TryDownloadFirstWorking(iconUrls.iconUrls,     iconsDir, ACH_ICON_TARGET_SIZE, iconUrls.achievementKey + "_icon");
@@ -239,12 +239,12 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     if (m_cancelled.loadAcquire())
     {
-        emit signalTaskFinished(appId, false, true);
+        emit signalHydrationTaskFinished(appId, false, true);
         return;
     }
 
     // Package achievement data for DB write
-    emit signalTaskProgress(appId, "PreparingData", 0, 0);
+    emit signalHydrationTaskProgress(appId, "PreparingData", 0, 0);
 
     const qint64 now = QDateTime::currentSecsSinceEpoch();
 
@@ -264,7 +264,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     }
 
     emit signalAchievementsReady(appId, achievementList);
-    emit signalTaskFinished(appId, true, false);
+    emit signalHydrationTaskFinished(appId, true, false);
 
     qDebug() << "SteamApiHydrationWorker: task completed for appId:" << appId << "- achievements:" << achievements.size();
 }

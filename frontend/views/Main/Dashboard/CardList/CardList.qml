@@ -21,7 +21,7 @@ Item {
     property string p_listMode: "list"
     property var p_targetModel: null
 
-    signal openTargetDetails(int targetId)
+    signal openTargetDetails(int appId)
 
     // Internals _____________________________________________
     readonly property string rowLayout: p_listMode === "detailedList" ? "detailedList" : "list"
@@ -65,8 +65,8 @@ Item {
                 roleValue: "detailedList"
 
                 CardRowDetailed {
-                    width:            id_listView.width
-                    p_targetId:         model.id
+                    width:              id_listView.width
+                    p_appId:            model.id
                     p_title:            model.title
                     p_coverSource:      model.coverSourceRowDetailed
                     p_achievementCount: model.achievementCount
@@ -81,8 +81,8 @@ Item {
                     p_delegateIndex:    index
                     p_globalColorStyle: ctxSettings.globalColorStyle
 
-                    onOpenTargetDetails: function(targetId) {
-                        id_root.openTargetDetails(targetId)
+                    onOpenTargetDetails: function(appId) {
+                        id_root.openTargetDetails(appId)
                     }
                 }
             }
@@ -91,8 +91,8 @@ Item {
                 roleValue: "list"
 
                 CardRow {
-                    width:            id_listView.width
-                    p_targetId:         model.id
+                    width:              id_listView.width
+                    p_appId:            model.id
                     p_title:            model.title
                     p_coverSource:      model.coverSourceCardSmall
                     p_logoSource:       model.logoSource
@@ -105,8 +105,8 @@ Item {
                     p_delegateIndex:    index
                     p_globalColorStyle: ctxSettings.globalColorStyle
 
-                    onOpenTargetDetails: function(targetId) {
-                        id_root.openTargetDetails(targetId)
+                    onOpenTargetDetails: function(appId) {
+                        id_root.openTargetDetails(appId)
                     }
                 }
             }

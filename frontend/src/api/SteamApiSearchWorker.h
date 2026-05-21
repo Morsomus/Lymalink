@@ -24,8 +24,8 @@ public:
 
 public slots:
     void Init();
-    void SearchSteamAppIds(const QString &term);
-    void Cancel();
+    void SearchAppIds(const QString &term);
+    void CancelSearchAppIds();
 
 signals:
     void signalSearchAppIdsFinished(bool success, bool cancelled, QVariantList results);
