@@ -27,6 +27,7 @@ Item {
     property string activeSort: ctxSettings.dashboardToolbarSort
     property bool activeSortDescending: ctxSettings.dashboardToolbarSortDescending
     property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
+    property string activeSearch: ""
     property var targetDetailsAchievements: []
     property string targetDetailsActiveSort: "name"
     property bool targetDetailsSortDescending: false
@@ -39,6 +40,14 @@ Item {
 
     ListModel {
         id: id_targetDetailsAchievementModel
+    }
+
+    Timer {
+        id: id_searchRefreshTimer
+
+        interval: 250
+        repeat: false
+        onTriggered: id_root.refreshTargets()
     }
 
     Component.onCompleted: refreshTargets()
@@ -84,22 +93,60 @@ Item {
     function filterTargets(targets) {
         const filters = id_root.activeFilters
         const showingHiddenTargets = filters.indexOf("hidden") !== -1
-        if (filters.indexOf("none") !== -1) {
-            return targets.filter(function(target) { return !Boolean(target.targetHidden) })
-        }
+        const searchTerms = id_root.activeSearch
+            .trim()
+            .toLocaleLowerCase()
+            .split(/\s+/)
+            .filter(function(term) { return term.length > 0 })
 
         return targets.filter(function(target) {
-            if (!showingHiddenTargets && Boolean(target.targetHidden)) {
+            if (filters.indexOf("none") !== -1) {
+                if (Boolean(target.targetHidden)) {
+                    return false
+                }
+            } else if (!showingHiddenTargets && Boolean(target.targetHidden)) {
                 return false
             }
 
-            for (let i = 0; i < filters.length; ++i) {
-                if (id_root.matchesFilter(target, filters[i])) {
-                    return true
+            if (filters.indexOf("none") === -1) {
+                let filterMatched = false
+                for (let i = 0; i < filters.length; ++i) {
+                    if (id_root.matchesFilter(target, filters[i])) {
+                        filterMatched = true
+                        break
+                    }
+                }
+
+                if (!filterMatched) {
+                    return false
                 }
             }
-            return false
+
+            return id_root.matchesSearch(target, searchTerms)
         })
+    }
+
+    function matchesSearch(target, searchTerms) {
+        if (searchTerms.length === 0) {
+            return true
+        }
+
+        const searchableText = [
+            target.title,
+            target.targetType,
+            target.status,
+            target.id
+        ].map(function(value) {
+            return (value ?? "").toString().toLocaleLowerCase()
+        }).join(" ")
+
+        for (let i = 0; i < searchTerms.length; ++i) {
+            if (searchableText.indexOf(searchTerms[i]) === -1) {
+                return false
+            }
+        }
+
+        return true
     }
 
     function sortValue(target, sort) {
@@ -373,6 +420,11 @@ Item {
             onFiltersSelected: function(filters) {
                 id_root.activeFilters = filters
                 id_root.refreshTargets()
+            }
+
+            onSearchTextChanged: function(text) {
+                id_root.activeSearch = text
+                id_searchRefreshTimer.restart()
             }
 
             onTargetDetailsSortSelected: function(sort) {

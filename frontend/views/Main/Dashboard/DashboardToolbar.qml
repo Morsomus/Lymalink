@@ -38,6 +38,7 @@ Item {
     signal sortSelected(string sort)
     signal sortOrderSelected(bool descending)
     signal filtersSelected(var filters)
+    signal searchTextChanged(string text)
     signal targetDetailsSortSelected(string sort)
     signal targetDetailsSortOrderSelected(bool descending)
     signal targetDetailsFiltersSelected(var filters)
@@ -896,12 +897,15 @@ Item {
                         }
 
                         TextField {
+                            id: id_searchInput
+
                             Layout.fillWidth: true
                             placeholderText: qsTr("Search...")
                             color: Themes.dashboardToolbar.colors.searchText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.searchInput
                             verticalAlignment: TextField.AlignVCenter
                             background: Item {}
+                            onTextChanged: id_root.searchTextChanged(text)
                             Keys.onEscapePressed: {
                                 text = ""
                                 focus = false
