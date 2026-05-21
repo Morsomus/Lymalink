@@ -36,7 +36,7 @@ Popup {
 
     background: Rectangle {
         radius: 8
-        color: "#242424" // TODO move to Themes
+        color: Themes.targetSettings.colors.background
         border.width: 1
         border.color: Themes.dashboardToolbar.colors.pillBorderHover
     }

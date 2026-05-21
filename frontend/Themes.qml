@@ -30,6 +30,21 @@ QtObject {
         }
     }
 
+    // ErrorPopup.qml
+    readonly property QtObject errorPopup: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: "#242424"
+            readonly property color border: "#d35f5f"
+            readonly property color titleText: "#e6e6e6"
+            readonly property color bodyText: "#9b9b9b"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 14
+            readonly property int body: 12
+        }
+    }
+
     // Global style themes shared across application
     readonly property QtObject globalStyle: QtObject {
         readonly property QtObject colors: QtObject {
@@ -287,6 +302,7 @@ QtObject {
             readonly property color rowBorder: Qt.rgba(1, 1, 1, 0.08)
 
             readonly property color iconBackground: "#2a2a3a"
+            readonly property color loadingOverlay: "#000000"
             readonly property color completedRing: "#55cc88"
             readonly property color fallbackBackground: "#3a3a5a"
             readonly property color fallbackText: "#aaaacc"
@@ -327,6 +343,7 @@ QtObject {
             readonly property color rowBorder: Qt.rgba(1, 1, 1, 0.08)
 
             readonly property color iconBackground: "#2a2a3a"
+            readonly property color loadingOverlay: "#000000"
             readonly property color completedRing: "#55cc88"
             readonly property color fallbackBackground: "#3a3a5a"
             readonly property color fallbackText: "#aaaacc"
@@ -363,6 +380,7 @@ QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color cardBackground: "transparent"
             readonly property color cover: "#2a2a3a"
+            readonly property color loadingOverlay: "#000000"
             readonly property color imageErrorBlock: "#555"
             readonly property color imageErrorText: "#aaa"
             readonly property color titleFallback: "white"
@@ -405,6 +423,7 @@ QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color cardBackground: "transparent"
             readonly property color cover: "#2a2a3a"
+            readonly property color loadingOverlay: "#000000"
             readonly property color imageErrorBlock: "#555"
             readonly property color imageErrorText: "#aaa"
             readonly property color titleFallback: "white"
@@ -468,6 +487,13 @@ QtObject {
             readonly property int rowGlobalLabel: 11
             readonly property int rowUnlockDate: 13
             readonly property int hiddenIcon: 22
+        }
+    }
+
+    // TargetSettings.qml
+    readonly property QtObject targetSettings: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: "#242424"
         }
     }
 

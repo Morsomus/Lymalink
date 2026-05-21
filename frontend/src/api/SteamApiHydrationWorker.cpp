@@ -120,6 +120,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (!m_steamApi || !m_imageCache)
     {
         qCritical() << "SteamApiHydrationWorker: not initialized";
+        emit signalHydrationTaskError(appId, "Asset reload failed", "Steam asset worker is not initialized.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
@@ -128,6 +129,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (appDataPath.isEmpty())
     {
         qCritical() << "SteamApiHydrationWorker: failed to resolve app data location";
+        emit signalHydrationTaskError(appId, "Asset reload failed", "Could not resolve application data location.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
@@ -141,6 +143,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         emit signalHydrationTaskProgress(appId, "ClearingAssets", 0, 0);
         if (!ClearAssetDirectory(coversDir) || !ClearAssetDirectory(iconsDir))
         {
+            emit signalHydrationTaskError(appId, "Asset reload failed", "Could not clear existing asset files.");
             emit signalHydrationTaskFinished(appId, false, false);
             return;
         }
@@ -154,6 +157,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (gameInfoError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to fetch game info for appId:" << appId;
+        emit signalHydrationTaskError(appId, "Asset reload failed", "Could not fetch Steam game info. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
@@ -201,6 +205,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (achievementsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to fetch achievements for appId:" << appId;
+        emit signalHydrationTaskError(appId, "Asset reload failed", "Could not fetch Steam achievements. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
@@ -217,6 +222,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     if (iconUrlsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to resolve achievement icon urls for appId:" << appId;
+        emit signalHydrationTaskError(appId, "Asset reload failed", "Could not resolve Steam achievement icons. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
     }
@@ -253,12 +259,12 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     {
         QVariantMap entry;
         entry["achievement_key"]   = achievement.achievementKey;
-        entry["name"]              = achievement.name;
-        entry["description"]       = achievement.description;
-        entry["hidden"]            = achievement.hidden ? 1 : 0;
-        entry["global_percentage"] = achievement.globalPercentage;
-        entry["added_date"]        = now;
-        entry["updated_date"]      = now;
+        entry["achievement_name"] = achievement.achievementName;
+        entry["achievement_description"] = achievement.achievementDescription;
+        entry["achievement_hidden"] = achievement.achievementHidden ? 1 : 0;
+        entry["global_unlock_percentage"] = achievement.globalUnlockPercentage;
+        entry["date_added"]        = now;
+        entry["date_updated"]      = now;
 
         achievementList.append(entry);
     }

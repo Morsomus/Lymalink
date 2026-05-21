@@ -25,6 +25,7 @@
 SteamApi::SteamApi(QObject *parent) : QObject(parent)
 {
     m_networkManager = new QNetworkAccessManager();
+    m_networkManager->setTransferTimeout(15000);
     InitializeLocaleMap();
 }
 
@@ -942,32 +943,32 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
         const QJsonObject achievementObject = achievementItem.toObject();
         const QString achievementKey = achievementObject["internal_name"].toString();
         const QString name = achievementObject["localized_name"].toString();
-        const QString description = achievementObject["localized_desc"].toString();
+        const QString achievementDescription = achievementObject["localized_desc"].toString();
         const QString icon = achievementObject["icon"].toString();
         const QString iconGray = achievementObject["icon_gray"].toString();
 
         bool percentageOk = false;
         const QJsonValue percentageValue = achievementObject["player_percent_unlocked"];
-        double globalPercentage = 0.0;
+        double globalUnlockPercentage = 0.0;
         if (percentageValue.isString())
         {
-            globalPercentage = percentageValue.toString().toDouble(&percentageOk);
+            globalUnlockPercentage = percentageValue.toString().toDouble(&percentageOk);
         }
         else if (percentageValue.isDouble())
         {
-            globalPercentage = percentageValue.toDouble();
+            globalUnlockPercentage = percentageValue.toDouble();
             percentageOk = true;
         }
 
         if (percentageOk)
         {
-            globalPercentage = std::trunc(globalPercentage * 10.0) / 10.0;
+            globalUnlockPercentage = std::trunc(globalUnlockPercentage * 10.0) / 10.0;
         }
         
         // Do not accept incomplete achievement data
         if (achievementKey.isEmpty() ||
             name.isEmpty() ||
-            // description.isEmpty() ||
+            // achievementDescription.isEmpty() ||
             icon.isEmpty() ||
             iconGray.isEmpty() ||
             !achievementObject.contains("hidden") ||
@@ -982,10 +983,10 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
         SteamAchievementData achievement;
         achievement.appId = appId;
         achievement.achievementKey = achievementKey;
-        achievement.name = name;
-        achievement.description = description;
-        achievement.hidden = achievementObject["hidden"].toBool();
-        achievement.globalPercentage = globalPercentage;
+        achievement.achievementName = name;
+        achievement.achievementDescription = achievementDescription;
+        achievement.achievementHidden = achievementObject["hidden"].toBool();
+        achievement.globalUnlockPercentage = globalUnlockPercentage;
         achievement.iconSuffix = icon;
         achievement.iconGraySuffix = iconGray;
 

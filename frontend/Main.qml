@@ -63,6 +63,18 @@ ApplicationWindow {
         }
     }
 
+    Connections {
+        target: ctxLymalink
+
+        function onSignalErrorOccurred(title, message) {
+            id_errorPopup.showError(title, message)
+        }
+    }
+
+    ErrorPopup {
+        id: id_errorPopup
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: 0

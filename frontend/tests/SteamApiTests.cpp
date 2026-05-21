@@ -218,9 +218,9 @@ void SteamApiTests::fetchAchievementDataPrimary_witcher3_returnsExpectedAchievem
     const SteamAchievementData firstAchievement = achievements.first();
     QCOMPARE(firstAchievement.appId, 292030);
     QVERIFY(!firstAchievement.achievementKey.isEmpty());
-    QVERIFY(!firstAchievement.name.isEmpty());
-    QVERIFY(!firstAchievement.description.isEmpty());
-    QVERIFY(firstAchievement.globalPercentage >= 0.0);
+    QVERIFY(!firstAchievement.achievementName.isEmpty());
+    QVERIFY(!firstAchievement.achievementDescription.isEmpty());
+    QVERIFY(firstAchievement.globalUnlockPercentage >= 0.0);
     QVERIFY(hasImageExtension(firstAchievement.iconSuffix));
     QVERIFY(hasImageExtension(firstAchievement.iconGraySuffix));
 
@@ -246,9 +246,9 @@ void SteamApiTests::fetchAchievementDataSecondary_witcher3_returnsExpectedAchiev
     const SteamAchievementData firstAchievement = achievements.first();
     QCOMPARE(firstAchievement.appId, 292030);
     QVERIFY(!firstAchievement.achievementKey.isEmpty());
-    QVERIFY(!firstAchievement.name.isEmpty());
-    QVERIFY(!firstAchievement.description.isEmpty());
-    QVERIFY(firstAchievement.globalPercentage >= 0.0);
+    QVERIFY(!firstAchievement.achievementName.isEmpty());
+    QVERIFY(!firstAchievement.achievementDescription.isEmpty());
+    QVERIFY(firstAchievement.globalUnlockPercentage >= 0.0);
     QVERIFY(hasImageExtension(firstAchievement.iconSuffix));
     QVERIFY(hasImageExtension(firstAchievement.iconGraySuffix));
 
@@ -337,10 +337,10 @@ void SteamApiTests::debugPrintAchievementDataPrimary(const QList<SteamAchievemen
     {
         qDebug() << achievement.appId
             << achievement.achievementKey
-            << achievement.name
-            << achievement.description
-            << achievement.hidden
-            << achievement.globalPercentage
+            << achievement.achievementName
+            << achievement.achievementDescription
+            << achievement.achievementHidden
+            << achievement.globalUnlockPercentage
             << achievement.iconSuffix
             << achievement.iconGraySuffix;
     }

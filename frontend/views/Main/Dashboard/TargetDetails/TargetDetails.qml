@@ -130,12 +130,12 @@ Item {
         id: id_row
 
         property alias iconSource: id_icon.source
-        property string name: ""
-        property string description: ""
-        property real globalUnlockPercent: 0.0
+        property string achievementName: ""
+        property string achievementDescription: ""
+        property real globalUnlockPercentage: 0.0
         property string unlockDate: ""
         property bool unlocked: false
-        property bool hidden: false
+        property bool achievementHidden: false
         property bool revealed: false
 
         // leftInset: positive = content shifted right, used for cover-zone indent
@@ -151,7 +151,7 @@ Item {
         }
 
         TapHandler {
-            enabled: id_row.hidden && !id_row.unlocked
+            enabled: id_row.achievementHidden && !id_row.unlocked
             onTapped: id_row.revealed = !id_row.revealed
             cursorShape: Qt.PointingHandCursor
         }
@@ -159,7 +159,7 @@ Item {
         HoverHandler {
             id: id_hoverHandler
 
-            enabled: id_row.hidden && !id_row.unlocked
+            enabled: id_row.achievementHidden && !id_row.unlocked
             cursorShape: Qt.PointingHandCursor
         }
 
@@ -185,13 +185,13 @@ Item {
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
-                    visible: !id_row.hidden || id_row.unlocked || id_row.revealed
+                    visible: !id_row.achievementHidden || id_row.unlocked || id_row.revealed
                 }
 
                 // "?" shown instead of icon for concealed hidden achievements
                 Text {
                     anchors.centerIn: parent
-                    visible: id_row.hidden && !id_row.unlocked && !id_row.revealed
+                    visible: id_row.achievementHidden && !id_row.unlocked && !id_row.revealed
                     text: "?"
                     color: Themes.targetDetails.colors.text
                     font.pixelSize: Themes.targetDetails.fontSizes.hiddenIcon
@@ -226,18 +226,18 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: (id_row.hidden && !id_row.unlocked && !id_row.revealed) ? qsTr("Hidden") : id_row.name
+                        text: (id_row.achievementHidden && !id_row.unlocked && !id_row.revealed) ? qsTr("Hidden") : id_row.achievementName
                         color: Themes.targetDetails.colors.text
                         font.pixelSize: Themes.targetDetails.fontSizes.rowName
                         font.bold: true
                         elide: Text.ElideRight
-                        opacity: (id_row.hidden && !id_row.unlocked && !id_row.revealed) ? 0.35 : (id_row.unlocked ? 1.0 : 0.55)
+                        opacity: (id_row.achievementHidden && !id_row.unlocked && !id_row.revealed) ? 0.35 : (id_row.unlocked ? 1.0 : 0.55)
                     }
 
                     Text {
                         width: parent.width
-                        visible: !id_row.hidden || id_row.unlocked || id_row.revealed
-                        text: id_row.description
+                        visible: !id_row.achievementHidden || id_row.unlocked || id_row.revealed
+                        text: id_row.achievementDescription
                         color: Themes.targetDetails.colors.text
                         font.pixelSize: Themes.targetDetails.fontSizes.rowDescription
                         opacity: 0.50
@@ -252,7 +252,7 @@ Item {
             Row {
                 spacing: 3
                 Text {
-                    text: id_row.globalUnlockPercent.toFixed(1) + "%"
+                    text: id_row.globalUnlockPercentage.toFixed(1) + "%"
                     color: Themes.targetDetails.colors.text
                     font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalPercent
                     horizontalAlignment: Text.AlignRight
@@ -527,13 +527,13 @@ Item {
             leftInset: id_root.p_enabledAchievementRowDynamicWidth && viewportTop < id_root.fixedPanelClearance ? id_root.fixedPanelInset : 0
 
             iconSource: model.iconSource
-            name: model.name
-            description: model.description
-            globalUnlockPercent: model.globalUnlockPercent
+            achievementName: model.achievementName
+            achievementDescription: model.achievementDescription
+            globalUnlockPercentage: model.globalUnlockPercentage
             unlockDate: model.unlockDate
             unlocked: model.unlocked
 
-            hidden:  model.hidden
+            achievementHidden: model.achievementHidden
         }
 
         // Empty state

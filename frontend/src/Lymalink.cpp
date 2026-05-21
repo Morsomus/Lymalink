@@ -68,6 +68,10 @@ Error Lymalink::Initialize()
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskProgress,  this, &Lymalink::signalSteamHydrationTaskProgress);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskFinished,  this, &Lymalink::signalSteamHydrationTaskFinished);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this, &Lymalink::signalSteamHydrationQueueFinished);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskError, this,
+        [this](int appId, const QString &title, const QString &message) {
+            emit signalErrorOccurred(title, QString("%1\nApp ID: %2").arg(message).arg(appId));
+        });
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::ApplyNewAchievements);
     m_hydrationWorkerThread.start();
 
@@ -104,12 +108,13 @@ void Lymalink::CancelSteamHydration()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::CreateNewSteamEmuTarget(int appId, QString name, QString exePath, QString prefixPath)
+bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath)
 {
-    name = name.trimmed();
+    gameName = gameName.trimmed();
     exePath = exePath.trimmed();
     prefixPath = prefixPath.trimmed();
-    if (appId <= 0 || name.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
+
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
     {
         qWarning() << "Lymalink: invalid emulator target data";
         return false;
@@ -131,12 +136,15 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString name, QString exePath,
     const QString appIdText = QString::number(appId);
     QDir emulatorDir(QDir(appDataPath).filePath("Emulator"));
     const QString targetPath = emulatorDir.filePath(appIdText);
+
+    // Check filesystem first
     if (QFileInfo::exists(targetPath))
     {
-        qWarning() << "Lymalink: emulator target already exists:" << targetPath;
+        qWarning() << "Lymalink: emulator target already exists on disk:" << targetPath;
         return false;
     }
 
+    // Check database entry
     const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, "steam_emu_games", "id = ?", {appId});
     if (existingGameRows < 0)
     {
@@ -144,29 +152,27 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString name, QString exePath,
         return false;
     }
 
+    // If database entry exists, block creation and return early
     if (existingGameRows > 0)
     {
-        if (!m_databaseManager.remove(m_databaseConnectionName, "steam_emu_games", "id = ?", {appId}))
-        {
-            qCritical() << "Lymalink: failed to remove stale emulator target row:" << m_databaseManager.lastError();
-            return false;
-        }
-
-        qWarning() << "Lymalink: removed stale emulator target row:" << appId;
+        qWarning() << "Lymalink: emulator target already exists in database, skipping creation:" << appId;
+        return false;
     }
 
+    // Create directory structure
     if (!emulatorDir.mkpath(appIdText) || !emulatorDir.mkpath(appIdText + "/icons") || !emulatorDir.mkpath(appIdText + "/covers"))
     {
         qCritical() << "Lymalink: failed to create emulator target folders:" << targetPath;
         return false;
     }
 
+    // Insert into database
     const QVariantMap data = {
         {"id", appId},
-        {"name", name},
+        {"game_name", gameName},
         {"executable_location", exePath},
         {"prefix_location", prefixPath},
-        {"added_date", QDateTime::currentSecsSinceEpoch()}
+        {"date_added", QDateTime::currentSecsSinceEpoch()}
     };
 
     if (!m_databaseManager.insert(m_databaseConnectionName, "steam_emu_games", data))
@@ -196,12 +202,12 @@ QVariantList Lymalink::FetchDashboardTargets()
         "steam_emu_games",
         {
             "id",
-            "name",
+            "game_name",
             "executable_location",
             "total_amount_achievements",
-            "unlocked_amount_achievements",
+            "total_unlocked_amount_achievements",
             "last_played_date",
-            "added_date"
+            "date_added"
         }
     );
 
@@ -228,30 +234,30 @@ QVariantList Lymalink::FetchDashboardTargets()
             {appId},
             {
                 "achievement_key",
-                "name",
-                "description",
-                "unlock_date"
+                "achievement_name",
+                "achievement_description",
+                "date_unlocked"
             }
         );
         const QVariantMap latestAchievement = LatestUnlockedAchievement(achievements);
         
         QVariantMap target = {
             {"id", appId},
-            {"title", Utils::MapStringValue(row, "name")},
+            {"title", Utils::MapStringValue(row, "game_name")},
             {"coverSource", coverSource},
             {"coverSourceCard", coverSourceCard.isEmpty() ? coverSource : coverSourceCard},
             {"coverSourceCardSmall", coverSourceCardSmall.isEmpty() ? coverSource : coverSourceCardSmall},
             {"coverSourceRowDetailed", coverSourceRowDetailed.isEmpty() ? coverSource : coverSourceRowDetailed},
             {"coverSourceTargetDetails", coverSourceTargetDetails.isEmpty() ? coverSource : coverSourceTargetDetails},
             {"logoSource", CommunityIconFilePath(iconsPath)},
-            {"achievementCount", Utils::MapIntValue(row, "unlocked_amount_achievements")},
+            {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
             {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
             {"status", ExecutableInstallationStatus(row)},
             {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
-            {"recentUnlock", Utils::LocalDate(latestAchievement.value("unlock_date").toLongLong())},
+            {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
             {"lastAchievementIcon", AchievementIconFilePath(iconsPath, latestAchievement)},
-            {"lastAchievementName", Utils::MapStringValue(latestAchievement, "name")},
-            {"lastAchievementDesc", Utils::MapStringValue(latestAchievement, "description")}
+            {"lastAchievementName", Utils::MapStringValue(latestAchievement, "achievement_name")},
+            {"lastAchievementDesc", Utils::MapStringValue(latestAchievement, "achievement_description")}
         };
 
         targets << target;
@@ -297,20 +303,20 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         "steam_emu_achievements",
         "id = ?",
         {appId},
-        {"achievement_key", "name", "description", "unlock_date"}
+        {"achievement_key", "achievement_name", "achievement_description", "date_unlocked"}
     ));
 
     return {
         {"id", appId},
-        {"title", Utils::MapStringValue(row, "name")},
+        {"title", Utils::MapStringValue(row, "game_name")},
         {"coverSource", coverSource},
         {"coverSourceTargetDetails", coverSource},
-        {"achievementCount", Utils::MapIntValue(row, "unlocked_amount_achievements")},
+        {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
         {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
         {"installationStatus", ExecutableInstallationStatus(row)},
         {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
-        {"recentUnlock", Utils::LocalDate(latestAchievement.value("unlock_date").toLongLong())},
-        {"playtime", PlaytimeText(Utils::MapIntValue(row, "hours_played_total"))},
+        {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
+        {"playtime", PlaytimeText(Utils::MapIntValue(row, "total_seconds_played"))},
         {"achievements", achievements}
     };
 }
@@ -349,18 +355,18 @@ Error Lymalink::DatabaseInit()
         "steam_emu_games",
         {
             "id INTEGER PRIMARY KEY NOT NULL",
-            "name TEXT NOT NULL",
+            "game_name TEXT NOT NULL",
             "emulator_type TEXT",
             "executable_location TEXT",
             "prefix_location TEXT",
-            "target_dir_found INTEGER DEFAULT 0",
-            "target_dir_location TEXT",
+            "appid_dir_found INTEGER DEFAULT 0",
+            "appid_dir_location TEXT",
             "total_amount_achievements INTEGER",
-            "unlocked_amount_achievements INTEGER",
-            "hours_played_total INTEGER",
+            "total_unlocked_amount_achievements INTEGER",
+            "total_seconds_played INTEGER",
             "last_played_date INTEGER",
-            "updated_date INTEGER",
-            "added_date INTEGER"
+            "date_updated INTEGER",
+            "date_added INTEGER"
         }
     );
 
@@ -376,14 +382,14 @@ Error Lymalink::DatabaseInit()
         {
             "id INTEGER NOT NULL",
             "achievement_key TEXT NOT NULL",
-            "name TEXT NOT NULL",
-            "description TEXT",
-            "hidden INTEGER DEFAULT 0",
-            "global_percentage REAL",
+            "achievement_name TEXT NOT NULL",
+            "achievement_description TEXT",
+            "achievement_hidden INTEGER DEFAULT 0",
+            "global_unlock_percentage REAL",
             "icon_gray_url TEXT",
-            "unlock_date INTEGER",
-            "updated_date INTEGER",
-            "added_date INTEGER",
+            "date_unlocked INTEGER",
+            "date_updated INTEGER",
+            "date_added INTEGER",
             "PRIMARY KEY (id, achievement_key)",
             "FOREIGN KEY (id) REFERENCES steam_emu_games(id) ON DELETE CASCADE"
         }
@@ -469,7 +475,7 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
         if (!m_databaseManager.update(
             m_databaseConnectionName,
             "steam_emu_games",
-            {{"total_amount_achievements", totalAchievements}, {"updated_date", now}},
+            {{"total_amount_achievements", totalAchievements}, {"date_updated", now}},
             "id = ?",
             {appId}))
         {
@@ -482,14 +488,18 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 
 /////////////////////////////////////////////////////////////////////
 
-QString Lymalink::PlaytimeText(int hoursPlayed) const
+QString Lymalink::PlaytimeText(int secondsPlayed) const
 {
-    if (hoursPlayed <= 0)
-    {
-        return QString();
+    if (secondsPlayed < 3600)   // Less than 1 hour (60 minutes)
+    { 
+        int minutes = secondsPlayed / 60;
+        return QString("%1 minute(s)").arg(minutes);
     }
-
-    return tr("%n hour(s)", nullptr, hoursPlayed);
+    else                        // 1 hour or more
+    { 
+        int hours = secondsPlayed / 3600;
+        return QString("%1 hour(s)").arg(hours);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -502,7 +512,7 @@ QVariantMap Lymalink::LatestUnlockedAchievement(const QVariantList &achievements
     for (const QVariant &achievementValue : achievements)
     {
         const QVariantMap achievement = achievementValue.toMap();
-        const qint64 unlockDate = achievement.value("unlock_date").toLongLong();
+        const qint64 unlockDate = achievement.value("date_unlocked").toLongLong();
         if (unlockDate > latestUnlockDate)
         {
             latestUnlockDate = unlockDate;
@@ -524,11 +534,11 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         {appId},
         {
             "achievement_key",
-            "name",
-            "description",
-            "hidden",
-            "global_percentage",
-            "unlock_date"
+            "achievement_name",
+            "achievement_description",
+            "achievement_hidden",
+            "global_unlock_percentage",
+            "date_unlocked"
         }
     );
 
@@ -539,18 +549,18 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
     for (const QVariant &rowValue : rows)
     {
         const QVariantMap row = rowValue.toMap();
-        const bool unlocked = row.value("unlock_date").toLongLong() > 0;
-        const bool hidden = row.value("hidden").toInt() == 1;
-        const QString sectionKey = unlocked ? "unlocked" : (hidden ? "hidden" : "locked");
+        const bool unlocked = row.value("date_unlocked").toLongLong() > 0;
+        const bool achievementHidden = row.value("achievement_hidden").toInt() == 1;
+        const QString sectionKey = unlocked ? "unlocked" : (achievementHidden ? "achievementHidden" : "locked");
 
         QVariantMap achievement = {
             {"iconSource", AchievementIconFilePath(iconsPath, row)},
-            {"name", Utils::MapStringValue(row, "name")},
-            {"description", Utils::MapStringValue(row, "description")},
-            {"globalUnlockPercent", row.value("global_percentage").isNull() ? 0.0 : row.value("global_percentage").toDouble()},
-            {"unlockDate", unlocked ? Utils::LocalDate(row.value("unlock_date").toLongLong()) : QString()},
+            {"achievementName", Utils::MapStringValue(row, "achievement_name")},
+            {"achievementDescription", Utils::MapStringValue(row, "achievement_description")},
+            {"globalUnlockPercentage", row.value("global_unlock_percentage").isNull() ? 0.0 : row.value("global_unlock_percentage").toDouble()},
+            {"unlockDate", unlocked ? Utils::LocalDate(row.value("date_unlocked").toLongLong()) : QString()},
             {"unlocked", unlocked},
-            {"hidden", hidden},
+            {"achievementHidden", achievementHidden},
             {"sectionKey", sectionKey}
         };
 
@@ -558,7 +568,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         {
             unlockedAchievements << achievement;
         }
-        else if (sectionKey == "hidden")
+        else if (sectionKey == "achievementHidden")
         {
             hiddenAchievements << achievement;
         }
@@ -615,7 +625,7 @@ QString Lymalink::AchievementIconFilePath(const QString &iconsPath, const QVaria
         return QString();
     }
 
-    const bool unlocked = achievement.value("unlock_date").toLongLong() > 0;
+    const bool unlocked = achievement.value("date_unlocked").toLongLong() > 0;
     const QString iconFileName = achievementKey + (unlocked ? "_icon.jpg" : "_gray_icon.jpg");
     const QString iconPath = QDir(iconsPath).filePath(iconFileName);
 

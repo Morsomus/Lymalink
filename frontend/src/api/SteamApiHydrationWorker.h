@@ -40,6 +40,7 @@ signals:
     void signalHydrationTaskProgress(int appId, QString stage, int current, int total);
     void signalHydrationTaskFinished(int appId, bool success, bool cancelled);
     void signalHydrationQueueFinished();
+    void signalHydrationTaskError(int appId, QString title, QString message);
 
     // Lymalink write signal
     void signalAchievementsReady(int appId, QVariantList achievements);

@@ -45,10 +45,10 @@ struct SteamAchievementData
 {
     int appId = 0;
     QString achievementKey;
-    QString name;
-    QString description;
-    bool hidden = false;
-    double globalPercentage = 0.0;
+    QString achievementName;
+    QString achievementDescription;
+    bool achievementHidden = false;
+    double globalUnlockPercentage = 0.0;
     QString iconSuffix;         // Suffix or Full URL - depends on method FetchAchievementDataPrimary/Secondary
     QString iconGraySuffix;     // Suffix or Full URL - depends on method FetchAchievementDataPrimary/Secondary
 };

@@ -83,6 +83,7 @@ qt_add_qml_module(Lymalink
         common/CustomBusyIndicator.qml
         common/CustomTooltip.qml
         common/ErrorImage.qml
+        common/ErrorPopup.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
         views/Main/Dashboard/CardGrid/Components/Card.qml
         views/Main/Dashboard/CardGrid/Components/CardSmall.qml

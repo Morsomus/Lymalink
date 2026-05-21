@@ -73,7 +73,7 @@ Rectangle {
 
             Rectangle {
                 anchors.fill: parent
-                color: "#000000"    // TODO move to Themes
+                color: Themes.cardSmall.colors.loadingOverlay
                 opacity: 0.55
                 visible: id_root.p_isLoading
             }
