@@ -24,6 +24,7 @@ Rectangle {
     property string p_logoSource: ""      // Prefer transparent library logo
     property int p_achievementCount: 0    // e.g. 5
     property int p_achievementTotal: 0    // e.g. 73
+    property string p_targetType: ""      // "Custom" | "Steam" | "Emulator"
     property string p_installationStatus: ""    // "Installed" | "Not Installed"
     property string p_lastPlayed: ""      // e.g. "2 days ago"
     property string p_recentUnlock: ""    // e.g. "1 hour ago"
@@ -311,25 +312,50 @@ Rectangle {
             }
         }
 
-        // Installation status indicator
-        Rectangle {
-            visible: id_root.p_installationStatus !== ""
+        // Target type and installation status indicators
+        RowLayout {
+            visible: id_root.p_targetType !== "" || id_root.p_installationStatus !== ""
             Layout.alignment: Qt.AlignVCenter
-            width:  id_installStatusText.implicitWidth + 14
-            height: 20
-            radius: 10
-            color: "transparent"
-            border.width: 1
-            border.color: id_installStatusText.color
+            spacing: 6
 
-            Text {
-                id: id_installStatusText
+            Rectangle {
+                visible: id_root.p_targetType !== ""
+                implicitWidth: id_targetTypeText.implicitWidth + 14
+                implicitHeight: 20
+                radius: 10
+                color: "transparent"
+                border.width: 1
+                border.color: id_targetTypeText.color
 
-                anchors.centerIn: parent
-                text: id_root.p_installationStatus
-                color: id_root.p_installationStatus === "Installed" ? id_root.themedCompletionColor : Themes.cardRow.colors.installationStatusTextNotInstalled
-                font.pixelSize: Themes.cardRow.fontSizes.status
-                font.bold: true
+                Text {
+                    id: id_targetTypeText
+
+                    anchors.centerIn: parent
+                    text: id_root.p_targetType
+                    color: id_root.themedProgressColor
+                    font.pixelSize: Themes.cardRow.fontSizes.status
+                    font.bold: true
+                }
+            }
+
+            Rectangle {
+                visible: id_root.p_installationStatus !== ""
+                implicitWidth: id_installStatusText.implicitWidth + 14
+                implicitHeight: 20
+                radius: 10
+                color: "transparent"
+                border.width: 1
+                border.color: id_installStatusText.color
+
+                Text {
+                    id: id_installStatusText
+
+                    anchors.centerIn: parent
+                    text: id_root.p_installationStatus
+                    color: id_root.p_installationStatus === "Installed" ? id_root.themedCompletionColor : Themes.cardRow.colors.installationStatusTextNotInstalled
+                    font.pixelSize: Themes.cardRow.fontSizes.status
+                    font.bold: true
+                }
             }
         }
     }

@@ -22,6 +22,7 @@ Rectangle {
     property string p_coverSource: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
+    property string p_targetType: ""
     property string p_installationStatus: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
@@ -239,25 +240,50 @@ Rectangle {
                 maximumLineCount: 3
             }
 
-            Rectangle {
-                visible: id_root.p_installationStatus !== ""
-                width: id_statusText.implicitWidth + 14
-                height: 20
-                radius: 10
-                color: "transparent"
-                border.width: 1
-                border.color: id_statusText.color
+            RowLayout {
+                visible: id_root.p_targetType !== "" || id_root.p_installationStatus !== ""
+                spacing: 6
 
-                Text {
-                    id: id_statusText
-                    
-                    anchors.centerIn: parent
-                    text: id_root.p_installationStatus
-                    color: id_root.p_installationStatus === "Installed"
-                        ? id_root.themedCompletionColor
-                        : Themes.cardRowDetailed.colors.installationStatusTextNotInstalled
-                    font.pixelSize: Themes.cardRowDetailed.fontSizes.status
-                    font.bold: true
+                Rectangle {
+                    visible: id_root.p_installationStatus !== ""
+                    implicitWidth: id_statusText.implicitWidth + 14
+                    implicitHeight: 20
+                    radius: 10
+                    color: "transparent"
+                    border.width: 1
+                    border.color: id_statusText.color
+
+                    Text {
+                        id: id_statusText
+
+                        anchors.centerIn: parent
+                        text: id_root.p_installationStatus
+                        color: id_root.p_installationStatus === "Installed"
+                            ? id_root.themedCompletionColor
+                            : Themes.cardRowDetailed.colors.installationStatusTextNotInstalled
+                        font.pixelSize: Themes.cardRowDetailed.fontSizes.status
+                        font.bold: true
+                    }
+                }
+
+                Rectangle {
+                    visible: id_root.p_targetType !== ""
+                    implicitWidth: id_targetTypeText.implicitWidth + 14
+                    implicitHeight: 20
+                    radius: 10
+                    color: "transparent"
+                    border.width: 1
+                    border.color: id_targetTypeText.color
+
+                    Text {
+                        id: id_targetTypeText
+
+                        anchors.centerIn: parent
+                        text: id_root.p_targetType
+                        color: id_root.themedProgressColor
+                        font.pixelSize: Themes.cardRowDetailed.fontSizes.status
+                        font.bold: true
+                    }
                 }
             }
 
@@ -283,13 +309,14 @@ Rectangle {
             Layout.leftMargin: 16
             Layout.rightMargin: 16
             spacing: 6
-            visible: id_root.p_achievementTotal > 0
 
             Item {
                 Layout.fillHeight: true
+                Layout.fillWidth: id_root.p_achievementTotal > 0 ? false : true
             }
 
             Text {
+                visible: id_root.p_achievementTotal > 0
                 text: qsTr("Achievements")
                 color: Themes.cardRowDetailed.colors.fractionText
                 font.pixelSize: Themes.cardRowDetailed.fontSizes.recentUnlock
@@ -297,6 +324,7 @@ Rectangle {
 
             // Achievement fraction
             RowLayout {
+                visible: id_root.p_achievementTotal > 0
                 spacing: 6
 
                 Text {
@@ -331,6 +359,7 @@ Rectangle {
 
             // Progress bar
             RowLayout {
+                visible: id_root.p_achievementTotal > 0
                 Layout.fillWidth: true
                 spacing: 8
 

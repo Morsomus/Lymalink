@@ -390,11 +390,45 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
     const QByteArray data = reply->readAll();
     reply->deleteLater();
 
+    // Check if response contains actual achievements data
+    QJsonParseError noDataParseError;
+    const QJsonDocument noDataDoc = QJsonDocument::fromJson(data, &noDataParseError);
+    if (noDataParseError.error == QJsonParseError::NoError)
+    {
+        if (noDataDoc.isNull())
+        {
+            return Error::NoData;
+        }
+
+        if (noDataDoc.isObject())
+        {
+            const QJsonObject root = noDataDoc.object();
+            const QJsonValue responseValue = root["response"];
+            const QJsonObject responseObject = responseValue.isObject() ? responseValue.toObject() : QJsonObject();
+            const QJsonValue achievementsValue = responseObject["achievements"];
+
+            if (root.isEmpty() ||
+                (responseValue.isObject() && responseObject.isEmpty()) ||
+                (achievementsValue.isArray() && achievementsValue.toArray().isEmpty()))
+            {
+                return Error::NoData;
+            }
+        }
+        else if (noDataDoc.isArray() && noDataDoc.array().isEmpty())
+        {
+            return Error::NoData;
+        }
+    }
+
     achievements = ParseAchievementDataResponse(data, appId, &errorMessage);
     if (!errorMessage.isEmpty())
     {
         achievements.clear();
         return Error::ParseError;
+    }
+    if (achievements.isEmpty())
+    {
+        return Error::NoData;
     }
 
     return Error::NoError;

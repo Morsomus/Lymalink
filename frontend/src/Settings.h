@@ -32,6 +32,7 @@ class Settings : public QObject
     Q_PROPERTY(bool showInstallationStatusBadge READ GetShowInstallationStatusBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool progressFrameGrayscaleMode READ GetProgressFrameGrayscaleMode NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showTotalAchievementsBadge READ GetShowTotalAchievementsBadge NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool showTargetTypeBadge READ GetShowTargetTypeBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableProgressFrameCompletionAnimation READ GetEnableProgressFrameCompletionAnimation NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableDynamicAchievementRows READ GetEnableDynamicAchievementRows NOTIFY signalConfigChanged)
     Q_PROPERTY(bool sidebarCollapsed READ GetSidebarCollapsed NOTIFY signalConfigChanged)
@@ -62,6 +63,7 @@ public:
         ShowInstallationStatusBadge,
         ProgressFrameGrayscaleMode,
         ShowTotalAchievementsBadge,
+        ShowTargetTypeBadge,
         EnableProgressFrameCompletionAnimation,
         EnableDynamicAchievementRows,
         SidebarCollapsed,
@@ -94,6 +96,7 @@ public:
     inline bool GetShowInstallationStatusBadge() const { return m_showInstallationStatusBadge; }
     inline bool GetProgressFrameGrayscaleMode() const { return m_progressFrameGrayscaleMode; }
     inline bool GetShowTotalAchievementsBadge() const { return m_showTotalAchievementsBadge; }
+    inline bool GetShowTargetTypeBadge() const { return m_showTargetTypeBadge; }
     inline bool GetEnableProgressFrameCompletionAnimation() const { return m_enableProgressFrameCompletionAnimation; }
     inline bool GetEnableDynamicAchievementRows() const { return m_enableDynamicAchievementRows; }
     inline uint16_t GetWindowSizeX() const { return m_windowSizeX; }
@@ -124,6 +127,7 @@ private:
     bool m_showInstallationStatusBadge;
     bool m_progressFrameGrayscaleMode;
     bool m_showTotalAchievementsBadge;
+    bool m_showTargetTypeBadge;
     bool m_enableProgressFrameCompletionAnimation;
     bool m_enableDynamicAchievementRows;
     bool m_sidebarCollapsed;

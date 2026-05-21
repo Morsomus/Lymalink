@@ -39,6 +39,7 @@ Item {
 
         Card {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
+            p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
             p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
@@ -51,6 +52,7 @@ Item {
 
         CardSmall {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
+            p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
             p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
@@ -138,6 +140,7 @@ Item {
                                     : model.coverSourceCardSmall
                                 item.p_achievementCount = model.achievementCount
                                 item.p_achievementTotal = model.achievementTotal
+                                item.p_targetType       = model.targetType
                                 item.p_installationStatus   = model.status
                                 item.p_lastPlayed       = model.lastPlayed
                                 item.p_recentUnlock     = model.recentUnlock

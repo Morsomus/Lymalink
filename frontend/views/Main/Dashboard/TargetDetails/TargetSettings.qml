@@ -6,6 +6,7 @@
 // Description: Popup for target settings actions
 /////////////////////////////////////////////////////////
 
+import Lymalink
 import app.themes 1.0
 
 import QtQuick
@@ -47,14 +48,22 @@ Popup {
         spacing: 10
 
         Button {
+            id: id_reloadAchievementsButton
+
             Layout.fillWidth: true
-            text: qsTr("Reload Assets")
+            text: qsTr("Reload Achievement Data")
             onClicked: {
                 if (id_root.p_appId > 0) {
                     ctxLymalink.EnqueueSteamHydrationTask(id_root.p_appId, true)
                     id_root.reloadAssetsRequested(id_root.p_appId)
                     id_root.close()
                 }
+            }
+
+            CustomTooltip {
+                active: id_reloadAchievementsButton.hovered
+                delay: 300
+                text: qsTr("Reloads image assets and achievements data")
             }
         }
 

@@ -113,6 +113,7 @@ bool Settings::LoadConfig()
     m_showInstallationStatusBadge = m_settings.value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
     m_progressFrameGrayscaleMode = m_settings.value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
     m_showTotalAchievementsBadge = m_settings.value("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge).toBool();
+    m_showTargetTypeBadge = m_settings.value("ShowTargetTypeBadge", m_showTargetTypeBadge).toBool();
     m_enableProgressFrameCompletionAnimation = m_settings.value("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation).toBool();
     m_enableDynamicAchievementRows = m_settings.value("EnableDynamicAchievementRows", m_enableDynamicAchievementRows).toBool();
     m_windowSizeX = m_settings.value("WindowSizeX", m_windowSizeX).toUInt();
@@ -259,6 +260,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_showTotalAchievementsBadge;
             break;
         }
+        case ShowTargetTypeBadge:
+        {
+            m_showTargetTypeBadge = value.toBool();
+            group = GROUP_DISPLAY;
+            settingsKey = "ShowTargetTypeBadge";
+            settingsValue = m_showTargetTypeBadge;
+            break;
+        }
         case EnableProgressFrameCompletionAnimation:
         {
             m_enableProgressFrameCompletionAnimation = value.toBool();
@@ -392,6 +401,7 @@ void Settings::SetDefaults()
     m_showInstallationStatusBadge = true;
     m_progressFrameGrayscaleMode = false;
     m_showTotalAchievementsBadge = true;
+    m_showTargetTypeBadge = false;
     m_enableProgressFrameCompletionAnimation = true;
     m_enableDynamicAchievementRows = true;
     m_windowSizeX = m_windowSizeXDefault;
@@ -446,6 +456,7 @@ void Settings::SavePlainValues()
     m_settings.setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
     m_settings.setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);
     m_settings.setValue("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge);
+    m_settings.setValue("ShowTargetTypeBadge", m_showTargetTypeBadge);
     m_settings.setValue("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation);
     m_settings.setValue("EnableDynamicAchievementRows", m_enableDynamicAchievementRows);
     m_settings.setValue("WindowSizeX", m_windowSizeX);

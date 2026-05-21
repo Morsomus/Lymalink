@@ -5,12 +5,11 @@
 // Copyright: see /LICENSE
 // Description: BackendServiceElement QML Component for
 //              displaying user backend service information
-//              and setting.
+//              and status.
 /////////////////////////////////////////////////////////
 
 import Lymalink
 import app.themes 1.0
-import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -20,13 +19,36 @@ Rectangle {
     id: id_root
 
     property bool collapsed: false
+    signal clicked()
+
+    readonly property bool backendAvailable: typeof ctxLymalink !== "undefined" && ctxLymalink !== null
+    readonly property int serviceState: !backendAvailable ? 0 : (ctxSettings.backendService ? 2 : 1)
+    readonly property color serviceColor: {
+        switch (serviceState) {
+            case 2: return Themes.general.colors.statusActive
+            case 1: return "#f2c94c"
+            default: return "#d35f5f"
+        }
+    }
+    readonly property string serviceStatusText: {
+        switch (serviceState) {
+            case 2: return qsTr("Tracking independently, app can be closed")
+            case 1: return qsTr("Tracking while app is open only")
+            default: return qsTr("Service error, tracking unavailable")
+        }
+    }
+    readonly property string serviceTooltip: {
+        switch (serviceState) {
+            case 2: return qsTr("Background service is running independently. Achievement tracking and notifications work even when the application is closed.")
+            case 1: return qsTr("Background service is disabled. Achievement tracking and notifications only work while the application is open.")
+            default: return qsTr("Background service encountered an error and is not running. Achievement tracking is unavailable.")
+        }
+    }
 
     Layout.fillWidth: true
     Layout.preferredHeight: id_root.collapsed ? 52 : 72
-
     color: id_rootMouseArea.pressed ? Themes.general.colors.backgroundPressed : (id_rootMouseArea.containsMouse ? Themes.general.colors.backgroundHover : Themes.general.colors.background)
     border.color: Themes.general.colors.border
-
     radius: 8
     border.width: 1
 
@@ -40,17 +62,13 @@ Rectangle {
         id: id_rootMouseArea
 
         anchors.fill: parent
-        enabled: id_root.collapsed
         hoverEnabled: true
+        onClicked: id_root.clicked()
 
         CustomTooltip {
             active: id_rootMouseArea.containsMouse
             delay: 300
-            text: qsTr("Keep tracking active even when the application is closed")
-        }
-
-        onClicked: {
-            id_backgroundServiceSwitch.checked = !id_backgroundServiceSwitch.checked
+            text: id_root.serviceTooltip
         }
 
         ColumnLayout {
@@ -66,44 +84,29 @@ Rectangle {
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: "●"
-                    color: id_backgroundServiceSwitch.checked ? Themes.general.colors.statusActive : Themes.general.colors.statusInactive
+                    color: id_root.serviceColor
                     font.pixelSize: id_root.collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
                 }
 
                 Label {
                     Layout.fillWidth: true
                     visible: !id_root.collapsed
-                    text: qsTr("Background service")
+                    text: qsTr("Background service status")
                     color: Themes.general.colors.titleText
                     font.pixelSize: Themes.general.fontSizes.title
                     font.bold: true
                     elide: Text.ElideRight
-                }
-
-                Switch {
-                    id: id_backgroundServiceSwitch
-                    
-                    Layout.preferredWidth: id_root.collapsed ? 36 : 46
-                    checked: ctxSettings.backendService
-                    focusPolicy: Qt.NoFocus
-                    visible: id_root.collapsed == false
-
-                    CustomTooltip {
-                        active: id_backgroundServiceSwitch.hovered
-                        delay: 300
-                        text: qsTr("Keep tracking active even when the application is closed")
-                    }
-
-                    onToggled: ctxSettings.SaveValue(Settings.BackendService, checked)
                 }
             }
 
             Label {
                 Layout.fillWidth: true
                 visible: !id_root.collapsed
-                text: id_backgroundServiceSwitch.checked ? qsTr("Background tracking on") : qsTr("Only tracks while application is started")
+                text: id_root.serviceStatusText
                 color: Themes.general.colors.bodyText
                 font.pixelSize: Themes.general.fontSizes.body
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
                 elide: Text.ElideRight
             }
         }

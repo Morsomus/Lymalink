@@ -109,11 +109,12 @@ Item {
             }
 
             BackendServiceElement {
-                collapsed: id_root.collapsed 
+                collapsed: id_root.collapsed
+                onClicked: id_root.currentPage = 1
             }
 
             GHElement {
-                collapsed: id_root.collapsed 
+                collapsed: id_root.collapsed
                 linkUrl: "https://github.com/Morsomus/Lymalink"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 42

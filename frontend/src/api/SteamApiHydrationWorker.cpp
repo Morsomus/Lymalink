@@ -202,6 +202,14 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     QList<SteamAchievementData> achievements;
     const Error achievementsError = m_steamApi->FetchAchievementDataPrimary(appId, achievements);
+    if (achievementsError == Error::NoData)
+    {
+        qDebug() << "SteamApiHydrationWorker: no achievement data available for appId:" << appId;
+        emit signalAchievementsReady(appId, QVariantList());
+        emit signalHydrationTaskFinished(appId, true, false);
+        return;
+    }
+
     if (achievementsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker: failed to fetch achievements for appId:" << appId;

@@ -136,6 +136,7 @@ Item {
             p_coverSource: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetails : ""
             p_achievementCount: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementCount : 0
             p_achievementTotal: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementTotal : 0
+            p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_installationStatus: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.installationStatus : ""
             p_lastPlayed: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.lastPlayed : ""
             p_recentUnlock: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.recentUnlock : ""

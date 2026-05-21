@@ -23,6 +23,7 @@ Item {
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
     property string p_playtime: "" // minutes or hours
+    property string p_targetType: ""
     property string p_installationStatus: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
@@ -76,6 +77,7 @@ Item {
             font.pixelSize: Themes.targetDetails.fontSizes.metaValue
             font.bold: true
             Layout.alignment: Qt.AlignRight
+            opacity: 0.55
         }
     }
 
@@ -453,22 +455,27 @@ Item {
                 C_MetaRow {
                     label: qsTr("Status")
                     value: id_root.p_installationStatus
-                    visible: id_root.p_installationStatus !== ""
+                    // visible: id_root.p_installationStatus !== ""
+                }
+                C_MetaRow {
+                    label: qsTr("Type")
+                    value: id_root.p_targetType
+                    visible: id_root.p_targetType !== ""
                 }
                 C_MetaRow {
                     label: qsTr("Playtime")
-                    value: id_root.p_playtime
-                    visible: id_root.p_playtime !== ""
+                    value: id_root.p_playtime === "" ? "Never" : id_root.p_playtime
+                    // visible: id_root.p_playtime !== ""
                 }
                 C_MetaRow {
                     label: qsTr("Last played")
-                    value: id_root.p_lastPlayed
-                    visible: id_root.p_lastPlayed !== ""
+                    value: id_root.p_lastPlayed === "" ? "Never" : id_root.p_lastPlayed
+                    // visible: id_root.p_lastPlayed !== ""
                 }
                 C_MetaRow {
                     label: qsTr("Recent unlock")
-                    value: id_root.p_recentUnlock
-                    visible: id_root.p_recentUnlock !== ""
+                    value: id_root.p_recentUnlock === "" ? "Never" : id_root.p_recentUnlock
+                    visible: id_root.p_achievementTotal > 0
                 }
 
                 // Bottom separator

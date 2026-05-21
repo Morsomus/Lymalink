@@ -71,6 +71,7 @@ Item {
                     p_coverSource:      model.coverSourceRowDetailed
                     p_achievementCount: model.achievementCount
                     p_achievementTotal: model.achievementTotal
+                    p_targetType:       model.targetType
                     p_installationStatus:   model.status
                     p_lastPlayed:       model.lastPlayed
                     p_recentUnlock:     model.recentUnlock
@@ -98,6 +99,7 @@ Item {
                     p_logoSource:       model.logoSource
                     p_achievementCount: model.achievementCount
                     p_achievementTotal: model.achievementTotal
+                    p_targetType:       model.targetType
                     p_installationStatus:   model.status
                     p_lastPlayed:       model.lastPlayed
                     p_recentUnlock:     model.recentUnlock

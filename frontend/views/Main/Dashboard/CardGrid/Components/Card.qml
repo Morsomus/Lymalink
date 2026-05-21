@@ -25,11 +25,13 @@ Rectangle {
     property string p_coverSource: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
+    property string p_targetType: ""
     property string p_installationStatus: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
     property bool p_isLoading: false
     property bool p_miniAchievementsBadgeEnabled: false
+    property bool p_targetTypeBadgeEnabled: false
     property bool p_edgeProgressFrameEnabled: false
     property int p_edgeProgressFrameColorStyle: 1
     property bool p_edgeProgressFrameStaticGrayColor: false
@@ -45,6 +47,19 @@ Rectangle {
     radius: 8
     clip: true
     color: Themes.card.colors.cardBackground
+
+    function targetTypeIconSource(targetType) {
+        switch (targetType) {
+            case "Custom":
+                return "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00034_ED.png"
+            case "Steam":
+                return "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00036_ED.png"
+            case "Emulator":
+                return "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00037_ED.png"
+            default:
+                return ""
+        }
+    }
 
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
@@ -259,7 +274,7 @@ Rectangle {
         // Gradient fill
         Rectangle {
             anchors.fill: parent
-            radius: parent.radius
+            radius: parent.radius - 3.5
             gradient: Gradient {
                 GradientStop {
                     position: 0.0
@@ -394,6 +409,57 @@ Rectangle {
             color: Themes.card.colors.achievementsBadgeText
             font.pixelSize: Themes.card.fontSizes.achievementsBadge
             font.bold: true
+        }
+    }
+
+    // Target Type Badge
+    Item {
+        id: id_targetTypeBadge
+
+        z: 2
+        anchors {
+            left: parent.left
+            top: parent.top
+            leftMargin: 6
+            topMargin: 6
+        }
+        width: 24
+        height: 24
+        opacity: id_root.p_targetTypeBadgeEnabled && id_root.p_targetType !== "" && !id_rootMouseArea.containsMouse ? 1.0 : 0.0
+        visible: opacity > 0.0 && !(id_root.p_installationStatus === "Not Installed" && ctxSettings.showInstallationStatusBadge)
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: Qt.rgba(0.18, 0.18, 0.18, 0.68)
+            border.width: 1
+            border.color: Themes.globalStyle.withAlpha(Themes.globalStyle.completionColor(id_root.p_edgeProgressFrameColorStyle), 0.72)
+        }
+
+        Image {
+            id: id_targetTypeIcon
+
+            anchors.centerIn: parent
+            width: 16
+            height: 16
+            source: id_root.targetTypeIconSource(id_root.p_targetType)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            mipmap: true
+            visible: false
+        }
+
+        MultiEffect {
+            anchors.fill: id_targetTypeIcon
+            source: id_targetTypeIcon
+            colorizationColor: Themes.globalStyle.completionColor(id_root.p_edgeProgressFrameColorStyle)
+            colorization: 1.0
         }
     }
 

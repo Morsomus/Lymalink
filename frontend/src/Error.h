@@ -13,6 +13,7 @@ enum class Error {
     DatabaseError,
     FileSystemError,
     InvalidParameter,
+    NoData,
     NotFound,
     Nullptr,
     ParseError

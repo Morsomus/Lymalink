@@ -70,7 +70,7 @@ Error Lymalink::Initialize()
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this, &Lymalink::signalSteamHydrationQueueFinished);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskError, this,
         [this](int appId, const QString &title, const QString &message) {
-            emit signalErrorOccurred(title, QString("%1\nApp ID: %2").arg(message).arg(appId));
+            emit signalErrorOccurred(title, QString("%1\n\nApp ID: %2").arg(message).arg(appId));
         });
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::ApplyNewAchievements);
     m_hydrationWorkerThread.start();
@@ -252,6 +252,7 @@ QVariantList Lymalink::FetchDashboardTargets()
             {"logoSource", CommunityIconFilePath(iconsPath)},
             {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
             {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
+            {"targetType", "Emulator"},
             {"status", ExecutableInstallationStatus(row)},
             {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
             {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
@@ -313,6 +314,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"coverSourceTargetDetails", coverSource},
         {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
         {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
+        {"targetType", "Emulator"},
         {"installationStatus", ExecutableInstallationStatus(row)},
         {"lastPlayed", Utils::RelativeTime(row.value("last_played_date").toLongLong())},
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},

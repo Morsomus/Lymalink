@@ -625,6 +625,47 @@ Item {
                                 onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
                             }
                         }
+
+                        C_SettingRow {
+                            label: qsTr("Target type badge")
+                            tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                            Switch {
+                                checked: ctxSettings.showTargetTypeBadge
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_targetTypeBadgeHover }
+                                CustomTooltip {
+                                    active: id_targetTypeBadgeHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowTargetTypeBadge, checked)
+                            }
+                        }
+                    }
+
+                    // Backend Service
+                    C_SettingsSection {
+                        fullRowMode: true
+                        title: qsTr("Backend Service")
+                        infoText: qsTr("Controls whether Lymalink runs achievement tracking in the background.\n\nWhen enabled, a system service is registered and kept running independently. Tracking and notifications continue even when this application is closed. When disabled, tracking runs only while the application is open, and the service is stopped when the application exits.\n\nSidebar indicator: green = service running independently, yellow = tracking requires the application to stay open, red = service error.")
+
+                        C_SettingRow {
+                            label: qsTr("Background service")
+                            tooltip: qsTr("Keep tracking active even when the application is closed")
+                            fixedWidthInt: 500
+
+                            Switch {
+                                checked: ctxSettings.backendService
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_backendServiceHover }
+                                CustomTooltip {
+                                    active: id_backendServiceHover.hovered
+                                    delay: 600
+                                    text: qsTr("Keep tracking active even when the application is closed")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.BackendService, checked)
+                            }
+                        }
                     }
 
                     // Steam API
