@@ -724,204 +724,413 @@ Item {
         spacing: 8
 
         // Toolbar
-        Flow {
+        Item {
+            id: id_toolbarLayout
+
             Layout.fillWidth: true
-            spacing: 12
+            implicitHeight: contentHeight
+
+            property int spacing: 12
+            property real contentHeight: 32
+
+            function itemWidth(item) {
+                return item.implicitWidth > 0 ? item.implicitWidth : item.width
+            }
+
+            function itemHeight(item) {
+                return item.implicitHeight > 0 ? item.implicitHeight : item.height
+            }
+
+            function placeItem(item, itemX, itemY) {
+                item.width = itemWidth(item)
+                item.height = itemHeight(item)
+                item.x = itemX
+                item.y = itemY
+            }
+
+            function scheduleRelayout() {
+                Qt.callLater(relayoutToolbar)
+            }
+
+            function relayoutToolbar() {
+                const maxWidth = Math.max(0, width)
+                const items = [
+                    id_toolbarTitle,
+                    id_searchGroup,
+                    id_layoutGroup,
+                    id_sortFilterGroup
+                ]
+                const actionItem = id_toolbarActionsGroup
+                const actionWidth = itemWidth(actionItem)
+                let firstRowWidth = 0
+                let firstRowHeight = 0
+                let splitIndex = 0
+
+                for (let i = 0; i < items.length; ++i) {
+                    const item = items[i]
+                    const itemW = itemWidth(item)
+                    const candidateWidth = splitIndex === 0
+                        ? itemW
+                        : firstRowWidth + spacing + itemW
+                    const candidateWithActions = candidateWidth + spacing + actionWidth
+
+                    if (candidateWithActions <= maxWidth || splitIndex === 0) {
+                        firstRowWidth = candidateWidth
+                        firstRowHeight = Math.max(firstRowHeight, itemHeight(item))
+                        splitIndex = i + 1
+                    } else {
+                        break
+                    }
+                }
+
+                let itemX = 0
+                for (let i = 0; i < splitIndex; ++i) {
+                    const item = items[i]
+                    placeItem(item, itemX, 0)
+                    itemX += itemWidth(item) + spacing
+                }
+
+                placeItem(actionItem, itemX, 0)
+                firstRowHeight = Math.max(firstRowHeight, itemHeight(actionItem))
+
+                itemX = 0
+                let itemY = firstRowHeight + spacing
+                let rowHeight = 0
+
+                for (let i = splitIndex; i < items.length; ++i) {
+                    const item = items[i]
+                    const itemW = itemWidth(item)
+
+                    if (itemX > 0 && itemX + spacing + itemW > maxWidth) {
+                        itemX = 0
+                        itemY += rowHeight + spacing
+                        rowHeight = 0
+                    }
+
+                    placeItem(item, itemX, itemY)
+                    itemX += itemW + spacing
+                    rowHeight = Math.max(rowHeight, itemHeight(item))
+                }
+
+                contentHeight = splitIndex >= items.length
+                    ? firstRowHeight
+                    : itemY + rowHeight
+            }
+
+            Component.onCompleted: scheduleRelayout()
+            onWidthChanged: scheduleRelayout()
 
             // Title
             Label {
+                id: id_toolbarTitle
+
                 text: id_root.p_toolbarTitle
                 font.pixelSize: Themes.dashboardToolbar.fontSizes.title
                 font.bold: true
                 color: Themes.dashboardToolbar.colors.titleText
+                onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
             }
 
-            // Divider
-            Rectangle {
-                width: 1
-                implicitHeight: 32
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
-            }
+            // Divider + Search bar
+            RowLayout {
+                id: id_searchGroup
 
-            // Search bar
-            Rectangle {
-                implicitWidth: 200
-                implicitHeight: 32
-                radius: 16
-                color: Themes.dashboardToolbar.colors.searchBackground
-                border.width: 1
-                border.color: Themes.dashboardToolbar.colors.searchBorder
+                spacing: id_toolbarLayout.spacing
+                onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
 
-                RowLayout {
-                    anchors {
-                        fill: parent
-                        leftMargin: 10
-                        rightMargin: 10
-                    }
-                    spacing: 6
+                Rectangle {
+                    id: id_toolbarTitleDivider
 
-                    Text {
-                        text: "⌕"
-                        color: Themes.dashboardToolbar.colors.searchIcon
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.searchIcon
-                    }
+                    width: 1
+                    implicitHeight: 32
+                    color: Themes.dashboardToolbar.colors.divider
+                    opacity: 0.5
+                }
 
-                    TextField {
-                        Layout.fillWidth: true
-                        placeholderText: qsTr("Search...")
-                        color: Themes.dashboardToolbar.colors.searchText
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.searchInput
-                        verticalAlignment: TextField.AlignVCenter
-                        background: Item {}
-                        Keys.onEscapePressed: {
-                            text = ""
-                            focus = false
+                Rectangle {
+                    id: id_searchBar
+
+                    implicitWidth: 200
+                    implicitHeight: 32
+                    radius: 16
+                    color: Themes.dashboardToolbar.colors.searchBackground
+                    border.width: 1
+                    border.color: Themes.dashboardToolbar.colors.searchBorder
+
+                    RowLayout {
+                        anchors {
+                            fill: parent
+                            leftMargin: 10
+                            rightMargin: 10
                         }
-                    }
-                }
-            }
+                        spacing: 6
 
-            // Divider
-            Rectangle {
-                width: 1
-                implicitHeight: 32
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
-            }
+                        Text {
+                            text: "⌕"
+                            color: Themes.dashboardToolbar.colors.searchIcon
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.searchIcon
+                        }
 
-            // Filter pill
-            C_SortFilterPill {
-                id: id_filterPill
-
-                pillLabel: qsTr("Filter:")
-                isOpen: id_root.activePanel === "filter"
-                isValueActive: id_root.activeFilter !== ""
-                pillValue: {
-                    if (id_root.activeFilterCount > 1) {
-                        return qsTr("Multiple") + (" (%1)").arg(id_root.activeFilterCount)
-                    }
-                    return id_root.filterLabel(id_root.activeFilter)
-                }
-                onPillClicked: id_root.activePanel = id_filterPill.isOpen ? "" : "filter"
-            }
-
-            // Sort pill
-            C_SortFilterPill {
-                id: id_sortPill
-
-                pillLabel: qsTr("Sort:")
-                isOpen: id_root.activePanel === "sort"
-                isValueActive: true
-                pillValue: id_root.sortLabel(id_root.activeSort)
-                onPillClicked: id_root.activePanel = id_sortPill.isOpen ? "" : "sort"
-            }
-
-            // Order pill
-            // \u2193 Downward arrow
-            // \u2191 Upward arrow
-            Rectangle {
-                id: id_orderPill
-
-                property bool isDescending: ctxSettings.dashboardToolbarSortDescending
-
-                implicitHeight: 32
-                implicitWidth: id_orderRow.implicitWidth + 20
-                radius: 16
-                color: id_orderPillMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.pillPressed
-                    : id_orderPillMouseArea.containsMouse
-                        ? Themes.dashboardToolbar.colors.pillHover
-                        : Themes.dashboardToolbar.colors.pillBackground
-                border.width: 1
-                border.color: id_orderPillMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.pillBorderPressed
-                    : id_orderPillMouseArea.containsMouse
-                        ? Themes.dashboardToolbar.colors.pillBorderHover
-                        : Themes.dashboardToolbar.colors.pillBorder
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-
-                RowLayout {
-                    id: id_orderRow
-
-                    anchors.centerIn: parent
-                    spacing: 6
-                    Text {
-                        text: qsTr("Order:")
-                        color: Themes.dashboardToolbar.colors.pillLabel
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
-                    }
-                    Text {
-                        text: "\u2191"
-                        color: Themes.dashboardToolbar.colors.pillValueActive
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillOrderValue
-                        
-                        // Transform
-                        rotation: id_orderPill.isDescending ? 180 : 0
-                        
-                        Behavior on rotation {
-                            RotationAnimation {
-                                duration: 200
-                                easing.type: Easing.OutCubic
+                        TextField {
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("Search...")
+                            color: Themes.dashboardToolbar.colors.searchText
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.searchInput
+                            verticalAlignment: TextField.AlignVCenter
+                            background: Item {}
+                            Keys.onEscapePressed: {
+                                text = ""
+                                focus = false
                             }
                         }
                     }
                 }
+            }
 
-                MouseArea {
-                    id: id_orderPillMouseArea
+            // Divider + Segmented layout control
+            RowLayout {
+                id: id_layoutGroup
 
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: {
-                        id_orderPill.isDescending = !id_orderPill.isDescending
-                        ctxSettings.SaveValue(Settings.DashboardToolbarSortDescending, id_orderPill.isDescending)
+                spacing: id_toolbarLayout.spacing
+                onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+
+                Rectangle {
+                    id: id_layoutDivider
+
+                    width: 1
+                    implicitHeight: 32
+                    color: Themes.dashboardToolbar.colors.divider
+                    opacity: 0.5
+                }
+
+                // Segmented control: List | Details | Small | Default
+                Rectangle {
+                    id: id_layoutControl
+
+                    implicitHeight: 32
+                    implicitWidth: id_pillRow.implicitWidth + 4
+                    radius: 16
+                    color: Themes.dashboardToolbar.colors.pillBackground
+                    border.width: 1
+                    border.color: Themes.dashboardToolbar.colors.pillBorder
+                    onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+
+                    RowLayout {
+                        id: id_pillRow
+
+                        anchors.centerIn: parent
+                        spacing: 2
+
+                        Repeater {
+                            model: id_root.controlModel
+                            delegate: Rectangle {
+                                readonly property bool active: modelData.value === id_root.p_activeLayout
+                                implicitWidth: id_pillLabel.implicitWidth + 20
+                                implicitHeight: 26
+                                radius: 13
+                                color: active
+                                    ? Themes.dashboardToolbar.colors.segmentActive
+                                    : id_pillMouseArea.pressed
+                                        ? Themes.dashboardToolbar.colors.segmentPressed
+                                        : id_pillMouseArea.containsMouse
+                                            ? Themes.dashboardToolbar.colors.segmentHover
+                                            : Themes.dashboardToolbar.colors.segmentBackground
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+
+                                Text {
+                                    id: id_pillLabel
+
+                                    anchors.centerIn: parent
+                                    text: modelData.label
+                                    color: active ? Themes.dashboardToolbar.colors.segmentLabelActive : Themes.dashboardToolbar.colors.segmentLabel
+                                    font.pixelSize: Themes.dashboardToolbar.fontSizes.segmentLabel
+                                    font.bold: active
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 120
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: id_pillMouseArea
+
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: id_root.layoutSelected(modelData.value)
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // Divider
-            Rectangle {
-                width: 1
-                implicitHeight: 32
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
+            // Divider + Filter + Sort + Order
+            RowLayout {
+                id: id_sortFilterGroup
+
+                spacing: id_toolbarLayout.spacing
+                onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+
+                Rectangle {
+                    id: id_searchDivider
+
+                    width: 1
+                    implicitHeight: 32
+                    color: Themes.dashboardToolbar.colors.divider
+                    opacity: 0.5
+                }
+
+                C_SortFilterPill {
+                    id: id_filterPill
+
+                    pillLabel: qsTr("Filter:")
+                    isOpen: id_root.activePanel === "filter"
+                    isValueActive: id_root.activeFilter !== ""
+                    onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+                    pillValue: {
+                        if (id_root.activeFilterCount > 1) {
+                            return qsTr("Multiple") + (" (%1)").arg(id_root.activeFilterCount)
+                        }
+                        return id_root.filterLabel(id_root.activeFilter)
+                    }
+                    onPillClicked: id_root.activePanel = id_filterPill.isOpen ? "" : "filter"
+                }
+
+                C_SortFilterPill {
+                    id: id_sortPill
+
+                    pillLabel: qsTr("Sort:")
+                    isOpen: id_root.activePanel === "sort"
+                    isValueActive: true
+                    pillValue: id_root.sortLabel(id_root.activeSort)
+                    onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+                    onPillClicked: id_root.activePanel = id_sortPill.isOpen ? "" : "sort"
+                }
+
+                // Order pill
+                // \u2193 Downward arrow
+                // \u2191 Upward arrow
+                Rectangle {
+                    id: id_orderPill
+
+                    property bool isDescending: ctxSettings.dashboardToolbarSortDescending
+
+                    implicitHeight: 32
+                    implicitWidth: id_orderRow.implicitWidth + 20
+                    radius: 16
+                    onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
+                    color: id_orderPillMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillPressed
+                        : id_orderPillMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillHover
+                            : Themes.dashboardToolbar.colors.pillBackground
+                    border.width: 1
+                    border.color: id_orderPillMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillBorderPressed
+                        : id_orderPillMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillBorderHover
+                            : Themes.dashboardToolbar.colors.pillBorder
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    RowLayout {
+                        id: id_orderRow
+
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text {
+                            text: qsTr("Order:")
+                            color: Themes.dashboardToolbar.colors.pillLabel
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                        }
+                        Text {
+                            text: "\u2191"
+                            color: Themes.dashboardToolbar.colors.pillValueActive
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.pillOrderValue
+
+                            // Transform
+                            rotation: id_orderPill.isDescending ? 180 : 0
+
+                            Behavior on rotation {
+                                RotationAnimation {
+                                    duration: 200
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: id_orderPillMouseArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            id_orderPill.isDescending = !id_orderPill.isDescending
+                            ctxSettings.SaveValue(Settings.DashboardToolbarSortDescending, id_orderPill.isDescending)
+                        }
+                    }
+                }
             }
 
-            // Segmented control: List | Details | Small | Default
-            Rectangle {
-                implicitHeight: 32
-                implicitWidth: id_pillRow.implicitWidth + 4
-                radius: 16
-                color: Themes.dashboardToolbar.colors.pillBackground
-                border.width: 1
-                border.color: Themes.dashboardToolbar.colors.pillBorder
+            // Add Target & Refresh button
+            Item {
+                id: id_toolbarActionsGroup
+
+                implicitWidth: id_toolbarActionsOuterRow.implicitWidth
+                implicitHeight: id_toolbarActionsOuterRow.implicitHeight
+                onImplicitWidthChanged: id_toolbarLayout.scheduleRelayout()
 
                 RowLayout {
-                    id: id_pillRow
+                    id: id_toolbarActionsOuterRow
 
-                    anchors.centerIn: parent
-                    spacing: 2
+                    anchors.fill: parent
+                    spacing: 12
 
-                    Repeater {
-                        model: id_root.controlModel
-                        delegate: Rectangle {
-                            readonly property bool active: modelData.value === id_root.p_activeLayout
-                            implicitWidth: id_pillLabel.implicitWidth + 20
-                            implicitHeight: 26
-                            radius: 13
-                            color: active
-                                ? Themes.dashboardToolbar.colors.segmentActive
-                                : id_pillMouseArea.pressed
-                                    ? Themes.dashboardToolbar.colors.segmentPressed
-                                    : id_pillMouseArea.containsMouse
-                                        ? Themes.dashboardToolbar.colors.segmentHover
-                                        : Themes.dashboardToolbar.colors.segmentBackground
+                    // Divider
+                    Rectangle {
+                        width: 1
+                        implicitHeight: 32
+                        color: Themes.dashboardToolbar.colors.divider
+                        opacity: 0.5
+                    }
+
+                    RowLayout {
+                        id: id_toolbarActionsRow
+
+                        spacing: 8
+
+                        // Add Target Button
+                        Rectangle {
+                            id: id_addTarget
+
+                            implicitHeight: 32
+                            implicitWidth: id_addTargetLabel.implicitWidth + 24
+                            radius: 16
+
+                            color: id_addTargetMouseArea.pressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                                : id_addTargetMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                                : "transparent"
+
+                            border.width: 1
+                            border.color: id_addTargetMouseArea.pressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                                : id_addTargetMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                                : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
                             Behavior on color {
                                 ColorAnimation {
@@ -930,162 +1139,100 @@ Item {
                             }
 
                             Text {
-                                id: id_pillLabel
+                                id: id_addTargetLabel
 
                                 anchors.centerIn: parent
-                                text: modelData.label
-                                color: active ? Themes.dashboardToolbar.colors.segmentLabelActive : Themes.dashboardToolbar.colors.segmentLabel
-                                font.pixelSize: Themes.dashboardToolbar.fontSizes.segmentLabel
-                                font.bold: active
-
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 120
-                                    }
-                                }
+                                text: qsTr("Add Target")
+                                color: id_root.themedCompletionColor
+                                font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
                             }
 
                             MouseArea {
-                                id: id_pillMouseArea
+                                id: id_addTargetMouseArea
 
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                onClicked: id_root.layoutSelected(modelData.value)
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: addTargetClicked()
                             }
                         }
-                    }
-                }
-            }
 
-            // Divider
-            Rectangle {
-                width: 1
-                implicitHeight: 32
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
-            }
+                        // Refresh Button
+                        Rectangle {
+                            id: id_refresh
 
-            RowLayout {
-                spacing: 8
+                            implicitWidth: 32
+                            implicitHeight: 32
+                            width: 32
+                            height: 32
+                            radius: 16
 
-                // Add Target Button
-                Rectangle {
-                    id: id_addTarget
+                            property real refreshRotation: 0
 
-                    implicitHeight: 32
-                    implicitWidth: id_addTargetLabel.implicitWidth + 24
-                    radius: 16
+                            color: id_refreshMouseArea.pressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                                : id_refreshMouseArea.containsMouse
+                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                                    : "transparent"
 
-                    color: id_addTargetMouseArea.pressed
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
-                        : id_addTargetMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                        : "transparent"
+                            border.width: 1
+                            border.color: id_refreshMouseArea.pressed
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                                : id_refreshMouseArea.containsMouse
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
 
-                    border.width: 1
-                    border.color: id_addTargetMouseArea.pressed
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
-                        : id_addTargetMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 120
+                                }
+                            }
 
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                        }
-                    }
+                            Image {
+                                id: id_refreshIcon
 
-                    Text {
-                        id: id_addTargetLabel
+                                anchors.centerIn: parent
+                                source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                                width: 19
+                                height: 19
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                mipmap: true
 
-                        anchors.centerIn: parent
-                        text: qsTr("Add Target")
-                        color: id_root.themedCompletionColor
-                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
-                    }
+                                visible: false // MultiEffect draws image
+                            }
 
-                    MouseArea {
-                        id: id_addTargetMouseArea
-                        
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: addTargetClicked()
-                    }
-                }
+                            // Colorize refresh icon dynamically based on color theme
+                            MultiEffect {
+                                anchors.fill: id_refreshIcon
+                                source: id_refreshIcon
+                                colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                                colorization: 1.0
+                                rotation: id_refresh.refreshRotation
+                            }
 
-                // Refresh Button
-                Rectangle {
-                    id: id_refresh
+                            NumberAnimation {
+                                id: id_refreshSpinAnimation
 
-                    width: 32
-                    height: 32
-                    radius: 16
+                                target: id_refresh
+                                property: "refreshRotation"
+                                from: 0
+                                to: 360
+                                duration: 300
+                                easing.type: Easing.Linear
+                            }
 
-                    property real refreshRotation: 0
+                            MouseArea {
+                                id: id_refreshMouseArea
 
-                    color: id_refreshMouseArea.pressed
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
-                        : id_refreshMouseArea.containsMouse
-                            ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                            : "transparent"
-
-                    border.width: 1
-                    border.color: id_refreshMouseArea.pressed
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
-                        : id_refreshMouseArea.containsMouse
-                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                            : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                        }
-                    }
-
-                    Image {
-                        id: id_refreshIcon
-
-                        anchors.centerIn: parent
-                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
-                        width: 19
-                        height: 19
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        mipmap: true
-
-                        visible: false // MultiEffect draws image
-                    }
-
-                    // Colorize refresh icon dynamically based on color theme
-                    MultiEffect {
-                        anchors.fill: id_refreshIcon
-                        source: id_refreshIcon
-                        colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
-                        colorization: 1.0 
-                        rotation: id_refresh.refreshRotation
-                    }
-
-                    NumberAnimation {
-                        id: id_refreshSpinAnimation
-                        
-                        target: id_refresh
-                        property: "refreshRotation"
-                        from: 0
-                        to: 360
-                        duration: 300
-                        easing.type: Easing.Linear
-                    }
-
-                    MouseArea {
-                        id: id_refreshMouseArea
-                        
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            id_refreshSpinAnimation.restart()
-                            id_root.refreshClicked()
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    id_refreshSpinAnimation.restart()
+                                    id_root.refreshClicked()
+                                }
+                            }
                         }
                     }
                 }
