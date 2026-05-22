@@ -16,5 +16,6 @@ enum class Error {
     NoData,
     NotFound,
     Nullptr,
-    ParseError
+    ParseError,
+    UnknownError
 };

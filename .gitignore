@@ -23,7 +23,6 @@ tags
 .DS_Store
 .directory
 *.debug
-Makefile*
 *.prl
 *.app
 moc_*.cpp
@@ -84,7 +83,6 @@ CMakeLists.txt.user*
 .vscode/
 
 # Custom
-a_instr/
+a_notes/
 frontend/build/
-wsm.md
-commit_notes.txt
+backend/build/

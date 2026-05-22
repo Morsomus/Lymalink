@@ -10,6 +10,7 @@
 #   ./build.sh release      - Release build
 #   ./build.sh clean        - Clean build directory
 #   ./build.sh deploy       - Clean + Release build + deploy
+#   ./build.sh uninstall    - Remove deployed binary, desktop entry, icon
 #   ./build.sh dev          - Clean + Debug build + Execute
 #   ./build.sh test         - Clean + Debug build + Test
 #   ./build.sh test --silent - Clean + Debug build + Test with failures only
@@ -21,6 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 DEPLOY_BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 DEPLOY_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+DEPLOY_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 ICON_DIR="$DEPLOY_DATA_DIR/icons/hicolor/256x256/apps"
 DESKTOP_FILE="$DEPLOY_DATA_DIR/applications/lymalink.desktop"
 
@@ -122,6 +124,54 @@ EOF
 
 ##############################################################################
 
+uninstall() {
+    echo "==> Uninstalling $APP_NAME..."
+
+    if [ -f "$DEPLOY_BIN_DIR/Lymalink" ]; then
+        echo "==> Removing binary: $DEPLOY_BIN_DIR/Lymalink"
+        rm -f "$DEPLOY_BIN_DIR/Lymalink"
+    else
+        echo "==> Binary not found: $DEPLOY_BIN_DIR/Lymalink"
+    fi
+
+    if [ -f "$DESKTOP_FILE" ]; then
+        echo "==> Removing desktop entry: $DESKTOP_FILE"
+        rm -f "$DESKTOP_FILE"
+    else
+        echo "==> Desktop entry not found: $DESKTOP_FILE"
+    fi
+
+    if [ -f "$ICON_DIR/${ICON_NAME}.png" ]; then
+        echo "==> Removing icon: $ICON_DIR/${ICON_NAME}.png"
+        rm -f "$ICON_DIR/${ICON_NAME}.png"
+    else
+        echo "==> Icon not found: $ICON_DIR/${ICON_NAME}.png"
+    fi
+
+    if [ -d "$DEPLOY_CONFIG_DIR/Lymalink" ]; then
+        echo "==> Removing config directory: $DEPLOY_CONFIG_DIR/Lymalink"
+        rm -rf "$DEPLOY_CONFIG_DIR/Lymalink"
+    else
+        echo "==> Config directory not found: $DEPLOY_CONFIG_DIR/Lymalink"
+    fi
+
+    if [ -d "$DEPLOY_DATA_DIR/Lymalink" ]; then
+        echo "==> Removing data directory: $DEPLOY_DATA_DIR/Lymalink"
+        rm -rf "$DEPLOY_DATA_DIR/Lymalink"
+    else
+        echo "==> Data directory not found: $DEPLOY_DATA_DIR/Lymalink"
+    fi
+
+    if command -v gtk-update-icon-cache &>/dev/null; then
+        gtk-update-icon-cache -f -t "$DEPLOY_DATA_DIR/icons/hicolor" 2>/dev/null || true
+    fi
+    update-desktop-database "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
+
+    echo "==> Uninstall done."
+}
+
+##############################################################################
+
 dev() {
     clean
     build Debug
@@ -171,10 +221,11 @@ case "${1:-}" in
     debug)   build Debug ;;
     release) build Release ;;
     deploy)  deploy ;;
+    uninstall) uninstall ;;
     dev)     dev ;;
     test)    run_tests "${2:-}" ;;
     *)
-        echo "Usage: $0 [clean|debug|release|deploy|dev|test]"
+        echo "Usage: $0 [clean|debug|release|deploy|uninstall|dev|test]"
         echo ""
         echo "  clean          - Remove build/"
         echo "  debug          - Debug build   -> build/debug/"
@@ -183,6 +234,7 @@ case "${1:-}" in
         echo "                   + binary    -> $DEPLOY_BIN_DIR/"
         echo "                   + icon      -> $ICON_DIR/"
         echo "                   + desktop   -> $DESKTOP_FILE"
+        echo "  uninstall      - remove deployed binary, icon and desktop entry"
         echo "  dev            - clean + debug build + launch"
         echo "  test           - clean + debug build + test (full verbosity)"
         echo "  test --silent  - clean + debug build + test (failures only)"
