@@ -24,7 +24,7 @@ Popup {
 
     // Internals _____________________________________________
     property bool confirmDanger: false
-    readonly property bool verificationValid: !verificationMode || (id_verificationInput.text.length >= 6
+    readonly property bool verificationValid: !p_verificationMode || (id_verificationInput.text.length >= 6
         && id_verificationInput.text === id_verificationConfirmInput.text)
 
     signal canceled()
@@ -41,7 +41,7 @@ Popup {
     y: parent ? Math.round((parent.height - height) / 2) : 0
 
     onOpened: {
-        if (verificationMode) {
+        if (p_verificationMode) {
             id_verificationInput.forceActiveFocus()
         }
     }
@@ -71,7 +71,7 @@ Popup {
             return
         }
 
-        id_root.confirmed(id_root.verificationMode ? id_verificationInput.text : "")
+        id_root.confirmed(id_root.p_verificationMode ? id_verificationInput.text : "")
         id_root.close()
     }
 
@@ -166,7 +166,7 @@ Popup {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
-            visible: id_root.verificationMode
+            visible: id_root.p_verificationMode
 
             TextField {
                 id: id_verificationInput

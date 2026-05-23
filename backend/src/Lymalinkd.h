@@ -10,10 +10,9 @@
 
 #include "Error.h"
 #include "service/SystemdNotify.h"
+#include "ipc/DBusService.h"
 
-#include <atomic>
 #include <signal.h>
-#include <thread>
 
 class Lymalinkd
 {
@@ -25,6 +24,7 @@ public:
 
 private:
     SystemdNotify m_notify;
+    DBusService m_dbus;
     std::atomic_bool m_running{true};
     std::thread m_signalThread;
 

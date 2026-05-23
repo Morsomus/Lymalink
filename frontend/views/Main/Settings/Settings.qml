@@ -20,11 +20,24 @@ Item {
 
     // Internals _____________________________________________
     property string pendingSteamWebApiKey: ""
+    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
+    readonly property bool backendServiceStarting: dbusServiceReady && ctxDBusService.serviceStarting
+    readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
+    readonly property bool backendServiceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
+    readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
+
+    Component.onCompleted: refreshBackendServiceStatus()
 
     function saveSteamWebApiKey(apiKey, passcode) {
         ctxSettings.SetTempEncryptionKey(passcode)
         if (ctxSettings.SaveValue(Settings.SteamWebApiKey, apiKey)) {
             id_webApiKeyInput.completeApply(apiKey)
+        }
+    }
+
+    function refreshBackendServiceStatus() {
+        if (id_root.dbusServiceReady) {
+            ctxDBusService.RefreshServiceStatus()
         }
     }
 
@@ -141,6 +154,141 @@ Item {
                 active: id_rowRoot.tooltip !== "" && id_labelHover.hovered
                 delay: 600
                 text: id_rowRoot.tooltip
+            }
+        }
+    }
+
+    // Component - Divider between setting rows
+    component C_SettingDivider: Item {
+        id: id_dividerRoot
+
+        property int topPadding: 2
+        property int bottomPadding: 2
+
+        Layout.fillWidth: true
+        Layout.columnSpan: 2
+        Layout.preferredHeight: id_dividerRoot.topPadding + id_dividerLine.height + id_dividerRoot.bottomPadding
+
+        Rectangle {
+            id: id_dividerLine
+
+            anchors {
+                left: parent.left
+                right: parent.right
+                verticalCenter: parent.verticalCenter
+            }
+            height: 1
+            color: Themes.settings.colors.subDivider
+        }
+    }
+
+    // Component - Info box
+    component C_InfoBox: ColumnLayout {
+        id: id_infoBoxRoot
+
+        // Optional legend rows: list of { color, opacity, label } objects
+        // e.g. [ { color: "#4caf50", opacity: Themes.serviceIndicator.opacity.solid, label: "Active" }, ... ]
+        property var legend: []
+        property alias text: id_infoLabel.text
+
+        Layout.fillWidth: true
+        spacing: 0
+
+        // Box body
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: id_infoBoxInner.implicitHeight + 20
+            radius: 6
+            color: Themes.settings.colors.infoBoxBackground
+            border.width: 1
+            border.color: Themes.settings.colors.infoBoxBorder
+
+            ColumnLayout {
+                id: id_infoBoxInner
+
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    top: parent.top
+                    leftMargin: 14
+                    rightMargin: 14
+                    topMargin: 10
+                }
+                spacing: 12
+
+                Label {
+                    id: id_infoLabel
+                    
+                    Layout.fillWidth: true
+                    color: Themes.settings.colors.sectionInfo
+                    font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                    wrapMode: Text.WordWrap
+                    lineHeight: 1.45
+                }
+
+                // Legend rows - rendered when legend is non-empty
+                ColumnLayout {
+                    visible: id_infoBoxRoot.legend.length > 0
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    // Divider
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Themes.settings.colors.infoBoxBorder
+                    }
+
+                    Repeater {
+                        model: id_infoBoxRoot.legend
+
+                        RowLayout {
+                            width: parent.width
+                            spacing: 10
+
+                            // Status dot
+                            Rectangle {
+                                id: id_infoLegendDot
+
+                                Layout.preferredWidth: 12
+                                Layout.preferredHeight: 12
+                                Layout.alignment: Qt.AlignTop
+                                Layout.topMargin: 2
+                                radius: 6
+                                color: modelData.color
+                                opacity: modelData.hasOwnProperty("opacity") ? modelData.opacity : Themes.serviceIndicator.opacity.solid
+
+                                SequentialAnimation on opacity {
+                                    running: modelData.hasOwnProperty("breathing") && modelData.breathing
+                                    loops: Animation.Infinite
+                                    NumberAnimation {
+                                        to: Themes.serviceIndicator.opacity.breathingLow
+                                        duration: Themes.serviceIndicator.animation.breathingDuration
+                                        easing.type: Easing.InOutSine
+                                    }
+                                    NumberAnimation {
+                                        to: Themes.serviceIndicator.opacity.solid
+                                        duration: Themes.serviceIndicator.animation.breathingDuration
+                                        easing.type: Easing.InOutSine
+                                    }
+                                }
+                            }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.label
+                                color: Themes.settings.colors.sectionInfo
+                                font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                wrapMode: Text.WordWrap
+                                lineHeight: 1.35
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.preferredHeight: 2
+                    }
+                }
             }
         }
     }
@@ -377,6 +525,12 @@ Item {
                                     }
                                     enabled: modelData === "dark"
                                 }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.Theme, model[index])
                             }
                         }
@@ -409,6 +563,12 @@ Item {
                                     width: parent.width
                                     text: modelData
                                     enabled: modelData === "English"
+                                }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
                                 }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.Language, model[index])
                             }
@@ -531,7 +691,6 @@ Item {
                             tooltip: qsTr("Select color theme for the application")
                             ComboBox {
                                 model: [0, 1, 2, 3, 4, 5]
-                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
                                 implicitWidth: 150
                                 displayText: {
@@ -557,108 +716,31 @@ Item {
                                         }
                                     }
                                 }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.GlobalColorStyle, model[index])
                             }
                         }
 
-                        C_SettingRow {
-                            label: qsTr("Progress bar color theme")
-                            tooltip: qsTr("Select color theme for the card progress bar")
-                            ComboBox {
-                                model: [0, 1, 2, 3, 4, 5]
-                                enabled: ctxSettings.showProgressBar
-                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
-                                implicitWidth: 150
-                                displayText: {
-                                    switch (model[currentIndex]) {
-                                        case 0: return qsTr("Gold")
-                                        case 1: return qsTr("Blue")
-                                        case 2: return qsTr("Purple")
-                                        case 3: return qsTr("Emerald")
-                                        case 4: return qsTr("Ember")
-                                        case 5: return qsTr("Frost")
-                                    }
-                                }
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: {
-                                        switch (modelData) {
-                                            case 0: return qsTr("Gold")
-                                            case 1: return qsTr("Blue")
-                                            case 2: return qsTr("Purple")
-                                            case 3: return qsTr("Emerald")
-                                            case 4: return qsTr("Ember")
-                                            case 5: return qsTr("Frost")
-                                        }
-                                    }
-                                }
-                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressBarColorStyle, model[index])
-                            }
-                        }
+                        C_SettingRow {}
 
                         C_SettingRow {
-                            label: qsTr("Progress bar")
-                            tooltip: qsTr("Show achievement progress bars on cards")
+                            label: qsTr("Dynamic achievement rows")
+                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
                             Switch {
-                                checked: ctxSettings.showProgressBar
+                                checked: ctxSettings.enableDynamicAchievementRows
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressBarHover }
+                                HoverHandler { id: id_dynamicAchievementRows }
                                 CustomTooltip {
-                                    active: id_progressBarHover.hovered
+                                    active: id_dynamicAchievementRows.hovered
                                     delay: 600
-                                    text: qsTr("Show achievement progress bars on cards")
+                                    text: qsTr("Achievement rows resize automatically to use available window space")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressBar, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress frame")
-                            tooltip: qsTr("Show an overall achievement progress frame around cards")
-                            Switch {
-                                checked: ctxSettings.showProgressFrame
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressFrameHover }
-                                CustomTooltip {
-                                    active: id_progressFrameHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show an overall achievement progress frame around cards")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress frame grayscale mode")
-                            tooltip: qsTr("Render the progress frame in grayscale instead of color - disables animations")
-                            Switch {
-                                enabled: ctxSettings.showProgressFrame
-                                checked: ctxSettings.progressFrameGrayscaleMode && enabled
-                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressGrayHover }
-                                CustomTooltip {
-                                    active: id_progressGrayHover.hovered
-                                    delay: 600
-                                    text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ProgressFrameGrayscaleMode, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress frame completion animation")
-                            tooltip: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
-                            Switch {
-                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
-                                checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
-                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressAnimHover }
-                                CustomTooltip {
-                                    active: id_progressAnimHover.hovered
-                                    delay: 600
-                                    text: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
+                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
                             }
                         }
 
@@ -710,44 +792,252 @@ Item {
                             }
                         }
 
+                        C_SettingDivider {}
+
                         C_SettingRow {
-                            label: qsTr("Dynamic achievement rows")
-                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            label: qsTr("Progress bar")
+                            tooltip: qsTr("Show achievement progress bars on cards")
                             Switch {
-                                checked: ctxSettings.enableDynamicAchievementRows
+                                checked: ctxSettings.showProgressBar
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_dynamicAchievementRows }
+                                HoverHandler { id: id_progressBarHover }
                                 CustomTooltip {
-                                    active: id_dynamicAchievementRows.hovered
+                                    active: id_progressBarHover.hovered
                                     delay: 600
-                                    text: qsTr("Achievement rows resize automatically to use available window space")
+                                    text: qsTr("Show achievement progress bars on cards")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
+                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressBar, checked)
                             }
-                        }        
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress bar color theme")
+                            tooltip: qsTr("Select color theme for the card progress bar")
+                            ComboBox {
+                                model: [0, 1, 2, 3, 4, 5]
+                                enabled: ctxSettings.showProgressBar
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
+                                implicitWidth: 150
+                                displayText: {
+                                    switch (model[currentIndex]) {
+                                        case 0: return qsTr("Gold")
+                                        case 1: return qsTr("Blue")
+                                        case 2: return qsTr("Purple")
+                                        case 3: return qsTr("Emerald")
+                                        case 4: return qsTr("Ember")
+                                        case 5: return qsTr("Frost")
+                                    }
+                                }
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: {
+                                        switch (modelData) {
+                                            case 0: return qsTr("Gold")
+                                            case 1: return qsTr("Blue")
+                                            case 2: return qsTr("Purple")
+                                            case 3: return qsTr("Emerald")
+                                            case 4: return qsTr("Ember")
+                                            case 5: return qsTr("Frost")
+                                        }
+                                    }
+                                }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressBarColorStyle, model[index])
+                            }
+                        }
+
+                        C_SettingDivider {}
+
+                        C_SettingRow {
+                            label: qsTr("Progress frame")
+                            tooltip: qsTr("Show an overall achievement progress frame around cards")
+                            Switch {
+                                checked: ctxSettings.showProgressFrame
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_progressFrameHover }
+                                CustomTooltip {
+                                    active: id_progressFrameHover.hovered
+                                    delay: 600
+                                    text: qsTr("Show an overall achievement progress frame around cards")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress frame color theme")
+                            tooltip: qsTr("Select color theme for the card progress frame")
+                            ComboBox {
+                                model: [0, 1, 2, 3, 4, 5]
+                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressFrameColorStyle))
+                                implicitWidth: 150
+                                displayText: {
+                                    switch (model[currentIndex]) {
+                                        case 0: return qsTr("Gold")
+                                        case 1: return qsTr("Blue")
+                                        case 2: return qsTr("Purple")
+                                        case 3: return qsTr("Emerald")
+                                        case 4: return qsTr("Ember")
+                                        case 5: return qsTr("Frost")
+                                    }
+                                }
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: {
+                                        switch (modelData) {
+                                            case 0: return qsTr("Gold")
+                                            case 1: return qsTr("Blue")
+                                            case 2: return qsTr("Purple")
+                                            case 3: return qsTr("Emerald")
+                                            case 4: return qsTr("Ember")
+                                            case 5: return qsTr("Frost")
+                                        }
+                                    }
+                                }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressFrameColorStyle, model[index])
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress frame grayscale mode")
+                            tooltip: qsTr("Render the progress frame in grayscale instead of color - disables animations")
+                            Switch {
+                                enabled: ctxSettings.showProgressFrame
+                                checked: ctxSettings.progressFrameGrayscaleMode && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_progressGrayHover }
+                                CustomTooltip {
+                                    active: id_progressGrayHover.hovered
+                                    delay: 600
+                                    text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ProgressFrameGrayscaleMode, checked)
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress frame completion animation")
+                            tooltip: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
+                            Switch {
+                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
+                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_progressAnimHover }
+                                CustomTooltip {
+                                    active: id_progressAnimHover.hovered
+                                    delay: 600
+                                    text: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
+                            }
+                        }                    
                     }
 
                     // Backend Service
                     C_SettingsSection {
-                        fullRowMode: true
-                        title: qsTr("Backend Service")
-                        infoText: qsTr("Controls whether Lymalink runs achievement tracking in the background.\n\nWhen enabled, a system service is registered and kept running independently. Tracking and notifications continue even when this application is closed. When disabled, tracking runs only while the application is open, and the service is stopped when the application exits.\n\nSidebar indicator: green = service running independently, yellow = tracking requires the application to stay open, red = service error.")
+                        title: qsTr("Background Service")
+
+                        C_InfoBox {
+                            Layout.columnSpan: 2 // span both grid columns
+                            Layout.fillWidth: true
+
+                            text: qsTr(
+                                "Controls whether Lymalink continues achievement tracking in the background. When enabled, " +
+                                "a system service keeps tracking and notifications active even after Lymalink is closed. " +
+                                "When disabled, tracking only works while Lymalink is open."
+                            )
+
+                            legend: [
+                                { color: Themes.serviceIndicator.colors.running, opacity: Themes.serviceIndicator.opacity.solid, label: qsTr("Background service is running independently. Achievement tracking and notifications work even when Lymalink is closed.") },
+                                { color: Themes.serviceIndicator.colors.running, opacity: Themes.serviceIndicator.opacity.solid, breathing: true, label: qsTr("Background service is active and responding. Achievement tracking and notifications work only when Lymalink is open.") },
+                                { color: Themes.serviceIndicator.colors.starting, opacity: Themes.serviceIndicator.opacity.solid, label: qsTr("Background service is starting. Tracking will resume when the service responds.") },
+                                { color: Themes.serviceIndicator.colors.error, opacity: Themes.serviceIndicator.opacity.solid, label: qsTr("Error: Background service did not respond. Achievement tracking is unavailable.") }
+                            ]
+                        }
 
                         C_SettingRow {
-                            label: qsTr("Background service")
+                            label: qsTr("Track in Background")
                             tooltip: qsTr("Keep tracking active even when the application is closed")
-                            fixedWidthInt: 500
 
                             Switch {
-                                checked: ctxSettings.backendService
+                                id: id_backendServiceSwitch
+
+                                enabled: id_root.dbusServiceReady
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_backendServiceHover }
                                 CustomTooltip {
-                                    active: id_backendServiceHover.hovered
-                                    delay: 600
+                                    active: id_backendServiceHover.hovered; delay: 600
                                     text: qsTr("Keep tracking active even when the application is closed")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.BackendService, checked)
+                                Binding on checked {
+                                    value: id_root.backendServiceEnabled
+                                }
+                                onToggled: {
+                                    const intendedEnabled = checked
+                                    ctxSettings.SaveValue(Settings.BackendService, intendedEnabled)
+                                    if (id_root.dbusServiceReady) {
+                                        ctxDBusService.SetServiceEnabled(intendedEnabled)
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Status")
+                            tooltip: qsTr("Current system service state")
+
+                            RowLayout {
+                                spacing: 10
+
+                                Rectangle {
+                                    id: id_serviceStatusDot
+
+                                    readonly property bool breathing: id_root.backendServiceState === 1
+
+                                    Layout.preferredWidth: 12
+                                    Layout.preferredHeight: 12
+                                    radius: 6
+                                    color: id_root.backendServiceState === 3
+                                        ? Themes.serviceIndicator.colors.starting
+                                        : (id_root.backendServiceState === 1 || id_root.backendServiceState === 2 ? Themes.serviceIndicator.colors.running : Themes.serviceIndicator.colors.error)
+                                    onBreathingChanged: if (!breathing) opacity = Themes.serviceIndicator.opacity.solid
+
+                                    SequentialAnimation on opacity {
+                                        running: id_serviceStatusDot.breathing
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: Themes.serviceIndicator.opacity.breathingLow; duration: Themes.serviceIndicator.animation.breathingDuration; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: Themes.serviceIndicator.opacity.solid; duration: Themes.serviceIndicator.animation.breathingDuration; easing.type: Easing.InOutSine }
+                                    }
+                                }
+
+                                Label {
+                                    Layout.preferredWidth: 110
+                                    text: id_root.backendServiceState === 3
+                                        ? qsTr("Starting")
+                                        : (id_root.backendServiceState === 1 || id_root.backendServiceState === 2
+                                            ? (id_root.backendServiceState === 2 ? qsTr("Running") : qsTr("Running"))
+                                            : qsTr("Error"))
+                                    color: Themes.settings.colors.labelText
+                                    font.pixelSize: Themes.settings.fontSizes.labelText
+                                }
+
+                                Button {
+                                    text: id_root.backendServiceStarting ? qsTr("Starting...") : qsTr("Restart")
+                                    enabled: id_root.dbusServiceReady && !id_root.backendServiceStarting
+                                    onClicked: ctxDBusService.RestartService()
+                                }
                             }
                         }
                     }
@@ -756,7 +1046,17 @@ Item {
                     C_SettingsSection {
                         fullRowMode: true
                         title: qsTr("Steam Web API")
-                        infoText: qsTr("The Steam Web API can be used to import your Steam achievement progress into Lymalink.\n\nWhen saving an API key, you will be asked to create a passcode with at least 6 characters. The API key will be encrypted with that passcode before being stored locally.")
+
+                        C_InfoBox {
+                            Layout.columnSpan: 2 // span both grid columns
+                            Layout.fillWidth: true
+
+                            text: qsTr(
+                                "The Steam Web API can be used to import your Steam achievement progress into Lymalink.\n" +
+                                "When saving an API key, you will be asked to create a passcode with at least 6 characters. " +
+                                "The API key will be encrypted with that passcode before being stored locally."
+                            )
+                        }
 
                         C_SettingRow {
                             label: qsTr("Steam ID")

@@ -41,7 +41,7 @@ Item {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
             p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
-            p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
+            p_edgeProgressFrameColorStyle: ctxSettings.progressFrameColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
             p_progressBarEnabled: ctxSettings.showProgressBar
@@ -56,7 +56,7 @@ Item {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
             p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
             p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
-            p_edgeProgressFrameColorStyle: ctxSettings.globalColorStyle
+            p_edgeProgressFrameColorStyle: ctxSettings.progressFrameColorStyle
             p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
             p_progressBarEnabled: ctxSettings.showProgressBar

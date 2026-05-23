@@ -9,6 +9,7 @@
 #include "Lymalink.h"
 #include "SysTray.h"
 #include "Settings.h"
+#include "ipc/DBusService.h"
 
 #include <QApplication>
 #include <QIcon>
@@ -42,6 +43,7 @@ int main(int argc, char *argv[]) {
 
     Settings* settings = new Settings(&app);
     SysTray* sysTray = new SysTray(&app);
+    DBusService* dbusService = new DBusService(&app);
     Lymalink* lymalink = new Lymalink(&app);
     const Error lymalinkInitError = lymalink->Initialize();
     if (lymalinkInitError != Error::NoError)
@@ -58,10 +60,13 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);
+    engine.rootContext()->setContextProperty("ctxDBusService", dbusService);
 
     // Register
     qmlRegisterSingletonType(QUrl("qrc:/qt/qml/Lymalink/Themes.qml"), "app.themes", 1, 0, "Themes");
     qmlRegisterUncreatableType<Settings>("app.settings", 1, 0, "Settings", "Constants only");
+
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, dbusService, &DBusService::StopServiceIfNotEnabled);
 
     // Load QML from bundled module
     QObject::connect(

@@ -9,11 +9,7 @@
 #include "Lymalinkd.h"
 #include "tools/Logger.h"
 
-#include <chrono>
-#include <cerrno>
-#include <cstring>
 #include <sys/signalfd.h>
-#include <unistd.h>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -81,9 +77,9 @@ void Lymalinkd::Monitor()
 
         // 10ms tick - TODO periodic tasks (e.g. /proc poll)
         tick += 1;
-        if (tick % 1000 == 0)
+        if (tick % 6000 == 0)
         {
-            Logger::Log("[Lymalinkd] tick: %d", tick / 1000);
+            Logger::Log("[Lymalinkd] tick: %d", tick / 6000);
         }
     }
 }
@@ -137,7 +133,13 @@ Error Lymalinkd::Init()
 {
 	Error err = Error::NoError;
 
-    // TODO: Init DB, watchers, D-Bus
+    // TODO: Init DB, watchers
+	err = m_dbus.Init();
+    if (err != Error::NoError)
+    {
+        Logger::Log("[Lymalinkd] DBusService init failed.");
+        return err;
+    }
 
     // Signal systemd that we are ready (no-op if not under systemd)
     m_notify.NotifyReady();
@@ -154,8 +156,9 @@ void Lymalinkd::Shutdown()
     Logger::Log("[Lymalinkd] Shutdown initiated.");
     m_notify.NotifyStopping();
 
+	m_dbus.Stop();
+
     // TODO: Stop watchers
-    // TODO: Stop D-Bus service
     // TODO: Close DB connection
 
     Logger::Log("[Lymalinkd] Shutdown complete.");

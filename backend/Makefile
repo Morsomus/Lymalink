@@ -16,7 +16,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 BIN_DIR := $(BUILD_DIR)/bin
 
 CPPFLAGS := -Isrc -I../frontend/src
-CXXFLAGS_COMMON := -std=c++20 -Wall -Wextra -pedantic -pthread
+CXXFLAGS_COMMON := -std=c++20 -Wall -Wextra -pedantic
 CXXFLAGS_debug := -O0 -g
 CXXFLAGS_release := -O2 -DNDEBUG
 CXXFLAGS := $(CXXFLAGS_COMMON) $(CXXFLAGS_$(BUILD))
@@ -38,7 +38,7 @@ OBJECTS := $(SOURCES:src/%.cpp=$(OBJ_DIR)/%.o)
 all: $(BIN_DIR)/$(TARGET)
 
 $(BIN_DIR)/$(TARGET): $(OBJECTS) | $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(shell pkg-config --libs sdbus-c++)
 
 $(OBJ_DIR)/%.o: src/%.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)

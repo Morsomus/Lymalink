@@ -10,6 +10,7 @@ Requirements:
 - `g++` or another C++20 compiler
 - `make`
 - `systemd --user` for deploy/service commands
+- `sdbus-cpp-devel`
 
 From repository root:
 

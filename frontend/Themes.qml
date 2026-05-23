@@ -30,6 +30,24 @@ QtObject {
         }
     }
 
+    // Shared backend service status indicator
+    readonly property QtObject serviceIndicator: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color running: "#47d17c"
+            readonly property color starting: "#f2c94c"
+            readonly property color error: "#d35f5f"
+        }
+
+        readonly property QtObject opacity: QtObject {
+            readonly property real solid: 1.0
+            readonly property real breathingLow: 0.35
+        }
+
+        readonly property QtObject animation: QtObject {
+            readonly property int breathingDuration: 900
+        }
+    }
+
     // ErrorPopup.qml
     readonly property QtObject errorPopup: QtObject {
         readonly property QtObject colors: QtObject {
@@ -174,10 +192,13 @@ QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color titleText: "#ffffff"
             readonly property color divider: "#2a2a2a"
+            readonly property color subDivider: "#242424"
             readonly property color labelText: "#d8d8d8"
             readonly property color sectionTitle: "#666677"
             readonly property color sectionInfo: "#666677"
             readonly property color applyFlash: "#55cc88"
+            readonly property color infoBoxBorder: "#34363a"
+            readonly property color infoBoxBackground: "#202124"
         }
 
         readonly property QtObject fontSizes: QtObject {

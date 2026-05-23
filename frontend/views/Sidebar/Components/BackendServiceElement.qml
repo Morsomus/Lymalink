@@ -21,27 +21,35 @@ Rectangle {
     property bool collapsed: false
     signal clicked()
 
-    readonly property bool backendAvailable: typeof ctxLymalink !== "undefined" && ctxLymalink !== null
-    readonly property int serviceState: !backendAvailable ? 0 : (ctxSettings.backendService ? 2 : 1)
+    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
+    readonly property bool serviceAvailable: dbusServiceReady && ctxDBusService.serviceAvailable
+    readonly property bool serviceActive: dbusServiceReady && ctxDBusService.serviceActive
+    readonly property bool serviceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
+    readonly property bool serviceStarting: dbusServiceReady && ctxDBusService.serviceStarting
+    readonly property bool serviceHealthy: serviceAvailable && serviceActive
+    readonly property int serviceState: serviceStarting ? 3 : (serviceHealthy ? (serviceEnabled ? 2 : 1) : 0)
     readonly property color serviceColor: {
         switch (serviceState) {
-            case 2: return Themes.general.colors.statusActive
-            case 1: return "#f2c94c"
-            default: return "#d35f5f"
+            case 3: return Themes.serviceIndicator.colors.starting
+            case 2: return Themes.serviceIndicator.colors.running
+            case 1: return Themes.serviceIndicator.colors.running
+            default: return Themes.serviceIndicator.colors.error
         }
     }
     readonly property string serviceStatusText: {
         switch (serviceState) {
-            case 2: return qsTr("Tracking independently, app can be closed")
-            case 1: return qsTr("Tracking while app is open only")
-            default: return qsTr("Service error, tracking unavailable")
+            case 3: return qsTr("Starting background service...")
+            case 2: return qsTr("Tracking in the background\nLymalink can be closed")
+            case 1: return qsTr("Tracking only while Lymalink is open")
+            default: return qsTr("Error: Background service unavailable")
         }
     }
     readonly property string serviceTooltip: {
         switch (serviceState) {
-            case 2: return qsTr("Background service is running independently. Achievement tracking and notifications work even when the application is closed.")
-            case 1: return qsTr("Background service is disabled. Achievement tracking and notifications only work while the application is open.")
-            default: return qsTr("Background service encountered an error and is not running. Achievement tracking is unavailable.")
+            case 3: return qsTr("Background service is starting. Tracking will resume when the service responds.")
+            case 2: return qsTr("Background service is running independently. Achievement tracking and notifications work even when Lymalink is closed.")
+            case 1: return qsTr("Background service is active and responding. Achievement tracking and notifications work only when Lymalink is open.")
+            default: return qsTr("Background service did not respond. Achievement tracking is unavailable.")
         }
     }
 
@@ -81,11 +89,32 @@ Rectangle {
                 spacing: id_root.collapsed ? 0 : 8
 
                 Label {
+                    id: id_serviceDot
+
+                    readonly property bool breathing: id_root.serviceState === 1
+
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: "●"
                     color: id_root.serviceColor
                     font.pixelSize: id_root.collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
+                    onBreathingChanged: if (!breathing) opacity = Themes.serviceIndicator.opacity.solid
+
+                    SequentialAnimation on opacity {
+                        running: id_serviceDot.breathing
+                        loops: Animation.Infinite
+
+                        NumberAnimation {
+                            to: Themes.serviceIndicator.opacity.breathingLow
+                            duration: Themes.serviceIndicator.animation.breathingDuration
+                            easing.type: Easing.InOutSine
+                        }
+                        NumberAnimation {
+                            to: Themes.serviceIndicator.opacity.solid
+                            duration: Themes.serviceIndicator.animation.breathingDuration
+                            easing.type: Easing.InOutSine
+                        }
+                    }
                 }
 
                 Label {

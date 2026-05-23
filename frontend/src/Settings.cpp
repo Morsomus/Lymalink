@@ -101,6 +101,7 @@ bool Settings::LoadConfig()
 
     m_settings.beginGroup(GROUP_DISPLAY);
     m_globalColorStyle = m_settings.value("GlobalColorStyle", m_globalColorStyle).toInt();
+    m_progressFrameColorStyle = m_settings.value("ProgressFrameColorStyle", m_progressFrameColorStyle).toInt();
     m_progressBarColorStyle = m_settings.value("ProgressBarColorStyle", m_progressBarColorStyle).toInt();
     m_showProgressFrame = m_settings.value("ShowProgressFrame", m_showProgressFrame).toBool();
     m_showProgressBar = m_settings.value("ShowProgressBar", m_showProgressBar).toBool();
@@ -116,10 +117,6 @@ bool Settings::LoadConfig()
 
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_steamId = m_settings.value("SteamId", m_steamId).toString();
-    m_settings.endGroup();
-
-    m_settings.beginGroup(GROUP_SYSTEM);
-    m_backendService = m_settings.value("BackendService", m_backendService).toBool();
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DASHBOARD);
@@ -227,6 +224,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             group = GROUP_DISPLAY;
             settingsKey = "GlobalColorStyle";
             settingsValue = m_globalColorStyle;
+            break;
+        }
+        case ProgressFrameColorStyle:
+        {
+            m_progressFrameColorStyle = value.toInt();
+            group = GROUP_DISPLAY;
+            settingsKey = "ProgressFrameColorStyle";
+            settingsValue = m_progressFrameColorStyle;
             break;
         }
         case ProgressBarColorStyle:
@@ -342,14 +347,6 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
                 return SaveSteamWebApiKey(val);
             }
         }
-        case BackendService:
-        {
-            m_backendService = value.toBool();
-            group = GROUP_SYSTEM;
-            settingsKey = "BackendService";
-            settingsValue = m_backendService;
-            break;
-        }
         case DashboardToolbarSort:
         {
             m_dashboardToolbarSort = value.toString();
@@ -453,6 +450,7 @@ void Settings::SetDefaults()
     m_enableCollapseBorderButton = true;
     m_sidebarCollapsed = false;
     m_globalColorStyle = 1;
+    m_progressFrameColorStyle = 1;
     m_progressBarColorStyle = 5;
     m_showProgressFrame = true;
     m_showProgressBar = true;
@@ -466,7 +464,6 @@ void Settings::SetDefaults()
     m_windowSizeY = m_windowSizeYDefault;
     m_steamId = "";
     m_steamWebApiKey = "";
-    m_backendService = false;
     m_dashboardToolbarSort = "title";
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
@@ -518,6 +515,7 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_DISPLAY);
     m_settings.setValue("GlobalColorStyle", m_globalColorStyle);
+    m_settings.setValue("ProgressFrameColorStyle", m_progressFrameColorStyle);
     m_settings.setValue("ProgressBarColorStyle", m_progressBarColorStyle);
     m_settings.setValue("ShowProgressFrame", m_showProgressFrame);
     m_settings.setValue("ShowProgressBar", m_showProgressBar);
@@ -533,10 +531,6 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_settings.setValue("SteamId", m_steamId);
-    m_settings.endGroup();
-
-    m_settings.beginGroup(GROUP_SYSTEM);
-    m_settings.setValue("BackendService", m_backendService);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DASHBOARD);

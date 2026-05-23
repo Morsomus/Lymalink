@@ -10,7 +10,7 @@ project(Lymalink VERSION ${LYMALINK_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network DBus)
 find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
 
@@ -22,6 +22,8 @@ qt_add_executable(Lymalink
     src/Settings.cpp
     src/SysTray.h
     src/SysTray.cpp
+    src/ipc/DBusService.h
+    src/ipc/DBusService.cpp
     src/database/SQLiteManager.h
     src/database/SQLiteManager.cpp
     src/tools/Encryption.h
@@ -117,6 +119,7 @@ target_link_libraries(Lymalink PRIVATE
     Qt6::Widgets
     Qt6::Sql
     Qt6::Network
+    Qt6::DBus
     OpenSSL::Crypto
 )
 
