@@ -464,7 +464,7 @@ Rectangle {
                 spacing: 3
 
                 Text {
-                    text: qsTr("Last Achievement")
+                    text: qsTr("Recent Achievement")
                     color: Themes.cardRowDetailed.colors.fractionText
                     font.pixelSize: Themes.cardRowDetailed.fontSizes.recentUnlock
                 }

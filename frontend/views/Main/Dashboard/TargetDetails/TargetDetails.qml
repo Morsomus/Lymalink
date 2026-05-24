@@ -648,17 +648,17 @@ Item {
                 }
                 C_MetaRow {
                     label: qsTr("Playtime")
-                    value: id_root.p_playtime === "" ? "Never" : id_root.p_playtime
+                    value: id_root.p_playtime === "" ? qsTr("Never") : id_root.p_playtime
                     // visible: id_root.p_playtime !== ""
                 }
                 C_MetaRow {
                     label: qsTr("Last played")
-                    value: id_root.p_lastPlayed === "" ? "Never" : id_root.p_lastPlayed
+                    value: id_root.p_lastPlayed === "" ? qsTr("Never") : id_root.p_lastPlayed
                     // visible: id_root.p_lastPlayed !== ""
                 }
                 C_MetaRow {
                     label: qsTr("Recent unlock")
-                    value: id_root.p_recentUnlock === "" ? "Never" : id_root.p_recentUnlock
+                    value: id_root.p_recentUnlock === "" ? qsTr("Never") : id_root.p_recentUnlock
                     visible: id_root.p_achievementTotal > 0
                 }
 

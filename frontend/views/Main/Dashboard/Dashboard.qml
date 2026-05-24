@@ -23,6 +23,7 @@ Item {
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
     property bool showingAddTarget: false
+    property real dashboardScrollLocation: 0
     property var loadingTargetAppIds: []
     property string activeSort: ctxSettings.dashboardToolbarSort
     property bool activeSortDescending: ctxSettings.dashboardToolbarSortDescending
@@ -52,7 +53,10 @@ Item {
 
     Component.onCompleted: refreshTargets()
 
-    onActiveLayoutChanged: syncTargetRowLayout()
+    onActiveLayoutChanged: {
+        dashboardScrollLocation = 0
+        syncTargetRowLayout()
+    }
 
     function refreshTargets() {
         id_targetModel.clear()
@@ -289,7 +293,17 @@ Item {
         }
     }
 
+    function saveDashboardScrollLocation() {
+        if (id_cardLayoutLoader.status === Loader.Ready
+            && id_cardLayoutLoader.item
+            && typeof id_cardLayoutLoader.item.currentScrollLocation === "function") {
+            id_root.dashboardScrollLocation = id_cardLayoutLoader.item.currentScrollLocation()
+        }
+    }
+
     function onTargetSelected(appId) {
+        id_root.saveDashboardScrollLocation()
+
         const details = ctxLymalink.FetchTargetDetails(appId)
 
         id_root.targetDetailsAchievements = details.achievements ?? []
@@ -334,6 +348,7 @@ Item {
         CardGrid {
             p_gridSize: id_root.activeLayout
             p_targetModel: id_targetModel
+            p_scrollLocation: id_root.dashboardScrollLocation
         }
     }
 
@@ -343,6 +358,7 @@ Item {
         CardList {
             p_listMode: id_root.activeLayout
             p_targetModel: id_targetModel
+            p_scrollLocation: id_root.dashboardScrollLocation
         }
     }
 

@@ -64,6 +64,7 @@ private:
     bool m_serviceEnabled;
     QString m_lastError;
 
+    void ResetPingTimer();
     bool EnableService();
     bool DisableService();
     bool CallSystemdUnitMethod(const QString &method);

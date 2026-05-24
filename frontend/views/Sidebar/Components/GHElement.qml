@@ -28,6 +28,7 @@ Button {
     text: id_root.collapsed ? "GH" : qsTr("GitHub")
 
     CustomTooltip {
+        p_alwaysVisible: true
         active: id_root.hovered
         delay: 300
         text: qsTr("View project on GitHub")

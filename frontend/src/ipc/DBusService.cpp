@@ -40,7 +40,6 @@ DBusService::DBusService(QObject *parent) : QObject(parent)
     m_pingTimer->start();
 
     PingBackend();
-    RefreshServiceStatus();
     if (!m_serviceActive)
     {
         StartService();
@@ -103,16 +102,14 @@ void DBusService::PingBackend()
 
 bool DBusService::StartService()
 {
+    ResetPingTimer();
+    SetServiceActive(false);
     SetServiceStarting(true);
     const bool success = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
     if (!success)
     {
         SetServiceStarting(false);
     }
-    QTimer::singleShot(1000, this, [this]() {
-        RefreshServiceStatus();
-        PingBackend();
-    });
     return success;
 }
 
@@ -120,12 +117,10 @@ bool DBusService::StartService()
 
 bool DBusService::StopService()
 {
+    ResetPingTimer();
+    SetServiceActive(false);
     SetServiceStarting(false);
     const bool success = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
-    QTimer::singleShot(1000, this, [this]() {
-        RefreshServiceStatus();
-        PingBackend();
-    });
     return success;
 }
 
@@ -133,16 +128,14 @@ bool DBusService::StopService()
 
 bool DBusService::RestartService()
 {
+    ResetPingTimer();
+    SetServiceActive(false);
     SetServiceStarting(true);
     const bool success = CallSystemdUnitMethod(QStringLiteral("RestartUnit"));
     if (!success)
     {
         SetServiceStarting(false);
     }
-    QTimer::singleShot(1000, this, [this]() {
-        RefreshServiceStatus();
-        PingBackend();
-    });
     return success;
 }
 
@@ -182,10 +175,25 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
     const bool available = (reply.value() == QStringLiteral("pong"));
     SetLastError(available ? QString() : QStringLiteral("Unexpected PingBackend response"));
     SetServiceAvailable(available);
+
+    if (GetServiceAvailable() == true && GetServiceActive() == false)
+    {
+        RefreshServiceStatus();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::ResetPingTimer()
+{
+    if (m_pingTimer)
+    {
+        m_pingTimer->start();
+    }
+}
+
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::EnableService()
@@ -368,9 +376,7 @@ void DBusService::SetServiceAvailable(bool available)
 {
     if (m_serviceAvailable == available) return;
 
-    // Refresh also systemd active & enabled statuses when availability changes
-    qDebug() << "SetServiceAvailable - Checking service systemd status because service has been set:" << (available ? "available" : "not available");
-    RefreshServiceStatus();
+    qDebug() << "SetServiceAvailable: lymalinkd dbus status:" << (available ? "available" : "not available");
 
     m_serviceAvailable = available;
     emit signalServiceAvailabilityChanged();

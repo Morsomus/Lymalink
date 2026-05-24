@@ -20,6 +20,7 @@ Item {
     // Public ________________________________________________
     property string p_gridSize: "defaultCardGrid"   // "defaultCardGrid" | "smallCardGrid"
     property var p_targetModel: null
+    property real p_scrollLocation: 0
 
     signal openTargetDetails(int appId)
 
@@ -28,6 +29,30 @@ Item {
     readonly property int cellH: id_root.p_gridSize === "defaultCardGrid" ? 300 : 225
     readonly property int cellSpacing: 16
     readonly property bool hasVerticalScroll: id_rootScrollView.ScrollBar.vertical.size < 1.0
+    property bool restoringScrollLocation: false
+
+    Component.onCompleted: Qt.callLater(id_root.restoreScrollLocation)
+
+    function currentScrollLocation() {
+        return id_rootScrollView.contentItem ? id_rootScrollView.contentItem.contentY : 0
+    }
+
+    function restoreScrollLocation(scrollLocation) {
+        if (scrollLocation !== undefined) {
+            id_root.p_scrollLocation = scrollLocation
+        }
+
+        if (!id_rootScrollView.contentItem) {
+            return
+        }
+
+        id_root.restoringScrollLocation = true
+        id_rootScrollView.contentItem.contentY = Math.max(
+            0,
+            Math.min(id_root.p_scrollLocation, id_rootScrollView.contentItem.contentHeight - id_rootScrollView.contentItem.height)
+        )
+        id_root.restoringScrollLocation = false
+    }
 
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// LAYOUTS //////////////////////////////

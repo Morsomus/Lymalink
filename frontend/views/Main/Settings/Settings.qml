@@ -26,18 +26,10 @@ Item {
     readonly property bool backendServiceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
     readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
 
-    Component.onCompleted: refreshBackendServiceStatus()
-
     function saveSteamWebApiKey(apiKey, passcode) {
         ctxSettings.SetTempEncryptionKey(passcode)
         if (ctxSettings.SaveValue(Settings.SteamWebApiKey, apiKey)) {
             id_webApiKeyInput.completeApply(apiKey)
-        }
-    }
-
-    function refreshBackendServiceStatus() {
-        if (id_root.dbusServiceReady) {
-            ctxDBusService.RefreshServiceStatus()
         }
     }
 
@@ -441,7 +433,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 40
             anchors.right: parent.right
-            anchors.rightMargin: Math.max(60, parent.width - 40 - 820)
+            anchors.rightMargin: Math.max(60, parent.width - 40 - 920)
 
             Item {
                 Layout.preferredHeight: 48
@@ -486,7 +478,7 @@ Item {
                 anchors.left: parent.left
                 anchors.leftMargin: 40
                 anchors.right: parent.right
-                anchors.rightMargin: Math.max(60, parent.width - 40 - 820)
+                anchors.rightMargin: Math.max(60, parent.width - 40 - 920)
 
                 Item {
                     Layout.preferredHeight: 24

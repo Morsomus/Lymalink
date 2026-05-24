@@ -16,6 +16,7 @@ Popup {
     id: id_root
 
     property bool active: false
+    property bool p_alwaysVisible: false
     property string text: ""
     property int delay: 300
 
@@ -32,7 +33,7 @@ Popup {
     z: overlayZ
 
     function shouldShow(): bool {
-        return active && text !== "" && ctxSettings.showTooltips
+        return active && text !== "" && ctxSettings.showTooltips ||  active && text !== "" && p_alwaysVisible
     }
 
     function windowItem() {

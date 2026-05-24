@@ -20,15 +20,20 @@ Item {
     // Public ________________________________________________
     property string p_listMode: "list"
     property var p_targetModel: null
+    property real p_scrollLocation: 0
 
     signal openTargetDetails(int appId)
 
     // Internals _____________________________________________
     readonly property string rowLayout: p_listMode === "detailedList" ? "detailedList" : "list"
+    property bool restoringScrollLocation: false
 
     onRowLayoutChanged: syncRowLayout()
     onP_targetModelChanged: syncRowLayout()
-    Component.onCompleted: syncRowLayout()
+    Component.onCompleted: {
+        syncRowLayout()
+        Qt.callLater(id_root.restoreScrollLocation)
+    }
 
     function syncRowLayout() {
         if (!id_root.p_targetModel || typeof id_root.p_targetModel.setProperty !== "function") {
@@ -38,6 +43,23 @@ Item {
         for (let i = 0; i < id_root.p_targetModel.count; ++i) {
             id_root.p_targetModel.setProperty(i, "rowLayout", id_root.rowLayout)
         }
+    }
+
+    function currentScrollLocation() {
+        return id_listView.contentY
+    }
+
+    function restoreScrollLocation(scrollLocation) {
+        if (scrollLocation !== undefined) {
+            id_root.p_scrollLocation = scrollLocation
+        }
+
+        id_root.restoringScrollLocation = true
+        id_listView.contentY = Math.max(
+            0,
+            Math.min(id_root.p_scrollLocation, id_listView.contentHeight - id_listView.height)
+        )
+        id_root.restoringScrollLocation = false
     }
 
     /////////////////////////////////////////////////////////////////////

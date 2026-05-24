@@ -19,7 +19,7 @@ Item {
     id: id_root
 
     property int currentPage: 0
-    property bool collapsed: ctxSettings.sidebarCollapsed
+    property bool collapsed: false
     property real expandedWidth: 260
     property real collapsedWidth: 72
     property real panelWidth: collapsed ? collapsedWidth : expandedWidth
@@ -28,8 +28,12 @@ Item {
     property bool disableCollapseButton: !ctxSettings.showCollapseButton
 
     onCollapsedChanged: {
-        ctxSettings.SaveValue(Settings.SidebarCollapsed, collapsed)
+        if (collapsed !== ctxSettings.sidebarCollapsed) {
+            ctxSettings.SaveValue(Settings.SidebarCollapsed, collapsed)
+        }
     }
+
+    Component.onCompleted: collapsed = ctxSettings.sidebarCollapsed
 
     Layout.preferredWidth: panelWidth
     Layout.fillHeight: true

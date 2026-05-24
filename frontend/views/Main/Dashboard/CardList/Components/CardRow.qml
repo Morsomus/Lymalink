@@ -26,8 +26,8 @@ Rectangle {
     property int p_achievementTotal: 0    // e.g. 73
     property string p_targetType: ""      // "Custom" | "Steam" | "Emulator"
     property string p_installationStatus: ""    // "Installed" | "Not Installed"
-    property string p_lastPlayed: ""      // e.g. "2 days ago"
-    property string p_recentUnlock: ""    // e.g. "1 hour ago"
+    property string p_lastPlayed: ""
+    property string p_recentUnlock: ""
     property bool p_isLoading: false
     property int p_delegateIndex: 0
     property int p_globalColorStyle: 1
