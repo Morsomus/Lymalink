@@ -1,0 +1,23 @@
+/////////////////////////////////////////////////////////
+// File: Utils.cpp
+// Date: 2026-05-24
+// Author: Morsomus
+// Copyright: see /LICENSE
+// Description: Implements shared backend utility functions
+/////////////////////////////////////////////////////////
+
+#include "Utils.h"
+
+#include <ctime>
+
+/////////////////////////////////////////////////////////////////////
+
+namespace Utils
+{
+
+int64_t NowEpoch()
+{
+    return static_cast<int64_t>(time(nullptr));
+}
+
+}

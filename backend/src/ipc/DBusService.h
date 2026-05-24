@@ -23,7 +23,10 @@
 #include "Defines.h"
 #include "Error.h"
 
+#include <cstdint>
+#include <memory>
 #include <sdbus-c++/sdbus-c++.h>
+#include <string>
 
 class DBusService
 {

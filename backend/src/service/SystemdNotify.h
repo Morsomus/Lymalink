@@ -23,7 +23,7 @@ public:
     void NotifyStopping();                      // Send STOPPING=1, call before shutdown begins
 
 private:
-    bool m_available; // true when $NOTIFY_SOCKET is set at startup
+    bool m_available;
     std::string m_socket_path;
 
     void Notify(const std::string& payload);    // Sends raw string to $NOTIFY_SOCKET. No-op if socket is not set.

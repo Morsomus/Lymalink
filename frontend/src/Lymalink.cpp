@@ -145,7 +145,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     }
 
     // Check database entry
-    const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, "steam_emu_games", "id = ?", {appId});
+    const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (existingGameRows < 0)
     {
         qCritical() << "Lymalink: failed to check emulator target database row:" << m_databaseManager.lastError();
@@ -175,7 +175,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
         {"date_added", QDateTime::currentSecsSinceEpoch()}
     };
 
-    if (!m_databaseManager.insert(m_databaseConnectionName, "steam_emu_games", data))
+    if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, data))
     {
         QDir cleanupDir(targetPath);
         cleanupDir.removeRecursively();
@@ -205,7 +205,7 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden)
 
     const bool updated = m_databaseManager.update(
         m_databaseConnectionName,
-        "steam_emu_games",
+        DATABASE_TABLE_EMU_GAMES,
         {{"target_hidden", hidden ? 1 : 0}},
         "id = ?",
         {appId}
@@ -238,7 +238,7 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
 
     const QVariantMap existingAchievement = m_databaseManager.selectFirst(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ? AND achievement_key = ?",
         {appId, trimmedKey}
     );
@@ -255,7 +255,7 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
 
     const bool achievementUpdated = m_databaseManager.update(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         {
             {"date_unlocked", normalizedUnlockTimestamp},
             {"date_updated", now}
@@ -271,7 +271,7 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
 
     const int unlockedCount = m_databaseManager.count(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ? AND date_unlocked > 0",
         {appId}
     );
@@ -283,7 +283,7 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
 
     const bool targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
-        "steam_emu_games",
+        DATABASE_TABLE_EMU_GAMES,
         {
             {"total_unlocked_amount_achievements", unlockedCount},
             {"date_updated", now}
@@ -315,7 +315,7 @@ bool Lymalink::DeleteTarget(int appId)
         return false;
     }
 
-    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, "steam_emu_games", "id = ?", {appId});
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink: target delete row not found:" << appId;
@@ -339,7 +339,7 @@ bool Lymalink::DeleteTarget(int appId)
 
     const bool targetRemoved = m_databaseManager.remove(
         m_databaseConnectionName,
-        "steam_emu_games",
+        DATABASE_TABLE_EMU_GAMES,
         "id = ?",
         {appId}
     );
@@ -379,7 +379,7 @@ QVariantList Lymalink::FetchDashboardTargets()
         return {};
     }
 
-    const QVariantList rows = m_databaseManager.selectAll(m_databaseConnectionName, "steam_emu_games");
+    const QVariantList rows = m_databaseManager.selectAll(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES);
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QVariantList targets;
@@ -399,7 +399,7 @@ QVariantList Lymalink::FetchDashboardTargets()
 
         const QVariantList achievements = m_databaseManager.selectWhere(
             m_databaseConnectionName,
-            "steam_emu_achievements",
+            DATABASE_TABLE_EMU_ACHIEVEMENTS,
             "id = ?",
             {appId},
             {
@@ -462,7 +462,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         return {};
     }
 
-    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, "steam_emu_games", "id = ?", {appId});
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink: target details not found for appId:" << appId;
@@ -480,7 +480,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ?",
         {appId},
         {"achievement_key", "achievement_name", "achievement_description", "date_unlocked"}
@@ -534,7 +534,7 @@ Error Lymalink::DatabaseInit()
 
     const bool gamesReady = m_databaseManager.createTable(
         m_databaseConnectionName,
-        "steam_emu_games",
+        DATABASE_TABLE_EMU_GAMES,
         {
             "id INTEGER PRIMARY KEY NOT NULL",
             "game_name TEXT NOT NULL",
@@ -555,13 +555,13 @@ Error Lymalink::DatabaseInit()
 
     if (!gamesReady)
     {
-        qCritical() << "Lymalink: failed to initialize steam_emu_games table:" << m_databaseManager.lastError();
+        qCritical() << "Lymalink: failed to initialize" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
         return Error::DatabaseError;
     }
 
     const bool achievementsReady = m_databaseManager.createTable(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         {
             "id INTEGER NOT NULL",
             "achievement_key TEXT NOT NULL",
@@ -574,13 +574,13 @@ Error Lymalink::DatabaseInit()
             "date_updated INTEGER",
             "date_added INTEGER",
             "PRIMARY KEY (id, achievement_key)",
-            "FOREIGN KEY (id) REFERENCES steam_emu_games(id) ON DELETE CASCADE"
+            QString("FOREIGN KEY (id) REFERENCES %1(id) ON DELETE CASCADE").arg(DATABASE_TABLE_EMU_GAMES)
         }
     );
 
     if (!achievementsReady)
     {
-        qCritical() << "Lymalink: failed to initialize steam_emu_achievements table:" << m_databaseManager.lastError();
+        qCritical() << "Lymalink: failed to initialize" << DATABASE_TABLE_EMU_ACHIEVEMENTS << "table:" << m_databaseManager.lastError();
         return Error::DatabaseError;
     }
 
@@ -634,7 +634,7 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 
         const int existingRows = m_databaseManager.count(
             m_databaseConnectionName,
-            "steam_emu_achievements",
+            DATABASE_TABLE_EMU_ACHIEVEMENTS,
             "id = ? AND achievement_key = ?",
             {appId, achievementKey}
         );
@@ -643,7 +643,7 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
             continue;
         }
 
-        if (!m_databaseManager.insert(m_databaseConnectionName, "steam_emu_achievements", entry))
+        if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, entry))
         {
             qWarning() << "Lymalink: failed to insert achievement:" << achievementKey << m_databaseManager.lastError();
             continue;
@@ -654,10 +654,10 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
     if (inserted > 0)
     {
         const qint64 now = QDateTime::currentSecsSinceEpoch();
-        const int totalAchievements = m_databaseManager.count(m_databaseConnectionName, "steam_emu_achievements", "id = ?", {appId});
+        const int totalAchievements = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, "id = ?", {appId});
         if (!m_databaseManager.update(
             m_databaseConnectionName,
-            "steam_emu_games",
+            DATABASE_TABLE_EMU_GAMES,
             {{"total_amount_achievements", totalAchievements}, {"date_updated", now}},
             "id = ?",
             {appId}))
@@ -712,7 +712,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
 {
     const QVariantList rows = m_databaseManager.selectWhere(
         m_databaseConnectionName,
-        "steam_emu_achievements",
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ?",
         {appId},
         {

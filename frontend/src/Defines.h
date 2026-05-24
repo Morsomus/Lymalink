@@ -17,8 +17,10 @@
 // Database
 /////////////////////////////////////////////////////////////////////
 
-#define DATABASE_CONNECTION_NAME    "lymalink_main"
-#define DATABASE_FILE_NAME          "lymalink_database"
+#define DATABASE_CONNECTION_NAME        "lymalink_main"
+#define DATABASE_FILE_NAME              "lymalink_database"
+#define DATABASE_TABLE_EMU_GAMES        "steam_emu_games"
+#define DATABASE_TABLE_EMU_ACHIEVEMENTS "steam_emu_achievements"
 
 /////////////////////////////////////////////////////////////////////
 // D-Bus

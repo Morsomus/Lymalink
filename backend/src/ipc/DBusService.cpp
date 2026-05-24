@@ -14,12 +14,16 @@
 
 DBusService::DBusService()
 {
-    // Constructor
+    m_connection = nullptr;
+    m_object = nullptr;
 }
 
 DBusService::~DBusService()
 {
-    Stop();
+    if (m_connection)
+    {
+        Stop();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -69,11 +73,11 @@ Error DBusService::Init()
         // Non-blocking event loop, runs in internal thread
         m_connection->enterEventLoopAsync();
 
-        Logger::Log("[DBusService] Registered on session bus as: " + std::string(DBUS_BUS_NAME));
+        Logger::Log("[DBusService][Init] Registered on session bus as: " + std::string(DBUS_BUS_NAME));
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService] Init failed: " + std::string(e.what()));
+        Logger::Log("[DBusService][Init] Init failed: " + std::string(e.what()));
         return Error::UnknownError;
     }
 
@@ -90,7 +94,7 @@ void DBusService::Stop()
     m_connection->leaveEventLoop();
     m_connection.reset();
 
-    Logger::Log("[DBusService] Stopped.");
+    Logger::Log("[DBusService][Stop] Stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -104,11 +108,11 @@ void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& k
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetId, key);
 
-        Logger::Log("[DBusService] AchievementUnlocked emitted: targetId=" + std::to_string(targetId) + " key=" + key);
+        Logger::Log("[DBusService][EmitAchievementUnlocked] AchievementUnlocked emitted: targetId=" + std::to_string(targetId) + " key=" + key);
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService] EmitAchievementUnlocked failed: " + std::string(e.what()));
+        Logger::Log("[DBusService][EmitAchievementUnlocked] EmitAchievementUnlocked failed: " + std::string(e.what()));
     }
 }
 
@@ -123,11 +127,11 @@ void DBusService::EmitGameStateChanged(int32_t targetId, const std::string& stat
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetId, state);
 
-        Logger::Log("[DBusService] GameStateChanged emitted: targetId=" + std::to_string(targetId) + " state=" + state);
+        Logger::Log("[DBusService][EmitGameStateChanged] GameStateChanged emitted: targetId=" + std::to_string(targetId) + " state=" + state);
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService] EmitGameStateChanged failed: " + std::string(e.what()));
+        Logger::Log("[DBusService][EmitGameStateChanged] EmitGameStateChanged failed: " + std::string(e.what()));
     }
 }
 
@@ -144,7 +148,7 @@ std::string DBusService::OnPing()
 
 void DBusService::OnReloadTarget(int32_t targetId)
 {
-    Logger::Log("[DBusService] ReloadTarget received: targetId=" + std::to_string(targetId));
+    Logger::Log("[DBusService][OnReloadTarget] ReloadTarget received: targetId=" + std::to_string(targetId));
     // TODO: trigger immediate reload for this targetId
 }
 
@@ -152,6 +156,6 @@ void DBusService::OnReloadTarget(int32_t targetId)
 
 void DBusService::OnReloadAllTargets()
 {
-    Logger::Log("[DBusService] ReloadAllTargets received.");
+    Logger::Log("[DBusService][OnReloadAllTargets] ReloadAllTargets received.");
     // TODO: Inform trigger full DB reload
 }

@@ -11,6 +11,8 @@ Requirements:
 - `make`
 - `systemd --user` for deploy/service commands
 - `sdbus-cpp-devel`
+- `sqlite-devel`
+- `catch2-devel`
 
 From repository root:
 
@@ -18,6 +20,7 @@ From repository root:
 backend/build.sh clean
 backend/build.sh debug
 backend/build.sh release
+backend/build.sh test
 ```
 
 Debug/release binaries are built under `/tmp/lymalinkd-build` by default.
@@ -28,6 +31,15 @@ Direct Makefile build:
 make -C backend BUILD=debug
 make -C backend BUILD=release
 ```
+
+## Tests
+
+```bash
+backend/build.sh test
+backend/build.sh test --silent
+```
+
+The backend test command builds and runs the Catch2 test binary under `/tmp/lymalinkd-build/debug/tests`.
 
 ## Run Locally
 
@@ -40,8 +52,6 @@ Temporary dev log:
 ```bash
 tail -f /tmp/lymalinkd.log
 ```
-
-Stop with `Ctrl+C`.
 
 ## User Service
 
@@ -65,29 +75,33 @@ backend/build.sh uninstall
 ## Layout
 
 ```text
-backend
+backend/
 ├── build.sh
 ├── Makefile
 ├── README.md
-└── src
-    ├── database
-    │   ├── SQLiteManager.cpp
-    │   └── SQLiteManager.h
-    ├── ipc
-    │   ├── DBusService.cpp
-    │   └── DBusService.h
-    ├── Lymalinkd.cpp
-    ├── Lymalinkd.h
-    ├── main.cpp
-    ├── service
-    │   ├── SystemdNotify.cpp
-    │   └── SystemdNotify.h
-    ├── tools
-    │   ├── Logger.cpp
-    │   └── Logger.h
-    └── watcher
-        ├── PathScanner.cpp
-        ├── PathScanner.h
-        ├── ProcessWatcher.cpp
-        └── ProcessWatcher.h
+├── src
+│   ├── database
+│   │   ├── SQLiteManager.cpp
+│   │   └── SQLiteManager.h
+│   ├── ipc
+│   │   ├── DBusService.cpp
+│   │   └── DBusService.h
+│   ├── Lymalinkd.cpp
+│   ├── Lymalinkd.h
+│   ├── main.cpp
+│   ├── service
+│   │   ├── SystemdNotify.cpp
+│   │   └── SystemdNotify.h
+│   ├── tools
+│   │   ├── Logger.cpp
+│   │   ├── Logger.h
+│   │   ├── Utils.cpp
+│   │   └── Utils.h
+│   └── watcher
+│       ├── PathScanner.cpp
+│       ├── PathScanner.h
+│       ├── ProcessWatcher.cpp
+│       └── ProcessWatcher.h
+└── tests
+    └── SQLiteManagerTests.cpp
 ```

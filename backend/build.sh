@@ -9,6 +9,8 @@
 #   ./build.sh clean        - Clean build directory
 #   ./build.sh debug        - Debug build
 #   ./build.sh release      - Release build
+#   ./build.sh test         - Clean + Debug build + Test
+#   ./build.sh test --silent - Clean + Debug build + Test with failures only
 #   ./build.sh deploy       - Clean + Release + strip + install service
 #   ./build.sh start        - Start lymalinkd systemd user service
 #   ./build.sh stop         - Stop lymalinkd systemd user service
@@ -131,6 +133,32 @@ build() {
 
 ##############################################################################
 
+run_tests() {
+    local TEST_OUTPUT_MODE="${1:-}"
+
+    if [ -n "$TEST_OUTPUT_MODE" ] && [ "$TEST_OUTPUT_MODE" != "--silent" ]; then
+        echo "==> ERROR: Unknown test option: $TEST_OUTPUT_MODE"
+        echo "==> Usage: $0 test [--silent]"
+        exit 1
+    fi
+
+    local BUILD_ROOT
+    BUILD_ROOT="$(_get_build_root)"
+
+    clean
+    echo "==> Building tests (debug)..."
+    make -C "$SCRIPT_DIR" BUILD="debug" BUILD_ROOT="$BUILD_ROOT" "$BUILD_ROOT/debug/tests/SQLiteManagerTests"
+
+    echo "==> Running tests..."
+    if [ "$TEST_OUTPUT_MODE" = "--silent" ]; then
+        "$BUILD_ROOT/debug/tests/SQLiteManagerTests"
+    else
+        "$BUILD_ROOT/debug/tests/SQLiteManagerTests" --success
+    fi
+}
+
+##############################################################################
+
 deploy() {
     echo "==> Starting deploy..."
     clean
@@ -228,6 +256,7 @@ case "${1:-}" in
     clean)   clean ;;
     debug)   build Debug ;;
     release) build Release ;;
+    test)    run_tests "${2:-}" ;;
     deploy)  deploy ;;
     start)   svc_start ;;
     stop)    svc_stop ;;
@@ -242,6 +271,8 @@ case "${1:-}" in
         echo "    clean          Remove build directory"
         echo "    debug          Debug build"
         echo "    release        Release build"
+        echo "    test           Clean + debug build + test (full verbosity)"
+        echo "    test --silent  Clean + debug build + test (failures only)"
         echo "    deploy         Clean + Release + strip + install + (re)start service"
         echo ""
         echo "  Service commands:"

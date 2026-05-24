@@ -6,6 +6,8 @@
 // Description: Implementation of a simple logging utility
 /////////////////////////////////////////////////////////
 
+#include "Logger.h"
+
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -15,8 +17,6 @@
 #include <cstdio>
 #include <mutex>
 #include <vector>
-
-#include "Logger.h"
 
 namespace fs = std::filesystem;
 
