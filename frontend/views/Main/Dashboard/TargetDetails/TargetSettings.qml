@@ -27,6 +27,8 @@ Popup {
 
     // Internals _____________________________________________
     property bool targetHiddenState: p_targetHidden
+    property string currentPrefixLocation: ""
+    property string currentExecutableLocation: ""
 
     width: Math.min(340, parent ? parent.width - 48 : 340)
     height: id_content.implicitHeight + topPadding + bottomPadding
@@ -42,6 +44,7 @@ Popup {
         id_deleteConfirmInput.text = ""
     }
 
+    onOpened: id_root.refreshTargetLocations()
     onP_targetHiddenChanged: targetHiddenState = p_targetHidden
 
     onDeleteConfirmVisibleChanged: {
@@ -68,6 +71,39 @@ Popup {
         if (ctxLymalink.SetTargetHidden(id_root.p_appId, hidden)) {
             id_root.targetHiddenState = hidden
             id_root.targetHiddenChanged(id_root.p_appId, hidden)
+        }
+    }
+
+    function refreshTargetLocations() {
+        id_root.currentPrefixLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetPrefixLocation(id_root.p_appId) : ""
+        id_root.currentExecutableLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetExecutableLocation(id_root.p_appId) : ""
+    }
+
+    function reloadBackendTargets() {
+        if (typeof ctxDBusService !== "undefined" && ctxDBusService !== null) {
+            ctxDBusService.ReloadAllTargets()
+        }
+    }
+
+    function setPrefixLocation(path) {
+        if (id_root.p_appId <= 0 || path.length === 0) {
+            return
+        }
+
+        if (ctxLymalink.SetTargetPrefixLocation(id_root.p_appId, path)) {
+            id_root.currentPrefixLocation = path
+            id_root.reloadBackendTargets()
+        }
+    }
+
+    function setExecutableLocation(path) {
+        if (id_root.p_appId <= 0 || path.length === 0) {
+            return
+        }
+
+        if (ctxLymalink.SetTargetExecutableLocation(id_root.p_appId, path)) {
+            id_root.currentExecutableLocation = path
+            id_root.reloadBackendTargets()
         }
     }
 
@@ -148,6 +184,43 @@ Popup {
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
+    ConfirmationPopup {
+        id: id_prefixLocationPopup
+
+        p_title: qsTr("Edit Prefix Location")
+        p_description: qsTr("Current path:\n%1").arg(id_root.currentPrefixLocation.length > 0
+            ? id_root.currentPrefixLocation
+            : qsTr("Not set"))
+        p_confirmText: qsTr("Apply")
+        p_popupWidth: 520
+        p_pathSelectionMode: true
+        p_pathSelectionFolder: true
+        p_pathDialogTitle: qsTr("Select Prefix Location (drive_c or equivalent)")
+        p_pathPlaceholderText: qsTr("Select Prefix Location (drive_c or equivalent)")
+        onConfirmed: function(path) {
+            id_root.setPrefixLocation(path)
+        }
+    }
+
+    ConfirmationPopup {
+        id: id_executableLocationPopup
+
+        p_title: qsTr("Edit Executable Location")
+        p_description: qsTr("Current path:\n%1").arg(id_root.currentExecutableLocation.length > 0
+            ? id_root.currentExecutableLocation
+            : qsTr("Not set"))
+        p_confirmText: qsTr("Apply")
+        p_popupWidth: 520
+        p_pathSelectionMode: true
+        p_pathSelectionFolder: false
+        p_pathDialogTitle: qsTr("Select Game Executable")
+        p_pathPlaceholderText: qsTr("Select Game Executable")
+        p_pathNameFilters: [qsTr("Executable files (*.exe)")]
+        onConfirmed: function(path) {
+            id_root.setExecutableLocation(path)
+        }
+    }
+
     background: Rectangle {
         radius: 8
         color: Themes.targetSettings.colors.background
@@ -191,6 +264,22 @@ Popup {
             }
         }
 
+        C_ActionButton {
+            id: id_editExecutableLocationButton
+
+            text: qsTr("Edit Executable Location")
+            tooltipText: qsTr("Select Game Executable")
+            onClicked: id_executableLocationPopup.open()
+        }
+
+        C_ActionButton {
+            id: id_editPrefixLocationButton
+
+            text: qsTr("Edit Prefix Location")
+            tooltipText: qsTr("Select Prefix Location (drive_c or equivalent)")
+            onClicked: id_prefixLocationPopup.open()
+        }
+        
         C_ActionButton {
             id: id_hideButton
 

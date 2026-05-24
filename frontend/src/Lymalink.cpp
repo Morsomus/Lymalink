@@ -221,6 +221,80 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden)
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
+{
+    const QString trimmedPrefixPath = prefixPath.trimmed();
+    if (appId <= 0 || trimmedPrefixPath.isEmpty())
+    {
+        qWarning() << "Lymalink: invalid target prefix location update:" << appId << trimmedPrefixPath;
+        return false;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        qCritical() << "Lymalink: failed to open database for target prefix location update:" << m_databaseManager.lastError();
+        return false;
+    }
+
+    const bool updated = m_databaseManager.update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        {
+            {"prefix_location", trimmedPrefixPath},
+            {"appid_dir_found", 0},
+            {"appid_dir_location", ""},
+            {"date_updated", QDateTime::currentSecsSinceEpoch()}
+        },
+        "id = ?",
+        {appId}
+    );
+
+    if (!updated)
+    {
+        qCritical() << "Lymalink: failed to update target prefix location:" << m_databaseManager.lastError();
+    }
+
+    return updated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executablePath)
+{
+    const QString trimmedExecutablePath = executablePath.trimmed();
+    if (appId <= 0 || trimmedExecutablePath.isEmpty())
+    {
+        qWarning() << "Lymalink: invalid target executable location update:" << appId << trimmedExecutablePath;
+        return false;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        qCritical() << "Lymalink: failed to open database for target executable location update:" << m_databaseManager.lastError();
+        return false;
+    }
+
+    const bool updated = m_databaseManager.update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        {
+            {"executable_location", trimmedExecutablePath},
+            {"date_updated", QDateTime::currentSecsSinceEpoch()}
+        },
+        "id = ?",
+        {appId}
+    );
+
+    if (!updated)
+    {
+        qCritical() << "Lymalink: failed to update target executable location:" << m_databaseManager.lastError();
+    }
+
+    return updated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp)
 {
     const QString trimmedKey = achievementKey.trimmed();
@@ -380,6 +454,32 @@ QString Lymalink::GetTargetTitle(int appId)
 
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     return Utils::MapStringValue(row, "game_name");
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::GetTargetPrefixLocation(int appId)
+{
+    if (appId <= 0)
+    {
+        return {};
+    }
+
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    return Utils::MapStringValue(row, "prefix_location");
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::GetTargetExecutableLocation(int appId)
+{
+    if (appId <= 0)
+    {
+        return {};
+    }
+
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    return Utils::MapStringValue(row, "executable_location");
 }
 
 /////////////////////////////////////////////////////////////////////

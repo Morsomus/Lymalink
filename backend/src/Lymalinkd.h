@@ -71,6 +71,7 @@ private:
     void  OnProcessStarted(int targetId, const std::string& executablePath);
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnRequestActiveTargets();
+    void  OnReloadAllTargets();
 
     std::vector<WatchTarget> LoadExeTargetsFromDatabase();
     std::unordered_map<int, std::string> LoadAppIdDirScanTargetsFromDatabase();

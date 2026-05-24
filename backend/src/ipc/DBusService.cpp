@@ -19,6 +19,7 @@ DBusService::DBusService()
     m_connection = nullptr;
     m_object = nullptr;
     onRequestActiveTargets = nullptr;
+    onReloadAllTargets = nullptr;
 }
 
 DBusService::~DBusService()
@@ -183,7 +184,10 @@ void DBusService::OnReloadTarget(int32_t targetId)
 void DBusService::OnReloadAllTargets()
 {
     Logger::Log("[DBusService][OnReloadAllTargets] ReloadAllTargets received.");
-    // TODO: Inform trigger full DB reload
+    if (onReloadAllTargets)
+    {
+        onReloadAllTargets();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////

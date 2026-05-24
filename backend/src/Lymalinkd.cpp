@@ -95,6 +95,7 @@ Error Lymalinkd::Init()
     }
 
     m_dbus.onRequestActiveTargets = [this]() { OnRequestActiveTargets(); };
+    m_dbus.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
 
 	err = m_dbus.Init();
     if (err != Error::NoError)
@@ -382,6 +383,21 @@ void Lymalinkd::OnRequestActiveTargets()
     if (!activeTargetIds.empty())
     {
         m_dbus.EmitGameStateChanged(activeTargetIds, "Active");
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnReloadAllTargets()
+{
+    Logger::Log("[Lymalinkd] Reloading all targets from database.");
+
+    m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
+
+    const std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    {
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
     }
 }
 

@@ -47,6 +47,7 @@ public:
 
     // Callbacks
     std::function<void()> onRequestActiveTargets;
+    std::function<void()> onReloadAllTargets;
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;
