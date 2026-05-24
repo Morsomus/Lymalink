@@ -91,23 +91,44 @@ Item {
             spacing: 10
 
             // Logo
-            Image {
-                visible: !hideLogo
-                Layout.fillWidth: true
-                Layout.preferredWidth: collapsed ? 64 : 220
-                Layout.preferredHeight: collapsed ? 64 : 220
-                source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00002_E.png"
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-            }
-
             Item {
-                visible: hideLogo
-                Layout.preferredHeight: 37
+                id: id_logoSlot
+
+                property real animatedHeight: id_root.hideLogo ? 37 : (id_root.collapsed ? 64 : 220)
+
+                Layout.fillWidth: true
+                Layout.preferredWidth: id_root.collapsed ? 64 : 220
+                Layout.preferredHeight: animatedHeight
+                clip: true
+
+                Behavior on animatedHeight {
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Image {
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width, id_root.collapsed ? 64 : 220)
+                    height: Math.min(parent.height, id_root.collapsed ? 64 : 220)
+                    opacity: id_root.hideLogo ? 0.0 : 1.0
+                    visible: !id_root.hideLogo || opacity > 0.0
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00002_E.png"
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 140
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                }
             }
 
             Rectangle {
-                visible: !hideLogo
+                visible: !id_root.hideLogo
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1
                 color: Themes.sidebar.colors.divider
