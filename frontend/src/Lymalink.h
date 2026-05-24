@@ -38,6 +38,7 @@ public:
     Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
     Q_INVOKABLE bool DeleteTarget(int appId);
+    Q_INVOKABLE QString GetTargetTitle(int appId);
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId);
 

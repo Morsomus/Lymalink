@@ -24,6 +24,7 @@
 DBusService::DBusService(QObject *parent) : QObject(parent)
 {
     m_pingTimer = nullptr;
+    m_activeTargetsRequestTimer = nullptr;
     m_serviceAvailable = false;
     m_pingInFlight = false;
     m_pingIntervalMs = 5000;
@@ -33,12 +34,19 @@ DBusService::DBusService(QObject *parent) : QObject(parent)
     m_serviceStarting = false;
     m_serviceEnabled = false;
     m_lastError = "";
+    m_activeTargetIds = {};
 
     m_pingTimer = new QTimer(this);
     m_pingTimer->setInterval(m_pingIntervalMs);
     connect(m_pingTimer, &QTimer::timeout, this, &DBusService::PingBackend);
     m_pingTimer->start();
 
+    m_activeTargetsRequestTimer = new QTimer(this);
+    m_activeTargetsRequestTimer->setInterval(m_systemdTimeoutMs + 1000);
+    m_activeTargetsRequestTimer->setSingleShot(true);
+    connect(m_activeTargetsRequestTimer, &QTimer::timeout, this, &DBusService::RequestActiveTargets);
+
+    ConnectDaemonSignals();
     PingBackend();
     if (!m_serviceActive)
     {
@@ -183,6 +191,46 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::OnGameStateChanged(const QList<int> &targetIds, const QString &state)
+{
+    bool changed = false;
+
+    for (const int targetId : targetIds)
+    {
+        if (targetId <= 0)
+        {
+            continue;
+        }
+
+        const QVariant targetValue = targetId;
+        const int existingIndex = m_activeTargetIds.indexOf(targetValue);
+
+        if (state == QStringLiteral("Active"))
+        {
+            if (existingIndex == -1)
+            {
+                m_activeTargetIds.append(targetValue);
+                changed = true;
+            }
+        }
+        else if (state == QStringLiteral("Inactive"))
+        {
+            if (existingIndex != -1)
+            {
+                m_activeTargetIds.removeAt(existingIndex);
+                changed = true;
+            }
+        }
+    }
+
+    if (changed)
+    {
+        emit signalActiveTargetIdsChanged();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -192,6 +240,62 @@ void DBusService::ResetPingTimer()
     {
         m_pingTimer->start();
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::ConnectDaemonSignals()
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected())
+    {
+        return;
+    }
+
+    const bool connected = sessionBus.connect(
+        QString::fromLatin1(DBUS_BUS_NAME),
+        QString::fromLatin1(DBUS_OBJECT_PATH),
+        QString::fromLatin1(DBUS_INTERFACE),
+        QStringLiteral("GameStateChanged"),
+        this,
+        SLOT(OnGameStateChanged(QList<int>,QString))
+    );
+
+    if (!connected)
+    {
+        SetLastError(QStringLiteral("Failed to subscribe to GameStateChanged signal"));
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::ScheduleActiveTargetsRequest()
+{
+    if (!m_activeTargetsRequestTimer || !m_serviceAvailable)
+    {
+        return;
+    }
+
+    m_activeTargetsRequestTimer->start();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::RequestActiveTargets()
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("RequestActiveTargets")
+    );
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -379,6 +483,15 @@ void DBusService::SetServiceAvailable(bool available)
     qDebug() << "SetServiceAvailable: lymalinkd dbus status:" << (available ? "available" : "not available");
 
     m_serviceAvailable = available;
+    if (!available && !m_activeTargetIds.empty())
+    {
+        m_activeTargetIds.clear();
+        emit signalActiveTargetIdsChanged();
+    }
+    if (available)
+    {
+        ScheduleActiveTargetsRequest();
+    }
     emit signalServiceAvailabilityChanged();
 }
 

@@ -22,7 +22,8 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <unordered_set>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 class Lymalinkd
@@ -42,6 +43,7 @@ private:
 
     std::mutex m_cvMutex;
     std::mutex m_activeTargetsMutex;
+    std::mutex m_targetIdsRequiringDirScanMutex;
     std::mutex m_databaseMutex;
 
     std::thread m_sleepTimerThread;
@@ -54,7 +56,8 @@ private:
     std::atomic_uint64_t m_sleepTimerGeneration;
     std::atomic_bool m_running;
 
-    std::unordered_set<int> m_activeTargets;
+    std::vector<std::pair<int, int>> m_activeTargetsIds; // id, notification (sent to frontend)
+    std::unordered_map<int, std::string> m_targetIdsRequiringDirScan;
     std::string m_databaseConnectionName;
     std::string m_databasePath;
     std::string m_databaseEmuGamesTable;
@@ -67,9 +70,12 @@ private:
     
     void  OnProcessStarted(int targetId, const std::string& executablePath);
     void  OnProcessStopped(int targetId, long secondsPlayed);
+    void  OnRequestActiveTargets();
 
     std::vector<WatchTarget> LoadExeTargetsFromDatabase();
-    std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPathsFromDatabase();
+    std::unordered_map<int, std::string> LoadAppIdDirScanTargetsFromDatabase();
+    bool HasCurrentActiveTargetsNeedingAppIdDirScan();
+    std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
     void  SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
     void  SavePlaytime(int targetId, long secondsPlayed);
     std::string ResolveDatabasePath() const;

@@ -10,12 +10,15 @@
 #include "DBusService.h"
 #include "../tools/Logger.h"
 
+#include <sstream>
+
 /////////////////////////////////////////////////////////////////////
 
 DBusService::DBusService()
 {
     m_connection = nullptr;
     m_object = nullptr;
+    onRequestActiveTargets = nullptr;
 }
 
 DBusService::~DBusService()
@@ -62,11 +65,17 @@ Error DBusService::Init()
                     OnReloadAllTargets();
                 }),
 
+            sdbus::registerMethod("RequestActiveTargets")
+                .implementedAs([this]()
+                {
+                    OnRequestActiveTargets();
+                }),
+
             sdbus::registerSignal("AchievementUnlocked")
                 .withParameters<int32_t, std::string>("targetId", "key"),
 
             sdbus::registerSignal("GameStateChanged")
-                .withParameters<int32_t, std::string>("targetId", "state")
+                .withParameters<std::vector<int32_t>, std::string>("targetIds", "state")
 
         ).forInterface(DBUS_INTERFACE);
 
@@ -120,14 +129,31 @@ void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& k
 
 void DBusService::EmitGameStateChanged(int32_t targetId, const std::string& state)
 {
+    EmitGameStateChanged(std::vector<int32_t>{targetId}, state);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::EmitGameStateChanged(const std::vector<int32_t>& targetIds, const std::string& state)
+{
     if (!m_object) return;
     try
     {
         m_object->emitSignal(sdbus::SignalName{"GameStateChanged"})
             .onInterface(DBUS_INTERFACE)
-            .withArguments(targetId, state);
+            .withArguments(targetIds, state);
 
-        Logger::Log("[DBusService][EmitGameStateChanged] GameStateChanged emitted: targetId=" + std::to_string(targetId) + " state=" + state);
+        std::ostringstream ids;
+        for (size_t i = 0; i < targetIds.size(); ++i)
+        {
+            if (i > 0)
+            {
+                ids << ",";
+            }
+            ids << targetIds[i];
+        }
+
+        Logger::Log("[DBusService][EmitGameStateChanged] GameStateChanged emitted: targetIds=[" + ids.str() + "] state=" + state);
     }
     catch (const sdbus::Error& e)
     {
@@ -158,4 +184,15 @@ void DBusService::OnReloadAllTargets()
 {
     Logger::Log("[DBusService][OnReloadAllTargets] ReloadAllTargets received.");
     // TODO: Inform trigger full DB reload
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::OnRequestActiveTargets()
+{
+    Logger::Log("[DBusService][OnRequestActiveTargets] RequestActiveTargets received.");
+    if (onRequestActiveTargets)
+    {
+        onRequestActiveTargets();
+    }
 }

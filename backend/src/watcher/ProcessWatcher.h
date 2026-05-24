@@ -33,13 +33,12 @@ public:
     ~ProcessWatcher();
 
     void SetTargets(const std::vector<WatchTarget>& targets);
+    void Start();
+    void Stop();
 
     // Callbacks
     std::function<void(int targetId, const std::string& executablePath)> onProcessStarted;
     std::function<void(int targetId, long secondsPlayed)> onProcessStopped;
-
-    void Start();
-    void Stop();
 
 private:
     struct TargetMeta {

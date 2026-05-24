@@ -14,6 +14,7 @@ import app.settings 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 Item {
     id: id_root
@@ -26,6 +27,14 @@ Item {
     property bool hideLogo: !ctxSettings.showLymalinkLogo
     property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
     property bool disableCollapseButton: !ctxSettings.showCollapseButton
+    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
+    readonly property var activeTargetIds: dbusServiceReady ? ctxDBusService.activeTargetIds : []
+    readonly property int currentPlayingCount: activeTargetIds.length
+    readonly property string currentPlayingTitle: currentPlayingCount > 0 ? targetTitle(activeTargetIds[0]) : ""
+    readonly property string currentPlayingSummary: currentPlayingTitle + (currentPlayingCount > 1 ? " (+" + (currentPlayingCount - 1) + ")" : "")
+    readonly property string currentPlayingTooltip: currentPlayingCount > 0
+        ? qsTr("Currently playing:") + "\n" + targetTitles().join("\n")
+        : qsTr("Currently playing:") + "\n" + qsTr("Nothing")
 
     onCollapsedChanged: {
         if (collapsed !== ctxSettings.sidebarCollapsed) {
@@ -46,6 +55,27 @@ Item {
             easing.type: Easing.OutCubic
         }
     }
+
+    function targetTitle(targetId) {
+        if (typeof ctxLymalink === "undefined" || ctxLymalink === null) {
+            return "#" + targetId
+        }
+
+        const title = ctxLymalink.GetTargetTitle(Number(targetId))
+        return title.length > 0 ? title : "#" + targetId
+    }
+
+    function targetTitles() {
+        const titles = []
+        for (let i = 0; i < activeTargetIds.length; ++i) {
+            titles.push(targetTitle(activeTargetIds[i]))
+        }
+        return titles
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     Rectangle {
         id: id_panel
@@ -110,6 +140,90 @@ Item {
 
             Item {
                 Layout.fillHeight: true
+            }
+
+            Rectangle {
+                id: id_currentlyPlaying
+
+                Layout.fillWidth: true
+                Layout.preferredHeight: id_root.collapsed ? 42 : 56
+                color: Themes.general.colors.background
+                border.color: Themes.general.colors.border
+                border.width: 1
+                radius: 8
+
+                MouseArea {
+                    id: id_currentlyPlayingMouseArea
+
+                    z: 2
+                    anchors.fill: parent
+                    hoverEnabled: true
+
+                    CustomTooltip {
+                        p_alwaysVisible: true
+                        active: (id_currentlyPlayingMouseArea.containsMouse && currentPlayingCount > 1) || (id_currentlyPlayingMouseArea.containsMouse && collapsed)
+                        delay: 300
+                        text: id_root.currentPlayingTooltip
+                    }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: id_root.collapsed ? 0 : 10
+                    spacing: id_root.collapsed ? 0 : 8
+
+                    Item {
+                        Layout.fillWidth: id_root.collapsed
+                        Layout.preferredWidth: 22
+                        Layout.preferredHeight: 22
+
+                        Image {
+                            id: id_currentlyPlayingIcon
+
+                            anchors.centerIn: parent
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00037_ED.png"
+                            width: 22
+                            height: 22
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+                            visible: false // MultiEffect draws image
+                        }
+
+                        MultiEffect {
+                            anchors.fill: id_currentlyPlayingIcon
+                            source: id_currentlyPlayingIcon
+                            colorizationColor: id_root.currentPlayingCount > 0
+                                ? Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                                : Themes.general.colors.bodyText
+                            colorization: 1.0
+                            opacity: id_root.currentPlayingCount > 0 ? 1.0 : 0.45
+                        }
+                    }
+
+                    ColumnLayout {
+                        visible: !id_root.collapsed
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("Currently playing")
+                            color: Themes.general.colors.bodyText
+                            font.pixelSize: Themes.general.fontSizes.body
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: id_root.currentPlayingCount > 0 ? id_root.currentPlayingSummary : qsTr("Nothing")
+                            color: id_root.currentPlayingCount > 0 ? Themes.general.colors.titleText : Themes.general.colors.bodyText
+                            font.pixelSize: Themes.general.fontSizes.title
+                            font.bold: id_root.currentPlayingCount > 0
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
             }
 
             BackendServiceElement {

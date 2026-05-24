@@ -15,6 +15,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
+#include <algorithm>
 #include <sys/signalfd.h>
 #include <unistd.h>
 
@@ -26,7 +27,8 @@ Lymalinkd::Lymalinkd()
     m_activeCount.store(0);
     m_sleepTimerGeneration.store(0);
     m_running.store(true);
-    m_activeTargets = {};
+    m_activeTargetsIds = {};
+    m_targetIdsRequiringDirScan = {};
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
     m_databaseEmuGamesTable = DATABASE_TABLE_EMU_GAMES;
@@ -85,6 +87,14 @@ Error Lymalinkd::Init()
     {
         return err;
     }
+
+    const std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    {
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
+    }
+
+    m_dbus.onRequestActiveTargets = [this]() { OnRequestActiveTargets(); };
 
 	err = m_dbus.Init();
     if (err != Error::NoError)
@@ -176,18 +186,28 @@ void Lymalinkd::Monitor()
             // Scan AppId dir for currently active executable (5 second interval)
             if (std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastScanTime).count() >= 5)
             {
-                Logger::Log("[Lymalinkd][Monitor] Scanning for AppId dir...");
-                std::vector<AppIdDirPathScanTarget> currentActivePrefixPaths = LoadCurrentActivePrefixPathsFromDatabase();
-                if (!currentActivePrefixPaths.empty())
+                if (HasCurrentActiveTargetsNeedingAppIdDirScan())
                 {
+                    const std::vector<AppIdDirPathScanTarget> currentActivePrefixPaths = LoadCurrentActivePrefixPaths();
                     m_pathScanner.SetTargets(currentActivePrefixPaths);
+
+                    if (!currentActivePrefixPaths.empty())
+                    {
+                        Logger::Log("[Lymalinkd][Monitor] Scanning for AppId dir...");
+
+                        const std::vector<AppIdDirPathScanResult> scanResults = m_pathScanner.ScanOnceForAppIdDir();
+                        if (!scanResults.empty())
+                        {
+                            SavePathScanResults(scanResults);
+
+                            if (!HasCurrentActiveTargetsNeedingAppIdDirScan())
+                            {
+                                m_pathScanner.SetTargets({});
+                            }
+                        }
+                    }
                 }
 
-                const std::vector<AppIdDirPathScanResult> scanResults = m_pathScanner.ScanOnceForAppIdDir();
-                if (!scanResults.empty())
-                {
-                    SavePathScanResults(scanResults);
-                }
                 lastScanTime = currentTime;
             }
 
@@ -286,8 +306,16 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     }
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
-        m_activeTargets.insert(targetId);
+        const auto it = std::find_if(m_activeTargetsIds.begin(), m_activeTargetsIds.end(), [targetId](const auto& activeTarget) {
+            return activeTarget.first == targetId;
+        });
+
+        if (it == m_activeTargetsIds.end())
+        {
+            m_activeTargetsIds.push_back({targetId, 0});
+        }
     }
+    m_dbus.EmitGameStateChanged(targetId, "Active");
     m_cv.notify_one();
 }
 
@@ -299,8 +327,12 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
     SavePlaytime(targetId, secondsPlayed);
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
-        m_activeTargets.erase(targetId);
+        const auto removeIt = std::remove_if(m_activeTargetsIds.begin(), m_activeTargetsIds.end(), [targetId](const auto& activeTarget) {
+            return activeTarget.first == targetId;
+        });
+        m_activeTargetsIds.erase(removeIt, m_activeTargetsIds.end());
     }
+    m_dbus.EmitGameStateChanged(targetId, "Inactive");
 
     if (m_activeCount.fetch_sub(1) - 1 <= 0)
     {
@@ -329,6 +361,27 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
                 }
             }
         });
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnRequestActiveTargets()
+{
+    std::vector<int32_t> activeTargetIds;
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        activeTargetIds.reserve(m_activeTargetsIds.size());
+        for (auto& activeTarget : m_activeTargetsIds)
+        {
+            activeTargetIds.push_back(activeTarget.first);
+            activeTarget.second = 1;
+        }
+    }
+
+    if (!activeTargetIds.empty())
+    {
+        m_dbus.EmitGameStateChanged(activeTargetIds, "Active");
     }
 }
 
@@ -365,15 +418,75 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
 
 /////////////////////////////////////////////////////////////////////
 
-std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPathsFromDatabase()
+// Load Targets which are missing AppId Dir paths
+std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatabase()
 {
-    std::unordered_set<int> activeTargets;
+    DbRows rows;
     {
-        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
-        activeTargets = m_activeTargets;
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        rows = m_database.SelectWhere(
+            m_databaseConnectionName,
+            m_databaseEmuGamesTable,
+            "appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
+            {},
+            {"id", "prefix_location"}
+        );
     }
 
+    std::unordered_map<int, std::string> targets;
+    targets.reserve(rows.size());
+    for (const auto& row : rows)
+    {
+        targets.emplace(
+            static_cast<int>(SQLiteManager::RowInt(row, "id")),
+            SQLiteManager::RowString(row, "prefix_location")
+        );
+    }
+
+    Logger::Log("[Lymalinkd] AppID dir scan targets loaded: " + std::to_string(targets.size()));
+    return targets;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Check if any active (currently played) target requires finding missing AppId path
+bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
+{
+    std::vector<std::pair<int, int>> ids;
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        ids = m_activeTargetsIds;
+    }
+
+    if (ids.empty())
+    {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+    for (const auto& activeTarget : ids)
+    {
+        if (m_targetIdsRequiringDirScan.contains(activeTarget.first))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Get vector of active (currently played) targets which are missing AppId path 
+std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
+{
     std::vector<AppIdDirPathScanTarget> targets = {};
+
+    std::vector<std::pair<int, int>> activeTargets;
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        activeTargets = m_activeTargetsIds;
+    } 
 
     if (activeTargets.empty())
     {
@@ -381,29 +494,17 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPathsFromD
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_databaseMutex);
-        const DbRows rows = m_database.SelectWhere(
-            m_databaseConnectionName,
-            m_databaseEmuGamesTable,
-            "appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
-            {},
-            {"id", "prefix_location"}
-        );
-
-        targets.reserve(rows.size());
-        for (const auto& row : rows)
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        targets.reserve(activeTargets.size());
+        for (const auto& activeTarget : activeTargets)
         {
-            const int targetId = static_cast<int>(SQLiteManager::RowInt(row, "id"));
-            if (!activeTargets.contains(targetId))
+            const int targetId = activeTarget.first;
+            const auto it = m_targetIdsRequiringDirScan.find(targetId);
+            if (it == m_targetIdsRequiringDirScan.end())
             {
                 continue;
             }
-
-            targets.push_back(AppIdDirPathScanTarget{
-                targetId,
-                std::to_string(targetId),
-                SQLiteManager::RowString(row, "prefix_location")
-            });
+            targets.push_back(AppIdDirPathScanTarget{targetId, std::to_string(targetId), it->second});
         }
     }
 
@@ -412,25 +513,41 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPathsFromD
 
 /////////////////////////////////////////////////////////////////////
 
+// Save AppId path, emulator type to DB for future use 
 void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results)
 {
-    std::lock_guard<std::mutex> lock(m_databaseMutex);
-    for (const auto& result : results)
+    std::vector<int> savedTargetIds;
+    savedTargetIds.reserve(results.size());
+
     {
-        DbRecord data{
-            {"appid_dir_found", int64_t{1}},
-            {"appid_dir_location", result.appidDirLocation},
-            {"emulator_type", result.emulatorType},
-            {"date_updated", Utils::NowEpoch()}
-        };
-
-        if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(result.targetId)}))
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        for (const auto& result : results)
         {
-            Logger::Log("[Lymalinkd] Failed to save APPID dir result: targetId=" + std::to_string(result.targetId) + " error=" + m_database.LastError());
-            continue;
-        }
+            DbRecord data{
+                {"appid_dir_found", int64_t{1}},
+                {"appid_dir_location", result.appidDirLocation},
+                {"emulator_type", result.emulatorType},
+                {"date_updated", Utils::NowEpoch()}
+            };
 
-        Logger::Log("[Lymalinkd] APPID dir saved: targetId=" + std::to_string(result.targetId) + " emulator=" + result.emulatorType);
+            if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(result.targetId)}))
+            {
+                Logger::Log("[Lymalinkd] Failed to save APPID dir result: targetId=" + std::to_string(result.targetId) + " error=" + m_database.LastError());
+                continue;
+            }
+
+            savedTargetIds.push_back(result.targetId);
+            Logger::Log("[Lymalinkd] APPID dir saved: targetId=" + std::to_string(result.targetId) + " emulator=" + result.emulatorType);
+        }
+    }
+
+    if (!savedTargetIds.empty())
+    {
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        for (const int targetId : savedTargetIds)
+        {
+            m_targetIdsRequiringDirScan.erase(targetId);
+        }
     }
 }
 

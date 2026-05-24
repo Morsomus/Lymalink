@@ -319,11 +319,6 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
     }
 
     // 3 - .exe filename + parent dir both appear  (Proton/UMU S:\ rewrite)
-    if (!m.dir.empty() && cmdline.find(m.exeFilename) != std::string::npos)
-    {
-        if (cmdline.find(m.dir) != std::string::npos) return 1;
-    }
-
     if (!m.dir.empty() && cmdline.find(m.exeFilename) != std::string::npos && cmdline.find(m.dir) != std::string::npos)
     {
         return 1;

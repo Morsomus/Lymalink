@@ -13,9 +13,10 @@
 //   Ping()
 //   ReloadTarget(int32)
 //   ReloadAllTargets()
+//   RequestActiveTargets()
 // Signals (backend -> frontend):
 //   AchievementUnlocked(int32 appid, string key)
-//   GameStateChanged(int32 appid, string state)
+//   GameStateChanged(array<int32> appids, string state)
 /////////////////////////////////////////////////////////
 
 #pragma once
@@ -24,9 +25,11 @@
 #include "Error.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <sdbus-c++/sdbus-c++.h>
 #include <string>
+#include <vector>
 
 class DBusService
 {
@@ -40,6 +43,10 @@ public:
     // Signals, called by backend internals to notify frontend
     void EmitAchievementUnlocked(int32_t appid, const std::string& key);
     void EmitGameStateChanged(int32_t appid, const std::string& state);
+    void EmitGameStateChanged(const std::vector<int32_t>& appids, const std::string& state);
+
+    // Callbacks
+    std::function<void()> onRequestActiveTargets;
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;
@@ -49,4 +56,5 @@ private:
     std::string OnPing();
     void OnReloadTarget(int32_t appid);
     void OnReloadAllTargets();
+    void OnRequestActiveTargets();
 };

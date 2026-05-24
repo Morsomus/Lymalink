@@ -371,6 +371,19 @@ bool Lymalink::DeleteTarget(int appId)
 
 /////////////////////////////////////////////////////////////////////
 
+QString Lymalink::GetTargetTitle(int appId)
+{
+    if (appId <= 0)
+    {
+        return {};
+    }
+
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    return Utils::MapStringValue(row, "game_name");
+}
+
+/////////////////////////////////////////////////////////////////////
+
 QVariantList Lymalink::FetchDashboardTargets()
 {
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))

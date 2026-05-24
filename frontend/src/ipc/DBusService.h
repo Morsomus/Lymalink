@@ -10,8 +10,10 @@
 
 #include "../Defines.h"
 
+#include <QList>
 #include <QObject>
 #include <QString>
+#include <QVariantList>
 
 class QDBusPendingCallWatcher;
 class QTimer;
@@ -24,6 +26,7 @@ class DBusService : public QObject
     Q_PROPERTY(bool serviceStarting READ GetServiceStarting NOTIFY signalServiceStatusChanged)
     Q_PROPERTY(bool serviceEnabled READ GetServiceEnabled NOTIFY signalServiceStatusChanged)
     Q_PROPERTY(QString lastError READ GetLastError NOTIFY signalLastErrorChanged)
+    Q_PROPERTY(QVariantList activeTargetIds READ GetActiveTargetIds NOTIFY signalActiveTargetIdsChanged)
 
 public:
     explicit DBusService(QObject *parent = nullptr);
@@ -43,17 +46,21 @@ public:
     inline bool GetServiceStarting() const { return m_serviceStarting; }
     inline bool GetServiceEnabled() const { return m_serviceEnabled; }
     inline QString GetLastError() const { return m_lastError; }
+    inline QVariantList GetActiveTargetIds() const { return m_activeTargetIds; }
 
 signals:
     void signalServiceAvailabilityChanged();
     void signalServiceStatusChanged();
     void signalLastErrorChanged();
+    void signalActiveTargetIdsChanged();
 
 private slots:
     void OnPingFinished(QDBusPendingCallWatcher *watcher);
+    void OnGameStateChanged(const QList<int> &targetIds, const QString &state);
 
 private:
     QTimer *m_pingTimer;
+    QTimer *m_activeTargetsRequestTimer;
     bool m_pingInFlight;
     uint16_t m_pingIntervalMs;
     uint16_t m_pingTimeoutMs;
@@ -63,8 +70,12 @@ private:
     bool m_serviceStarting;
     bool m_serviceEnabled;
     QString m_lastError;
+    QVariantList m_activeTargetIds;
 
     void ResetPingTimer();
+    void ConnectDaemonSignals();
+    void ScheduleActiveTargetsRequest();
+    void RequestActiveTargets();
     bool EnableService();
     bool DisableService();
     bool CallSystemdUnitMethod(const QString &method);
