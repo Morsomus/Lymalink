@@ -1,4 +1,3 @@
-
 /////////////////////////////////////////////////////////
 // File: CanberraSoundService.cpp
 // Date: 2026-05-25
@@ -12,12 +11,14 @@
 #include "tools/Logger.h"
 
 #include <filesystem>
+#include <utility>
 
 namespace fs = std::filesystem;
 
 /////////////////////////////////////////////////////////////////////
 
-CanberraSoundService::CanberraSoundService()
+CanberraSoundService::CanberraSoundService() :
+    m_soundPathMutex()
 {
     m_context = nullptr;
     m_soundPath = "";
@@ -34,20 +35,26 @@ CanberraSoundService::~CanberraSoundService()
 
 Error CanberraSoundService::Init(std::string defaultSoundPath)
 {
+    Error err = Error::NoError;
+
+    // Create libcanberra context before configuring playback properties
     if (ca_context_create(&m_context) != CA_SUCCESS)
     {
         Logger::Log("[CanberraSoundService][Init] Failed to create context.");
-        return Error::UnknownError;
+        err = Error::UnknownError;
+        return err;
     }
 
+    // Set application name shown by audio backends
     ca_context_change_props(m_context,
         CA_PROP_APPLICATION_NAME, "Lymalink",
         nullptr
     );
 
+    // Store default notification sound path from daemon configuration
     m_soundPath = std::move(defaultSoundPath);
     Logger::Log("[CanberraSoundService][Init] Ready.");
-    return Error::NoError;
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -74,9 +81,11 @@ void CanberraSoundService::SetSoundPath(std::string soundPath)
 
 bool CanberraSoundService::PlayNotificationSound()
 {
+    bool soundPlayed = false;
+
     if (!m_context)
     {
-        return false;
+        return soundPlayed;
     }
 
     std::string soundPath;
@@ -88,9 +97,10 @@ bool CanberraSoundService::PlayNotificationSound()
     if (soundPath.empty() || !fs::exists(soundPath))
     {
         Logger::Log("[CanberraSoundService][PlayNotificationSound] Sound file not found: " + soundPath);
-        return false;
+        return soundPlayed;
     }
 
+    // Submit one notification sound playback request
     const int result = ca_context_play(m_context, 0,
         CA_PROP_MEDIA_FILENAME, soundPath.c_str(),
         CA_PROP_MEDIA_ROLE, "notification",
@@ -100,9 +110,10 @@ bool CanberraSoundService::PlayNotificationSound()
     if (result != CA_SUCCESS)
     {
         Logger::Log("[CanberraSoundService][PlayNotificationSound] Playback failed: " + std::string(ca_strerror(result)));
-        return false;
+        return soundPlayed;
     }
 
     Logger::Log("[CanberraSoundService][PlayNotificationSound] Playing: " + soundPath);
-    return true;
+    soundPlayed = true;
+    return soundPlayed;
 }

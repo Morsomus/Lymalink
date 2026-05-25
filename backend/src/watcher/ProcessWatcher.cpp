@@ -24,7 +24,9 @@ namespace fs = std::filesystem;
 
 /////////////////////////////////////////////////////////////////////
 
-ProcessWatcher::ProcessWatcher()
+ProcessWatcher::ProcessWatcher() :
+    m_thread(),
+    m_mutex()
 {
     m_targets = {};
     m_meta = {};
@@ -32,6 +34,8 @@ ProcessWatcher::ProcessWatcher()
     m_activeIds = {};
     m_running.store(false);
     m_pollIntervalSec = 5;
+    onProcessStarted = nullptr;
+    onProcessStopped = nullptr;
 }
 
 ProcessWatcher::~ProcessWatcher()
@@ -48,6 +52,7 @@ ProcessWatcher::~ProcessWatcher()
 
 void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
 {
+    // Serialize target replacement against /proc scan loop
     std::lock_guard<std::mutex> lock(m_mutex);
 
     // Build set of incoming target IDs for fast lookup
@@ -57,8 +62,7 @@ void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
         newIds.insert(t.targetId);
     }
 
-    // Fire onProcessStopped for active processes that are no longer in the new list, then remove them.
-    // Processes that ARE in the new list are kept as-is so that a SetTargets call from inside onProcessStarted doesn't wipe the just-added entry.
+    // Stop active sessions that no longer exist in incoming target list
     for (auto it = m_active.begin(); it != m_active.end(); )
     {
         if (!newIds.count(it->targetId))
@@ -80,7 +84,7 @@ void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
 
     m_targets = targets;
 
-    // Rebuild cached meta
+    // Rebuild executable metadata cache used by process matching
     m_meta.clear();
     m_meta.reserve(m_targets.size());
     for (const auto& t : m_targets)
@@ -100,6 +104,7 @@ void ProcessWatcher::Start()
         return;
     }
 
+    // Launch polling thread
     m_running.store(true);
     m_thread = std::thread(&ProcessWatcher::PollLoop, this);
     Logger::Log("[ProcessWatcher] Started.");
@@ -123,6 +128,7 @@ void ProcessWatcher::Stop()
 
 void ProcessWatcher::PollLoop()
 {
+    // Keep scanning /proc until daemon shutdown
     while (m_running.load())
     {
         ScanProc();
@@ -142,6 +148,7 @@ void ProcessWatcher::ScanProc()
     std::unordered_map<std::string, pid_t> running;
     running.reserve(32);
 
+    // Scan numeric /proc entries and collect running target executables
     for (const auto& entry : fs::directory_iterator("/proc"))
     {
         const std::string name = entry.path().filename().string();
@@ -162,13 +169,14 @@ void ProcessWatcher::ScanProc()
             const auto& m = m_meta[i];
             if (running.count(m.exePath))
             {
-                continue; // already found
+                continue;
             }
 
             if (MatchCmdline(cmdline, m, name))
             {
+                // Store first matching pid for this executable path
                 running.emplace(m.exePath, pid);
-                break; // this /proc entry matched one target - move to next entry
+                break;
             }
         }
 
@@ -191,7 +199,8 @@ void ProcessWatcher::ScanProc()
         const auto it = running.find(target.executablePath);
         if (it != running.end())
         {
-            ActiveProcess ap;
+            // Create active session state for playtime tracking
+            ActiveProcess ap = {};
             ap.targetId = target.targetId;
             ap.executablePath = target.executablePath;
             ap.pid = it->second;
@@ -213,6 +222,7 @@ void ProcessWatcher::ScanProc()
         const bool stillRunning = running.count(it->executablePath) > 0;
         if (!stillRunning)
         {
+            // Emit stop callback with elapsed session time
             const long secs = static_cast<long>(time(nullptr) - it->sessionStart);
             Logger::Log("[ProcessWatcher] Process stopped - targetId=" + std::to_string(it->targetId) + " playtime=" + std::to_string(secs) + "s");
             if (onProcessStopped)
@@ -235,10 +245,13 @@ void ProcessWatcher::ScanProc()
 
 ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
 {
-    TargetMeta m;
+    TargetMeta m = {};
+
+    // Cache original executable path and filename for exact matches
     m.exePath = exePath;
     m.exeFilename = ExtractFilename(exePath);
 
+    // Build Wine Z: path variant from Linux absolute path
     m.zPath  = "Z:";
     for (char c : exePath)
     {
@@ -248,6 +261,7 @@ ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
     m.zPathLower    = m.zPath;
     m.zPathLower[0] = 'z';
 
+    // Cache parent directory for weaker Proton/relative launch matches
     const auto dirEnd = exePath.rfind('/');
     if (dirEnd != std::string::npos)
     {
@@ -261,6 +275,8 @@ ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
 
 std::string ProcessWatcher::ExtractFilename(const std::string& path)
 {
+    std::string filename = "";
+
     // Extract filename from a path (works for both Linux "/" and Wine "\" paths)
     auto pos = path.rfind('/');
     if (pos == std::string::npos)
@@ -270,58 +286,71 @@ std::string ProcessWatcher::ExtractFilename(const std::string& path)
 
     if (pos == std::string::npos)
     {
-        return path;
+        filename = path;
+        return filename;
     }
 
-    return path.substr(pos + 1);
+    filename = path.substr(pos + 1);
+    return filename;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string ProcessWatcher::ReadCmdline(const std::string& pid)
 {
+    std::string cmdline = "";
+
     // Read /proc/<pid>/cmdline; null-byte separators replaced with spaces
     std::ifstream f("/proc/" + pid + "/cmdline", std::ios::binary);
     if (!f)
     {
-        return {};
+        return cmdline;
     }
 
     std::string raw((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     for (auto& c : raw)
     {
-        if (c == '\0') c = ' ';
+        if (c == '\0')
+        {
+            c = ' ';
+        }
     }
 
-    return raw;
+    cmdline = raw;
+    return cmdline;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta& m, const std::string& pid)
 {
+    pid_t matched = 0;
+
     // Reject meta-processes
     if (cmdline.find("grep ") != std::string::npos || cmdline.find("find ") != std::string::npos)
     {
-        return 0;
+        return matched;
     }
 
     // 1 - Full Linux path verbatim
     if (cmdline.find(m.exePath) != std::string::npos)
     {
-        return 1;
+        matched = 1;
+        return matched;
     }
 
     // 2 - Z:-converted path (native Wine maps Linux root as Z:\)
     if (cmdline.find(m.zPath) != std::string::npos || cmdline.find(m.zPathLower) != std::string::npos)
     {
-        return 1;
+        matched = 1;
+        return matched;
     }
 
     // 3 - .exe filename + parent dir both appear  (Proton/UMU S:\ rewrite)
     if (!m.dir.empty() && cmdline.find(m.exeFilename) != std::string::npos && cmdline.find(m.dir) != std::string::npos)
     {
-        return 1;
+        matched = 1;
+        return matched;
     }  
 
     // 4 - .exe filename only; verify via /proc/<pid>/cwd  (Wine relative path launch)
@@ -332,9 +361,10 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
         const ssize_t len = readlink(link.c_str(), cwdBuf, sizeof(cwdBuf) - 1);
         if (len > 0 && m.dir == std::string(cwdBuf, len))
         {
-            return 1;
+            matched = 1;
+            return matched;
         }
     }
 
-    return 0;
+    return matched;
 }

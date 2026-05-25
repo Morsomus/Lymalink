@@ -28,9 +28,9 @@ Popup {
     property string p_pathDialogTitle: qsTr("Select Location")
     property string p_pathPlaceholderText: qsTr("Select path")
     property var p_pathNameFilters: []
+    property bool p_confirmDanger: false
 
     // Internals _____________________________________________
-    property bool confirmDanger: false
     readonly property bool verificationValid: !p_verificationMode || (id_verificationInput.text.length >= 6
         && id_verificationInput.text === id_verificationConfirmInput.text)
     readonly property bool pathSelectionValid: !p_pathSelectionMode || id_pathInput.text.length > 0
@@ -321,7 +321,7 @@ Popup {
                 id: id_confirmButton
 
                 text: id_root.p_confirmText
-                danger: id_root.confirmDanger
+                danger: id_root.p_confirmDanger
                 enabled: id_root.canConfirm
                 opacity: enabled ? 1.0 : 0.45
                 onClicked: id_root.confirm()

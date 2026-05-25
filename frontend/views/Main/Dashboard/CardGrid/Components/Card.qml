@@ -98,9 +98,9 @@ Rectangle {
             CustomBusyIndicator {
                 anchors.centerIn: parent
                 z: 2
-                visible: running
-                indicatorSize: 64
-                running: id_coverImage.status === Image.Loading || id_root.p_isLoading
+                visible: p_running
+                p_indicatorSize: 64
+                p_running: id_coverImage.status === Image.Loading || id_root.p_isLoading
             }
 
             Column {
@@ -113,7 +113,7 @@ Rectangle {
 
                     property bool errorActive: id_coverImage.status === Image.Error
                     
-                    size: 128
+                    p_size: 128
                     visible: id_coverImage.status === Image.Error
                 }
             }
@@ -518,9 +518,9 @@ Rectangle {
             opacity: Themes.card.opacity.statusIcon
 
             CustomTooltip {
-                active: id_installStatusBadgeHoverHandler.hovered
-                delay: 300
-                text: qsTr("Installation not found")
+                p_active: id_installStatusBadgeHoverHandler.hovered
+                p_delay: 300
+                p_text: qsTr("Installation not found")
             }
         }
 

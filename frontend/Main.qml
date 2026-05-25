@@ -21,7 +21,7 @@ ApplicationWindow {
     width: ctxSettings.windowSizeX
     height: ctxSettings.windowSizeY
     title: qsTr("Lymalink")
-    minimumWidth: id_sidebar.currentPage === 0 ? id_dashboard.requiredWindowMinimumWidth : defaultMinimumWidth
+    minimumWidth: id_sidebar.p_currentPage === 0 ? id_dashboard.requiredWindowMinimumWidth : defaultMinimumWidth
     minimumHeight: 700
 
     onMinimumWidthChanged: {
@@ -100,7 +100,7 @@ ApplicationWindow {
             StackLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 18
-                currentIndex: id_sidebar.currentPage
+                currentIndex: id_sidebar.p_currentPage
 
                 Dashboard {
                     id: id_dashboard

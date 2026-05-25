@@ -15,9 +15,11 @@ import QtQuick.Layouts
 Popup {
     id: id_root
 
+    // Public ________________________________________________
+    property string p_title: qsTr("Error")
+    property string p_message: ""
+
     // Internals _____________________________________________
-    property string title: qsTr("Error")
-    property string message: ""
     readonly property int edgeMargin: 24
     readonly property int maxPopupWidth: 420
     readonly property int overlayZ: 2000
@@ -34,8 +36,8 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     function showError(errorTitle, errorMessage) {
-        title = errorTitle || qsTr("Error")
-        message = errorMessage || qsTr("An error occurred.")
+        p_title = errorTitle || qsTr("Error")
+        p_message = errorMessage || qsTr("An error occurred.")
         open()
         // id_autoCloseTimer.restart()
     }
@@ -46,6 +48,10 @@ Popup {
     //     repeat: false
     //     onTriggered: id_root.close()
     // }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     background: Rectangle {
         radius: 8
@@ -65,7 +71,7 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
-                text: id_root.title
+                text: id_root.p_title
                 color: Themes.errorPopup.colors.titleText
                 font.pixelSize: Themes.errorPopup.fontSizes.title
                 font.bold: true
@@ -80,7 +86,7 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: id_root.message
+            text: id_root.p_message
             color: Themes.errorPopup.colors.bodyText
             font.pixelSize: Themes.errorPopup.fontSizes.body
             wrapMode: Text.WordWrap

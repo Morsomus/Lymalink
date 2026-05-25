@@ -37,42 +37,49 @@ Encryption::~Encryption()
 
 QString Encryption::Encrypt(const QString &value, const QString &key) const
 {
+    QString encryptedValue = "";
+
     if (value.isEmpty() || key.isEmpty())
     {
-        return QString();
+        return encryptedValue;
     }
 
+    // Generate unique salt for key derivation per encrypted payload
     QByteArray saltData(PBKDF2_SALT_LEN, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char *>(saltData.data()), PBKDF2_SALT_LEN) != 1)
     {
         qDebug() << "Salt generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
-        return QString();
+        return encryptedValue;
     }
 
+    // Derive AES key from caller key and payload salt
     QByteArray keyData = DeriveKey(key, saltData);
     if (keyData.isEmpty())
     {
-        return QString();
+        return encryptedValue;
     }
 
+    // Generate random GCM IV for nonce uniqueness
     QByteArray ivData(GCM_IV_LEN, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char *>(ivData.data()), GCM_IV_LEN) != 1)
     {
         qDebug() << "IV generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
     QByteArray inputData = value.toUtf8();
 
+    // Allocate OpenSSL context for AES-256-GCM operation
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
         qDebug() << "OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
+    // Bind derived key and IV to encryption context
     if (EVP_EncryptInit_ex(
             ctx,
             EVP_aes_256_gcm(),
@@ -84,12 +91,13 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
         qDebug() << "Encryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
     QByteArray outputData(inputData.size(), 0);
     int outputLength = 0;
 
+    // Encrypt plaintext bytes into ciphertext buffer
     if (EVP_EncryptUpdate(
             ctx,
             reinterpret_cast<unsigned char *>(outputData.data()),
@@ -101,10 +109,11 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
         qDebug() << "Encryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
     int finalLength = 0;
+    // Finalize encryption before extracting auth tag
     if (EVP_EncryptFinal_ex(
             ctx,
             reinterpret_cast<unsigned char *>(outputData.data() + outputLength),
@@ -114,10 +123,11 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
         qDebug() << "Encryption finalization failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
     QByteArray tagData(GCM_TAG_LEN, 0);
+    // Store GCM authentication tag with payload for tamper detection
     if (EVP_CIPHER_CTX_ctrl(
             ctx,
             EVP_CTRL_GCM_GET_TAG,
@@ -128,7 +138,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
         qDebug() << "Tag retrieval failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return encryptedValue;
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -137,59 +147,69 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
     outputData.resize(outputLength + finalLength);
 
     QByteArray result;
+    // Payload layout: version + salt + iv + ciphertext + tag
     result.append(static_cast<char>(ENCRYPTION_PAYLOAD_VERSION));
     result.append(saltData);
     result.append(ivData);
     result.append(outputData);
     result.append(tagData);
 
-    return QString::fromLatin1(result.toBase64());
+    encryptedValue = QString::fromLatin1(result.toBase64());
+    return encryptedValue;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Encryption::Decrypt(const QString &value, const QString &key) const
 {
+    QString decryptedValue = "";
+
     if (value.isEmpty() || key.isEmpty())
     {
-        return QString();
+        return decryptedValue;
     }
 
+    // Decode payload built by Encrypt()
     QByteArray combined = QByteArray::fromBase64(value.toLatin1());
 
     const int headerLength = 1 + PBKDF2_SALT_LEN + GCM_IV_LEN;
     if (combined.size() <= headerLength + GCM_TAG_LEN)
     {
         qDebug() << "Invalid encrypted data: too short";
-        return QString();
+        return decryptedValue;
     }
 
+    // Reject unknown payload versions before parsing fields
     const int payloadVersion = static_cast<unsigned char>(combined.at(0));
     if (payloadVersion != ENCRYPTION_PAYLOAD_VERSION)
     {
         qDebug() << "Unsupported encrypted data version:" << payloadVersion;
-        return QString();
+        return decryptedValue;
     }
 
+    // Split payload fields for AES-GCM decrypt and tag verification
     QByteArray saltData       = combined.mid(1, PBKDF2_SALT_LEN);
     QByteArray ivData         = combined.mid(1 + PBKDF2_SALT_LEN, GCM_IV_LEN);
     QByteArray tagData        = combined.right(GCM_TAG_LEN);
     QByteArray encryptedData  = combined.mid(headerLength, combined.size() - headerLength - GCM_TAG_LEN);
 
+    // Recreate AES key from caller key and stored salt
     QByteArray keyData = DeriveKey(key, saltData);
     if (keyData.isEmpty())
     {
-        return QString();
+        return decryptedValue;
     }
 
+    // Allocate OpenSSL context for AES-256-GCM operation
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
         qDebug() << "OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return decryptedValue;
     }
 
+    // Bind derived key and stored IV to decryption context
     if (EVP_DecryptInit_ex(
             ctx,
             EVP_aes_256_gcm(),
@@ -201,9 +221,10 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
         qDebug() << "Decryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return decryptedValue;
     }
 
+    // Provide stored GCM tag before finalization validates ciphertext
     if (EVP_CIPHER_CTX_ctrl(
             ctx,
             EVP_CTRL_GCM_SET_TAG,
@@ -214,12 +235,13 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
         qDebug() << "Tag set failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return decryptedValue;
     }
 
     QByteArray outputData(encryptedData.size(), 0);
     int outputLength = 0;
 
+    // Decrypt ciphertext bytes into plaintext buffer
     if (EVP_DecryptUpdate(
             ctx,
             reinterpret_cast<unsigned char *>(outputData.data()),
@@ -231,10 +253,11 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
         qDebug() << "Decryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return decryptedValue;
     }
 
     int finalLength = 0;
+    // Finalization fails when auth tag does not match
     if (EVP_DecryptFinal_ex(
             ctx,
             reinterpret_cast<unsigned char *>(outputData.data() + outputLength),
@@ -244,7 +267,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
         qDebug() << "Decryption finalization failed (auth tag mismatch?):" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
-        return QString();
+        return decryptedValue;
     }
 
     EVP_CIPHER_CTX_free(ctx);
@@ -252,7 +275,8 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
 
     outputData.resize(outputLength + finalLength);
 
-    return QString::fromUtf8(outputData);
+    decryptedValue = QString::fromUtf8(outputData);
+    return decryptedValue;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -264,6 +288,7 @@ QByteArray Encryption::DeriveKey(const QString &key, const QByteArray &saltData)
     QByteArray derivedKey(32, 0);
     QByteArray passwordData = key.toUtf8();
 
+    // PBKDF2 hardens caller key before AES-256-GCM use
     const int result = PKCS5_PBKDF2_HMAC(
             passwordData.constData(),
             passwordData.size(),
@@ -279,7 +304,8 @@ QByteArray Encryption::DeriveKey(const QString &key, const QByteArray &saltData)
     if (result != 1)
     {
         qDebug() << "PBKDF2 key derivation failed:" << ERR_error_string(ERR_get_error(), nullptr);
-        return QByteArray();
+        derivedKey = {};
+        return derivedKey;
     }
 
     return derivedKey;

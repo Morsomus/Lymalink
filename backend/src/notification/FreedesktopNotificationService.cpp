@@ -33,9 +33,14 @@ FreedesktopNotificationService::~FreedesktopNotificationService()
 
 Error FreedesktopNotificationService::Init()
 {
+    Error err = Error::NoError;
+
     try
     {
+        // Connect to session bus used by desktop notification service
         m_connection = sdbus::createSessionBusConnection();
+
+        // Create proxy for org.freedesktop.Notifications service
         m_notificationsProxy = sdbus::createProxy(
             *m_connection,
             sdbus::ServiceName{"org.freedesktop.Notifications"},
@@ -47,11 +52,12 @@ Error FreedesktopNotificationService::Init()
         Logger::Log("[FreedesktopNotificationService][Init] Init failed: " + std::string(e.what()));
         m_notificationsProxy.reset();
         m_connection.reset();
-        return Error::UnknownError;
+        err = Error::UnknownError;
+        return err;
     }
 
     Logger::Log("[FreedesktopNotificationService][Init] Ready.");
-    return Error::NoError;
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -66,15 +72,19 @@ void FreedesktopNotificationService::Stop()
 
 bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotification& notification)
 {
+    bool notificationSent = false;
+
     if (!m_notificationsProxy)
     {
-        return false;
+        return notificationSent;
     }
 
+    // Build user-visible notification fields with fallbacks
     const std::string summary = notification.achievementName.empty() ? "Achievement unlocked" : notification.achievementName;
     const std::string body = notification.achievementDescription.empty() ? notification.gameName : notification.achievementDescription;
     const std::string appIcon = notification.appIconPath.empty() ? "lymalink" : notification.appIconPath;
 
+    // Pass desktop-entry and optional image as freedesktop notification hints
     std::map<std::string, sdbus::Variant> hints;
     hints.emplace("desktop-entry", sdbus::Variant{std::string{"lymalink"}});
     if (!notification.iconPath.empty())
@@ -88,6 +98,7 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
 
     try
     {
+        // Send Notify method call to desktop notification daemon
         m_notificationsProxy->callMethod(sdbus::MethodName{"Notify"})
             .onInterface(sdbus::InterfaceName{"org.freedesktop.Notifications"})
             .withArguments(
@@ -103,11 +114,12 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
             .storeResultsTo(notificationId);
 
         Logger::Log("[FreedesktopNotificationService][ShowAchievementToast] Notification sent: targetId=" + std::to_string(notification.targetId) + " key=" + notification.achievementKey);
-        return true;
+        notificationSent = true;
+        return notificationSent;
     }
     catch (const sdbus::Error& e)
     {
         Logger::Log("[FreedesktopNotificationService][ShowAchievementToast] Notify failed: " + std::string(e.what()));
-        return false;
+        return notificationSent;
     }
 }

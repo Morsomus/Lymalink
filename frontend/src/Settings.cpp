@@ -21,6 +21,7 @@
 Settings::Settings(QObject *parent) : QObject(parent),
     m_settings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION)
 {
+    m_tempEncryptionKey = "";
     m_windowSizeXDefault = 1320;
     m_windowSizeYDefault = 900;
     SetDefaults();
@@ -42,6 +43,31 @@ Settings::~Settings()
 
 /////////////////////////////////////////////////////////////////////
 ////////////////////////////// PUBLIC ///////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
+{
+    // Window size tracking
+    const QList<QObject*> rootObjects = engine->rootObjects();
+    if (!rootObjects.isEmpty()) {
+        QWindow *window = qobject_cast<QWindow *>(rootObjects.first());
+
+        if (window != nullptr) {
+            QTimer *resizeTimer = new QTimer(window);
+            resizeTimer->setSingleShot(true);
+            resizeTimer->setInterval(1000);
+
+            QObject::connect(window, &QWindow::widthChanged, resizeTimer, qOverload<>(&QTimer::start));
+            QObject::connect(window, &QWindow::heightChanged, resizeTimer, qOverload<>(&QTimer::start));
+            QObject::connect(resizeTimer, &QTimer::timeout, window, [this, window]() {
+                qDebug() << "Window Size:" << window->width() << window->height();
+                SaveValue(WindowSizeX, window->width(), false);
+                SaveValue(WindowSizeY, window->height());
+            });
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////
 
 void Settings::SetTempEncryptionKey(const QString &encryptionKey)
@@ -434,31 +460,6 @@ QStringList Settings::GetNotificationSounds() const
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     QDir soundDir(dataRoot + "/Lymalink/sounds");
     return soundDir.entryList(QStringList{"*.ogg"}, QDir::Files | QDir::Readable, QDir::Name);
-}
-
-/////////////////////////////////////////////////////////////////////
-
-void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
-{
-    // Window size tracking
-    const QList<QObject*> rootObjects = engine->rootObjects();
-    if (!rootObjects.isEmpty()) {
-        QWindow *window = qobject_cast<QWindow *>(rootObjects.first());
-
-        if (window != nullptr) {
-            QTimer *resizeTimer = new QTimer(window);
-            resizeTimer->setSingleShot(true);
-            resizeTimer->setInterval(1000);
-
-            QObject::connect(window, &QWindow::widthChanged, resizeTimer, qOverload<>(&QTimer::start));
-            QObject::connect(window, &QWindow::heightChanged, resizeTimer, qOverload<>(&QTimer::start));
-            QObject::connect(resizeTimer, &QTimer::timeout, window, [this, window]() {
-                qDebug() << "Window Size:" << window->width() << window->height();
-                SaveValue(WindowSizeX, window->width(), false);
-                SaveValue(WindowSizeY, window->height());
-            });
-        }
-    }
 }
 
 /////////////////////////////////////////////////////////////////////

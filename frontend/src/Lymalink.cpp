@@ -24,6 +24,8 @@ Lymalink::Lymalink(QObject *parent) : QObject(parent)
 {
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
+    m_steamApiSearchWorker = nullptr;
+    m_steamApiHydrationWorker = nullptr;
 }
 
 Lymalink::~Lymalink()
@@ -41,13 +43,17 @@ Lymalink::~Lymalink()
 
 Error Lymalink::Initialize()
 {
+    Error initResult = Error::NoError;
+
+    // Initialize required folders before database and worker setup
     const Error fileSystemError = FileSystemInit();
     if (fileSystemError != Error::NoError)
     {
-        return fileSystemError;
+        initResult = fileSystemError;
+        return initResult;
     }
 
-    // SteamApiSearchWorker
+    // Run Steam search API work on dedicated worker thread
     m_steamApiSearchWorker = new SteamApiSearchWorker();
     m_steamApiSearchWorker->moveToThread(&m_searchWorkerThread);
     connect(&m_searchWorkerThread, &QThread::started,  m_steamApiSearchWorker, &SteamApiSearchWorker::Init);
@@ -57,7 +63,7 @@ Error Lymalink::Initialize()
     connect(m_steamApiSearchWorker, &SteamApiSearchWorker::signalSearchAppIdsFinished, this, &Lymalink::signalSteamAppIdsSearchReady);
     m_searchWorkerThread.start();
 
-    // SteamApiHydrationWorker
+    // Run asset and achievement hydration on dedicated worker thread
     m_steamApiHydrationWorker = new SteamApiHydrationWorker();
     m_steamApiHydrationWorker->moveToThread(&m_hydrationWorkerThread);
     connect(&m_hydrationWorkerThread, &QThread::started,  m_steamApiHydrationWorker, &SteamApiHydrationWorker::Init);
@@ -75,7 +81,8 @@ Error Lymalink::Initialize()
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::ApplyNewAchievements);
     m_hydrationWorkerThread.start();
 
-    return DatabaseInit();
+    initResult = DatabaseInit();
+    return initResult;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -110,6 +117,9 @@ void Lymalink::CancelSteamHydration()
 
 bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath)
 {
+    bool targetCreated = false;
+
+    // Normalize user-provided paths before validation/database write
     gameName = gameName.trimmed();
     exePath = exePath.trimmed();
     prefixPath = prefixPath.trimmed();
@@ -117,56 +127,56 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
     {
         qWarning() << "Lymalink: invalid emulator target data";
-        return false;
+        return targetCreated;
     }
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
         qCritical() << "Lymalink: failed to resolve app data location for emulator target";
-        return false;
+        return targetCreated;
     }
 
+    // Open database lazily for QML calls made after startup
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for emulator target:" << m_databaseManager.lastError();
-        return false;
+        return targetCreated;
     }
 
     const QString appIdText = QString::number(appId);
     QDir emulatorDir(QDir(appDataPath).filePath("Emulator"));
     const QString targetPath = emulatorDir.filePath(appIdText);
 
-    // Check filesystem first
+    // Check filesystem first so target folder conflict blocks creation
     if (QFileInfo::exists(targetPath))
     {
         qWarning() << "Lymalink: emulator target already exists on disk:" << targetPath;
-        return false;
+        return targetCreated;
     }
 
-    // Check database entry
+    // Check database entry to avoid duplicate target rows
     const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (existingGameRows < 0)
     {
         qCritical() << "Lymalink: failed to check emulator target database row:" << m_databaseManager.lastError();
-        return false;
+        return targetCreated;
     }
 
-    // If database entry exists, block creation and return early
     if (existingGameRows > 0)
     {
         qWarning() << "Lymalink: emulator target already exists in database, skipping creation:" << appId;
-        return false;
+        return targetCreated;
     }
 
-    // Create directory structure
+    // Create per-target asset folders before database insert
     if (!emulatorDir.mkpath(appIdText) || !emulatorDir.mkpath(appIdText + "/icons") || !emulatorDir.mkpath(appIdText + "/covers"))
     {
         qCritical() << "Lymalink: failed to create emulator target folders:" << targetPath;
-        return false;
+        return targetCreated;
     }
 
-    // Insert into database
+    // Insert target metadata after filesystem is ready
     const QVariantMap data = {
         {"id", appId},
         {"game_name", gameName},
@@ -177,33 +187,38 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
 
     if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, data))
     {
+        // Roll back folder creation when database insert fails
         QDir cleanupDir(targetPath);
         cleanupDir.removeRecursively();
         qCritical() << "Lymalink: failed to insert emulator target:" << m_databaseManager.lastError();
-        return false;
+        return targetCreated;
     }
 
     qDebug() << "Lymalink: emulator target created:" << appId << targetPath;
-    return true;
+    targetCreated = true;
+    return targetCreated;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool Lymalink::SetTargetHidden(int appId, bool hidden)
 {
+    bool targetUpdated = false;
+
     if (appId <= 0)
     {
         qWarning() << "Lymalink: invalid appId for target hidden update:" << appId;
-        return false;
+        return targetUpdated;
     }
 
+    // Ensure database is open before toggling visibility
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for target hidden update:" << m_databaseManager.lastError();
-        return false;
+        return targetUpdated;
     }
 
-    const bool updated = m_databaseManager.update(
+    targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
         {{"target_hidden", hidden ? 1 : 0}},
@@ -211,32 +226,35 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden)
         {appId}
     );
 
-    if (!updated)
+    if (!targetUpdated)
     {
         qCritical() << "Lymalink: failed to update target hidden state:" << m_databaseManager.lastError();
     }
 
-    return updated;
+    return targetUpdated;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 {
+    bool targetUpdated = false;
+
+    // Prefix changes invalidate discovered Steam appid directory cache
     const QString trimmedPrefixPath = prefixPath.trimmed();
     if (appId <= 0 || trimmedPrefixPath.isEmpty())
     {
         qWarning() << "Lymalink: invalid target prefix location update:" << appId << trimmedPrefixPath;
-        return false;
+        return targetUpdated;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for target prefix location update:" << m_databaseManager.lastError();
-        return false;
+        return targetUpdated;
     }
 
-    const bool updated = m_databaseManager.update(
+    targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
         {
@@ -249,32 +267,35 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
         {appId}
     );
 
-    if (!updated)
+    if (!targetUpdated)
     {
         qCritical() << "Lymalink: failed to update target prefix location:" << m_databaseManager.lastError();
     }
 
-    return updated;
+    return targetUpdated;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executablePath)
 {
+    bool targetUpdated = false;
+
+    // Store trimmed executable path and update modification timestamp
     const QString trimmedExecutablePath = executablePath.trimmed();
     if (appId <= 0 || trimmedExecutablePath.isEmpty())
     {
         qWarning() << "Lymalink: invalid target executable location update:" << appId << trimmedExecutablePath;
-        return false;
+        return targetUpdated;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for target executable location update:" << m_databaseManager.lastError();
-        return false;
+        return targetUpdated;
     }
 
-    const bool updated = m_databaseManager.update(
+    targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
         {
@@ -285,31 +306,35 @@ bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executableP
         {appId}
     );
 
-    if (!updated)
+    if (!targetUpdated)
     {
         qCritical() << "Lymalink: failed to update target executable location:" << m_databaseManager.lastError();
     }
 
-    return updated;
+    return targetUpdated;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp)
 {
+    bool achievementStateUpdated = false;
+
+    // Trim achievement key before database lookup
     const QString trimmedKey = achievementKey.trimmed();
     if (appId <= 0 || trimmedKey.isEmpty())
     {
         qWarning() << "Lymalink: invalid achievement unlock update:" << appId << trimmedKey;
-        return false;
+        return achievementStateUpdated;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for achievement unlock update:" << m_databaseManager.lastError();
-        return false;
+        return achievementStateUpdated;
     }
 
+    // Validate achievement exists before updating counts
     const QVariantMap existingAchievement = m_databaseManager.selectFirst(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -319,9 +344,10 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
     if (existingAchievement.isEmpty())
     {
         qWarning() << "Lymalink: achievement not found for unlock update:" << appId << trimmedKey;
-        return false;
+        return achievementStateUpdated;
     }
 
+    // Use provided unlock time when present; otherwise current time
     const qint64 now = QDateTime::currentSecsSinceEpoch();
     const qint64 normalizedUnlockTimestamp = unlocked
         ? (unlockTimestamp > 0 ? unlockTimestamp : now)
@@ -340,9 +366,10 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
     if (!achievementUpdated)
     {
         qCritical() << "Lymalink: failed to update achievement unlock state:" << m_databaseManager.lastError();
-        return false;
+        return achievementStateUpdated;
     }
 
+    // Recount unlocked achievements to keep target summary in sync
     const int unlockedCount = m_databaseManager.count(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -352,10 +379,10 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
     if (unlockedCount < 0)
     {
         qCritical() << "Lymalink: failed to count unlocked achievements:" << m_databaseManager.lastError();
-        return false;
+        return achievementStateUpdated;
     }
 
-    const bool targetUpdated = m_databaseManager.update(
+    achievementStateUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
         {
@@ -365,42 +392,45 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
         "id = ?",
         {appId}
     );
-    if (!targetUpdated)
+    if (!achievementStateUpdated)
     {
         qCritical() << "Lymalink: failed to update target achievement count:" << m_databaseManager.lastError();
     }
 
-    return targetUpdated;
+    return achievementStateUpdated;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool Lymalink::DeleteTarget(int appId)
 {
+    bool targetDeleted = false;
+
     if (appId <= 0)
     {
         qWarning() << "Lymalink: invalid appId for target delete:" << appId;
-        return false;
+        return targetDeleted;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for target delete:" << m_databaseManager.lastError();
-        return false;
+        return targetDeleted;
     }
 
+    // Require target row before deleting assets/database data
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink: target delete row not found:" << appId;
-        return false;
+        return targetDeleted;
     }
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
         qCritical() << "Lymalink: failed to resolve app data location for target delete";
-        return false;
+        return targetDeleted;
     }
 
     const QString targetPath = QDir(appDataPath).filePath("Emulator/" + QString::number(appId));
@@ -408,9 +438,10 @@ bool Lymalink::DeleteTarget(int appId)
     if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
     {
         qCritical() << "Lymalink: failed to begin target delete transaction:" << m_databaseManager.lastError();
-        return false;
+        return targetDeleted;
     }
 
+    // Delete game row first; achievement rows cascade through foreign key
     const bool targetRemoved = m_databaseManager.remove(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
@@ -422,80 +453,96 @@ bool Lymalink::DeleteTarget(int appId)
     {
         m_databaseManager.rollbackTransaction(m_databaseConnectionName);
         qCritical() << "Lymalink: failed to delete target:" << appId << m_databaseManager.lastError();
-        return false;
+        return targetDeleted;
     }
 
     if (!m_databaseManager.commitTransaction(m_databaseConnectionName))
     {
         m_databaseManager.rollbackTransaction(m_databaseConnectionName);
         qCritical() << "Lymalink: failed to commit target delete:" << m_databaseManager.lastError();
-        return false;
+        return targetDeleted;
     }
 
+    // Remove assets after database commit so UI no longer references target
     const bool assetsRemoved = !QFileInfo::exists(targetPath) || m_fileManager.DeleteFolder(targetPath);
     if (!assetsRemoved)
     {
         qWarning() << "Lymalink: target deleted from database but asset removal failed:" << targetPath;
-        return false;
+        return targetDeleted;
     }
 
     qDebug() << "Lymalink: target deleted:" << appId;
-    return true;
+    targetDeleted = true;
+    return targetDeleted;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::GetTargetTitle(int appId)
 {
+    QString targetTitle = "";
+
     if (appId <= 0)
     {
-        return {};
+        return targetTitle;
     }
 
+    // Fetch only target title for lightweight UI bindings
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
-    return Utils::MapStringValue(row, "game_name");
+    targetTitle = Utils::MapStringValue(row, "game_name");
+    return targetTitle;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::GetTargetPrefixLocation(int appId)
 {
+    QString prefixLocation = "";
+
     if (appId <= 0)
     {
-        return {};
+        return prefixLocation;
     }
 
+    // Fetch current prefix path for settings editor
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
-    return Utils::MapStringValue(row, "prefix_location");
+    prefixLocation = Utils::MapStringValue(row, "prefix_location");
+    return prefixLocation;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::GetTargetExecutableLocation(int appId)
 {
+    QString executableLocation = "";
+
     if (appId <= 0)
     {
-        return {};
+        return executableLocation;
     }
 
+    // Fetch current executable path for settings editor
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
-    return Utils::MapStringValue(row, "executable_location");
+    executableLocation = Utils::MapStringValue(row, "executable_location");
+    return executableLocation;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QVariantList Lymalink::FetchDashboardTargets()
 {
+    QVariantList targets;
+
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for dashboard targets:" << m_databaseManager.lastError();
-        return {};
+        return targets;
     }
 
+    // Build full dashboard model from game rows and related achievement state
     const QVariantList rows = m_databaseManager.selectAll(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES);
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QVariantList targets;
     for (const QVariant &rowValue : rows)
     {
         const QVariantMap row = rowValue.toMap();
@@ -510,6 +557,7 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
         const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath);
 
+        // Fetch achievements only enough to compute latest unlock preview
         const QVariantList achievements = m_databaseManager.selectWhere(
             m_databaseConnectionName,
             DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -527,6 +575,7 @@ QVariantList Lymalink::FetchDashboardTargets()
         const int achievementCount = Utils::MapIntValue(row, "total_unlocked_amount_achievements");
         const int achievementTotal = Utils::MapIntValue(row, "total_amount_achievements");
         
+        // Package QML dashboard target data with image fallbacks
         QVariantMap target = {
             {"id", appId},
             {"title", Utils::MapStringValue(row, "game_name")},
@@ -563,23 +612,26 @@ QVariantList Lymalink::FetchDashboardTargets()
 
 QVariantMap Lymalink::FetchTargetDetails(int appId)
 {
+    QVariantMap targetDetails = {};
+
     if (appId <= 0)
     {
         qWarning() << "Lymalink: invalid appId for target details:" << appId;
-        return {};
+        return targetDetails;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to open database for target details:" << m_databaseManager.lastError();
-        return {};
+        return targetDetails;
     }
 
+    // Fetch target row before building heavy details payload
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink: target details not found for appId:" << appId;
-        return {};
+        return targetDetails;
     }
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -588,6 +640,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
     const QString coversPath = emulatorAppDir.filePath("covers");
     const QString iconsPath = emulatorAppDir.filePath("icons");
 
+    // Prefer detail-sized cover, then fallback to first image in covers folder
     const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
     const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath);
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath);
@@ -599,7 +652,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"achievement_key", "achievement_name", "achievement_description", "date_unlocked"}
     ));
 
-    return {
+    targetDetails = {
         {"id", appId},
         {"title", Utils::MapStringValue(row, "game_name")},
         {"coverSource", coverSource},
@@ -614,6 +667,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
     };
+    return targetDetails;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -622,29 +676,37 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
 
 Error Lymalink::DatabaseInit()
 {
+    Error databaseResult = Error::NoError;
+
+    // Resolve app data path for SQLite file location
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
         qCritical() << "Lymalink: failed to resolve app data location";
-        return Error::FileSystemError;
+        databaseResult = Error::FileSystemError;
+        return databaseResult;
     }
 
     m_databasePath = QDir(appDataPath).filePath(DATABASE_FILE_NAME);
     if (m_databaseManager.databaseFileExists(m_databasePath))
     {
+        // Open existing database file
         qDebug() << "Lymalink: database already exists at" << m_databasePath;
         if (!m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
         {
             qCritical() << "Lymalink: failed to open database:" << m_databaseManager.lastError();
-            return Error::DatabaseError;
+            databaseResult = Error::DatabaseError;
+            return databaseResult;
         }
     }
     else if (!m_databaseManager.createDatabase(m_databaseConnectionName, m_databasePath))
     {
         qCritical() << "Lymalink: failed to create/open database:" << m_databaseManager.lastError();
-        return Error::DatabaseError;
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
     }
 
+    // Ensure emulator target table exists before app queries
     const bool gamesReady = m_databaseManager.createTable(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
@@ -669,9 +731,11 @@ Error Lymalink::DatabaseInit()
     if (!gamesReady)
     {
         qCritical() << "Lymalink: failed to initialize" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
-        return Error::DatabaseError;
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
     }
 
+    // Ensure achievements table exists with cascade delete from game rows
     const bool achievementsReady = m_databaseManager.createTable(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -694,38 +758,45 @@ Error Lymalink::DatabaseInit()
     if (!achievementsReady)
     {
         qCritical() << "Lymalink: failed to initialize" << DATABASE_TABLE_EMU_ACHIEVEMENTS << "table:" << m_databaseManager.lastError();
-        return Error::DatabaseError;
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
     }
 
     qDebug() << "Lymalink: database initialized at" << m_databasePath;
-    return Error::NoError;
+    return databaseResult;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 Error Lymalink::FileSystemInit()
 {
+    Error fileSystemResult = Error::NoError;
+
+    // Resolve writable application data root for managed target folders
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
         qCritical() << "Lymalink: failed to resolve app data location for filesystem init";
-        return Error::FileSystemError;
+        fileSystemResult = Error::FileSystemError;
+        return fileSystemResult;
     }
 
     QDir appDataDir(appDataPath);
     const QStringList requiredFolders = {"Emulator", "Steam", "Custom"};
 
+    // Create all top-level target category folders
     for (const QString &folderName : requiredFolders)
     {
         if (!appDataDir.mkpath(folderName))
         {
             qCritical() << "Lymalink: failed to create folder:" << appDataDir.filePath(folderName);
-            return Error::FileSystemError;
+            fileSystemResult = Error::FileSystemError;
+            return fileSystemResult;
         }
     }
 
     qDebug() << "Lymalink: filesystem initialized at" << appDataPath;
-    return Error::NoError;
+    return fileSystemResult;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -734,6 +805,7 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 {
     int inserted = 0;
 
+    // Insert only new achievement keys from hydration payload
     for (const QVariant &val : achievements)
     {
         QVariantMap entry = val.toMap();
@@ -766,6 +838,7 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 
     if (inserted > 0)
     {
+        // Refresh target achievement total after inserting new rows
         const qint64 now = QDateTime::currentSecsSinceEpoch();
         const int totalAchievements = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, "id = ?", {appId});
         if (!m_databaseManager.update(
@@ -786,15 +859,20 @@ void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
 
 QString Lymalink::PlaytimeText(int secondsPlayed) const
 {
+    QString playtimeText = "";
+
+    // Display playtime as largest coarse unit used by details page
     if (secondsPlayed < 3600)   // Less than 1 hour (60 minutes)
     { 
         int minutes = secondsPlayed / 60;
-        return QString("%1 minute(s)").arg(minutes);
+        playtimeText = QString("%1 minute(s)").arg(minutes);
+        return playtimeText;
     }
     else                        // 1 hour or more
     { 
         int hours = secondsPlayed / 3600;
-        return QString("%1 hour(s)").arg(hours);
+        playtimeText = QString("%1 hour(s)").arg(hours);
+        return playtimeText;
     }
 }
 
@@ -802,9 +880,10 @@ QString Lymalink::PlaytimeText(int secondsPlayed) const
 
 QVariantMap Lymalink::LatestUnlockedAchievement(const QVariantList &achievements) const
 {
-    QVariantMap latestAchievement;
+    QVariantMap latestAchievement = {};
     qint64 latestUnlockDate = 0;
 
+    // Pick highest unlock timestamp for recent achievement preview
     for (const QVariant &achievementValue : achievements)
     {
         const QVariantMap achievement = achievementValue.toMap();
@@ -823,6 +902,9 @@ QVariantMap Lymalink::LatestUnlockedAchievement(const QVariantList &achievements
 
 QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPath)
 {
+    QVariantList achievements;
+
+    // Fetch achievement rows needed by target details sections
     const QVariantList rows = m_databaseManager.selectWhere(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -877,7 +959,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         }
     }
 
-    QVariantList achievements;
+    // Preserve UI section order: unlocked, locked, hidden
     achievements << unlockedAchievements << lockedAchievements << hiddenAchievements;
     return achievements;
 }
@@ -886,42 +968,53 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
 
 QString Lymalink::CoverImageFilePath(const QString &coversPath, const QString &fileName) const
 {
+    QString coverSource = "";
+
+    // Return QML file URL only when expected cover exists
     const QString coverPath = QDir(coversPath).filePath(fileName);
     if (!QFileInfo::exists(coverPath))
     {
-        return QString();
+        return coverSource;
     }
 
-    return m_fileManager.LocalFileSource(coverPath);
+    coverSource = m_fileManager.LocalFileSource(coverPath);
+    return coverSource;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::CommunityIconFilePath(const QString &iconsPath) const
 {
+    QString iconSource = "";
+
+    // Locate downloaded community icon regardless of extension
     QDir iconsDir(iconsPath);
     if (!iconsDir.exists())
     {
-        return QString();
+        return iconSource;
     }
 
     const QFileInfoList iconFiles = iconsDir.entryInfoList({"community_icon.*"}, QDir::Files, QDir::Name | QDir::IgnoreCase);
     if (iconFiles.isEmpty())
     {
-        return QString();
+        return iconSource;
     }
 
-    return m_fileManager.LocalFileSource(iconFiles.first().filePath());
+    iconSource = m_fileManager.LocalFileSource(iconFiles.first().filePath());
+    return iconSource;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const
 {
+    QString iconSource = "";
+
+    // Resolve icon by achievement key and unlock state
     const QString achievementKey = Utils::MapStringValue(achievement, "achievement_key");
     if (achievementKey.isEmpty())
     {
-        return QString();
+        return iconSource;
     }
 
     const bool unlocked = achievement.value("date_unlocked").toLongLong() > 0;
@@ -930,22 +1023,28 @@ QString Lymalink::AchievementIconFilePath(const QString &iconsPath, const QVaria
 
     if (!QFileInfo::exists(iconPath))
     {
-        return QString();
+        return iconSource;
     }
 
-    return m_fileManager.LocalFileSource(iconPath);
+    iconSource = m_fileManager.LocalFileSource(iconPath);
+    return iconSource;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString Lymalink::ExecutableInstallationStatus(const QVariantMap &row) const
 {
+    QString installationStatus = "";
+
+    // Missing executable path means target has not been installed/configured
     const QString executableLocation = Utils::MapStringValue(row, "executable_location");
     if (executableLocation.isEmpty())
     {
-        return tr("Not Installed");
+        installationStatus = tr("Not Installed");
+        return installationStatus;
     }
 
     const QFileInfo executableInfo(executableLocation);
-    return executableInfo.exists() && executableInfo.isFile() ? tr("Installed") : tr("Not Installed");
+    installationStatus = executableInfo.exists() && executableInfo.isFile() ? tr("Installed") : tr("Not Installed");
+    return installationStatus;
 }

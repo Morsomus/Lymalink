@@ -45,13 +45,17 @@ void AchievementNotificationService::Configure(std::string connectionName, std::
 
 bool AchievementNotificationService::NotifyUnlocked(int32_t targetId, const std::string& achievementKey)
 {
+    bool notificationSent = false;
+
+    // Build complete notification payload
     AchievementNotification notification;
     if (!BuildNotification(targetId, achievementKey, notification))
     {
-        return false;
+        return notificationSent;
     }
 
-    const bool notificationSent = m_notifier.ShowAchievementToast(notification);
+    // Show desktop toast and play configured sound for successful unlocks
+    notificationSent = m_notifier.ShowAchievementToast(notification);
     m_soundService.PlayNotificationSound();
     return notificationSent;
 }
@@ -62,18 +66,23 @@ bool AchievementNotificationService::NotifyUnlocked(int32_t targetId, const std:
 
 bool AchievementNotificationService::BuildNotification(int32_t targetId, const std::string& achievementKey, AchievementNotification& notification)
 {
+    bool notificationBuilt = false;
+
+    // Clear caller-provided output before validation or database reads
     notification = AchievementNotification{};
 
     if (targetId <= 0 || achievementKey.empty() || m_appDataPath.empty())
     {
-        return false;
+        return notificationBuilt;
     }
 
+    // Resolve per-target icon directory from configured app data path
     const fs::path iconsPath = fs::path(m_appDataPath)
         / "Emulator"
         / std::to_string(targetId)
         / "icons";
 
+    // Load achievement details for notification title/body
     const DbRecord achievement = m_database.SelectFirst(
         m_connectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -83,9 +92,10 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
 
     if (achievement.empty())
     {
-        return false;
+        return notificationBuilt;
     }
 
+    // Load target details for fallback notification body
     const DbRecord target = m_database.SelectFirst(
         m_connectionName,
         DATABASE_TABLE_EMU_GAMES,
@@ -93,6 +103,7 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
         {static_cast<int64_t>(targetId)}
     );
 
+    // Copy database fields into transport-neutral notification model
     notification.targetId = targetId;
     notification.achievementKey = achievementKey;
     notification.achievementName = SQLiteManager::RowString(achievement, "achievement_name");
@@ -101,6 +112,7 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
 
     const fs::path iconPath = iconsPath / (achievementKey + "_icon.jpg");
 
+    // Attach achievement image if scraper stored it locally
     if (fs::exists(iconPath))
     {
         notification.iconPath = iconPath.string();
@@ -108,10 +120,12 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
 
     const fs::path appIconPath = iconsPath / "community_icon.jpg";
 
+    // Attach game/community image if scraper stored it locally
     if (fs::exists(appIconPath))
     {
         notification.appIconPath = appIconPath.string();
     }
 
-    return true;
+    notificationBuilt = true;
+    return notificationBuilt;
 }

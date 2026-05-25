@@ -14,7 +14,9 @@
 
 /////////////////////////////////////////////////////////////////////
 
-DBusService::DBusService()
+DBusService::DBusService() :
+    m_connection(nullptr),
+    m_object(nullptr)
 {
     m_connection = nullptr;
     m_object = nullptr;
@@ -38,6 +40,8 @@ DBusService::~DBusService()
 
 Error DBusService::Init()
 {
+    Error err = Error::NoError;
+
     try
     {
         // ServiceName wrapper required
@@ -46,7 +50,7 @@ Error DBusService::Init()
         // ObjectPath wrapper required
         m_object = sdbus::createObject(*m_connection, sdbus::ObjectPath{DBUS_OBJECT_PATH});
 
-        // method/signal registration via addVTable on the object
+        // Register frontend-callable methods and backend-emitted signals
         m_object->addVTable(
             sdbus::registerMethod("Ping")
                 .withOutputParamNames("result")
@@ -102,18 +106,24 @@ Error DBusService::Init()
     catch (const sdbus::Error& e)
     {
         Logger::Log("[DBusService][Init] Init failed: " + std::string(e.what()));
-        return Error::UnknownError;
+        err = Error::UnknownError;
+        return err;
     }
 
-    return Error::NoError;
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void DBusService::Stop()
 {
-    if (!m_connection) return;
+    // Ignore duplicate stops when service was never started
+    if (!m_connection)
+    {
+        return;
+    }
 
+    // Destroy object before leaving bus event loop
     m_object.reset();
     m_connection->leaveEventLoop();
     m_connection.reset();
@@ -125,9 +135,15 @@ void DBusService::Stop()
 
 void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& key)
 {
-    if (!m_object) return;
+    // Ignore signal requests before DBus object registration
+    if (!m_object)
+    {
+        return;
+    }
+
     try
     {
+        // Notify frontend that one achievement changed state
         m_object->emitSignal(sdbus::SignalName{"AchievementUnlocked"})
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetId, key);
@@ -144,6 +160,7 @@ void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& k
 
 void DBusService::EmitGameStateChanged(int32_t targetId, const std::string& state)
 {
+    // Reuse vector signal variant for single target events
     EmitGameStateChanged(std::vector<int32_t>{targetId}, state);
 }
 
@@ -151,13 +168,20 @@ void DBusService::EmitGameStateChanged(int32_t targetId, const std::string& stat
 
 void DBusService::EmitGameStateChanged(const std::vector<int32_t>& targetIds, const std::string& state)
 {
-    if (!m_object) return;
+    // Ignore signal requests before DBus object registration
+    if (!m_object)
+    {
+        return;
+    }
+
     try
     {
+        // Notify frontend about active/inactive target state changes
         m_object->emitSignal(sdbus::SignalName{"GameStateChanged"})
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetIds, state);
 
+        // Format target IDs for readable logs
         std::ostringstream ids;
         for (size_t i = 0; i < targetIds.size(); ++i)
         {
@@ -182,13 +206,17 @@ void DBusService::EmitGameStateChanged(const std::vector<int32_t>& targetIds, co
 
 std::string DBusService::OnPing()
 {
-    return "pong";
+    std::string result = "pong";
+
+    // Return health-check response to DBus caller
+    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void DBusService::OnReloadTarget(int32_t targetId)
 {
+    // Log target-specific reload request for future handler implementation
     Logger::Log("[DBusService][OnReloadTarget] ReloadTarget received: targetId=" + std::to_string(targetId));
     // TODO: trigger immediate reload for this targetId
 }
@@ -198,6 +226,8 @@ void DBusService::OnReloadTarget(int32_t targetId)
 void DBusService::OnReloadAllTargets()
 {
     Logger::Log("[DBusService][OnReloadAllTargets] ReloadAllTargets received.");
+
+    // Forward reload request to daemon if callback is connected
     if (onReloadAllTargets)
     {
         onReloadAllTargets();
@@ -209,6 +239,8 @@ void DBusService::OnReloadAllTargets()
 void DBusService::OnReloadConfig()
 {
     Logger::Log("[DBusService][OnReloadConfig] ReloadConfig received.");
+
+    // Forward config reload request to daemon if callback is connected
     if (onReloadConfig)
     {
         onReloadConfig();
@@ -220,6 +252,8 @@ void DBusService::OnReloadConfig()
 void DBusService::OnRequestActiveTargets()
 {
     Logger::Log("[DBusService][OnRequestActiveTargets] RequestActiveTargets received.");
+
+    // Ask daemon to publish currently active targets
     if (onRequestActiveTargets)
     {
         onRequestActiveTargets();
@@ -231,6 +265,8 @@ void DBusService::OnRequestActiveTargets()
 void DBusService::OnTestToast()
 {
     Logger::Log("[DBusService][OnTestToast] TestToast received.");
+
+    // Forward notification test request to daemon if callback is connected
     if (onTestToast)
     {
         onTestToast();

@@ -417,9 +417,9 @@ Item {
 
                 CustomBusyIndicator {
                     Layout.alignment: Qt.AlignHCenter
-                    visible: running
-                    indicatorSize: 40
-                    running: !id_root.manualGameEntry && id_root.isSearching
+                    visible: p_running
+                    p_indicatorSize: 40
+                    p_running: !id_root.manualGameEntry && id_root.isSearching
                 }
 
                 ColumnLayout {

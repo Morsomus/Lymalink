@@ -174,9 +174,9 @@ Popup {
         }
 
         CustomTooltip {
-            active: id_button.hovered
-            delay: 300
-            text: id_button.tooltipText
+            p_active: id_button.hovered
+            p_delay: 300
+            p_text: id_button.tooltipText
         }
     }
 

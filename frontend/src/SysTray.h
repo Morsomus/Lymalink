@@ -27,7 +27,6 @@ signals:
 
 private:
     QSystemTrayIcon m_trayIcon;
-    bool m_trayIconActive;
 
     void Init();
 };

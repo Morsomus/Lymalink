@@ -399,9 +399,9 @@ Item {
                         spacing: 10
 
                         CustomTooltip {
-                            active: id_addTargetBackArrowMouseArea.containsMouse
-                            delay: 500
-                            text: qsTr("Backspace / Escape key")
+                            p_active: id_addTargetBackArrowMouseArea.containsMouse
+                            p_delay: 500
+                            p_text: qsTr("Backspace / Escape key")
                         }
 
                         Image {
@@ -482,9 +482,9 @@ Item {
                         spacing: 10
 
                         CustomTooltip {
-                            active: id_backArrorIconMouseArea.containsMouse
-                            delay: 500
-                            text: qsTr("Backspace / Escape key")
+                            p_active: id_backArrorIconMouseArea.containsMouse
+                            p_delay: 500
+                            p_text: qsTr("Backspace / Escape key")
                         }
 
                         Image {

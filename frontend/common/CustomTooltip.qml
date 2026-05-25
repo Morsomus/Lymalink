@@ -15,11 +15,13 @@ import QtQuick.Window
 Popup {
     id: id_root
 
-    property bool active: false
+    // Public ________________________________________________
+    property bool p_active: false
     property bool p_alwaysVisible: false
-    property string text: ""
-    property int delay: 300
+    property string p_text: ""
+    property int p_delay: 300
 
+    // Internals _____________________________________________
     readonly property int edgeMargin: 8
     readonly property int targetGap: 8
     readonly property int overlayZ: 1000
@@ -33,7 +35,7 @@ Popup {
     z: overlayZ
 
     function shouldShow(): bool {
-        return active && text !== "" && ctxSettings.showTooltips ||  active && text !== "" && p_alwaysVisible
+        return p_active && p_text !== "" && ctxSettings.showTooltips ||  p_active && p_text !== "" && p_alwaysVisible
     }
 
     function windowItem() {
@@ -108,17 +110,17 @@ Popup {
         }
     }
 
-    onActiveChanged: {
+    onP_activeChanged: {
         update()
     }
 
-    onTextChanged: {
+    onP_textChanged: {
         update()
     }
 
     Timer {
         id: id_showTimer
-        interval: id_root.delay
+        interval: id_root.p_delay
         repeat: false
         onTriggered: if (id_root.shouldShow()) id_root.open()
     }
@@ -126,12 +128,16 @@ Popup {
     TextMetrics {
         id: id_textMetrics
 
-        text: id_root.text
+        text: id_root.p_text
         font.pixelSize: Themes.general.fontSizes.tooltip
     }
 
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     contentItem: Label {
-        text: id_root.text
+        text: id_root.p_text
         color: Themes.general.colors.titleText
         font.pixelSize: Themes.general.fontSizes.tooltip
         wrapMode: Text.WordWrap

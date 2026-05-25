@@ -522,9 +522,9 @@ Item {
 
                 CustomBusyIndicator {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    indicatorSize: 280
-                    speed: 8400
-                    running: id_root.noTargetsAvailable
+                    p_indicatorSize: 280
+                    p_speed: 8400
+                    p_running: id_root.noTargetsAvailable
                     opacity: 0.5
                 }
 

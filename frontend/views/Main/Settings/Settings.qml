@@ -143,9 +143,9 @@ Item {
             }
 
             CustomTooltip {
-                active: id_rowRoot.tooltip !== "" && id_labelHover.hovered
-                delay: 600
-                text: id_rowRoot.tooltip
+                p_active: id_rowRoot.tooltip !== "" && id_labelHover.hovered
+                p_delay: 600
+                p_text: id_rowRoot.tooltip
             }
         }
     }
@@ -535,9 +535,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_logoSwitchHover }
                                 CustomTooltip {
-                                    active: id_logoSwitchHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show or hide the Lymalink logo in the sidebar")
+                                    p_active: id_logoSwitchHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show or hide the Lymalink logo in the sidebar")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowLymalinkLogo, checked)
                             }
@@ -600,9 +600,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_trayHover }
                                 CustomTooltip {
-                                    active: id_trayHover.hovered
-                                    delay: 600
-                                    text: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
+                                    p_active: id_trayHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.CloseToTray, checked)
                             }
@@ -616,9 +616,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_collapseButtonHover }
                                 CustomTooltip {
-                                    active: id_collapseButtonHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show a button for collapsing the sidebar")
+                                    p_active: id_collapseButtonHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show a button for collapsing the sidebar")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowCollapseButton, checked)
                             }
@@ -633,9 +633,9 @@ Item {
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_trayToastHover }
                                 CustomTooltip {
-                                    active: id_trayToastHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show system notification while closing to tray")
+                                    p_active: id_trayToastHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show system notification while closing to tray")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.CloseToTrayToast, checked)
                             }
@@ -649,9 +649,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_collapseBorderHover }
                                 CustomTooltip {
-                                    active: id_collapseBorderHover.hovered
-                                    delay: 600
-                                    text: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
+                                    p_active: id_collapseBorderHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.EnableCollapseBorderButton, checked)
                             }
@@ -665,9 +665,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_tooltipsHover }
                                 CustomTooltip {
-                                    active: id_tooltipsHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show tooltips")
+                                    p_active: id_tooltipsHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show tooltips")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowTooltips, checked)
                             }
@@ -728,9 +728,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_dynamicAchievementRows }
                                 CustomTooltip {
-                                    active: id_dynamicAchievementRows.hovered
-                                    delay: 600
-                                    text: qsTr("Achievement rows resize automatically to use available window space")
+                                    p_active: id_dynamicAchievementRows.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Achievement rows resize automatically to use available window space")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
                             }
@@ -744,9 +744,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_achieveBadgeHover }
                                 CustomTooltip {
-                                    active: id_achieveBadgeHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
+                                    p_active: id_achieveBadgeHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowTotalAchievementsBadge, checked)
                             }
@@ -760,9 +760,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_installIconHover }
                                 CustomTooltip {
-                                    active: id_installIconHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
+                                    p_active: id_installIconHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowInstallationStatusBadge, checked)
                             }
@@ -776,9 +776,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_targetTypeBadgeHover }
                                 CustomTooltip {
-                                    active: id_targetTypeBadgeHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                                    p_active: id_targetTypeBadgeHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowTargetTypeBadge, checked)
                             }
@@ -794,9 +794,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressBarHover }
                                 CustomTooltip {
-                                    active: id_progressBarHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show achievement progress bars on cards")
+                                    p_active: id_progressBarHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show achievement progress bars on cards")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowProgressBar, checked)
                             }
@@ -853,9 +853,9 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressFrameHover }
                                 CustomTooltip {
-                                    active: id_progressFrameHover.hovered
-                                    delay: 600
-                                    text: qsTr("Show an overall achievement progress frame around cards")
+                                    p_active: id_progressFrameHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show an overall achievement progress frame around cards")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
                             }
@@ -911,9 +911,9 @@ Item {
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressGrayHover }
                                 CustomTooltip {
-                                    active: id_progressGrayHover.hovered
-                                    delay: 600
-                                    text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
+                                    p_active: id_progressGrayHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.ProgressFrameGrayscaleMode, checked)
                             }
@@ -928,9 +928,9 @@ Item {
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressAnimHover }
                                 CustomTooltip {
-                                    active: id_progressAnimHover.hovered
-                                    delay: 600
-                                    text: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
+                                    p_active: id_progressAnimHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
                             }
@@ -970,8 +970,8 @@ Item {
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_backendServiceHover }
                                 CustomTooltip {
-                                    active: id_backendServiceHover.hovered; delay: 600
-                                    text: qsTr("Keep tracking active even when the application is closed")
+                                    p_active: id_backendServiceHover.hovered; p_delay: 600
+                                    p_text: qsTr("Keep tracking active even when the application is closed")
                                 }
                                 Binding on checked {
                                     value: id_root.backendServiceEnabled

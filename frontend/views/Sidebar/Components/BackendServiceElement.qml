@@ -18,9 +18,12 @@ import QtQuick.Layouts
 Rectangle {
     id: id_root
 
-    property bool collapsed: false
+    // Public ________________________________________________
+    property bool p_collapsed: false
+    
     signal clicked()
 
+    // Internals _____________________________________________
     readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
     readonly property bool serviceAvailable: dbusServiceReady && ctxDBusService.serviceAvailable
     readonly property bool serviceActive: dbusServiceReady && ctxDBusService.serviceActive
@@ -54,7 +57,7 @@ Rectangle {
     }
 
     Layout.fillWidth: true
-    Layout.preferredHeight: id_root.collapsed ? 52 : 72
+    Layout.preferredHeight: id_root.p_collapsed ? 52 : 72
     color: id_rootMouseArea.pressed ? Themes.general.colors.backgroundPressed : (id_rootMouseArea.containsMouse ? Themes.general.colors.backgroundHover : Themes.general.colors.background)
     border.color: Themes.general.colors.border
     radius: 8
@@ -66,6 +69,10 @@ Rectangle {
         }
     }
     
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     MouseArea {
         id: id_rootMouseArea
 
@@ -74,19 +81,19 @@ Rectangle {
         onClicked: id_root.clicked()
 
         CustomTooltip {
-            active: id_rootMouseArea.containsMouse
-            delay: 300
-            text: id_root.serviceTooltip
+            p_active: id_rootMouseArea.containsMouse
+            p_delay: 300
+            p_text: id_root.serviceTooltip
         }
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: id_root.collapsed ? 0 : 10
+            anchors.margins: id_root.p_collapsed ? 0 : 10
             spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: id_root.collapsed ? 0 : 8
+                spacing: id_root.p_collapsed ? 0 : 8
 
                 Label {
                     id: id_serviceDot
@@ -97,7 +104,7 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     text: "●"
                     color: id_root.serviceColor
-                    font.pixelSize: id_root.collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
+                    font.pixelSize: id_root.p_collapsed ? Themes.general.fontSizes.statusCollapsed : Themes.general.fontSizes.statusExpanded
                     onBreathingChanged: if (!breathing) opacity = Themes.serviceIndicator.opacity.solid
 
                     SequentialAnimation on opacity {
@@ -119,7 +126,7 @@ Rectangle {
 
                 Label {
                     Layout.fillWidth: true
-                    visible: !id_root.collapsed
+                    visible: !id_root.p_collapsed
                     text: qsTr("Background service status")
                     color: Themes.general.colors.titleText
                     font.pixelSize: Themes.general.fontSizes.title
@@ -130,7 +137,7 @@ Rectangle {
 
             Label {
                 Layout.fillWidth: true
-                visible: !id_root.collapsed
+                visible: !id_root.p_collapsed
                 text: id_root.serviceStatusText
                 color: Themes.general.colors.bodyText
                 font.pixelSize: Themes.general.fontSizes.body

@@ -16,22 +16,23 @@ import QtQuick.Layouts
 Button {
     id: id_root
 
-    property bool collapsed: false
-    property bool selected: false
-    property string iconText: ""
-    property string iconUrl: ""
-    property string label: ""
+    // Public ________________________________________________
+    property bool p_collapsed: false
+    property bool p_selected: false
+    property string p_iconText: ""
+    property string p_iconUrl: ""
+    property string p_label: ""
+
+    // Internals _____________________________________________
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
-
-    Layout.preferredHeight: 42
-    leftPadding: collapsed ? 0 : 10
-    flat: true
-    focusPolicy: Qt.NoFocus
-
-    // Pulse animation state
     property real pulseOpacity: 0.0
     property real pulseScale: 0.85
+
+    Layout.preferredHeight: 42
+    leftPadding: p_collapsed ? 0 : 10
+    flat: true
+    focusPolicy: Qt.NoFocus
 
     onClicked: pulseAnim.restart()
 
@@ -59,20 +60,24 @@ Button {
     }
 
     CustomTooltip {
-        active: id_root.collapsed && id_root.hovered
-        delay: 300
-        text: id_root.label
+        p_active: id_root.p_collapsed && id_root.hovered
+        p_delay: 300
+        p_text: id_root.p_label
     }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     contentItem: RowLayout {
         spacing: 10
 
         Image {
-            Layout.fillWidth: collapsed ? true : false
+            Layout.fillWidth: p_collapsed ? true : false
             Layout.preferredWidth: 28
             Layout.preferredHeight: 28
-            visible: iconUrl ? true : false
-            source: iconUrl
+            visible: p_iconUrl ? true : false
+            source: p_iconUrl
             fillMode: Image.PreserveAspectFit
             smooth: true
             mipmap: true
@@ -82,9 +87,9 @@ Button {
             Layout.preferredWidth: 32
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            visible: iconUrl ? false : true
-            text: id_root.iconText
-            color: id_root.selected
+            visible: p_iconUrl ? false : true
+            text: id_root.p_iconText
+            color: id_root.p_selected
                 ? id_root.themedCompletionColor
                 : Themes.sidebarButton.colors.navText
             font.pixelSize: Themes.sidebarButton.fontSizes.navIcon
@@ -92,14 +97,14 @@ Button {
 
         Label {
             Layout.fillWidth: true
-            visible: !id_root.collapsed
-            opacity: id_root.collapsed ? 0 : 1
-            text: id_root.label
-            color: id_root.selected
+            visible: !id_root.p_collapsed
+            opacity: id_root.p_collapsed ? 0 : 1
+            text: id_root.p_label
+            color: id_root.p_selected
                 ? id_root.themedCompletionColor
                 : Themes.sidebarButton.colors.navText
             font.pixelSize: Themes.sidebarButton.fontSizes.navLabel
-            font.bold: id_root.selected
+            font.bold: id_root.p_selected
             elide: Text.ElideRight
 
             Behavior on opacity {
@@ -118,7 +123,7 @@ Button {
         // Base fill color
         color: id_root.down
             ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.20)
-            : (id_root.selected
+            : (id_root.p_selected
                 ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.16)
                 : (id_root.hovered
                     ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.08)
@@ -139,7 +144,7 @@ Button {
             color: "transparent"
             border.width: 1
             border.color: id_root.themedCompletionColor
-            opacity: id_root.selected ? 0.55 : 0.0
+            opacity: id_root.p_selected ? 0.55 : 0.0
             Behavior on opacity {
                 NumberAnimation {
                     duration: 200
@@ -157,7 +162,7 @@ Button {
             anchors.rightMargin: 1
             height: parent.height * 0.45
             radius: parent.radius
-            opacity: id_root.selected ? 0.12 : (id_root.hovered ? 0.06 : 0.0)
+            opacity: id_root.p_selected ? 0.12 : (id_root.hovered ? 0.06 : 0.0)
             gradient: Gradient {
                 GradientStop {
                     position: 0.0

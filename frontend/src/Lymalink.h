@@ -69,9 +69,9 @@ private:
     QString m_databasePath;
 
     QThread m_searchWorkerThread;
-    SteamApiSearchWorker *m_steamApiSearchWorker = nullptr;
+    SteamApiSearchWorker *m_steamApiSearchWorker;
     QThread m_hydrationWorkerThread;
-    SteamApiHydrationWorker *m_steamApiHydrationWorker = nullptr;
+    SteamApiHydrationWorker *m_steamApiHydrationWorker;
 
     Error DatabaseInit();
     Error FileSystemInit();

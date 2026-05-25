@@ -19,32 +19,35 @@ import QtQuick.Effects
 Item {
     id: id_root
 
-    property int currentPage: 0
-    property bool collapsed: false
-    property real expandedWidth: 260
-    property real collapsedWidth: 72
-    property real panelWidth: collapsed ? collapsedWidth : expandedWidth
-    property bool hideLogo: !ctxSettings.showLymalinkLogo
-    property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
-    property bool disableCollapseButton: !ctxSettings.showCollapseButton
+    // Public ________________________________________________
+    property int p_currentPage: 0
+    property bool p_collapsed: false
+    property real p_expandedWidth: 260
+    property real p_collapsedWidth: 72
+
+    // Internals _____________________________________________
+    property real panelWidth: id_root.p_collapsed ? id_root.p_collapsedWidth : id_root.p_expandedWidth
+    readonly property bool hideLogo: !ctxSettings.showLymalinkLogo
+    readonly property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
+    readonly property bool disableCollapseButton: !ctxSettings.showCollapseButton
     readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
-    readonly property var activeTargetIds: dbusServiceReady ? ctxDBusService.activeTargetIds : []
-    readonly property int currentPlayingCount: activeTargetIds.length
-    readonly property string currentPlayingTitle: currentPlayingCount > 0 ? targetTitle(activeTargetIds[0]) : ""
-    readonly property string currentPlayingSummary: currentPlayingTitle + (currentPlayingCount > 1 ? " (+" + (currentPlayingCount - 1) + ")" : "")
-    readonly property string currentPlayingTooltip: currentPlayingCount > 0
+    readonly property var activeTargetIds: id_root.dbusServiceReady ? ctxDBusService.activeTargetIds : []
+    readonly property int currentPlayingCount: id_root.activeTargetIds.length
+    readonly property string currentPlayingTitle: id_root.currentPlayingCount > 0 ? targetTitle(id_root.activeTargetIds[0]) : ""
+    readonly property string currentPlayingSummary: id_root.currentPlayingTitle + (id_root.currentPlayingCount > 1 ? " (+" + (id_root.currentPlayingCount - 1) + ")" : "")
+    readonly property string currentPlayingTooltip: id_root.currentPlayingCount > 0
         ? qsTr("Currently playing:") + "\n" + targetTitles().join("\n")
         : qsTr("Currently playing:") + "\n" + qsTr("Nothing")
 
-    onCollapsedChanged: {
-        if (collapsed !== ctxSettings.sidebarCollapsed) {
-            ctxSettings.SaveValue(Settings.SidebarCollapsed, collapsed)
+    onP_collapsedChanged: {
+        if (id_root.p_collapsed !== ctxSettings.sidebarCollapsed) {
+            ctxSettings.SaveValue(Settings.SidebarCollapsed, id_root.p_collapsed)
         }
     }
 
-    Component.onCompleted: collapsed = ctxSettings.sidebarCollapsed
+    Component.onCompleted: p_collapsed = ctxSettings.sidebarCollapsed
 
-    Layout.preferredWidth: panelWidth
+    Layout.preferredWidth: id_root.panelWidth
     Layout.fillHeight: true
 
     clip: false
@@ -94,10 +97,10 @@ Item {
             Item {
                 id: id_logoSlot
 
-                property real animatedHeight: id_root.hideLogo ? 37 : (id_root.collapsed ? 64 : 220)
+                property real animatedHeight: id_root.hideLogo ? 37 : (id_root.p_collapsed ? 64 : 220)
 
                 Layout.fillWidth: true
-                Layout.preferredWidth: id_root.collapsed ? 64 : 220
+                Layout.preferredWidth: id_root.p_collapsed ? 64 : 220
                 Layout.preferredHeight: animatedHeight
                 clip: true
 
@@ -110,8 +113,8 @@ Item {
 
                 Image {
                     anchors.centerIn: parent
-                    width: Math.min(parent.width, id_root.collapsed ? 64 : 220)
-                    height: Math.min(parent.height, id_root.collapsed ? 64 : 220)
+                    width: Math.min(parent.width, id_root.p_collapsed ? 64 : 220)
+                    height: Math.min(parent.height, id_root.p_collapsed ? 64 : 220)
                     opacity: id_root.hideLogo ? 0.0 : 1.0
                     visible: !id_root.hideLogo || opacity > 0.0
                     source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00002_E.png"
@@ -140,22 +143,22 @@ Item {
 
                 SidebarButton {
                     Layout.fillWidth: true
-                    collapsed: id_root.collapsed
-                    selected: id_root.currentPage === 0
-                    iconText: "□"
-                    iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00005_ED.png"
-                    label: qsTr("Dashboard")
-                    onClicked: id_root.currentPage = 0
+                    p_collapsed: id_root.p_collapsed
+                    p_selected: id_root.p_currentPage === 0
+                    p_iconText: "□"
+                    p_iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00005_ED.png"
+                    p_label: qsTr("Dashboard")
+                    onClicked: id_root.p_currentPage = 0
                 }
 
                 SidebarButton {
                     Layout.fillWidth: true
-                    collapsed: id_root.collapsed
-                    selected: id_root.currentPage === 1
-                    iconText: "⚙"
-                    iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
-                    label: qsTr("Settings")
-                    onClicked: id_root.currentPage = 1
+                    p_collapsed: id_root.p_collapsed
+                    p_selected: id_root.p_currentPage === 1
+                    p_iconText: "⚙"
+                    p_iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
+                    p_label: qsTr("Settings")
+                    onClicked: id_root.p_currentPage = 1
                 }
             }
 
@@ -167,7 +170,7 @@ Item {
                 id: id_currentlyPlaying
 
                 Layout.fillWidth: true
-                Layout.preferredHeight: id_root.collapsed ? 42 : 56
+                Layout.preferredHeight: id_root.p_collapsed ? 42 : 56
                 color: Themes.general.colors.background
                 border.color: Themes.general.colors.border
                 border.width: 1
@@ -182,19 +185,19 @@ Item {
 
                     CustomTooltip {
                         p_alwaysVisible: true
-                        active: (id_currentlyPlayingMouseArea.containsMouse && currentPlayingCount > 1) || (id_currentlyPlayingMouseArea.containsMouse && collapsed)
-                        delay: 300
-                        text: id_root.currentPlayingTooltip
+                        p_active: (id_currentlyPlayingMouseArea.containsMouse && id_root.currentPlayingCount > 1) || (id_currentlyPlayingMouseArea.containsMouse && id_root.p_collapsed)
+                        p_delay: 300
+                        p_text: id_root.currentPlayingTooltip
                     }
                 }
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: id_root.collapsed ? 0 : 10
-                    spacing: id_root.collapsed ? 0 : 8
+                    anchors.margins: id_root.p_collapsed ? 0 : 10
+                    spacing: id_root.p_collapsed ? 0 : 8
 
                     Item {
-                        Layout.fillWidth: id_root.collapsed
+                        Layout.fillWidth: id_root.p_collapsed
                         Layout.preferredWidth: 22
                         Layout.preferredHeight: 22
 
@@ -223,7 +226,7 @@ Item {
                     }
 
                     ColumnLayout {
-                        visible: !id_root.collapsed
+                        visible: !id_root.p_collapsed
                         Layout.fillWidth: true
                         spacing: 2
 
@@ -248,13 +251,13 @@ Item {
             }
 
             BackendServiceElement {
-                collapsed: id_root.collapsed
-                onClicked: id_root.currentPage = 1
+                p_collapsed: id_root.p_collapsed
+                onClicked: id_root.p_currentPage = 1
             }
 
             GHElement {
-                collapsed: id_root.collapsed
-                linkUrl: "https://github.com/Morsomus/Lymalink"
+                p_collapsed: id_root.p_collapsed
+                p_linkUrl: "https://github.com/Morsomus/Lymalink"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 42
             }
@@ -262,7 +265,7 @@ Item {
             // Version Info
             Label {
                 Layout.fillWidth: true
-                text: id_root.collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
+                text: id_root.p_collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
                 color: Themes.sidebar.colors.versionText
                 font.pixelSize: Themes.sidebar.fontSizes.version
                 horizontalAlignment: Text.AlignHCenter
@@ -288,8 +291,8 @@ Item {
                 anchors.fill: id_collapseBorder
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: id_root.collapsed = !id_root.collapsed
-	            onExited: id_collapseBorder.showDivider = false
+                onClicked: id_root.p_collapsed = !id_root.p_collapsed
+                onExited: id_collapseBorder.showDivider = false
             }
 
             // Timer to prevent collapse border flickering by passing mouse cursor
@@ -336,14 +339,14 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -6
         z: 10
-        text: id_root.collapsed ? ">" : "<"
+        text: id_root.p_collapsed ? ">" : "<"
         focusPolicy: Qt.NoFocus
-        onClicked: id_root.collapsed = !id_root.collapsed
+        onClicked: id_root.p_collapsed = !id_root.p_collapsed
 
         CustomTooltip {
-            active: id_collapseButton.hovered
-            delay: 300
-            text: id_root.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
+            p_active: id_collapseButton.hovered
+            p_delay: 300
+            p_text: id_root.p_collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
         }
 
         contentItem: Label {

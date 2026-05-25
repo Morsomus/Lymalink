@@ -36,6 +36,7 @@ PathScanner::~PathScanner()
 
 void PathScanner::SetTargets(const std::vector<AppIdDirPathScanTarget>& targets)
 {
+    // Replace scan targets with latest database state from daemon
     m_targets = targets;
     Logger::Log("[PathScanner] Targets set: " + std::to_string(m_targets.size()));
 }
@@ -44,8 +45,9 @@ void PathScanner::SetTargets(const std::vector<AppIdDirPathScanTarget>& targets)
 
 std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 {
-    std::vector<AppIdDirPathScanResult> results;
+    std::vector<AppIdDirPathScanResult> results = {};
 
+    // Scan each active target prefix for matching AppId directory
     for (const auto& target : m_targets)
     {
         if (target.appId.empty() || target.prefixLocation.empty())
@@ -53,6 +55,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             continue;
         }
 
+        // Validate prefix before recursive traversal
         std::error_code ec;
         if (!fs::exists(target.prefixLocation, ec) || !fs::is_directory(target.prefixLocation, ec))
         {
@@ -63,6 +66,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         fs::recursive_directory_iterator it(target.prefixLocation, fs::directory_options::skip_permission_denied, ec);
         fs::recursive_directory_iterator end;
 
+        // Walk prefix tree until exact AppId folder name is found
         for (; it != end && !ec; it.increment(ec))
         {
             if (!it->is_directory(ec))
@@ -76,6 +80,8 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             }
 
             const std::string foundPath = it->path().string();
+
+            // Store discovered path and inferred emulator type
             results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, DetectEmulatorType(foundPath)});
             Logger::Log("[PathScanner] Found APPID dir: targetId=" + std::to_string(target.targetId) + " path=" + foundPath);
             break;
@@ -96,58 +102,94 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 
 std::string PathScanner::DetectEmulatorType(const std::string& appidDirLocation) const
 {
+    std::string emulatorType = "";
+
+    // Emulator folder is parent directory of discovered AppId folder
     const fs::path path(appidDirLocation);
     std::string folderName = path.parent_path().filename().string();
 
+    // Normalize known emulator folder names into display labels
     EmulatorType type = GetEmulatorEnum(folderName);
     switch (type)
     {
         case EmulatorType::CODEX:
-            return "CODEX";
-
+        {
+            emulatorType = "CODEX";
+            break;
+        }
         case EmulatorType::RUNE:
-            return "RUNE";
-
+        {
+            emulatorType = "RUNE";
+            break;
+        }
         case EmulatorType::EMPRESS:
-            return "EMPRESS";
-
+        {
+            emulatorType = "EMPRESS";
+            break;
+        }
         case EmulatorType::SKIDROW:
-            return "SKIDROW";
-
+        {
+            emulatorType = "SKIDROW";
+            break;
+        }
         case EmulatorType::ONLINEFIX:
-            return "OnlineFix";
-
+        {
+            emulatorType = "OnlineFix";
+            break;
+        }
         case EmulatorType::GOLDBERG:
-            return "GOLDBERG";
-
+        {
+            emulatorType = "GOLDBERG";
+            break;
+        }
         case EmulatorType::SMARTSTEAMEMU:
-            return "SmartSteamEmu";
-
+        {
+            emulatorType = "SmartSteamEmu";
+            break;
+        }
         case EmulatorType::CREAMAPI:
-            return "CreamAPI";
-
+        {
+            emulatorType = "CreamAPI";
+            break;
+        }
         case EmulatorType::RLD:
-            return "RLD!";
-
+        {
+            emulatorType = "RLD!";
+            break;
+        }
         case EmulatorType::_1911:
-            return "1911";
-
+        {
+            emulatorType = "1911";
+            break;
+        }
         case EmulatorType::CPY:
-            return "CPY";
-
+        {
+            emulatorType = "CPY";
+            break;
+        }
         case EmulatorType::STEAMPUNKS:
-            return "STEAMPUNKS";
-
+        {
+            emulatorType = "STEAMPUNKS";
+            break;
+        }
         case EmulatorType::UNKNOWN:
         default:
-            return folderName.empty() ? "UNKNOWN" : folderName;
+        {
+            emulatorType = folderName.empty() ? "UNKNOWN" : folderName;
+            break;
+        }
     }
+
+    return emulatorType;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 EmulatorType PathScanner::GetEmulatorEnum(const std::string& folderName) const
 {
+    EmulatorType emulatorType = EmulatorType::UNKNOWN;
+
+    // Compare lower-case folder names against known emulator aliases
     std::string lower = folderName;
     std::ranges::transform(lower, lower.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -170,5 +212,5 @@ EmulatorType PathScanner::GetEmulatorEnum(const std::string& folderName) const
     if (lower == "steampunks" ||
         lower == "steam punks")                         return EmulatorType::STEAMPUNKS;
 
-    return EmulatorType::UNKNOWN;
+    return emulatorType;
 }

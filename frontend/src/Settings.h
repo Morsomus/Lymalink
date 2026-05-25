@@ -54,9 +54,6 @@ class Settings : public QObject
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
 
 public:
-    explicit Settings(QObject *parent = nullptr);
-    ~Settings();
-
     enum Key
     {
         Theme,
@@ -91,13 +88,17 @@ public:
     };
     Q_ENUM(Key)
 
+    explicit Settings(QObject *parent = nullptr);
+    ~Settings();
+
+    void TrackWindowSizeSetting(QQmlApplicationEngine *engine);
+
     Q_INVOKABLE void SetTempEncryptionKey(const QString &encryptionKey);
     Q_INVOKABLE bool ResetDefaults();
     Q_INVOKABLE bool SaveConfig();
     Q_INVOKABLE bool LoadConfig();
     Q_INVOKABLE bool SaveValue(Key key, const QVariant &value, bool emitSignal = true);
     Q_INVOKABLE QString GetConfigFilePath() const;
-    void TrackWindowSizeSetting(QQmlApplicationEngine *engine);
 
     inline QString GetTheme() const { return m_theme; }
     inline bool GetShowLymalinkLogo() const { return m_showLymalinkLogo; }

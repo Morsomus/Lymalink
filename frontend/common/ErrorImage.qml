@@ -14,15 +14,20 @@ import app.themes 1.0
 Column {
     id: id_root
 
-    property int size: 32
+    // Public ________________________________________________
+    property int p_size: 32
 
-    // Internals
+    // Internals _____________________________________________
     spacing: 6
     anchors.horizontalCenter: parent.horizontalCenter
 
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     Image {
-        width: id_root.size
-        height: id_root.size
+        width: id_root.p_size
+        height: id_root.p_size
         source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00032_ED.png"
         fillMode: Image.PreserveAspectFit
         anchors.horizontalCenter: parent.horizontalCenter

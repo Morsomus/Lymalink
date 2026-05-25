@@ -501,14 +501,14 @@ Item {
 
                     CustomBusyIndicator {
                         anchors.centerIn: parent
-                        visible: running
-                        indicatorSize: 64
-                        running: id_coverImage.status === Image.Loading
+                        visible: p_running
+                        p_indicatorSize: 64
+                        p_running: id_coverImage.status === Image.Loading
                     }
 
                     ErrorImage {
                         anchors.centerIn: parent
-                        size: 96
+                        p_size: 96
                         visible: id_coverImage.status === Image.Error
                     }
                 }

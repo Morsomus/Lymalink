@@ -14,6 +14,7 @@
 
 SteamApiSearchWorker::SteamApiSearchWorker(QObject *parent) : QObject(parent)
 {
+    m_cancelled.storeRelease(0);
     m_steamApi = nullptr;
 }
 
@@ -35,9 +36,11 @@ void SteamApiSearchWorker::Init()
 
 void SteamApiSearchWorker::SearchAppIds(const QString &term)
 {
+    // Reset cancellation state before starting a new search
     m_cancelled.storeRelease(0);
 
-    QList<SteamSearchResult> searchResults;
+    // Fetch candidate app IDs from Steam store search
+    QList<SteamSearchResult> searchResults = {};
     const Error searchError = m_steamApi->SearchAppId(term, searchResults);
     if (searchError != Error::NoError)
     {
@@ -46,9 +49,10 @@ void SteamApiSearchWorker::SearchAppIds(const QString &term)
         return;
     }
 
-    QVariantList qmlResults;
+    QVariantList qmlResults = {};
     for (const SteamSearchResult &result : searchResults)
     {
+        // Stop promptly if UI requested cancellation
         if (m_cancelled.loadAcquire())
         {
             qDebug() << "SteamApiSearchWorker: SearchAppIds cancelled";
@@ -56,7 +60,8 @@ void SteamApiSearchWorker::SearchAppIds(const QString &term)
             return;
         }
 
-        SteamGameInfo gameInfo;
+        // Hydrate each candidate enough to filter non-game app types
+        SteamGameInfo gameInfo = {};
         const Error gameInfoError = m_steamApi->SearchGameInfo(result.appId, gameInfo);
         if (gameInfoError != Error::NoError)
         {
@@ -72,7 +77,8 @@ void SteamApiSearchWorker::SearchAppIds(const QString &term)
             continue;
         }
 
-        QVariantMap item;
+        // Package minimal search result for QML
+        QVariantMap item = {};
         item["id"] = gameInfo.appId;
         item["name"] = gameInfo.gameName;
         qmlResults.append(item);
@@ -85,6 +91,7 @@ void SteamApiSearchWorker::SearchAppIds(const QString &term)
 
 void SteamApiSearchWorker::CancelSearchAppIds()
 {
+    // Signal current SearchAppIds loop to stop after current network call
     m_cancelled.storeRelease(1);
 }
 

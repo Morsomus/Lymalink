@@ -47,6 +47,8 @@ Lymalinkd::~Lymalinkd()
 
 Error Lymalinkd::Main()
 {
+    Error err = Error::NoError;
+
 	// Block SIGTERM and SIGINT from normal delivery, signal thread will read them
     sigset_t mask;
     sigemptyset(&mask);
@@ -55,10 +57,12 @@ Error Lymalinkd::Main()
     if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0)
     {
         Logger::Log("[Lymalinkd] sigprocmask failed: " + std::string(strerror(errno)));
-        return Error::UnknownError;
+        err = Error::UnknownError;
+        return err;
     }
 
-    Error err = Init();
+    // Start backend services before monitor loop
+    err = Init();
     if (err != Error::NoError)
     {
         Logger::Log("[Lymalinkd] Init failed, exiting.");
@@ -71,7 +75,7 @@ Error Lymalinkd::Main()
     Monitor();  // Main Monitor Loop
 
     Shutdown();
-    return Error::NoError;
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -82,6 +86,7 @@ Error Lymalinkd::Init()
 {
 	Error err = Error::NoError;
 
+    // Reset monitor state before services start
     m_processActive.store(false);
 
     err = DatabaseInit();
@@ -90,6 +95,7 @@ Error Lymalinkd::Init()
         return err;
     }
 
+    // Configure notification backends from resolved database/data paths
     std::filesystem::path databaseParent = std::filesystem::path(m_databasePath).parent_path();
     m_achievementNotifications.Configure(m_databaseConnectionName, databaseParent.string());
     err = m_freedesktopNotifications.Init();
@@ -104,12 +110,14 @@ Error Lymalinkd::Init()
         Logger::Log("[Lymalinkd] Achievement sounds unavailable.");
     }
 
+    // Cache targets still requiring AppId dir scan
     std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
     }
 
+    // Wire DBus requests to daemon handlers
     m_dbus.onRequestActiveTargets = [this]() { OnRequestActiveTargets(); };
     m_dbus.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
     m_dbus.onReloadConfig = [this]() { OnReloadConfig(); };
@@ -126,6 +134,7 @@ Error Lymalinkd::Init()
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe) { OnProcessStarted(targetId, exe); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
 
+    // Start process watcher with executable paths from database
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
     m_processWatcher.Start();
 
@@ -141,27 +150,33 @@ Error Lymalinkd::Init()
 
 Error Lymalinkd::DatabaseInit()
 {
+    Error err = Error::NoError;
+
+    // Resolve DB path before opening persistent connection
     m_databasePath = ResolveDatabasePath();
     if (m_databasePath.empty())
     {
         Logger::Log("[Lymalinkd] Database path resolve failed.");
-        return Error::DatabaseError;
+        err = Error::DatabaseError;
+        return err;
     }
 
     if (!m_database.DatabaseFileExists(m_databasePath))
     {
         Logger::Log("[Lymalinkd] Database file not found: " + m_databasePath);
-        return Error::DatabaseError;
+        err = Error::DatabaseError;
+        return err;
     }
 
     if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath))
     {
         Logger::Log("[Lymalinkd] Database open failed: " + m_database.LastError());
-        return Error::DatabaseError;
+        err = Error::DatabaseError;
+        return err;
     }
 
     Logger::Log("[Lymalinkd] Database opened: " + m_databasePath);
-    return Error::NoError;
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -176,6 +191,7 @@ void Lymalinkd::Monitor()
         {
             Logger::Log("[Lymalinkd][Monitor] No active processes, going to sleep...");
 
+            // Sleep until process watcher reports activity or shutdown starts
             std::unique_lock<std::mutex> lock(m_cvMutex);
             m_cv.wait(lock, [this]() {
                 return m_processActive.load() || !m_running.load();
@@ -217,6 +233,7 @@ void Lymalinkd::Monitor()
                         const std::vector<AppIdDirPathScanResult> scanResults = m_pathScanner.ScanOnceForAppIdDir();
                         if (!scanResults.empty())
                         {
+                            // Persist discovered AppId dirs and drop completed targets
                             SavePathScanResults(scanResults);
 
                             if (!HasCurrentActiveTargetsNeedingAppIdDirScan())
@@ -239,6 +256,7 @@ void Lymalinkd::Monitor()
 
 void Lymalinkd::SignalThread(sigset_t mask)
 {
+    // Read blocked process signals through signalfd
     int sfd = signalfd(-1, &mask, SFD_CLOEXEC);
     if (sfd < 0)
     {
@@ -252,6 +270,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
         struct signalfd_siginfo info{};
         const ssize_t bytes = read(sfd, &info, sizeof(info));
 
+        // Ignore interrupted reads, shutdown on real signalfd errors
         if (bytes < 0)
         {
             if (errno == EINTR)
@@ -270,6 +289,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
             continue;
         }
 
+        // Valid signal means daemon should exit main loop
         Logger::Log("[Lymalinkd] Signal received: " + std::to_string(info.ssi_signo));
         m_running.store(false);
         break;
@@ -295,16 +315,20 @@ void Lymalinkd::Shutdown()
 
     m_notify.NotifyStopping();
 
+    // Stop external services before closing database connection
     m_processWatcher.Stop();
     m_freedesktopNotifications.Stop();
     m_notificationSound.Stop();
 	m_dbus.Stop();
+
+    // Cancel pending sleep timer and wait for thread exit
     m_sleepTimerGeneration.fetch_add(1);
     if (m_sleepTimerThread.joinable())
     {
         m_sleepTimerThread.join();
     }
 
+    // Close shared database connection last
     std::lock_guard<std::mutex> lock(m_databaseMutex);
     if (m_database.IsDatabaseOpen(m_databaseConnectionName))
     {
@@ -320,11 +344,15 @@ void Lymalinkd::Shutdown()
 void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath)
 {
     Logger::Log("[Lymalinkd] OnProcessStarted - targetId=" + std::to_string(targetId) + " exe=" + executablePath);
+
+    // Mark daemon active and wake monitor loop
     m_activeCount.fetch_add(1);
     {
         std::lock_guard<std::mutex> lock(m_cvMutex);
         m_processActive.store(true);
     }
+
+    // Track active target once for state reporting and AppId scans
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
         const auto it = std::find_if(m_activeTargetsIds.begin(), m_activeTargetsIds.end(), [targetId](const auto& activeTarget) {
@@ -345,6 +373,8 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
 void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 {
     Logger::Log("[Lymalinkd] OnProcessStopped - targetId=" + std::to_string(targetId) + " playtime=" + std::to_string(secondsPlayed) + "s");
+
+    // Persist playtime before removing active state
     SavePlaytime(targetId, secondsPlayed);
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
@@ -357,6 +387,7 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 
     if (m_activeCount.fetch_sub(1) - 1 <= 0)
     {
+        // Start delayed sleep timer after last active process exits
         const uint64_t generation = m_sleepTimerGeneration.fetch_add(1) + 1;
         if (m_sleepTimerThread.joinable())
         {
@@ -366,6 +397,7 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
         m_sleepTimerThread = std::thread([this, generation]() {
             for (int i = 0; i < 60; ++i)
             {
+                // Cancel stale timer when process state changes
                 if (!m_running.load() || generation != m_sleepTimerGeneration.load())
                 {
                     return;
@@ -389,11 +421,13 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 
 void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achievementKey)
 {
+    // Ignore invalid achievement events
     if (targetId <= 0 || achievementKey.empty())
     {
         return;
     }
 
+    // Show local notification and forward event over DBus
     m_achievementNotifications.NotifyUnlocked(targetId, achievementKey);
     m_dbus.EmitAchievementUnlocked(targetId, achievementKey);
 }
@@ -402,6 +436,7 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
 
 void Lymalinkd::OnTestToast()
 {
+    // Reuse installed app icon for both notification image slots
     const std::string iconPath = ResolveInstalledAppIconPath();
 
     AchievementNotification notification;
@@ -410,6 +445,7 @@ void Lymalinkd::OnTestToast()
     notification.iconPath = iconPath;
     notification.appIconPath = iconPath;
 
+    // Display notification and play configured sound
     m_freedesktopNotifications.ShowAchievementToast(notification);
     m_notificationSound.PlayNotificationSound();
 }
@@ -418,6 +454,7 @@ void Lymalinkd::OnTestToast()
 
 void Lymalinkd::OnReloadConfig()
 {
+    // Refresh notification sound without restarting daemon
     m_notificationSound.SetSoundPath(ResolveInstalledNotificationSoundPath());
 }
 
@@ -429,6 +466,8 @@ void Lymalinkd::OnRequestActiveTargets()
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
         activeTargetIds.reserve(m_activeTargetsIds.size());
+
+        // Collect active IDs and mark them as reported
         for (auto& activeTarget : m_activeTargetsIds)
         {
             activeTargetIds.push_back(activeTarget.first);
@@ -448,8 +487,10 @@ void Lymalinkd::OnReloadAllTargets()
 {
     Logger::Log("[Lymalinkd] Reloading all targets from database.");
 
+    // Reload watched executables from current database state
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
 
+    // Refresh pending AppId dir scan targets
     const std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
@@ -464,6 +505,7 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
     DbRows rows;
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
+        // Load executable watch targets from games table
         rows = m_database.SelectWhere(
             m_databaseConnectionName,
             m_databaseEmuGamesTable,
@@ -475,6 +517,8 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
 
     std::vector<WatchTarget> targets;
     targets.reserve(rows.size());
+
+    // Convert database rows to process watcher targets
     for (const auto& row : rows)
     {
         const std::string executable = SQLiteManager::RowString(row, "executable_location");
@@ -496,6 +540,7 @@ std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatab
     DbRows rows;
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
+        // Load targets that still need AppId dir discovery
         rows = m_database.SelectWhere(
             m_databaseConnectionName,
             m_databaseEmuGamesTable,
@@ -507,6 +552,8 @@ std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatab
 
     std::unordered_map<int, std::string> targets;
     targets.reserve(rows.size());
+
+    // Map target ID to prefix path for future AppId dir scans
     for (const auto& row : rows)
     {
         targets.emplace(
@@ -524,6 +571,9 @@ std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatab
 // Check if any active (currently played) target requires finding missing AppId path
 bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
 {
+    bool hasActiveTargetsNeedingAppIdDirScan = false;
+
+    // Copy active target IDs before checking AppId scan map
     std::vector<std::pair<int, int>> ids;
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
@@ -532,19 +582,21 @@ bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
 
     if (ids.empty())
     {
-        return false;
+        return hasActiveTargetsNeedingAppIdDirScan;
     }
 
+    // Check active targets against the pending AppId dir scan list
     std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
     for (const auto& activeTarget : ids)
     {
         if (m_targetIdsRequiringDirScan.contains(activeTarget.first))
         {
-            return true;
+            hasActiveTargetsNeedingAppIdDirScan = true;
+            return hasActiveTargetsNeedingAppIdDirScan;
         }
     }
 
-    return false;
+    return hasActiveTargetsNeedingAppIdDirScan;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -554,6 +606,7 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
 {
     std::vector<AppIdDirPathScanTarget> targets = {};
 
+    // Copy active targets before matching against scan requirements
     std::vector<std::pair<int, int>> activeTargets;
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
@@ -568,6 +621,8 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         targets.reserve(activeTargets.size());
+
+        // Build scan targets for active games missing AppId dir paths
         for (const auto& activeTarget : activeTargets)
         {
             const int targetId = activeTarget.first;
@@ -593,6 +648,8 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
+
+        // Save discovered AppId metadata for each successful scan result
         for (const auto& result : results)
         {
             DbRecord data{
@@ -615,6 +672,7 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 
     if (!savedTargetIds.empty())
     {
+        // Remove saved targets from pending scan cache
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         for (const int targetId : savedTargetIds)
         {
@@ -628,6 +686,8 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 {
     std::lock_guard<std::mutex> lock(m_databaseMutex);
+
+    // Add this session time to stored total playtime
     const DbRecord row = m_database.SelectFirst(m_databaseConnectionName, m_databaseEmuGamesTable, "id = ?", {static_cast<int64_t>(targetId)});
     const int64_t totalSeconds = SQLiteManager::RowInt(row, "total_seconds_played") + static_cast<int64_t>(secondsPlayed);
 
@@ -647,55 +707,74 @@ void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 
 std::string Lymalinkd::ResolveDatabasePath() const
 {
+    std::string databasePath = "";
+
+    // Allow developers/users to override the database path via environment variable
     if (const char* overridePath = std::getenv("LYMALINK_DATABASE_PATH"))
     {
         if (*overridePath != '\0')
         {
-            return overridePath;
+            databasePath = overridePath;
+            return databasePath;
         }
     }
 
+    // Fallback to default user data location
     const char* home = std::getenv("HOME");
     if (!home || *home == '\0')
     {
-        return {};
+        return databasePath;
     }
 
-    return (std::filesystem::path(home) / ".local" / "share" / "Lymalink" / DATABASE_FILE_NAME).string();
+    databasePath = (std::filesystem::path(home) / ".local" / "share" / "Lymalink" / DATABASE_FILE_NAME).string();
+    return databasePath;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string Lymalinkd::ResolveInstalledAppIconPath() const
 {
+    std::string appIconPath = "";
+
+    // Use installed app icon only if the resolved file exists
     const std::filesystem::path iconPath = ResolveDataPath(LYMALINK_APP_ICON_PATH);
-    return std::filesystem::exists(iconPath) ? iconPath.string() : std::string{};
+    if (std::filesystem::exists(iconPath))
+    {
+        appIconPath = iconPath.string();
+    }
+
+    return appIconPath;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
 {
+    std::string notificationSoundPath = "";
+
     // Allow developers/users to override the sound path via environment variable
     if (const char* overridePath = std::getenv("LYMALINK_NOTIFICATION_SOUND_PATH"))
     {
         if (*overridePath != '\0')
         {
-            return overridePath;
+            notificationSoundPath = overridePath;
+            return notificationSoundPath;
         }
     }
     if (const char* overridePath = std::getenv("LYMALINK_ACHIEVEMENT_SOUND_PATH"))
     {
         if (*overridePath != '\0')
         {
-            return overridePath;
+            notificationSoundPath = overridePath;
+            return notificationSoundPath;
         }
     }
 
+    // Resolve installed notification sounds directory
     const std::filesystem::path soundDir = ResolveDataPath("Lymalink/sounds");
     if (soundDir.empty())
     {
-        return {};
+        return notificationSoundPath;
     }
 
     // Try loading a user-configured achievement sound
@@ -712,8 +791,9 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
             // Use the configured sound if the file exists
             if (std::filesystem::exists(installedSoundPath))
             {
-                Logger::Log("[Lymalinkd] Notification sound loaded from config: " + installedSoundPath.string());
-                return installedSoundPath.string();
+                notificationSoundPath = installedSoundPath.string();
+                Logger::Log("[Lymalinkd] Notification sound loaded from config: " + notificationSoundPath);
+                return notificationSoundPath;
             }
 
             Logger::Log("[Lymalinkd] Configured notification sound not found: " + installedSoundPath.string());
@@ -743,24 +823,29 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
     const std::filesystem::path defaultSoundPath = soundDir / DEFAULT_NOTIFICATION_SOUND;
     if (std::filesystem::exists(defaultSoundPath))
     {
-        Logger::Log("[Lymalinkd] Using default notification sound: " + defaultSoundPath.string());
-        return defaultSoundPath.string();
+        notificationSoundPath = defaultSoundPath.string();
+        Logger::Log("[Lymalinkd] Using default notification sound: " + notificationSoundPath);
+        return notificationSoundPath;
     }
 
     if (!installedSounds.empty())
     {
-        Logger::Log("[Lymalinkd] Using default notification sound: " + installedSounds.front().string());
-        return installedSounds.front().string();
+        notificationSoundPath = installedSounds.front().string();
+        Logger::Log("[Lymalinkd] Using default notification sound: " + notificationSoundPath);
+        return notificationSoundPath;
     }
 
     Logger::Log("[Lymalinkd] No installed notification sounds found under: " + soundDir.string());
-    return {};
+    return notificationSoundPath;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string Lymalinkd::ResolveConfigPath() const
 {
+    std::string configPath = "";
+
+    // Prefer XDG_CONFIG_HOME if defined
     std::filesystem::path configHome;
     if (const char* xdgConfigHome = std::getenv("XDG_CONFIG_HOME"))
     {
@@ -772,21 +857,25 @@ std::string Lymalinkd::ResolveConfigPath() const
 
     if (configHome.empty())
     {
+        // Fallback to ~/.config if XDG_CONFIG_HOME is unavailable
         const char* home = std::getenv("HOME");
         if (!home || *home == '\0')
         {
-            return {};
+            return configPath;
         }
         configHome = std::filesystem::path(home) / ".config";
     }
 
-    return (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+    configPath = (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+    return configPath;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
 {
+    std::string dataPath = "";
+
     // Prefer XDG_DATA_HOME if defined
     std::filesystem::path dataHome;
     if (const char* xdgDataHome = std::getenv("XDG_DATA_HOME"))
@@ -803,29 +892,32 @@ std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
         const char* home = std::getenv("HOME");
         if (!home || *home == '\0')
         {
-            return {};
+            return dataPath;
         }
         dataHome = std::filesystem::path(home) / ".local" / "share";
     }
 
-    return (dataHome / relativePath).string();
+    dataPath = (dataHome / relativePath).string();
+    return dataPath;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string Lymalinkd::LoadConfiguredNotificationSound() const
 {
+    std::string configuredNotificationSound = "";
+
     // Resolve the application's config file path
     const std::string configPath = ResolveConfigPath();
     if (configPath.empty())
     {
-        return {};
+        return configuredNotificationSound;
     }
 
     std::ifstream configFile(configPath);
     if (!configFile.is_open())
     {
-        return {};
+        return configuredNotificationSound;
     }
 
     bool inBackgroundServiceGroup = false;
@@ -863,9 +955,10 @@ std::string Lymalinkd::LoadConfiguredNotificationSound() const
         if (key == "NotificationSound" || key == "AchievementSound")
         {
             // Return the configured notification sound value
-            return Utils::TrimWhitespace(line.substr(separator + 1));
+            configuredNotificationSound = Utils::TrimWhitespace(line.substr(separator + 1));
+            return configuredNotificationSound;
         }
     }
 
-    return {};
+    return configuredNotificationSound;
 }

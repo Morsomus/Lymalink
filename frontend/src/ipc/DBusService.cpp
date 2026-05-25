@@ -25,27 +25,30 @@ DBusService::DBusService(QObject *parent) : QObject(parent)
 {
     m_pingTimer = nullptr;
     m_activeTargetsRequestTimer = nullptr;
-    m_serviceAvailable = false;
     m_pingInFlight = false;
     m_pingIntervalMs = 5000;
     m_pingTimeoutMs = 1000;
     m_systemdTimeoutMs = 5000;
+    m_serviceAvailable = false;
     m_serviceActive = false;
     m_serviceStarting = false;
     m_serviceEnabled = false;
     m_lastError = "";
     m_activeTargetIds = {};
 
+    // Poll backend availability so UI recovers when daemon starts later
     m_pingTimer = new QTimer(this);
     m_pingTimer->setInterval(m_pingIntervalMs);
     connect(m_pingTimer, &QTimer::timeout, this, &DBusService::PingBackend);
     m_pingTimer->start();
 
+    // Delay active target refresh until daemon has finished state transitions
     m_activeTargetsRequestTimer = new QTimer(this);
     m_activeTargetsRequestTimer->setInterval(m_systemdTimeoutMs + 1000);
     m_activeTargetsRequestTimer->setSingleShot(true);
     connect(m_activeTargetsRequestTimer, &QTimer::timeout, this, &DBusService::RequestActiveTargets);
 
+    // Subscribe and bootstrap daemon state immediately for first UI paint
     ConnectDaemonSignals();
     PingBackend();
     if (!m_serviceActive)
@@ -65,26 +68,36 @@ DBusService::~DBusService()
 
 bool DBusService::StopServiceIfNotEnabled()
 {
+    bool serviceStopped = false;
+
+    // Keep enabled service running across frontend shutdown
     if (!FetchServiceEnabledStatus())
     {
-        return false;
+        return serviceStopped;
     }
 
     if (m_serviceEnabled)
     {
-        return true;
+        serviceStopped = true;
+        return serviceStopped;
     }
 
+    // Stop transient daemon only when autostart is disabled
     SetServiceStarting(false);
-    return CallSystemdUnitMethod(QStringLiteral("StopUnit"));
+    serviceStopped = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
+    return serviceStopped;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void DBusService::PingBackend()
 {
-    if (m_pingInFlight) return;
+    if (m_pingInFlight)
+    {
+        return;
+    }
 
+    // Ping session bus to detect daemon availability without blocking UI
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
@@ -110,63 +123,81 @@ void DBusService::PingBackend()
 
 bool DBusService::StartService()
 {
+    bool serviceStarted = false;
+
+    // Show starting state while systemd processes StartUnit
     ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(true);
-    const bool success = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
-    if (!success)
+    serviceStarted = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
+    if (!serviceStarted)
     {
         SetServiceStarting(false);
     }
-    return success;
+    return serviceStarted;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::StopService()
 {
+    bool serviceStopped = false;
+
+    // Clear active state immediately so UI does not wait for next ping
     ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(false);
-    const bool success = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
-    return success;
+    serviceStopped = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
+    return serviceStopped;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::RestartService()
 {
+    bool serviceRestarted = false;
+
+    // Restart is a stop/start transition from UI perspective
     ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(true);
-    const bool success = CallSystemdUnitMethod(QStringLiteral("RestartUnit"));
-    if (!success)
+    serviceRestarted = CallSystemdUnitMethod(QStringLiteral("RestartUnit"));
+    if (!serviceRestarted)
     {
         SetServiceStarting(false);
     }
-    return success;
+    return serviceRestarted;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::SetServiceEnabled(bool enabled)
 {
-    return enabled ? EnableService() : DisableService();
+    bool serviceEnabled = false;
+
+    // Route to systemd enable/disable calls because signatures differ
+    serviceEnabled = enabled ? EnableService() : DisableService();
+    return serviceEnabled;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::RefreshServiceStatus()
 {
+    bool statusRefreshed = false;
+
+    // Read both runtime and autostart state for settings page consistency
     const bool activeRead = FetchServiceActiveStatus();
     const bool enabledRead = FetchServiceEnabledStatus();
-    return activeRead && enabledRead;
+    statusRefreshed = activeRead && enabledRead;
+    return statusRefreshed;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void DBusService::ReloadAllTargets()
 {
+    // Fire-and-forget reload; daemon publishes changed state through signals
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
@@ -186,6 +217,7 @@ void DBusService::ReloadAllTargets()
 
 void DBusService::ReloadConfig()
 {
+    // Fire-and-forget config reload; ping loop handles daemon errors
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
@@ -205,6 +237,7 @@ void DBusService::ReloadConfig()
 
 void DBusService::TestToast()
 {
+    // Fire-and-forget notification test from settings UI
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
@@ -226,6 +259,7 @@ void DBusService::TestToast()
 
 void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
 {
+    // Watcher owns async ping reply until this slot consumes it
     QDBusPendingReply<QString> reply = *watcher;
     watcher->deleteLater();
     m_pingInFlight = false;
@@ -241,6 +275,7 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
     SetLastError(available ? QString() : QStringLiteral("Unexpected PingBackend response"));
     SetServiceAvailable(available);
 
+    // Refresh systemd state once daemon responds again
     if (GetServiceAvailable() == true && GetServiceActive() == false)
     {
         RefreshServiceStatus();
@@ -253,6 +288,7 @@ void DBusService::OnGameStateChanged(const QList<int> &targetIds, const QString 
 {
     bool changed = false;
 
+    // Maintain cached active target list from daemon signal deltas
     for (const int targetId : targetIds)
     {
         if (targetId <= 0)
@@ -293,6 +329,7 @@ void DBusService::OnGameStateChanged(const QList<int> &targetIds, const QString 
 
 void DBusService::ResetPingTimer()
 {
+    // Restart interval after user-triggered service operation
     if (m_pingTimer)
     {
         m_pingTimer->start();
@@ -303,6 +340,7 @@ void DBusService::ResetPingTimer()
 
 void DBusService::ConnectDaemonSignals()
 {
+    // Subscribe to daemon target-state notifications over session bus
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
@@ -328,6 +366,7 @@ void DBusService::ConnectDaemonSignals()
 
 void DBusService::ScheduleActiveTargetsRequest()
 {
+    // Debounce target refresh while service startup settles
     if (!m_activeTargetsRequestTimer || !m_serviceAvailable)
     {
         return;
@@ -340,6 +379,7 @@ void DBusService::ScheduleActiveTargetsRequest()
 
 void DBusService::RequestActiveTargets()
 {
+    // Ask daemon to emit current active targets after reconnect/startup
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
@@ -359,11 +399,14 @@ void DBusService::RequestActiveTargets()
 
 bool DBusService::EnableService()
 {
+    bool serviceEnabled = false;
+
+    // systemd EnableUnitFiles persists daemon autostart
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
-        return false;
+        return serviceEnabled;
     }
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -379,23 +422,27 @@ bool DBusService::EnableService()
     {
         SetLastError(reply.errorMessage());
         RefreshServiceStatus();
-        return false;
+        return serviceEnabled;
     }
 
     SetLastError(QString());
     RefreshServiceStatus();
-    return true;
+    serviceEnabled = true;
+    return serviceEnabled;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::DisableService()
 {
+    bool serviceDisabled = false;
+
+    // systemd DisableUnitFiles removes daemon autostart
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
-        return false;
+        return serviceDisabled;
     }
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -411,23 +458,27 @@ bool DBusService::DisableService()
     {
         SetLastError(reply.errorMessage());
         RefreshServiceStatus();
-        return false;
+        return serviceDisabled;
     }
 
     SetLastError(QString());
     RefreshServiceStatus();
-    return true;
+    serviceDisabled = true;
+    return serviceDisabled;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::CallSystemdUnitMethod(const QString &method)
 {
+    bool methodCalled = false;
+
+    // Shared helper for StartUnit/StopUnit/RestartUnit
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
-        return false;
+        return methodCalled;
     }
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -442,24 +493,28 @@ bool DBusService::CallSystemdUnitMethod(const QString &method)
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
         SetLastError(reply.errorMessage());
-        return false;
+        return methodCalled;
     }
 
     SetLastError(QString());
-    return true;
+    methodCalled = true;
+    return methodCalled;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::FetchServiceActiveStatus()
 {
+    bool statusFetched = false;
+
+    // Query systemd unit object before reading ActiveState property
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         SetServiceActive(false);
         SetServiceStarting(false);
-        return false;
+        return statusFetched;
     }
 
     QDBusMessage getUnitMessage = QDBusMessage::createMethodCall(
@@ -475,7 +530,7 @@ bool DBusService::FetchServiceActiveStatus()
     {
         SetServiceActive(false);
         SetServiceStarting(false);
-        return false;
+        return statusFetched;
     }
 
     QDBusMessage activeStateMessage = QDBusMessage::createMethodCall(
@@ -491,25 +546,29 @@ bool DBusService::FetchServiceActiveStatus()
     {
         SetServiceActive(false);
         SetServiceStarting(false);
-        return false;
+        return statusFetched;
     }
 
     const QString activeState = activeStateReply.value().toString();
     SetServiceStarting(activeState == QStringLiteral("activating"));
     SetServiceActive(activeState == QStringLiteral("active"));
-    return true;
+    statusFetched = true;
+    return statusFetched;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool DBusService::FetchServiceEnabledStatus()
 {
+    bool statusFetched = false;
+
+    // Query systemd unit file state for autostart toggle
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         SetServiceEnabledState(false);
-        return false;
+        return statusFetched;
     }
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -524,21 +583,26 @@ bool DBusService::FetchServiceEnabledStatus()
     if (!reply.isValid())
     {
         SetServiceEnabledState(false);
-        return false;
+        return statusFetched;
     }
 
     SetServiceEnabledState(reply.value() == QStringLiteral("enabled"));
-    return true;
+    statusFetched = true;
+    return statusFetched;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void DBusService::SetServiceAvailable(bool available)
 {
-    if (m_serviceAvailable == available) return;
+    if (m_serviceAvailable == available)
+    {
+        return;
+    }
 
     qDebug() << "SetServiceAvailable: lymalinkd dbus status:" << (available ? "available" : "not available");
 
+    // Clear stale active targets when daemon disappears
     m_serviceAvailable = available;
     if (!available && !m_activeTargetIds.empty())
     {
@@ -556,8 +620,12 @@ void DBusService::SetServiceAvailable(bool available)
 
 void DBusService::SetServiceActive(bool active)
 {
-    if (m_serviceActive == active) return;
+    if (m_serviceActive == active)
+    {
+        return;
+    }
 
+    // Notify all service status bindings together
     m_serviceActive = active;
     emit signalServiceStatusChanged();
 }
@@ -566,8 +634,12 @@ void DBusService::SetServiceActive(bool active)
 
 void DBusService::SetServiceEnabledState(bool enabled)
 {
-    if (m_serviceEnabled == enabled) return;
+    if (m_serviceEnabled == enabled)
+    {
+        return;
+    }
 
+    // Notify settings toggle after systemd state changes
     m_serviceEnabled = enabled;
     emit signalServiceStatusChanged();
 }
@@ -576,8 +648,12 @@ void DBusService::SetServiceEnabledState(bool enabled)
 
 void DBusService::SetServiceStarting(bool starting)
 {
-    if (m_serviceStarting == starting) return;
+    if (m_serviceStarting == starting)
+    {
+        return;
+    }
 
+    // Expose transitional state while systemd job is running
     m_serviceStarting = starting;
     emit signalServiceStatusChanged();
 }
@@ -587,8 +663,12 @@ void DBusService::SetServiceStarting(bool starting)
 
 void DBusService::SetLastError(const QString &error)
 {
-    if (m_lastError == error) return;
+    if (m_lastError == error)
+    {
+        return;
+    }
 
+    // Avoid duplicate error notifications for same message
     m_lastError = error;
     emit signalLastErrorChanged();
 }

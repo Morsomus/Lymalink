@@ -21,6 +21,10 @@
 
 SystemdNotify::SystemdNotify()
 {
+    m_available = false;
+    m_socket_path = "";
+
+    // Detect systemd notify socket once at startup
     const char* sock = std::getenv("NOTIFY_SOCKET");
     if (!sock || sock[0] == '\0')
     {
@@ -44,6 +48,7 @@ SystemdNotify::~SystemdNotify()
 
 void SystemdNotify::NotifyReady()
 {
+    // Tell systemd daemon initialization completed
     Notify("READY=1");
     Logger::Log("[SystemdNotify] READY=1 sent");
 }
@@ -52,6 +57,7 @@ void SystemdNotify::NotifyReady()
 
 void SystemdNotify::NotifyStatus(const std::string& msg)
 {
+    // Publish status text visible in systemctl status output
     Notify("STATUS=" + msg);
 }
 
@@ -59,6 +65,7 @@ void SystemdNotify::NotifyStatus(const std::string& msg)
 
 void SystemdNotify::NotifyStopping()
 {
+    // Tell systemd shutdown sequence has started
     Notify("STOPPING=1");
     Logger::Log("[SystemdNotify] STOPPING=1 sent");
 }
@@ -69,11 +76,13 @@ void SystemdNotify::NotifyStopping()
 
 void SystemdNotify::Notify(const std::string& payload)
 {
+    // No-op when daemon is not launched by systemd with Type=notify
     if (!m_available)
     {
         return;
     }
         
+    // Open datagram socket for one sd_notify payload
     int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (fd < 0)
     {
@@ -96,6 +105,7 @@ void SystemdNotify::Notify(const std::string& payload)
         path.copy(addr.sun_path, sizeof(addr.sun_path) - 1);
     }
 
+    // Send raw sd_notify payload then close socket immediately
     socklen_t addr_len = offsetof(struct sockaddr_un, sun_path) + (path[0] == '@' ? path.size() : path.size() + 1);
     ssize_t sent = sendto(fd, payload.c_str(), payload.size(), MSG_NOSIGNAL, reinterpret_cast<struct sockaddr*>(&addr), addr_len);
     if (sent < 0)

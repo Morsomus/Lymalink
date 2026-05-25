@@ -197,9 +197,9 @@ Rectangle {
                 CustomBusyIndicator {
                     anchors.centerIn: parent
                     z: 2
-                    visible: running
-                    indicatorSize: 32
-                    running: id_logoImage.status === Image.Loading || id_root.p_isLoading
+                    visible: p_running
+                    p_indicatorSize: 32
+                    p_running: id_logoImage.status === Image.Loading || id_root.p_isLoading
                 }
 
                 // Show first letter of the title if icon/logo missing

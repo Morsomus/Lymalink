@@ -17,35 +17,40 @@ import QtQuick.Layouts
 Button {
     id: id_root
     
-    property bool collapsed: false
-    property url iconSource: "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_White_Clearspace.png"
-    property string linkUrl: ""
+    // Public ________________________________________________
+    property bool p_collapsed: false
+    property url p_iconSource: "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_White_Clearspace.png"
+    property string p_linkUrl: ""
 
     Layout.fillWidth: true
     Layout.preferredHeight: 42
 
     flat: true
-    text: id_root.collapsed ? "GH" : qsTr("GitHub")
+    text: id_root.p_collapsed ? "GH" : qsTr("GitHub")
 
     CustomTooltip {
         p_alwaysVisible: true
-        active: id_root.hovered
-        delay: 300
-        text: qsTr("View project on GitHub")
+        p_active: id_root.hovered
+        p_delay: 300
+        p_text: qsTr("View project on GitHub")
     }
 
     onClicked: {
-        Qt.openUrlExternally(linkUrl)
+        Qt.openUrlExternally(p_linkUrl)
     }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     contentItem: RowLayout {
         spacing: 10
 
         Image {
-            Layout.fillWidth: id_root.collapsed ? true : false
+            Layout.fillWidth: id_root.p_collapsed ? true : false
             Layout.preferredWidth: 32
             Layout.preferredHeight: 32
-            source: id_root.iconSource
+            source: id_root.p_iconSource
             fillMode: Image.PreserveAspectFit
             smooth: true
             mipmap: true
@@ -53,7 +58,7 @@ Button {
 
         Label {
             Layout.fillWidth: true
-            visible: !id_root.collapsed
+            visible: !id_root.p_collapsed
             text: qsTr("Project on GitHub")
             color: Themes.general.colors.linkText
             font.pixelSize: Themes.general.fontSizes.link

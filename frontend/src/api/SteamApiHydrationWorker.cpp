@@ -31,6 +31,8 @@ SteamApiHydrationWorker::SteamApiHydrationWorker(QObject *parent) : QObject(pare
 {
     m_steamApi = nullptr;
     m_imageCache = nullptr;
+    m_taskQueue = {};
+    m_cancelled.storeRelease(0);
     m_running = false;
 }
 
@@ -59,6 +61,7 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
         return;
     }
 
+    // Avoid duplicate queued work for same app
     const auto alreadyQueued = std::any_of(m_taskQueue.cbegin(), m_taskQueue.cend(), [appId](const HydrationTask &task) {
         return task.appId == appId;
     });
@@ -69,10 +72,15 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
     }
 
     qDebug() << "SteamApiHydrationWorker: enqueuing appId:" << appId << "reloadAssets:" << reloadAssets;
-    m_taskQueue.enqueue({appId, reloadAssets});
+
+    HydrationTask task = {};
+    task.appId = appId;
+    task.reloadAssets = reloadAssets;
+    m_taskQueue.enqueue(task);
 
     if (!m_running)
     {
+        // Start queue processing immediately when worker is idle
         ProcessNext();
     }
 }
@@ -81,6 +89,7 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
 
 void SteamApiHydrationWorker::CancelAllEnqueueTasks()
 {
+    // Mark current task cancelled and drop queued tasks
     m_cancelled.storeRelease(1);
     m_taskQueue.clear();
     qDebug() << "SteamApiHydrationWorker: cancellation requested, queue cleared";
@@ -92,6 +101,7 @@ void SteamApiHydrationWorker::CancelAllEnqueueTasks()
 
 void SteamApiHydrationWorker::ProcessNext()
 {
+    // Finish queue when no pending tasks remain
     if (m_taskQueue.isEmpty())
     {
         m_running = false;
@@ -99,6 +109,7 @@ void SteamApiHydrationWorker::ProcessNext()
         return;
     }
 
+    // Process tasks sequentially in worker thread
     m_running = true;
     const HydrationTask task = m_taskQueue.dequeue();
     ProcessTask(task);
@@ -111,12 +122,14 @@ void SteamApiHydrationWorker::ProcessNext()
 
 void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 {
+    // Reset cancellation state for current task
     m_cancelled.storeRelease(0);
 
     const int appId = task.appId;
     qDebug() << "SteamApiHydrationWorker: starting task for appId:" << appId;
     emit signalHydrationTaskStarted(appId);
 
+    // Ensure Init() ran in this worker thread
     if (!m_steamApi || !m_imageCache)
     {
         qCritical() << "SteamApiHydrationWorker: not initialized";
@@ -125,6 +138,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
+    // Resolve app data location for target asset folders
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
@@ -134,12 +148,14 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
+    // Build per-target cover and icon directories
     const QString appIdStr  = QString::number(appId);
     const QString coversDir = QDir(appDataPath).filePath("Emulator/" + appIdStr + "/covers");
     const QString iconsDir  = QDir(appDataPath).filePath("Emulator/" + appIdStr + "/icons");
 
     if (task.reloadAssets)
     {
+        // Remove stale files before downloading replacement assets
         emit signalHydrationTaskProgress(appId, "ClearingAssets", 0, 0);
         if (!ClearAssetDirectory(coversDir) || !ClearAssetDirectory(iconsDir))
         {
@@ -152,7 +168,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Fetch game info (cover + icon suffixes)
     emit signalHydrationTaskProgress(appId, "FetchingGameInfo", 0, 0);
 
-    SteamGameInfo gameInfo;
+    SteamGameInfo gameInfo = {};
     const Error gameInfoError = m_steamApi->SearchGameInfo(appId, gameInfo);
     if (gameInfoError != Error::NoError)
     {
@@ -171,6 +187,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Download library capsule (cover)
     emit signalHydrationTaskProgress(appId, "DownloadingCover", 0, 0);
 
+    // Resolve cover CDN URLs and download required scaled cover variants
     QList<QString> lcUrls;
     m_steamApi->GetLibraryCapsuleUrls(appId, gameInfo.lcSuffix, gameInfo.assetUrlFormat, lcUrls);
     TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_TARGET_SIZE, "cover_200x300");
@@ -188,6 +205,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Download community icon
     emit signalHydrationTaskProgress(appId, "DownloadingCommunityIcon", 0, 0);
 
+    // Resolve community icon CDN URLs and cache icon
     QList<QString> ciUrls;
     m_steamApi->GetCommunityIconUrls(appId, gameInfo.ciSuffix, ciUrls);
     TryDownloadFirstWorking(ciUrls, iconsDir, CI_TARGET_SIZE, "community_icon");
@@ -201,6 +219,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Fetch achievement data
     emit signalHydrationTaskProgress(appId, "FetchingAchievements", 0, 0);
 
+    // Fetch public achievement payload from Steam
     QList<SteamAchievementData> achievements;
     const Error achievementsError = m_steamApi->FetchAchievementDataPrimary(appId, achievements);
     if (achievementsError == Error::NoData)
@@ -225,7 +244,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
-    // Resolve and download achievement icons
+    // Resolve active and locked achievement icon URLs
     QList<SteamAchievementIconUrls> achievementIconUrls;
     const Error iconUrlsError = m_steamApi->GetAchievementIconUrls(appId, achievements, achievementIconUrls);
     if (iconUrlsError != Error::NoError)
@@ -236,6 +255,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
+    // Download both active and locked achievement icons
     const int total = achievementIconUrls.size();
     for (int i = 0; i < total; ++i)
     {
@@ -266,7 +286,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     QVariantList achievementList;
     for (const SteamAchievementData &achievement : achievements)
     {
-        QVariantMap entry;
+        QVariantMap entry = {};
         entry["achievement_key"]   = achievement.achievementKey;
         entry["achievement_name"] = achievement.achievementName;
         entry["achievement_description"] = achievement.achievementDescription;
@@ -288,12 +308,17 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
 bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath)
 {
+    bool directoryCleared = true;
+
+    // Create missing asset directory instead of treating it as failure
     QDir directory(directoryPath);
     if (!directory.exists())
     {
-        return QDir().mkpath(directoryPath);
+        directoryCleared = QDir().mkpath(directoryPath);
+        return directoryCleared;
     }
 
+    // Remove existing asset files and nested directories
     const QFileInfoList entries = directory.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     for (const QFileInfo &entry : entries)
     {
@@ -303,33 +328,39 @@ bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath)
             if (!childDir.removeRecursively())
             {
                 qWarning() << "SteamApiHydrationWorker: failed to remove asset folder:" << entry.absoluteFilePath();
-                return false;
+                directoryCleared = false;
+                return directoryCleared;
             }
         }
         else if (!QFile::remove(entry.absoluteFilePath()))
         {
             qWarning() << "SteamApiHydrationWorker: failed to remove asset file:" << entry.absoluteFilePath();
-            return false;
+            directoryCleared = false;
+            return directoryCleared;
         }
     }
 
-    return true;
+    return directoryCleared;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName)
 {
+    QString downloadedPath = "";
+
+    // Try CDN URLs in priority order until one downloads and caches
     for (const QString &url : urls)
     {
-        QString cachedPath;
+        QString cachedPath = "";
         const Error err = m_imageCache->DownloadAndCache(url, savePath, targetSize, cachedPath, newName);
         if (err == Error::NoError && !cachedPath.isEmpty())
         {
-            return cachedPath;
+            downloadedPath = cachedPath;
+            return downloadedPath;
         }
     }
 
     qWarning() << "SteamApiHydrationWorker: all URLs failed for:" << newName << savePath;
-    return QString();
+    return downloadedPath;
 }

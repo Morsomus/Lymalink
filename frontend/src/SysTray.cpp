@@ -15,7 +15,7 @@
 /////////////////////////////////////////////////////////////////////
 
 SysTray::SysTray(QObject *parent) : QObject(parent)
-{   
+{
     Init();
 }
 
@@ -59,25 +59,26 @@ void SysTray::SetTrayIconVisibility(bool state)
 
 void SysTray::Init()
 {
-    m_trayIconActive = false;
-
-    // System tray icon
+    // Set static application icon shown by desktop tray
     m_trayIcon.setIcon(QIcon(":/qt/qml/Lymalink/res/img/BlankBackground_MFC_00002_E.png"));
 
-    // System tray menu
+    // Context menu is kept alive for the tray icon lifetime
     auto *menu = new QMenu();
 
-    // Menu options
+    // Add required tray actions
     QAction *openAction = menu->addAction("Open");
     QAction *quitAction = menu->addAction("Quit");
 
-    // Options functionality
+    // Open action restores app window and hides tray icon
     connect(openAction, &QAction::triggered, this, [this](){
         m_trayIcon.hide();
         emit signalOpenWindow();
     });
+
+    // Quit action exits full application from tray menu
     connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
 
+    // Single click opens app window from tray
     connect(&m_trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason){
         if (reason == QSystemTrayIcon::Trigger)
         {
