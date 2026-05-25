@@ -46,6 +46,8 @@ class Settings : public QObject
     Q_PROPERTY(uint16_t windowSizeYDefault READ GetWindowSizeYDefault NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamId READ GetSteamId NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
+    Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarSort READ GetDashboardToolbarSort NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
@@ -81,6 +83,7 @@ public:
         WindowSizeY,
         SteamId,
         SteamWebApiKey,
+        NotificationSound,
         DashboardToolbarSort,
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
@@ -122,6 +125,8 @@ public:
     inline uint16_t GetWindowSizeYDefault() const { return m_windowSizeYDefault; }
     inline QString GetSteamId() const { return m_steamId; }
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
+    inline QString GetNotificationSound() const { return m_notificationSound; }
+    QStringList GetNotificationSounds() const;
     inline QString GetDashboardToolbarSort() const { return m_dashboardToolbarSort; }
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
@@ -160,12 +165,14 @@ private:
     uint16_t m_windowSizeYDefault;
     QString m_steamId;
     QString m_steamWebApiKey;
+    QString m_notificationSound;
     QString m_dashboardToolbarSort;
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
 
     void SetDefaults();
+    QString ResolveDefaultNotificationSound() const;
     bool SaveSteamWebApiKey(const QString &webApiKey);
     void SavePlainValues();
     bool SaveEncryptedWebApiKey(const QString &webApiKey);

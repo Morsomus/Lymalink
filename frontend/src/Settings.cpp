@@ -10,7 +10,9 @@
 #include "tools/Encryption.h"
 
 #include <QDebug>
+#include <QDir>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QWindow>
 
@@ -118,6 +120,15 @@ bool Settings::LoadConfig()
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_steamId = m_settings.value("SteamId", m_steamId).toString();
     m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
+    m_notificationSound = m_settings.value("NotificationSound", m_settings.value("AchievementSound", m_notificationSound)).toString();
+    m_settings.endGroup();
+    // Fallback if saved sound no longer available
+    if (!GetNotificationSounds().contains(m_notificationSound))
+    {
+        m_notificationSound = ResolveDefaultNotificationSound();
+    }
 
     m_settings.beginGroup(GROUP_DASHBOARD);
     m_dashboardToolbarSort = m_settings.value("ToolbarSort", m_dashboardToolbarSort).toString();
@@ -347,6 +358,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
                 return SaveSteamWebApiKey(val);
             }
         }
+        case NotificationSound:
+        {
+            m_notificationSound = value.toString();
+            group = GROUP_BACKGROUND_SERVICE;
+            settingsKey = "NotificationSound";
+            settingsValue = m_notificationSound;
+            break;
+        }
         case DashboardToolbarSort:
         {
             m_dashboardToolbarSort = value.toString();
@@ -410,6 +429,15 @@ QString Settings::GetConfigFilePath() const
 
 /////////////////////////////////////////////////////////////////////
 
+QStringList Settings::GetNotificationSounds() const
+{
+    const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    QDir soundDir(dataRoot + "/Lymalink/sounds");
+    return soundDir.entryList(QStringList{"*.ogg"}, QDir::Files | QDir::Readable, QDir::Name);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Settings::TrackWindowSizeSetting(QQmlApplicationEngine *engine)
 {
     // Window size tracking
@@ -464,10 +492,24 @@ void Settings::SetDefaults()
     m_windowSizeY = m_windowSizeYDefault;
     m_steamId = "";
     m_steamWebApiKey = "";
+    m_notificationSound = ResolveDefaultNotificationSound();
     m_dashboardToolbarSort = "title";
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Settings::ResolveDefaultNotificationSound() const
+{
+    const QStringList notificationSounds = GetNotificationSounds();
+    const QString defaultNotificationSound = QStringLiteral(DEFAULT_NOTIFICATION_SOUND);
+    return notificationSounds.contains(defaultNotificationSound)
+        ? defaultNotificationSound
+        : (notificationSounds.isEmpty()
+            ? QString()
+            : notificationSounds.first());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -531,6 +573,10 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_settings.setValue("SteamId", m_steamId);
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
+    m_settings.setValue("NotificationSound", m_notificationSound);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DASHBOARD);

@@ -11,6 +11,9 @@
 #include "Error.h"
 #include "service/SystemdNotify.h"
 #include "ipc/DBusService.h"
+#include "notification/FreedesktopNotificationService.h"
+#include "notification/CanberraSoundService.h"
+#include "notification/AchievementNotificationService.h"
 #include "database/SQLiteManager.h"
 #include "watcher/PathScanner.h"
 #include "watcher/ProcessWatcher.h"
@@ -38,6 +41,9 @@ private:
     SystemdNotify m_notify;
     DBusService m_dbus;
     SQLiteManager m_database;
+    FreedesktopNotificationService m_freedesktopNotifications;
+    CanberraSoundService m_notificationSound;
+    AchievementNotificationService m_achievementNotifications;
     PathScanner m_pathScanner;
     ProcessWatcher m_processWatcher;
 
@@ -70,8 +76,11 @@ private:
     
     void  OnProcessStarted(int targetId, const std::string& executablePath);
     void  OnProcessStopped(int targetId, long secondsPlayed);
+    void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);
+    void  OnTestToast();
     void  OnRequestActiveTargets();
     void  OnReloadAllTargets();
+    void  OnReloadConfig();
 
     std::vector<WatchTarget> LoadExeTargetsFromDatabase();
     std::unordered_map<int, std::string> LoadAppIdDirScanTargetsFromDatabase();
@@ -80,4 +89,9 @@ private:
     void  SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
     void  SavePlaytime(int targetId, long secondsPlayed);
     std::string ResolveDatabasePath() const;
+    std::string ResolveInstalledAppIconPath() const;
+    std::string ResolveInstalledNotificationSoundPath() const;
+    std::string ResolveConfigPath() const;
+    std::string ResolveDataPath(const std::string& relativePath) const;
+    std::string LoadConfiguredNotificationSound() const;
 };

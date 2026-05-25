@@ -9,10 +9,12 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace Utils
 {
 
 int64_t NowEpoch();
+std::string TrimWhitespace(const std::string& value);
 
 }

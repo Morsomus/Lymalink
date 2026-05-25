@@ -4,7 +4,7 @@
 // Author: Morsomus
 // Copyright: see /LICENSE
 // Description: Declares DBusService and exposes lymalinkd's
-//              D-Bus interface on the session bus.
+//              D-Bus interface on the session bus
 //
 // Bus name: org.lymalink.Daemon
 // Object path: /org/lymalink/Daemon
@@ -13,7 +13,9 @@
 //   Ping()
 //   ReloadTarget(int32)
 //   ReloadAllTargets()
+//   ReloadConfig()
 //   RequestActiveTargets()
+//   TestToast()
 // Signals (backend -> frontend):
 //   AchievementUnlocked(int32 appid, string key)
 //   GameStateChanged(array<int32> appids, string state)
@@ -48,6 +50,8 @@ public:
     // Callbacks
     std::function<void()> onRequestActiveTargets;
     std::function<void()> onReloadAllTargets;
+    std::function<void()> onReloadConfig;
+    std::function<void()> onTestToast;
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;
@@ -57,5 +61,7 @@ private:
     std::string OnPing();
     void OnReloadTarget(int32_t appid);
     void OnReloadAllTargets();
+    void OnReloadConfig();
     void OnRequestActiveTargets();
+    void OnTestToast();
 };

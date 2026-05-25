@@ -1,3 +1,11 @@
+/////////////////////////////////////////////////////////
+// File: Defines.h
+// Date: 2026-05-15
+// Author: Morsomus
+// Copyright: see /LICENSE
+// Description: Project wide definitions
+/////////////////////////////////////////////////////////
+
 /////////////////////////////////////////////////////////////////////
 // Settings
 /////////////////////////////////////////////////////////////////////
@@ -10,6 +18,7 @@
 #define GROUP_APPEARANCE    "Appearance"
 #define GROUP_INTERFACE     "Interface"
 #define GROUP_DISPLAY       "Display"
+#define GROUP_BACKGROUND_SERVICE "BackgroundService"
 #define GROUP_STEAM_WEB_API "SteamWebApi"
 #define GROUP_DASHBOARD     "Dashboard"
 
@@ -35,3 +44,15 @@
 #define DBUS_SYSTEMD_UNIT_INTERFACE     "org.freedesktop.systemd1.Unit"
 #define DBUS_PROPERTIES_INTERFACE       "org.freedesktop.DBus.Properties"
 #define DBUS_SYSTEMD_UNIT_NAME          "lymalinkd.service"
+
+/////////////////////////////////////////////////////////////////////
+// Backend Service
+/////////////////////////////////////////////////////////////////////
+
+#define DEFAULT_NOTIFICATION_SOUND      "universfield-new-notification-04-326127.ogg"
+
+/////////////////////////////////////////////////////////////////////
+// Assets
+/////////////////////////////////////////////////////////////////////
+
+#define LYMALINK_APP_ICON_PATH          "icons/hicolor/256x256/apps/lymalink.png"

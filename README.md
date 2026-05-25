@@ -6,15 +6,18 @@
 
 ## Overview
 
-Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified system for tracking milestones across Steam emulators and official environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources.
+Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified solution for tracking milestones across Steam emulators and official environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources. At its core runs a lightweight background daemon (`lymalinkd`) responsible for file monitoring and delivering desktop notifications when achievements are detected.
+
+The frontend provides a clean interface for viewing progress and managing settings, but is entirely optional. Once configured through the frontend, the daemon can run independently in the background without it. For users who prefer tighter control, Lymalink can also be configured to require the frontend to be open before the daemon is permitted to run.
 
 ## Table of Contents
 
 - [Project Status](#project-status)
 - [Planned Features](#planned-features)
-- [Building](#building)
-  - [Requirements](#requirements)
-  - [Build Script](#build-script)
+- [Building for Linux](#building-for-linux)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+- [Credits](#credits)
 - [Disclaimer](#disclaimer)
   - [General](#general)
   - [Steam Emulator Support](#steam-emulator-support)
@@ -41,8 +44,8 @@ Current progress towards the first working version, platform-wise
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started | v0.9.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Localisation | 🔴 To Be Started | |
 | **Backend Service** | 🚧 In Development | v0.8.0-beta |
-| **Compatibility & Testing** | 🔴 To Be Started | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🔴 To Be Started | v1.0.0 |
+| **Compatibility & Testing** | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | v1.0.0 |
 
 ### Windows
 | Component | Status |
@@ -70,11 +73,11 @@ Current progress towards the first working version, platform-wise
 
 ---
 
-## Building
+## Building for Linux
 
-> **Note:** The following build instructions apply currently only to Linux.
+### Frontend
 
-### Requirements
+#### Requirements
 
 **Build dependencies:**
 
@@ -89,7 +92,7 @@ Current progress towards the first working version, platform-wise
 - X11 or Wayland compositor
 - Plasma/XDG desktop integration for automatic app menu entry
 
-### Build Script
+#### Build Script
 
 The `frontend/build.sh` script automates the full build workflow. Run it from the repository root or `frontend/` directory:
 
@@ -99,6 +102,7 @@ frontend/build.sh clean       # Remove build/
 frontend/build.sh debug       # Debug build   -> frontend/build/debug/
 frontend/build.sh release     # Release build -> frontend/build/release/
 frontend/build.sh deploy      # Clean + release build, strip binary, install to XDG user dirs
+frontend/build.sh uninstall   # Remove Lymalink and resources from system
 frontend/build.sh dev         # Clean + debug build, launch
 ```
 
@@ -119,7 +123,37 @@ frontend/build.sh dev         # Clean + debug build, launch
 | Icon | `~/.local/share/icons/hicolor/256x256/apps/lymalink.png` |
 | Desktop entry | `~/.local/share/applications/lymalink.desktop` |
 
+### Backend
+
+`lymalinkd` is the Linux backend daemon. It can be built with `backend/build.sh` from the repository root:
+
+```bash
+backend/build.sh clean
+backend/build.sh debug
+backend/build.sh release
+backend/build.sh test
+```
+
+Debug and release binaries are built under `/tmp/lymalinkd-build` by default.
+
+To install and manage the user service:
+
+```bash
+backend/build.sh deploy
+backend/build.sh start
+backend/build.sh stop
+backend/build.sh restart
+backend/build.sh status
+backend/build.sh logs
+backend/build.sh uninstall
+```
+
+For backend requirements, direct `make` usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
+
 ---
+
+## Credits
+See [CREDITS.md](backend/res/CREDITS.md) for third-party sound assets used in this project.
 
 ## Disclaimer
 

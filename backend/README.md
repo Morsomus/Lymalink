@@ -13,6 +13,7 @@ Requirements:
 - `sdbus-cpp-devel`
 - `sqlite-devel`
 - `catch2-devel`
+- `libcanberra-devel`
 
 From repository root:
 

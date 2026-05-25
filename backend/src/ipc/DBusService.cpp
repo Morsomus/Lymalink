@@ -20,6 +20,8 @@ DBusService::DBusService()
     m_object = nullptr;
     onRequestActiveTargets = nullptr;
     onReloadAllTargets = nullptr;
+    onReloadConfig = nullptr;
+    onTestToast = nullptr;
 }
 
 DBusService::~DBusService()
@@ -66,10 +68,22 @@ Error DBusService::Init()
                     OnReloadAllTargets();
                 }),
 
+            sdbus::registerMethod("ReloadConfig")
+                .implementedAs([this]()
+                {
+                    OnReloadConfig();
+                }),
+
             sdbus::registerMethod("RequestActiveTargets")
                 .implementedAs([this]()
                 {
                     OnRequestActiveTargets();
+                }),
+
+            sdbus::registerMethod("TestToast")
+                .implementedAs([this]()
+                {
+                    OnTestToast();
                 }),
 
             sdbus::registerSignal("AchievementUnlocked")
@@ -192,11 +206,33 @@ void DBusService::OnReloadAllTargets()
 
 /////////////////////////////////////////////////////////////////////
 
+void DBusService::OnReloadConfig()
+{
+    Logger::Log("[DBusService][OnReloadConfig] ReloadConfig received.");
+    if (onReloadConfig)
+    {
+        onReloadConfig();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void DBusService::OnRequestActiveTargets()
 {
     Logger::Log("[DBusService][OnRequestActiveTargets] RequestActiveTargets received.");
     if (onRequestActiveTargets)
     {
         onRequestActiveTargets();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::OnTestToast()
+{
+    Logger::Log("[DBusService][OnTestToast] TestToast received.");
+    if (onTestToast)
+    {
+        onTestToast();
     }
 }

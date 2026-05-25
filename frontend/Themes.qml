@@ -1,3 +1,11 @@
+/////////////////////////////////////////////////////////
+// File: Themes.qml
+// Date: 2026-05-03
+// Author: Morsomus
+// Copyright: see /LICENSE
+// Description: Singleton themes for QML
+/////////////////////////////////////////////////////////
+
 pragma Singleton
 import QtQuick
 

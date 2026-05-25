@@ -31,6 +31,7 @@ SERVICE_NAME="lymalinkd"
 INSTALL_BIN_DIR="$HOME/.local/bin"
 INSTALL_SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$INSTALL_SERVICE_DIR/${SERVICE_NAME}.service"
+INSTALL_SOUND_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/Lymalink/sounds"
 
 ##############################################################################
 
@@ -85,6 +86,20 @@ EOF
     echo "==> Service file written to $SERVICE_FILE"
     systemctl --user daemon-reload
     echo "==> systemd user daemon reloaded."
+}
+
+##############################################################################
+
+_install_sounds() {
+    echo "==> Installing achievement sounds to $INSTALL_SOUND_DIR..."
+    mkdir -p "$INSTALL_SOUND_DIR"
+
+    if compgen -G "$SCRIPT_DIR/res/*.ogg" > /dev/null; then
+        cp "$SCRIPT_DIR"/res/*.ogg "$INSTALL_SOUND_DIR/"
+        chmod 644 "$INSTALL_SOUND_DIR"/*.ogg
+    else
+        echo "==> No achievement sounds found under $SCRIPT_DIR/res"
+    fi
 }
 
 ##############################################################################
@@ -164,6 +179,7 @@ deploy() {
     clean
     build Release
     _install_binary
+    _install_sounds
     _install_service
 
     if _service_is_active; then
@@ -180,6 +196,7 @@ deploy() {
     echo ""
     echo "==> Deploy done."
     echo "    Binary:  $INSTALL_BIN_DIR/$SERVICE_NAME"
+    echo "    Sounds:  $INSTALL_SOUND_DIR"
     echo "    Service: $SERVICE_FILE"
     echo "    Logs:    journalctl --user -u $SERVICE_NAME -f"
 }
@@ -218,6 +235,13 @@ uninstall() {
         rm -f "$INSTALL_BIN_DIR/$SERVICE_NAME"
     else
         echo "==> Binary not found: $INSTALL_BIN_DIR/$SERVICE_NAME"
+    fi
+
+    if [ -d "$INSTALL_SOUND_DIR" ]; then
+        echo "==> Removing sounds: $INSTALL_SOUND_DIR"
+        rm -rf "$INSTALL_SOUND_DIR"
+    else
+        echo "==> Sounds directory not found: $INSTALL_SOUND_DIR"
     fi
 
     echo "==> Uninstall done."

@@ -946,9 +946,9 @@ Item {
                             Layout.fillWidth: true
 
                             text: qsTr(
-                                "Controls whether Lymalink continues achievement tracking in the background. When enabled, " +
+                                "Background Service controls achievement tracking in the background. When 'Track in Background' option is enabled, " +
                                 "a system service keeps tracking and notifications active even after Lymalink is closed. " +
-                                "When disabled, tracking only works while Lymalink is open."
+                                "When disabled, service is running and tracking achievements only while Lymalink is open."
                             )
 
                             legend: [
@@ -978,7 +978,6 @@ Item {
                                 }
                                 onToggled: {
                                     const intendedEnabled = checked
-                                    ctxSettings.SaveValue(Settings.BackendService, intendedEnabled)
                                     if (id_root.dbusServiceReady) {
                                         ctxDBusService.SetServiceEnabled(intendedEnabled)
                                     }
@@ -987,7 +986,7 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Status")
+                            label: qsTr("Service status")
                             tooltip: qsTr("Current system service state")
 
                             RowLayout {
@@ -1030,6 +1029,71 @@ Item {
                                     enabled: id_root.dbusServiceReady && !id_root.backendServiceStarting
                                     onClicked: ctxDBusService.RestartService()
                                 }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Notification sound")
+                            tooltip: qsTr("Select the achievement notification sound")
+
+                            ComboBox {
+                                id: id_notificationSoundCombo
+
+                                readonly property int visibleSoundRows: 7
+                                readonly property int soundRowHeight: 32
+
+                                model: ctxSettings.notificationSounds
+                                enabled: count > 0
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.notificationSound))
+                                implicitWidth: 140
+                                displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: qsTr("Sound %1").arg(index + 1)
+                                }
+                                popup: Popup {
+                                    y: id_notificationSoundCombo.height
+                                    width: id_notificationSoundCombo.width
+                                    implicitHeight: Math.min(
+                                        id_notificationSoundCombo.visibleSoundRows * id_notificationSoundCombo.soundRowHeight,
+                                        id_notificationSoundList.contentHeight
+                                    )
+                                    padding: 0
+
+                                    contentItem: ListView {
+                                        id: id_notificationSoundList
+
+                                        clip: true
+                                        implicitHeight: contentHeight
+                                        model: id_notificationSoundCombo.popup.visible ? id_notificationSoundCombo.delegateModel : null
+                                        currentIndex: id_notificationSoundCombo.highlightedIndex
+
+                                        ScrollIndicator.vertical: ScrollIndicator {}
+                                    }
+                                }
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
+                                onActivated: (index) => {
+                                    if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.dbusServiceReady) {
+                                        ctxDBusService.ReloadConfig()
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Toast notification")
+                            tooltip: qsTr("Send a test desktop notification")
+
+                            Button {
+                                Layout.preferredWidth: 140
+                                text: qsTr("Send test")
+                                enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
+                                onClicked: ctxDBusService.TestToast()
                             }
                         }
                     }
@@ -1093,7 +1157,9 @@ Item {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset Defaults")
                                 onClicked: {
-                                    ctxSettings.ResetDefaults()
+                                    if (ctxSettings.ResetDefaults() && id_root.dbusServiceReady) {
+                                        ctxDBusService.ReloadConfig()
+                                    }
 
                                     // Also reset window size
                                     const win = id_root.Window.window

@@ -15,13 +15,15 @@
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <algorithm>
 #include <sys/signalfd.h>
 #include <unistd.h>
 
 /////////////////////////////////////////////////////////////////////
 
-Lymalinkd::Lymalinkd()
+Lymalinkd::Lymalinkd() :
+    m_achievementNotifications(m_database, m_freedesktopNotifications, m_notificationSound)
 {
     m_processActive.store(false);
     m_activeCount.store(0);
@@ -88,7 +90,21 @@ Error Lymalinkd::Init()
         return err;
     }
 
-    const std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    std::filesystem::path databaseParent = std::filesystem::path(m_databasePath).parent_path();
+    m_achievementNotifications.Configure(m_databaseConnectionName, databaseParent.string());
+    err = m_freedesktopNotifications.Init();
+    if (err != Error::NoError)
+    {
+        Logger::Log("[Lymalinkd] Desktop notifications unavailable.");
+    }
+
+    err = m_notificationSound.Init(ResolveInstalledNotificationSoundPath());
+    if (err != Error::NoError)
+    {
+        Logger::Log("[Lymalinkd] Achievement sounds unavailable.");
+    }
+
+    std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
@@ -96,6 +112,8 @@ Error Lymalinkd::Init()
 
     m_dbus.onRequestActiveTargets = [this]() { OnRequestActiveTargets(); };
     m_dbus.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
+    m_dbus.onReloadConfig = [this]() { OnReloadConfig(); };
+    m_dbus.onTestToast = [this]() { OnTestToast(); };
 
 	err = m_dbus.Init();
     if (err != Error::NoError)
@@ -110,7 +128,7 @@ Error Lymalinkd::Init()
 
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
     m_processWatcher.Start();
-    
+
     // Signal systemd that we are ready (no-op if not under systemd)
     m_notify.NotifyReady();
     m_notify.NotifyStatus("Running");
@@ -278,6 +296,8 @@ void Lymalinkd::Shutdown()
     m_notify.NotifyStopping();
 
     m_processWatcher.Stop();
+    m_freedesktopNotifications.Stop();
+    m_notificationSound.Stop();
 	m_dbus.Stop();
     m_sleepTimerGeneration.fetch_add(1);
     if (m_sleepTimerThread.joinable())
@@ -363,6 +383,42 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
             }
         });
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achievementKey)
+{
+    if (targetId <= 0 || achievementKey.empty())
+    {
+        return;
+    }
+
+    m_achievementNotifications.NotifyUnlocked(targetId, achievementKey);
+    m_dbus.EmitAchievementUnlocked(targetId, achievementKey);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnTestToast()
+{
+    const std::string iconPath = ResolveInstalledAppIconPath();
+
+    AchievementNotification notification;
+    notification.achievementName = "Test toast";
+    notification.achievementDescription = "Lymalink notification test";
+    notification.iconPath = iconPath;
+    notification.appIconPath = iconPath;
+
+    m_freedesktopNotifications.ShowAchievementToast(notification);
+    m_notificationSound.PlayNotificationSound();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnReloadConfig()
+{
+    m_notificationSound.SetSoundPath(ResolveInstalledNotificationSoundPath());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -606,4 +662,210 @@ std::string Lymalinkd::ResolveDatabasePath() const
     }
 
     return (std::filesystem::path(home) / ".local" / "share" / "Lymalink" / DATABASE_FILE_NAME).string();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string Lymalinkd::ResolveInstalledAppIconPath() const
+{
+    const std::filesystem::path iconPath = ResolveDataPath(LYMALINK_APP_ICON_PATH);
+    return std::filesystem::exists(iconPath) ? iconPath.string() : std::string{};
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
+{
+    // Allow developers/users to override the sound path via environment variable
+    if (const char* overridePath = std::getenv("LYMALINK_NOTIFICATION_SOUND_PATH"))
+    {
+        if (*overridePath != '\0')
+        {
+            return overridePath;
+        }
+    }
+    if (const char* overridePath = std::getenv("LYMALINK_ACHIEVEMENT_SOUND_PATH"))
+    {
+        if (*overridePath != '\0')
+        {
+            return overridePath;
+        }
+    }
+
+    const std::filesystem::path soundDir = ResolveDataPath("Lymalink/sounds");
+    if (soundDir.empty())
+    {
+        return {};
+    }
+
+    // Try loading a user-configured achievement sound
+    const std::string configuredSound = LoadConfiguredNotificationSound();
+    if (!configuredSound.empty())
+    {
+        const std::filesystem::path configuredSoundPath(configuredSound);
+
+        // Only allow plain .ogg filenames
+        if (configuredSoundPath.filename() == configuredSoundPath && configuredSoundPath.extension() == ".ogg")
+        {
+            const std::filesystem::path installedSoundPath = soundDir / configuredSoundPath;
+
+            // Use the configured sound if the file exists
+            if (std::filesystem::exists(installedSoundPath))
+            {
+                Logger::Log("[Lymalinkd] Notification sound loaded from config: " + installedSoundPath.string());
+                return installedSoundPath.string();
+            }
+
+            Logger::Log("[Lymalinkd] Configured notification sound not found: " + installedSoundPath.string());
+        }
+        else
+        {
+            Logger::Log("[Lymalinkd] Ignoring invalid notification sound config value: " + configuredSound);
+        }
+    }
+
+    // Scan installed .ogg files as fallback sounds
+    std::vector<std::filesystem::path> installedSounds;
+    std::error_code ec;
+    if (std::filesystem::exists(soundDir, ec))
+    {
+        for (const auto& entry : std::filesystem::directory_iterator(soundDir, ec))
+        {
+            if (entry.is_regular_file(ec) && entry.path().extension() == ".ogg")
+            {
+                installedSounds.push_back(entry.path());
+            }
+        }
+    }
+
+    // Sort sounds to ensure deterministic fallback selection
+    std::sort(installedSounds.begin(), installedSounds.end());
+    const std::filesystem::path defaultSoundPath = soundDir / DEFAULT_NOTIFICATION_SOUND;
+    if (std::filesystem::exists(defaultSoundPath))
+    {
+        Logger::Log("[Lymalinkd] Using default notification sound: " + defaultSoundPath.string());
+        return defaultSoundPath.string();
+    }
+
+    if (!installedSounds.empty())
+    {
+        Logger::Log("[Lymalinkd] Using default notification sound: " + installedSounds.front().string());
+        return installedSounds.front().string();
+    }
+
+    Logger::Log("[Lymalinkd] No installed notification sounds found under: " + soundDir.string());
+    return {};
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string Lymalinkd::ResolveConfigPath() const
+{
+    std::filesystem::path configHome;
+    if (const char* xdgConfigHome = std::getenv("XDG_CONFIG_HOME"))
+    {
+        if (*xdgConfigHome != '\0')
+        {
+            configHome = xdgConfigHome;
+        }
+    }
+
+    if (configHome.empty())
+    {
+        const char* home = std::getenv("HOME");
+        if (!home || *home == '\0')
+        {
+            return {};
+        }
+        configHome = std::filesystem::path(home) / ".config";
+    }
+
+    return (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
+{
+    // Prefer XDG_DATA_HOME if defined
+    std::filesystem::path dataHome;
+    if (const char* xdgDataHome = std::getenv("XDG_DATA_HOME"))
+    {
+        if (*xdgDataHome != '\0')
+        {
+            dataHome = xdgDataHome;
+        }
+    }
+
+    // Fallback to ~/.local/share if XDG_DATA_HOME is unavailable
+    if (dataHome.empty())
+    {
+        const char* home = std::getenv("HOME");
+        if (!home || *home == '\0')
+        {
+            return {};
+        }
+        dataHome = std::filesystem::path(home) / ".local" / "share";
+    }
+
+    return (dataHome / relativePath).string();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string Lymalinkd::LoadConfiguredNotificationSound() const
+{
+    // Resolve the application's config file path
+    const std::string configPath = ResolveConfigPath();
+    if (configPath.empty())
+    {
+        return {};
+    }
+
+    std::ifstream configFile(configPath);
+    if (!configFile.is_open())
+    {
+        return {};
+    }
+
+    bool inBackgroundServiceGroup = false;
+
+    // Read the config file line-by-line
+    std::string line;
+    while (std::getline(configFile, line))
+    {
+        line = Utils::TrimWhitespace(line);
+        if (line.empty() || line[0] == ';' || line[0] == '#')
+        {
+            continue;
+        }
+
+        // Track whether we are inside the target config section
+        if (line.front() == '[' && line.back() == ']')
+        {
+            inBackgroundServiceGroup = Utils::TrimWhitespace(line.substr(1, line.size() - 2)) == GROUP_BACKGROUND_SERVICE;
+            continue;
+        }
+
+        if (!inBackgroundServiceGroup)
+        {
+            continue;
+        }
+
+        // Ignore malformed config entries without =
+        const size_t separator = line.find('=');
+        if (separator == std::string::npos)
+        {
+            continue;
+        }
+
+        const std::string key = Utils::TrimWhitespace(line.substr(0, separator));
+        if (key == "NotificationSound" || key == "AchievementSound")
+        {
+            // Return the configured notification sound value
+            return Utils::TrimWhitespace(line.substr(separator + 1));
+        }
+    }
+
+    return {};
 }

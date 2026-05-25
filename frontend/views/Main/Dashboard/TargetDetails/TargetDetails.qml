@@ -217,7 +217,7 @@ Item {
         }
 
         TapHandler {
-            enabled: id_row.achievementHidden && !id_row.unlocked && !id_row.revealed
+            enabled: id_row.achievementHidden && !id_row.unlocked
             onTapped: id_row.revealed = !id_row.revealed
             cursorShape: Qt.PointingHandCursor
         }

@@ -41,6 +41,8 @@ public:
     Q_INVOKABLE bool SetServiceEnabled(bool enabled);
     Q_INVOKABLE bool RefreshServiceStatus();
     Q_INVOKABLE void ReloadAllTargets();
+    Q_INVOKABLE void ReloadConfig();
+    Q_INVOKABLE void TestToast();
 
     inline bool GetServiceAvailable() const { return m_serviceAvailable; }
     inline bool GetServiceActive() const { return m_serviceActive; }

@@ -183,6 +183,44 @@ void DBusService::ReloadAllTargets()
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::ReloadConfig()
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("ReloadConfig")
+    );
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::TestToast()
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("TestToast")
+    );
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
+}
+
+/////////////////////////////////////////////////////////////////////
 //////////////////////////// PRIVATE SLOTS //////////////////////////
 /////////////////////////////////////////////////////////////////////
 
