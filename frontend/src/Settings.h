@@ -48,6 +48,8 @@ class Settings : public QObject
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
     Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool customNotificationSound READ GetCustomNotificationSound NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString customNotificationSoundPath READ GetCustomNotificationSoundPath NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarSort READ GetDashboardToolbarSort NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
@@ -81,6 +83,8 @@ public:
         SteamId,
         SteamWebApiKey,
         NotificationSound,
+        CustomNotificationSound,
+        CustomNotificationSoundPath,
         DashboardToolbarSort,
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
@@ -128,6 +132,8 @@ public:
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
     inline QString GetNotificationSound() const { return m_notificationSound; }
     QStringList GetNotificationSounds() const;
+    inline bool GetCustomNotificationSound() const { return m_customNotificationSound; }
+    inline QString GetCustomNotificationSoundPath() const { return m_customNotificationSoundPath; }
     inline QString GetDashboardToolbarSort() const { return m_dashboardToolbarSort; }
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
@@ -167,6 +173,8 @@ private:
     QString m_steamId;
     QString m_steamWebApiKey;
     QString m_notificationSound;
+    bool m_customNotificationSound;
+    QString m_customNotificationSoundPath;
     QString m_dashboardToolbarSort;
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;

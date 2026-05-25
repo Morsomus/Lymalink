@@ -11,10 +11,10 @@
 #include "tools/Utils.h"
 
 #include <cerrno>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <algorithm>
 #include <sys/signalfd.h>
@@ -105,6 +105,7 @@ Error Lymalinkd::Init()
     }
 
     err = m_notificationSound.Init(ResolveInstalledNotificationSoundPath());
+    m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));
     if (err != Error::NoError)
     {
         Logger::Log("[Lymalinkd] Achievement sounds unavailable.");
@@ -456,6 +457,7 @@ void Lymalinkd::OnReloadConfig()
 {
     // Refresh notification sound without restarting daemon
     m_notificationSound.SetSoundPath(ResolveInstalledNotificationSoundPath());
+    m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -748,25 +750,34 @@ std::string Lymalinkd::ResolveInstalledAppIconPath() const
 
 /////////////////////////////////////////////////////////////////////
 
-std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
+std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSound) const
 {
     std::string notificationSoundPath = "";
 
     // Allow developers/users to override the sound path via environment variable
-    if (const char* overridePath = std::getenv("LYMALINK_NOTIFICATION_SOUND_PATH"))
+    if (allowCustomSound)
     {
-        if (*overridePath != '\0')
+        if (const char* overridePath = std::getenv("LYMALINK_NOTIFICATION_SOUND_PATH"))
         {
-            notificationSoundPath = overridePath;
-            return notificationSoundPath;
+            if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
+            {
+                notificationSoundPath = overridePath;
+                return notificationSoundPath;
+            }
+            Logger::Log("[Lymalinkd] Ignoring invalid LYMALINK_NOTIFICATION_SOUND_PATH override.");
         }
     }
-    if (const char* overridePath = std::getenv("LYMALINK_ACHIEVEMENT_SOUND_PATH"))
+
+    if (allowCustomSound)
     {
-        if (*overridePath != '\0')
+        if (const char* overridePath = std::getenv("LYMALINK_ACHIEVEMENT_SOUND_PATH"))
         {
-            notificationSoundPath = overridePath;
-            return notificationSoundPath;
+            if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
+            {
+                notificationSoundPath = overridePath;
+                return notificationSoundPath;
+            }
+            Logger::Log("[Lymalinkd] Ignoring invalid LYMALINK_ACHIEVEMENT_SOUND_PATH override.");
         }
     }
 
@@ -777,11 +788,28 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
         return notificationSoundPath;
     }
 
-    // Try loading a user-configured achievement sound
-    const std::string configuredSound = LoadConfiguredNotificationSound();
-    if (!configuredSound.empty())
+    // Try loading a custom notification sound - Fall back to bundled sounds if invalid.
+    bool useCustomSound = false;
+    std::string customSoundPath;
+    std::string bundledSound;
+    LoadNotificationSoundConfig(useCustomSound, customSoundPath, bundledSound);
+
+    if (allowCustomSound && useCustomSound)
     {
-        const std::filesystem::path configuredSoundPath(configuredSound);
+        if (!customSoundPath.empty() && IsSupportedCustomNotificationSound(std::filesystem::path(customSoundPath)))
+        {
+            notificationSoundPath = customSoundPath;
+            Logger::Log("[Lymalinkd] Custom notification sound loaded from config: " + notificationSoundPath);
+            return notificationSoundPath;
+        }
+
+        Logger::Log("[Lymalinkd] Custom notification sound unavailable, falling back to bundled sounds: " + customSoundPath);
+    }
+
+    // Try loading a user-configured bundled achievement sound
+    if (!bundledSound.empty())
+    {
+        const std::filesystem::path configuredSoundPath(bundledSound);
 
         // Only allow plain .ogg filenames
         if (configuredSoundPath.filename() == configuredSoundPath && configuredSoundPath.extension() == ".ogg")
@@ -800,7 +828,7 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath() const
         }
         else
         {
-            Logger::Log("[Lymalinkd] Ignoring invalid notification sound config value: " + configuredSound);
+            Logger::Log("[Lymalinkd] Ignoring invalid notification sound config value: " + bundledSound);
         }
     }
 
@@ -903,21 +931,24 @@ std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
 
 /////////////////////////////////////////////////////////////////////
 
-std::string Lymalinkd::LoadConfiguredNotificationSound() const
+void Lymalinkd::LoadNotificationSoundConfig(bool& outUseCustomSound, std::string& outCustomSoundPath, std::string& outBundledSound) const
 {
-    std::string configuredNotificationSound = "";
+    // Reset all output values before parsing
+    outUseCustomSound = false;
+    outCustomSoundPath = {};
+    outBundledSound = {};
 
     // Resolve the application's config file path
     const std::string configPath = ResolveConfigPath();
     if (configPath.empty())
     {
-        return configuredNotificationSound;
+        return;
     }
 
     std::ifstream configFile(configPath);
     if (!configFile.is_open())
     {
-        return configuredNotificationSound;
+        return;
     }
 
     bool inBackgroundServiceGroup = false;
@@ -952,13 +983,53 @@ std::string Lymalinkd::LoadConfiguredNotificationSound() const
         }
 
         const std::string key = Utils::TrimWhitespace(line.substr(0, separator));
-        if (key == "NotificationSound" || key == "AchievementSound")
+        const std::string value = Utils::TrimWhitespace(line.substr(separator + 1));
+        if (key == "NotificationSound")
         {
-            // Return the configured notification sound value
-            configuredNotificationSound = Utils::TrimWhitespace(line.substr(separator + 1));
-            return configuredNotificationSound;
+            outBundledSound = value;
+        }
+        else if (key == "CustomNotificationSound")
+        {
+            outUseCustomSound = ParseConfigBool(value);
+        }
+        else if (key == "CustomNotificationSoundPath")
+        {
+            outCustomSoundPath = value;
         }
     }
+}
 
-    return configuredNotificationSound;
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::ParseConfigBool(const std::string& value) const
+{
+    // Normalize to lowercase before comparing against accepted truthy values
+    std::string normalized = Utils::TrimWhitespace(value);
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    const bool isTruthy = normalized == "true" || normalized == "1" || normalized == "yes" || normalized == "on";
+    return isTruthy;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const
+{
+    // Normalize extension to lowercase before comparing against supported formats
+    std::string extension = soundPath.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    if (extension != ".ogg" && extension != ".wav")
+    {
+        return false;
+    }
+
+    // Confirm the path resolves to an actual file
+    std::error_code ec;
+    const bool isFile = std::filesystem::is_regular_file(soundPath, ec);
+    return isFile;
 }

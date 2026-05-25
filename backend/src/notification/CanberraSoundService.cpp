@@ -22,6 +22,7 @@ CanberraSoundService::CanberraSoundService() :
 {
     m_context = nullptr;
     m_soundPath = "";
+    m_fallbackSoundPath = "";
 }
 
 CanberraSoundService::~CanberraSoundService()
@@ -53,6 +54,7 @@ Error CanberraSoundService::Init(std::string defaultSoundPath)
 
     // Store default notification sound path from daemon configuration
     m_soundPath = std::move(defaultSoundPath);
+    m_fallbackSoundPath = m_soundPath;
     Logger::Log("[CanberraSoundService][Init] Ready.");
     return err;
 }
@@ -79,6 +81,15 @@ void CanberraSoundService::SetSoundPath(std::string soundPath)
 
 /////////////////////////////////////////////////////////////////////
 
+void CanberraSoundService::SetFallbackSoundPath(std::string fallbackSoundPath)
+{
+    std::lock_guard<std::mutex> lock(m_soundPathMutex);
+    m_fallbackSoundPath = std::move(fallbackSoundPath);
+    Logger::Log("[CanberraSoundService][SetFallbackSoundPath] Fallback sound path set: " + m_fallbackSoundPath);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool CanberraSoundService::PlayNotificationSound()
 {
     bool soundPlayed = false;
@@ -89,15 +100,25 @@ bool CanberraSoundService::PlayNotificationSound()
     }
 
     std::string soundPath;
+    std::string fallbackSoundPath;
     {
         std::lock_guard<std::mutex> lock(m_soundPathMutex);
         soundPath = m_soundPath;
+        fallbackSoundPath = m_fallbackSoundPath;
     }
 
     if (soundPath.empty() || !fs::exists(soundPath))
     {
         Logger::Log("[CanberraSoundService][PlayNotificationSound] Sound file not found: " + soundPath);
-        return soundPlayed;
+
+        std::error_code ec;
+        if (fallbackSoundPath.empty() || fallbackSoundPath == soundPath || !fs::is_regular_file(fallbackSoundPath, ec))
+        {
+            return soundPlayed;
+        }
+
+        soundPath = fallbackSoundPath;
+        Logger::Log("[CanberraSoundService][PlayNotificationSound] Falling back to: " + soundPath);
     }
 
     // Submit one notification sound playback request

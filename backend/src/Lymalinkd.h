@@ -22,6 +22,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -90,8 +91,10 @@ private:
     void  SavePlaytime(int targetId, long secondsPlayed);
     std::string ResolveDatabasePath() const;
     std::string ResolveInstalledAppIconPath() const;
-    std::string ResolveInstalledNotificationSoundPath() const;
+    std::string ResolveInstalledNotificationSoundPath(bool allowCustomSound = true) const;
     std::string ResolveConfigPath() const;
     std::string ResolveDataPath(const std::string& relativePath) const;
-    std::string LoadConfiguredNotificationSound() const;
+    void LoadNotificationSoundConfig(bool& outUseCustomSound, std::string& outCustomSoundPath, std::string& outBundledSound) const;
+    bool ParseConfigBool(const std::string& value) const;
+    bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
 };

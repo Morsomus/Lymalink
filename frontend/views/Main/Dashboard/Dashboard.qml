@@ -325,6 +325,12 @@ Item {
         id_root.refreshTargets()
     }
 
+    function reloadBackendTargets() {
+        if (typeof ctxDBusService !== "undefined" && ctxDBusService !== null) {
+            ctxDBusService.ReloadAllTargets()
+        }
+    }
+
     Connections {
         target: ctxLymalink
 
@@ -335,6 +341,9 @@ Item {
         function onSignalSteamHydrationTaskFinished(appId, success, cancelled) {
             id_root.setTargetLoading(appId, false)
             id_root.refreshTargets()
+            if (success && !cancelled) {
+                id_root.reloadBackendTargets()
+            }
         }
     }
 
@@ -393,6 +402,7 @@ Item {
                 id_root.showingAddTarget = false
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
+                id_root.reloadBackendTargets()
                 id_root.setTargetLoading(appId, true)
                 ctxLymalink.EnqueueSteamHydrationTask(appId, true)
             }
@@ -498,8 +508,8 @@ Item {
                 id_root.showingAddTarget = false
                 id_root.pendingTargetDetails = null
                 id_root.targetDetailsAchievements = []
-                // id_root.refreshTargetDetailsAchievements() TODO TURHA?
                 id_root.refreshTargets()
+                id_root.reloadBackendTargets()
             }
         }
 

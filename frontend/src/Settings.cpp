@@ -148,7 +148,9 @@ bool Settings::LoadConfig()
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
-    m_notificationSound = m_settings.value("NotificationSound", m_settings.value("AchievementSound", m_notificationSound)).toString();
+    m_notificationSound = m_settings.value("NotificationSound", m_notificationSound).toString();
+    m_customNotificationSound = m_settings.value("CustomNotificationSound", m_customNotificationSound).toBool();
+    m_customNotificationSoundPath = m_settings.value("CustomNotificationSoundPath", m_customNotificationSoundPath).toString();
     m_settings.endGroup();
     // Fallback if saved sound no longer available
     if (!GetNotificationSounds().contains(m_notificationSound))
@@ -392,6 +394,22 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_notificationSound;
             break;
         }
+        case CustomNotificationSound:
+        {
+            m_customNotificationSound = value.toBool();
+            group = GROUP_BACKGROUND_SERVICE;
+            settingsKey = "CustomNotificationSound";
+            settingsValue = m_customNotificationSound;
+            break;
+        }
+        case CustomNotificationSoundPath:
+        {
+            m_customNotificationSoundPath = value.toString();
+            group = GROUP_BACKGROUND_SERVICE;
+            settingsKey = "CustomNotificationSoundPath";
+            settingsValue = m_customNotificationSoundPath;
+            break;
+        }
         case DashboardToolbarSort:
         {
             m_dashboardToolbarSort = value.toString();
@@ -494,6 +512,8 @@ void Settings::SetDefaults()
     m_steamId = "";
     m_steamWebApiKey = "";
     m_notificationSound = ResolveDefaultNotificationSound();
+    m_customNotificationSound = false;
+    m_customNotificationSoundPath = "";
     m_dashboardToolbarSort = "title";
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
@@ -578,6 +598,8 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
     m_settings.setValue("NotificationSound", m_notificationSound);
+    m_settings.setValue("CustomNotificationSound", m_customNotificationSound);
+    m_settings.setValue("CustomNotificationSoundPath", m_customNotificationSoundPath);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DASHBOARD);

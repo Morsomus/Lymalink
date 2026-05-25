@@ -12,6 +12,7 @@ import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
 
@@ -31,6 +32,10 @@ Item {
         if (ctxSettings.SaveValue(Settings.SteamWebApiKey, apiKey)) {
             id_webApiKeyInput.completeApply(apiKey)
         }
+    }
+
+    function fileUrlToPath(fileUrl) {
+        return decodeURIComponent(fileUrl.toString().replace("file://", ""))
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -129,12 +134,13 @@ Item {
         spacing: 12
 
         Label {
+            visible: id_rowRoot.label !== ""
             text: id_rowRoot.label
             color: Themes.settings.colors.labelText
             font.pixelSize: Themes.settings.fontSizes.labelText
             
-            Layout.fillWidth: id_rowRoot.fixedWidthInt === 0
-            Layout.minimumWidth: fixedWidthInt !== 0 ? fixedWidthInt / 5 : 0
+            Layout.fillWidth: visible && id_rowRoot.fixedWidthInt === 0
+            Layout.minimumWidth: visible && fixedWidthInt !== 0 ? fixedWidthInt / 5 : 0
             
             elide: Text.ElideRight
 
@@ -415,6 +421,20 @@ Item {
         onConfirmed: (passcode) => {
             id_root.saveSteamWebApiKey(id_root.pendingSteamWebApiKey, passcode)
             id_root.pendingSteamWebApiKey = ""
+        }
+    }
+
+    FileDialog {
+        id: id_customNotificationSoundDialog
+
+        title: qsTr("Select notification sound")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("Audio files (*.ogg *.wav)")]
+        onAccepted: {
+            const soundPath = id_root.fileUrlToPath(selectedFile)
+            if (ctxSettings.SaveValue(Settings.CustomNotificationSoundPath, soundPath) && id_root.dbusServiceReady) {
+                ctxDBusService.ReloadConfig()
+            }
         }
     }
 
@@ -1002,14 +1022,24 @@ Item {
                                     radius: 6
                                     color: id_root.backendServiceState === 3
                                         ? Themes.serviceIndicator.colors.starting
-                                        : (id_root.backendServiceState === 1 || id_root.backendServiceState === 2 ? Themes.serviceIndicator.colors.running : Themes.serviceIndicator.colors.error)
+                                        : (id_root.backendServiceState === 1 || id_root.backendServiceState === 2
+                                            ? Themes.serviceIndicator.colors.running
+                                            : Themes.serviceIndicator.colors.error)
                                     onBreathingChanged: if (!breathing) opacity = Themes.serviceIndicator.opacity.solid
 
                                     SequentialAnimation on opacity {
                                         running: id_serviceStatusDot.breathing
                                         loops: Animation.Infinite
-                                        NumberAnimation { to: Themes.serviceIndicator.opacity.breathingLow; duration: Themes.serviceIndicator.animation.breathingDuration; easing.type: Easing.InOutSine }
-                                        NumberAnimation { to: Themes.serviceIndicator.opacity.solid; duration: Themes.serviceIndicator.animation.breathingDuration; easing.type: Easing.InOutSine }
+                                        NumberAnimation {
+                                            to: Themes.serviceIndicator.opacity.breathingLow
+                                            duration: Themes.serviceIndicator.animation.breathingDuration
+                                            easing.type: Easing.InOutSine
+                                        }
+                                        NumberAnimation {
+                                            to: Themes.serviceIndicator.opacity.solid
+                                            duration: Themes.serviceIndicator.animation.breathingDuration
+                                            easing.type: Easing.InOutSine
+                                        }
                                     }
                                 }
 
@@ -1043,12 +1073,12 @@ Item {
                                 readonly property int soundRowHeight: 32
 
                                 model: ctxSettings.notificationSounds
-                                enabled: count > 0
+                                enabled: count > 0 && !ctxSettings.customNotificationSound
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.notificationSound))
                                 implicitWidth: 140
                                 displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
                                 delegate: ItemDelegate {
-                                    width: parent.width
+                                    width: id_notificationSoundCombo.width
                                     text: qsTr("Sound %1").arg(index + 1)
                                 }
                                 popup: Popup {
@@ -1094,6 +1124,48 @@ Item {
                                 text: qsTr("Send test")
                                 enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
                                 onClicked: ctxDBusService.TestToast()
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Custom notification sound (.ogg, .wav)")
+                            tooltip: qsTr("Use a custom .ogg or .wav sound file instead of the bundled notification sound")
+
+                            Switch {
+                                checked: ctxSettings.customNotificationSound
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                onToggled: {
+                                    if (ctxSettings.SaveValue(Settings.CustomNotificationSound, checked) && id_root.dbusServiceReady) {
+                                        ctxDBusService.ReloadConfig()
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                enabled: ctxSettings.customNotificationSound
+                                spacing: 8
+
+                                TextField {
+                                    id: id_customNotificationSoundPathField
+
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 120
+                                    readOnly: true
+                                    selectByMouse: true
+                                    text: ctxSettings.customNotificationSoundPath
+                                    placeholderText: qsTr("Select .ogg or .wav file")
+                                }
+
+                                Button {
+                                    text: qsTr("Browse")
+                                    onClicked: id_customNotificationSoundDialog.open()
+                                }
                             }
                         }
                     }

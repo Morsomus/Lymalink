@@ -26,10 +26,12 @@ public:
     void Stop();
 
     void SetSoundPath(std::string soundPath) override;
+    void SetFallbackSoundPath(std::string fallbackSoundPath);
     bool PlayNotificationSound() override;
 
 private:
     ca_context* m_context;
     std::mutex m_soundPathMutex;
     std::string m_soundPath;
+    std::string m_fallbackSoundPath;
 };
