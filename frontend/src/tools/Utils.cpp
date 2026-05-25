@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QTimeZone>
 #include <Qt>
+#include <QFile>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -91,5 +92,21 @@ int MapIntValue(const QVariantMap &row, const QString &key)
     const QVariant value = row.value(key);
     return value.isNull() ? 0 : value.toInt();
 }
+
+/////////////////////////////////////////////////////////////////////
+
+QString ReadTextResource(const QString& resourcePath)
+{
+    QFile file(resourcePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        qWarning() << "Failed to read resource:" << resourcePath << file.errorString();
+        return {};
+    }
+
+    return QString::fromUtf8(file.readAll());
+}
+
+/////////////////////////////////////////////////////////////////////
 
 }

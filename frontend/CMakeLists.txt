@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../VERSION" VERSION_DATA)
 list(GET VERSION_DATA 0 LYMALINK_VERSION)
-list(GET VERSION_DATA 1 LICENSE_VERSION)
 string(STRIP "${LYMALINK_VERSION}" LYMALINK_VERSION)
-string(STRIP "${LICENSE_VERSION}" LICENSE_VERSION)
 
 project(Lymalink VERSION ${LYMALINK_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
@@ -44,7 +42,6 @@ qt_add_executable(Lymalink
 
 target_compile_definitions(Lymalink PRIVATE
     LYMALINK_VERSION="${LYMALINK_VERSION}"
-    LICENSE_VERSION="${LICENSE_VERSION}"
 )
 
 set_target_properties(Lymalink PROPERTIES
@@ -60,7 +57,9 @@ qt_add_qml_module(Lymalink
     VERSION 1.0
     RESOURCE_PREFIX /qt/qml
     RESOURCES
-        ${EXTERNAL_ASSETS}
+        res/docs/CREDITS.md
+        res/docs/THIRD-PARTY-LICENSES-LINUX.md
+        res/docs/LICENSE.md
         res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf
         res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf
         res/fonts/Inter/OFL.txt
@@ -89,6 +88,7 @@ qt_add_qml_module(Lymalink
         common/ConfirmationPopup.qml
         common/ErrorImage.qml
         common/ErrorPopup.qml
+        common/MarkdownDocumentPopup.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
         views/Main/Dashboard/CardGrid/Components/Card.qml
         views/Main/Dashboard/CardGrid/Components/CardSmall.qml

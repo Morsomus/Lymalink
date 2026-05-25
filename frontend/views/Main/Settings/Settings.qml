@@ -424,6 +424,10 @@ Item {
         }
     }
 
+    MarkdownDocumentPopup {
+        id: id_markdownDocumentPopup
+    }
+
     FileDialog {
         id: id_customNotificationSoundDialog
 
@@ -1224,10 +1228,36 @@ Item {
 
                     // Defaults
                     C_SettingsSection {
+                        fullRowMode: true
+
                         C_SettingRow {
+                            RowLayout {
+                                spacing: 8
+
+                                Button {
+                                    text: qsTr("License")
+                                    onClicked: id_markdownDocumentPopup.openDocument(qsTr("Lymalink License"), LICENSE_MD_TEXT)
+                                }
+
+                                Button {
+                                    text: qsTr("Third-Party Licenses")
+                                    onClicked: id_markdownDocumentPopup.openDocument(qsTr("Third-Party Licenses"), THIRD_PARTY_LICENSES_LINUX_MD_TEXT)
+                                }
+
+                                Button {
+                                    text: qsTr("Credits")
+                                    onClicked: id_markdownDocumentPopup.openDocument(qsTr("Credits"), CREDITS_MD_TEXT)
+                                }
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                            }
+
                             Button {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset Defaults")
+
                                 onClicked: {
                                     if (ctxSettings.ResetDefaults() && id_root.dbusServiceReady) {
                                         ctxDBusService.ReloadConfig()

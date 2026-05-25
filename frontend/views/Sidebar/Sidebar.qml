@@ -265,7 +265,7 @@ Item {
             // Version Info
             Label {
                 Layout.fillWidth: true
-                text: id_root.p_collapsed ? "" : "v" + LYMALINK_APP_VERSION + "  •  " + LICENSE_APP_VERSION
+                text: id_root.p_collapsed ? "" : "Lymalink • v" + LYMALINK_APP_VERSION
                 color: Themes.sidebar.colors.versionText
                 font.pixelSize: Themes.sidebar.fontSizes.version
                 horizontalAlignment: Text.AlignHCenter
