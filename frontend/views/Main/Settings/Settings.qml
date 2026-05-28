@@ -26,6 +26,8 @@ Item {
     readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
     readonly property bool backendServiceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
     readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
+    readonly property var activeTargetIds: dbusServiceReady ? ctxDBusService.activeTargetIds : []
+    readonly property bool hasActiveTarget: activeTargetIds.length > 0
     readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-left"]
     readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-left")]
 
@@ -1059,7 +1061,7 @@ Item {
                                 }
 
                                 Label {
-                                    Layout.preferredWidth: 110
+                                    Layout.preferredWidth: 60
                                     text: id_root.backendServiceState === 3
                                         ? qsTr("Starting")
                                         : (id_root.backendServiceState === 1 || id_root.backendServiceState === 2
@@ -1105,13 +1107,58 @@ Item {
 
                         C_SettingRow {
                             label: qsTr("Overlay notification")
-                            tooltip: qsTr("Send a test desktop notification")
+                            tooltip: id_root.hasActiveTarget
+                                ? qsTr("Send a test overlay notification to a running tracked target")
+                                : qsTr("Start at least one tracked target before sending a test overlay notification")
 
-                            Button {
-                                Layout.preferredWidth: 140
-                                text: qsTr("Send test")
-                                enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
-                                onClicked: ctxDBusService.TestToast()
+                            RowLayout {
+                                spacing: 22
+
+                                // Overlay Notification Info box
+                                Rectangle {
+                                    id: id_overlayTestInfoIcon
+
+                                    width: 16
+                                    height: 16
+                                    radius: 8
+                                    color: "transparent"
+                                    border.width: 1
+                                    border.color: Themes.settings.colors.labelText
+                                    Layout.alignment: Qt.AlignVCenter
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "i"
+                                        font.pixelSize: 11
+                                        font.italic: true
+                                        font.bold: true
+                                        color: Themes.settings.colors.labelText
+                                    }
+
+                                    HoverHandler {
+                                        id: id_overlayTestInfoHover
+                                    }
+
+                                    CustomTooltip {
+                                        p_active: id_overlayTestInfoHover.hovered
+                                        p_alwaysVisible: true
+                                        p_delay: 200
+                                        p_maxLineCount: 6
+                                        p_text: qsTr(
+                                            qsTr("Sends a test overlay notification to verify that overlay is working correctly.\n") +
+                                            qsTr("The notification is only visible inside applications configured for achievement tracking.\n") +
+                                            qsTr("A small test popup will appear and a notification sound will be played in the background.")
+                                        )
+                                    }
+                                }
+
+                                // Send overlay notification test button
+                                Button {
+                                    Layout.preferredWidth: 140
+                                    text: qsTr("Send test")
+                                    enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy && id_root.hasActiveTarget
+                                    onClicked: ctxDBusService.TestToast()
+                                }
                             }
                         }
 

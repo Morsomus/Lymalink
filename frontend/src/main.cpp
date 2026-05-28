@@ -14,6 +14,7 @@
 
 #include <QApplication>
 #include <QIcon>
+#include <QLockFile>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QUrl>
@@ -32,6 +33,16 @@ int main(int argc, char *argv[]) {
     #endif
 
     QApplication app(argc, argv);
+
+    // Single instance guard
+    const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");
+    QLockFile lockFile(lockPath);
+    lockFile.setStaleLockTime(5000); // Stale after 5s
+
+    if (!lockFile.tryLock(100)) {
+        // Another instance is already running
+        return 0;
+    }
 
     QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf");
     QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf");

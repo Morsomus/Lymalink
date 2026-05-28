@@ -408,7 +408,7 @@ deploy() {
         systemctl --user restart "$SERVICE_NAME"
     else
         echo "==> Enabling and starting service..."
-        systemctl --user enable "$SERVICE_NAME"
+        # systemctl --user enable "$SERVICE_NAME"
         systemctl --user start "$SERVICE_NAME"
     fi
 

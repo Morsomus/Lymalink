@@ -499,8 +499,8 @@ void Lymalinkd::OnTestToast()
     }
 
     AchievementNotification notification;
-    notification.achievementName = "Test toast";
-    notification.achievementDescription = "Lymalink notification test";
+    notification.achievementName = "Scientific Overlay Experiment";
+    notification.achievementDescription = "If you can see this, the overlay survived another day";
     notification.iconPath = appIconPath;
     notification.appIconPath = appIconPath;
 

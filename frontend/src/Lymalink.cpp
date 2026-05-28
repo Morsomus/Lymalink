@@ -15,6 +15,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QLocale>
 #include <QStandardPaths>
 #include <QVariantMap>
 
@@ -148,13 +149,6 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     QDir emulatorDir(QDir(appDataPath).filePath("Emulator"));
     const QString targetPath = emulatorDir.filePath(appIdText);
 
-    // Check filesystem first so target folder conflict blocks creation
-    if (QFileInfo::exists(targetPath))
-    {
-        qWarning() << "Lymalink: emulator target already exists on disk:" << targetPath;
-        return targetCreated;
-    }
-
     // Check database entry to avoid duplicate target rows
     const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (existingGameRows < 0)
@@ -167,6 +161,16 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     {
         qWarning() << "Lymalink: emulator target already exists in database, skipping creation:" << appId;
         return targetCreated;
+    }
+
+    // If DB row missing but stale folder exists, remove old folder and recreate target cleanly
+    if (QFileInfo::exists(targetPath))
+    {
+        if (!m_fileManager.DeleteFolder(targetPath))
+        {
+            qCritical() << "Lymalink: stale emulator target folder exists and couldn't be removed:" << targetPath;
+            return targetCreated;
+        }
     }
 
     // Create per-target asset folders before database insert
@@ -677,6 +681,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"lastPlayed", Utils::LocalDate(row.value("last_played_date").toLongLong())},
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
         {"playtime", PlaytimeText(Utils::MapIntValue(row, "total_seconds_played"))},
+        {"appIdDirFound", row.value("appid_dir_found").toInt() == 1},
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
     };
@@ -947,6 +952,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
         const bool unlocked = unlockTimestamp > 0;
         const bool achievementHidden = row.value("achievement_hidden").toInt() == 1;
         const QString sectionKey = unlocked ? "unlocked" : (achievementHidden ? "achievementHidden" : "locked");
+        const QDateTime unlockDateTime = QDateTime::fromSecsSinceEpoch(unlockTimestamp);
 
         QVariantMap achievement = {
             {"achievementKey", Utils::MapStringValue(row, "achievement_key")},
@@ -957,6 +963,7 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
             {"curProgress", Utils::MapIntValue(row, "cur_progress")},
             {"maxProgress", Utils::MapIntValue(row, "max_progress")},
             {"unlockDate", unlocked ? Utils::LocalDate(unlockTimestamp) : QString()},
+            {"unlockTime", unlocked ? QLocale::system().toString(unlockDateTime.time(), "HH:mm") : QString()},
             {"unlockTimestamp", unlockTimestamp},
             {"unlocked", unlocked},
             {"achievementHidden", achievementHidden},

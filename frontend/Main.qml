@@ -7,6 +7,8 @@
 //              frontend.
 /////////////////////////////////////////////////////////
 
+import app.settings 1.0 as AppSettings
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -27,6 +29,12 @@ ApplicationWindow {
     onMinimumWidthChanged: {
         if (width < minimumWidth) {
             width = minimumWidth
+        }
+    }
+
+    Component.onCompleted: {
+        if (!ctxSettings.welcomeHelpText) {
+            id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), CREDITS_MD_TEXT)
         }
     }
 
@@ -73,6 +81,15 @@ ApplicationWindow {
 
     ErrorPopup {
         id: id_errorPopup
+    }
+
+    MarkdownDocumentPopup {
+        id: id_welcomeHelpTextMarkdownPopup
+        onClosed: {
+            if (!ctxSettings.welcomeHelpText) {
+                ctxSettings.SaveValue(AppSettings.Settings.WelcomeHelpText, true)
+            }
+        }
     }
 
     RowLayout {

@@ -20,6 +20,7 @@ Popup {
     property bool p_alwaysVisible: false
     property string p_text: ""
     property int p_delay: 300
+    property int p_maxLineCount: 4
 
     // Internals _____________________________________________
     readonly property int edgeMargin: 8
@@ -142,7 +143,7 @@ Popup {
         font.pixelSize: Themes.general.fontSizes.tooltip
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
-        maximumLineCount: 4
+        maximumLineCount: id_root.p_maxLineCount
         elide: Text.ElideRight
     }
 

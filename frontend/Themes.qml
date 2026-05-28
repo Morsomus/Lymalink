@@ -500,6 +500,7 @@ QtObject {
             readonly property color progressBarTrack: "#2a2a3a"
             readonly property color progressBarText: "white"
             readonly property color hiddenHoverOverlay: "white"
+            readonly property color errorText: "#f0b8b8"
         }
 
         readonly property QtObject fontSizes: QtObject {

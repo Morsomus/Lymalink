@@ -332,7 +332,7 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("The backend monitors the game executable to detect when the game is running. Playtime tracking and achievement scanning are both tied to the process. Neither runs unless the game is active.")
+                            text: qsTr("The backend monitors the game executable to detect when the game is running. Playtime tracking, ingame notification overlay and achievement scanning are tied to the process. None runs unless the game is active.")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.description
                             color: Themes.emulatorTarget.colors.descriptionText
                             wrapMode: Text.Wrap

@@ -8,6 +8,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -26,6 +27,7 @@ Item {
     property string p_playtime: "" // minutes or hours
     property string p_targetType: ""
     property string p_installationStatus: ""
+    property bool p_appIdDirFound: false
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
     property int p_globalColorStyle: 1
@@ -47,6 +49,12 @@ Item {
         ? p_achievementCount / p_achievementTotal
         : 0.0
 
+    Component.onCompleted: {
+        if (!ctxSettings.targetDetailsHelpText) {
+            id_targetHelpTextMarkdownPopup.openDocument(qsTr("Tips"), CREDITS_MD_TEXT)
+        }
+    }
+
     /////////////////////////////////////////////////////////////////////
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////
@@ -56,6 +64,7 @@ Item {
         property string icon:  ""
         property string label: ""
         property string value: ""
+        property color valueColor: Themes.targetDetails.colors.text
 
         width: parent.width
         spacing: 6
@@ -76,7 +85,7 @@ Item {
         }
         Text {
             text: value
-            color: Themes.targetDetails.colors.text
+            color: valueColor
             font.pixelSize: Themes.targetDetails.fontSizes.metaValue
             font.bold: true
             Layout.alignment: Qt.AlignRight
@@ -142,6 +151,7 @@ Item {
         property int curProgress: 0
         property int maxProgress: 0
         property string unlockDate: ""
+        property string unlockTime: ""
         property bool unlocked: false
         property bool achievementHidden: false
         property bool revealed: false
@@ -422,7 +432,7 @@ Item {
 
                 // Achivement progress track
                 Item {
-                    width: id_achievementProgress.implicitWidth
+                    width: id_unlockGlobalRow.implicitWidth
                     height: 18
                     visible: id_row.maxProgress > 1
 
@@ -510,12 +520,13 @@ Item {
 
             // Unlock date (or locked indicator)
             Text {
-                Layout.preferredWidth: 110
-                text: id_row.unlocked ? id_row.unlockDate : qsTr("Locked")
+                Layout.preferredWidth: 70
+                text: id_row.unlocked ? ( id_row.unlockTime + "\n" + id_row.unlockDate ) : qsTr("Locked")
                 color: id_row.unlocked ? id_root.themedCompletionColor : Themes.targetDetails.colors.text
                 font.pixelSize: Themes.targetDetails.fontSizes.rowUnlockDate
                 font.bold: id_row.unlocked
                 horizontalAlignment: Text.AlignRight
+                wrapMode: Text.WordWrap
                 opacity: id_row.unlocked ? 1.0 : 0.35
             }
         }
@@ -538,6 +549,15 @@ Item {
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
+
+    MarkdownDocumentPopup {
+        id: id_targetHelpTextMarkdownPopup
+        onClosed: {
+            if (!ctxSettings.targetDetailsHelpText) {
+                ctxSettings.SaveValue(Settings.TargetDetailsHelpText, true)
+            }
+        }
+    }
 
     // Left fixed panel - cover + meta
     Item {
@@ -739,6 +759,11 @@ Item {
                     value: id_root.p_recentUnlock === "" ? qsTr("Never") : id_root.p_recentUnlock
                     visible: id_root.p_achievementTotal > 0
                 }
+                C_MetaRow {
+                    label: qsTr("Achievement file")
+                    value: id_root.p_appIdDirFound ? qsTr("Found") : qsTr("Missing")
+                    valueColor: id_root.p_appIdDirFound ? Themes.targetDetails.colors.text : Themes.targetDetails.colors.errorText
+                }
 
                 // Bottom separator
                 Rectangle {
@@ -803,6 +828,7 @@ Item {
             curProgress: model.curProgress
             maxProgress: model.maxProgress
             unlockDate: model.unlockDate
+            unlockTime: model.unlockTime
             unlocked: model.unlocked
 
             achievementHidden: model.achievementHidden

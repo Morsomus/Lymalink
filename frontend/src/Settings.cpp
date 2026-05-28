@@ -164,6 +164,8 @@ bool Settings::LoadConfig()
     m_dashboardToolbarFilters = m_settings.value("ToolbarFilters", m_dashboardToolbarFilters).toStringList();
     m_dashboardToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_dashboardToolbarSortDescending).toBool();
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
+    m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toBool();
+    m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toBool();
     m_settings.endGroup();
 
     LoadEncryptedValueState();
@@ -451,6 +453,22 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_dashboardToolbarLayout;
             break;
         }
+        case WelcomeHelpText:
+        {
+            m_welcomeHelpText = value.toBool();
+            group = GROUP_DASHBOARD;
+            settingsKey = "WelcomeHelpText";
+            settingsValue = m_welcomeHelpText;
+            break;
+        }
+        case TargetDetailsHelpText:
+        {
+            m_targetDetailsHelpText = value.toBool();
+            group = GROUP_DASHBOARD;
+            settingsKey = "TargetDetailsHelpText";
+            settingsValue = m_targetDetailsHelpText;
+            break;
+        }
         default:
         {
             qDebug() << "Settings::SaveValue - unknown setting key:" << key;
@@ -528,6 +546,8 @@ void Settings::SetDefaults()
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
+    m_welcomeHelpText = false;
+    m_targetDetailsHelpText = false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -618,6 +638,8 @@ void Settings::SavePlainValues()
     m_settings.setValue("ToolbarFilters", m_dashboardToolbarFilters);
     m_settings.setValue("ToolbarSortDescending", m_dashboardToolbarSortDescending);
     m_settings.setValue("ToolbarLayout", m_dashboardToolbarLayout);
+    m_settings.setValue("WelcomeHelpText", m_welcomeHelpText);
+    m_settings.setValue("TargetDetailsHelpText", m_targetDetailsHelpText);
     m_settings.endGroup();
 }
 

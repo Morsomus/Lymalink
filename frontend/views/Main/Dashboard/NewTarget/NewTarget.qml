@@ -55,7 +55,9 @@ Item {
         visible: active
         sourceComponent: Component {
             Emulator {
-                onTargetAdded: id_root.targetAdded(appId)
+                onTargetAdded: function(appId) {
+                    id_root.targetAdded(appId)
+                }
             }
         }
     }

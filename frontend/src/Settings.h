@@ -55,6 +55,8 @@ class Settings : public QObject
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool welcomeHelpText READ GetWelcomeHelpText NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool targetDetailsHelpText READ GetTargetDetailsHelpText NOTIFY signalConfigChanged)
 
 public:
     enum Key
@@ -90,7 +92,9 @@ public:
         DashboardToolbarSort,
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
-        DashboardToolbarLayout
+        DashboardToolbarLayout,
+        WelcomeHelpText,
+        TargetDetailsHelpText
     };
     Q_ENUM(Key)
 
@@ -141,6 +145,8 @@ public:
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
     inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
+    inline bool GetWelcomeHelpText() const { return m_welcomeHelpText; }
+    inline bool GetTargetDetailsHelpText() const { return m_targetDetailsHelpText; }
 
 signals:
     void signalConfigChanged();
@@ -183,6 +189,8 @@ private:
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
+    bool m_welcomeHelpText;
+    bool m_targetDetailsHelpText;
 
     void SetDefaults();
     QString ResolveDefaultNotificationSound() const;
