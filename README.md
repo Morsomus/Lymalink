@@ -153,7 +153,7 @@ For backend requirements, direct `make` usage, tests, local run commands, and se
 ---
 
 ## Credits
-See [CREDITS.md](backend/res/CREDITS.md) for third-party sound assets used in this project.
+See [CREDITS.md](frontend/res/docs/CREDITS.md) for third-party sound assets used in this project.
 
 ## Disclaimer
 
