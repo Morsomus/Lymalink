@@ -353,13 +353,26 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
         ? (unlockTimestamp > 0 ? unlockTimestamp : now)
         : 0;
 
+    QVariantMap achievementUpdate = {
+        {"date_unlocked", normalizedUnlockTimestamp},
+        {"date_updated", now}
+    };
+
+    // Set current progress to zero or max depending on unlock status
+    const int maxProgress = Utils::MapIntValue(existingAchievement, "max_progress");
+    if (unlocked && maxProgress > 0)
+    {
+        achievementUpdate["cur_progress"] = maxProgress;
+    }
+    else if (!unlocked)
+    {
+        achievementUpdate["cur_progress"] = 0;
+    }
+
     const bool achievementUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
-        {
-            {"date_unlocked", normalizedUnlockTimestamp},
-            {"date_updated", now}
-        },
+        achievementUpdate,
         "id = ? AND achievement_key = ?",
         {appId, trimmedKey}
     );
@@ -746,7 +759,8 @@ Error Lymalink::DatabaseInit()
             "achievement_description TEXT",
             "achievement_hidden INTEGER DEFAULT 0",
             "global_unlock_percentage REAL",
-            "icon_gray_url TEXT",
+            "cur_progress INTEGER DEFAULT 0",
+            "max_progress INTEGER DEFAULT 0",
             "date_unlocked INTEGER",
             "date_updated INTEGER",
             "date_added INTEGER",
@@ -916,6 +930,8 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
             "achievement_description",
             "achievement_hidden",
             "global_unlock_percentage",
+            "cur_progress",
+            "max_progress",
             "date_unlocked"
         }
     );
@@ -938,6 +954,8 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
             {"achievementName", Utils::MapStringValue(row, "achievement_name")},
             {"achievementDescription", Utils::MapStringValue(row, "achievement_description")},
             {"globalUnlockPercentage", row.value("global_unlock_percentage").isNull() ? 0.0 : row.value("global_unlock_percentage").toDouble()},
+            {"curProgress", Utils::MapIntValue(row, "cur_progress")},
+            {"maxProgress", Utils::MapIntValue(row, "max_progress")},
             {"unlockDate", unlocked ? Utils::LocalDate(unlockTimestamp) : QString()},
             {"unlockTimestamp", unlockTimestamp},
             {"unlocked", unlocked},

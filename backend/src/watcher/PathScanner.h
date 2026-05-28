@@ -26,23 +26,6 @@ struct AppIdDirPathScanResult
     std::string emulatorType;
 };
 
-enum class EmulatorType
-{
-    CODEX,
-    RUNE,
-    EMPRESS,
-    SKIDROW,
-    ONLINEFIX,
-    GOLDBERG,
-    SMARTSTEAMEMU,
-    CREAMAPI,
-    RLD,
-    _1911,
-    CPY,
-    STEAMPUNKS,
-    UNKNOWN
-};
-
 class PathScanner
 {
 public:
@@ -56,5 +39,4 @@ private:
     std::vector<AppIdDirPathScanTarget> m_targets;
 
     std::string DetectEmulatorType(const std::string& appidDirLocation) const;
-    EmulatorType GetEmulatorEnum(const std::string& folderName) const;
 };

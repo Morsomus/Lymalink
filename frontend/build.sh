@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #########################################################
 # File: build.sh
-# Date: 30.04.2026
+# Date: 2026-04-30
 # Author: Morsomus
 # Copyright: see /LICENSE
 # Description: Automated build and deployment script for Lymalink.

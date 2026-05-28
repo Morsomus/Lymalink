@@ -6,7 +6,7 @@ This document lists third-party libraries, fonts, and assets used in Lymalink an
 
 ## Libraries
 
-### Qt 6 — Frontend
+### Qt 6 - Frontend
 **Version:** 6.10.3  
 **Modules:** Core, GUI, QML, Quick, Widgets, SQL, Network, DBus  
 **License:** GNU Lesser General Public License v3.0 (LGPL-3.0)  

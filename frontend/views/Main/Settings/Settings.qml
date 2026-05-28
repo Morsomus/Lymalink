@@ -26,6 +26,8 @@ Item {
     readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
     readonly property bool backendServiceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
     readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
+    readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-left"]
+    readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-left")]
 
     function saveSteamWebApiKey(apiKey, passcode) {
         ctxSettings.SetTempEncryptionKey(passcode)
@@ -36,6 +38,15 @@ Item {
 
     function fileUrlToPath(fileUrl) {
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
+    }
+
+    function overlayPositionIndex(value) {
+        for (let i = 0; i < overlayPositionValues.length; ++i) {
+            if (overlayPositionValues[i] === value) {
+                return i
+            }
+        }
+        return 3
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -1067,6 +1078,44 @@ Item {
                         }
 
                         C_SettingRow {
+                            label: qsTr("Overlay position")
+                            tooltip: qsTr("Select where achievement overlay notifications appear")
+
+                            ComboBox {
+                                id: id_overlayPositionCombo
+
+                                model: id_root.overlayPositionLabels
+                                currentIndex: id_root.overlayPositionIndex(ctxSettings.overlayNotificationPosition)
+                                implicitWidth: 140
+
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
+                                onActivated: (index) => {
+                                    const position = id_root.overlayPositionValues[index]
+                                    if (ctxSettings.SaveValue(Settings.OverlayNotificationPosition, position) && id_root.dbusServiceReady) {
+                                        ctxDBusService.ReloadConfig()
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Overlay notification")
+                            tooltip: qsTr("Send a test desktop notification")
+
+                            Button {
+                                Layout.preferredWidth: 140
+                                text: qsTr("Send test")
+                                enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
+                                onClicked: ctxDBusService.TestToast()
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Notification sound")
                             tooltip: qsTr("Select the achievement notification sound")
 
@@ -1116,18 +1165,6 @@ Item {
                                         ctxDBusService.ReloadConfig()
                                     }
                                 }
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Toast notification")
-                            tooltip: qsTr("Send a test desktop notification")
-
-                            Button {
-                                Layout.preferredWidth: 140
-                                text: qsTr("Send test")
-                                enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
-                                onClicked: ctxDBusService.TestToast()
                             }
                         }
 

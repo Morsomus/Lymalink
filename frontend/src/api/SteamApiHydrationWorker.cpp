@@ -292,8 +292,10 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         entry["achievement_description"] = achievement.achievementDescription;
         entry["achievement_hidden"] = achievement.achievementHidden ? 1 : 0;
         entry["global_unlock_percentage"] = achievement.globalUnlockPercentage;
-        entry["date_added"]        = now;
-        entry["date_updated"]      = now;
+        entry["cur_progress"] = achievement.minProgress;
+        entry["max_progress"] = achievement.maxProgress;
+        entry["date_added"] = now;
+        entry["date_updated"] = now;
 
         achievementList.append(entry);
     }

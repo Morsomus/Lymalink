@@ -56,10 +56,12 @@ signals:
     void signalServiceStatusChanged();
     void signalLastErrorChanged();
     void signalActiveTargetIdsChanged();
+    void signalAchievementUnlocked(int appId, const QString &achievementKey);
 
 private slots:
     void OnPingFinished(QDBusPendingCallWatcher *watcher);
     void OnGameStateChanged(const QList<int> &targetIds, const QString &state);
+    void OnAchievementUnlocked(int appId, const QString &achievementKey);
 
 private:
     QTimer *m_pingTimer;

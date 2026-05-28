@@ -23,7 +23,7 @@
 /////////////////////////////////////////////////////////////////////
 
 Lymalinkd::Lymalinkd() :
-    m_achievementNotifications(m_database, m_freedesktopNotifications, m_notificationSound)
+    m_achievementNotifications(m_database, m_overlayNotifications, m_notificationSound)
 {
     m_processActive.store(false);
     m_activeCount.store(0);
@@ -89,6 +89,9 @@ Error Lymalinkd::Init()
     // Reset monitor state before services start
     m_processActive.store(false);
 
+    // Enable Vulkan based Overlay loading to games by tweaking manifest
+    SetVulkanOverlayManifestEnableEnvironment(false);
+
     err = DatabaseInit();
     if (err != Error::NoError)
     {
@@ -98,10 +101,10 @@ Error Lymalinkd::Init()
     // Configure notification backends from resolved database/data paths
     std::filesystem::path databaseParent = std::filesystem::path(m_databasePath).parent_path();
     m_achievementNotifications.Configure(m_databaseConnectionName, databaseParent.string());
-    err = m_freedesktopNotifications.Init();
-    if (err != Error::NoError)
+
+    if (!m_overlayNotifications.Init())
     {
-        Logger::Log("[Lymalinkd] Desktop notifications unavailable.");
+        Logger::Log("[Lymalinkd] Overlay notifications unavailable.");
     }
 
     err = m_notificationSound.Init(ResolveInstalledNotificationSoundPath());
@@ -134,6 +137,9 @@ Error Lymalinkd::Init()
     // ProcessWatcher callbacks
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe) { OnProcessStarted(targetId, exe); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
+
+    m_achievementHandler.Init();
+    m_achievementHandler.Start();
 
     // Start process watcher with executable paths from database
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
@@ -191,6 +197,8 @@ void Lymalinkd::Monitor()
         if (!m_processActive.load())
         {
             Logger::Log("[Lymalinkd][Monitor] No active processes, going to sleep...");
+            m_overlayNotifications.SetSocketPaused(true);
+            m_achievementHandler.Pause();
 
             // Sleep until process watcher reports activity or shutdown starts
             std::unique_lock<std::mutex> lock(m_cvMutex);
@@ -207,6 +215,9 @@ void Lymalinkd::Monitor()
             {
                 continue;
             }
+
+            m_overlayNotifications.SetSocketPaused(false);
+            m_achievementHandler.Resume();
             
             // Reload after wakeup
             m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
@@ -218,6 +229,26 @@ void Lymalinkd::Monitor()
         while (m_running.load() && m_processActive.load())
         {
             auto currentTime = std::chrono::steady_clock::now();
+
+            std::vector<std::pair<int, int>> activeTargets;
+            {
+                std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+                activeTargets = m_activeTargetsIds;
+            }
+
+            for (const auto& activeTarget : activeTargets)
+            {
+                const std::vector<AchievementData> unhandled = m_achievementHandler.PollUnhandled(activeTarget.first);
+                for (const AchievementData& achievement : unhandled)
+                {
+                    const bool saved = SaveAchievementState(activeTarget.first, achievement);
+                    if (saved && achievement.newlyUnlocked && achievement.achieved)
+                    {
+                        // OnAchievementUnlocked is only done IF achievement is actually new AND it was marked as achieved
+                        OnAchievementUnlocked(activeTarget.first, achievement.key);
+                    }
+                }
+            }
 
             // Scan AppId dir for currently active executable (5 second interval)
             if (std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastScanTime).count() >= 5)
@@ -236,6 +267,10 @@ void Lymalinkd::Monitor()
                         {
                             // Persist discovered AppId dirs and drop completed targets
                             SavePathScanResults(scanResults);
+                            for (const AppIdDirPathScanResult& result : scanResults)
+                            {
+                                m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
+                            }
 
                             if (!HasCurrentActiveTargetsNeedingAppIdDirScan())
                             {
@@ -318,7 +353,7 @@ void Lymalinkd::Shutdown()
 
     // Stop external services before closing database connection
     m_processWatcher.Stop();
-    m_freedesktopNotifications.Stop();
+    m_overlayNotifications.Shutdown();
     m_notificationSound.Stop();
 	m_dbus.Stop();
 
@@ -336,6 +371,8 @@ void Lymalinkd::Shutdown()
         m_database.CloseDatabase(m_databaseConnectionName);
     }
 
+    // Disable Vulkan based Overlay loading to games by tweaking manifest
+    SetVulkanOverlayManifestEnableEnvironment(true);
     Logger::Log("[Lymalinkd] Shutdown complete.");
 }
 
@@ -365,6 +402,20 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
             m_activeTargetsIds.push_back({targetId, 0});
         }
     }
+
+    DbRecord target;
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        target = m_database.SelectFirst(m_databaseConnectionName, m_databaseEmuGamesTable, "id = ?", {static_cast<int64_t>(targetId)});
+    }
+
+    const std::string appIdDirPath = SQLiteManager::RowString(target, "appid_dir_location");
+    const std::string emulatorType = SQLiteManager::RowString(target, "emulator_type");
+    if (!appIdDirPath.empty() && !emulatorType.empty())
+    {
+        m_achievementHandler.AddTarget(targetId, appIdDirPath, emulatorType);
+    }
+
     m_dbus.EmitGameStateChanged(targetId, "Active");
     m_cv.notify_one();
 }
@@ -385,6 +436,7 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
         m_activeTargetsIds.erase(removeIt, m_activeTargetsIds.end());
     }
     m_dbus.EmitGameStateChanged(targetId, "Inactive");
+    m_achievementHandler.RemoveTarget(targetId);
 
     if (m_activeCount.fetch_sub(1) - 1 <= 0)
     {
@@ -437,17 +489,23 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
 
 void Lymalinkd::OnTestToast()
 {
-    // Reuse installed app icon for both notification image slots
-    const std::string iconPath = ResolveInstalledAppIconPath();
+    std::string appIconPath = "";
+
+    // Use installed test icon if found
+    const std::filesystem::path iconPath = ResolveDataPath(LYMALINK_TEST_ICON_PATH);
+    if (std::filesystem::exists(iconPath))
+    {
+        appIconPath = iconPath.string();
+    }
 
     AchievementNotification notification;
     notification.achievementName = "Test toast";
     notification.achievementDescription = "Lymalink notification test";
-    notification.iconPath = iconPath;
-    notification.appIconPath = iconPath;
+    notification.iconPath = appIconPath;
+    notification.appIconPath = appIconPath;
 
     // Display notification and play configured sound
-    m_freedesktopNotifications.ShowAchievementToast(notification);
+    m_overlayNotifications.ShowAchievementToast(notification);
     m_notificationSound.PlayNotificationSound();
 }
 
@@ -707,6 +765,105 @@ void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achievement)
+{
+    bool achievementStateUpdated = false;
+
+    if (targetId <= 0 || achievement.key.empty())
+    {
+        return achievementStateUpdated;
+    }
+
+    const int64_t now = Utils::NowEpoch();
+
+    std::lock_guard<std::mutex> lock(m_databaseMutex);
+
+    const DbRecord existingAchievement = m_database.SelectFirst(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        "id = ? AND achievement_key = ?",
+        {static_cast<int64_t>(targetId), achievement.key}
+    );
+
+    if (existingAchievement.empty())
+    {
+        Logger::Log("[Lymalinkd] Achievement not found for DB update: targetId=" + std::to_string(targetId) + " key=" + achievement.key);
+        return achievementStateUpdated;
+    }
+
+    const int64_t dbMaxProgress = SQLiteManager::RowInt(existingAchievement, "max_progress");
+    const int64_t effectiveMaxProgress = achievement.maxProgress > 0 ? achievement.maxProgress : dbMaxProgress;
+    int64_t currentProgress = static_cast<int64_t>(achievement.curProgress);
+    if (achievement.achieved && effectiveMaxProgress > 0 && currentProgress < effectiveMaxProgress)
+    {
+        currentProgress = effectiveMaxProgress;
+    }
+
+    DbRecord achievementUpdate{
+        {"cur_progress", currentProgress},
+        {"date_updated", now}
+    };
+
+    if (achievement.achieved)
+    {
+        const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
+        if (achievement.unlockTime > 0)
+        {
+            achievementUpdate["date_unlocked"] = achievement.unlockTime;
+        }
+        else if (existingUnlockTime <= 0)
+        {
+            achievementUpdate["date_unlocked"] = now;
+        }
+    }
+
+    if (!m_database.Update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        achievementUpdate,
+        "id = ? AND achievement_key = ?",
+        {static_cast<int64_t>(targetId), achievement.key}))
+    {
+        Logger::Log("[Lymalinkd] Failed to update achievement state: targetId=" + std::to_string(targetId) + " key=" + achievement.key + " error=" + m_database.LastError());
+        return achievementStateUpdated;
+    }
+
+    const int64_t unlockedCount = m_database.Count(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        "id = ? AND date_unlocked > 0",
+        {static_cast<int64_t>(targetId)}
+    );
+
+    if (unlockedCount < 0)
+    {
+        Logger::Log("[Lymalinkd] Failed to count unlocked achievements: targetId=" + std::to_string(targetId) + " error=" + m_database.LastError());
+        return achievementStateUpdated;
+    }
+
+    DbRecord targetUpdate{
+        {"total_unlocked_amount_achievements", unlockedCount},
+        {"date_updated", now}
+    };
+
+    achievementStateUpdated = m_database.Update(
+        m_databaseConnectionName,
+        m_databaseEmuGamesTable,
+        targetUpdate,
+        "id = ?",
+        {static_cast<int64_t>(targetId)}
+    );
+
+    if (!achievementStateUpdated)
+    {
+        Logger::Log("[Lymalinkd] Failed to update target achievement count: targetId=" + std::to_string(targetId) + " error=" + m_database.LastError());
+    }
+
+    return achievementStateUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 std::string Lymalinkd::ResolveDatabasePath() const
 {
     std::string databasePath = "";
@@ -734,18 +891,241 @@ std::string Lymalinkd::ResolveDatabasePath() const
 
 /////////////////////////////////////////////////////////////////////
 
-std::string Lymalinkd::ResolveInstalledAppIconPath() const
+std::string Lymalinkd::ResolveInstalledVulkanOverlayManifestPath() const
 {
-    std::string appIconPath = "";
-
-    // Use installed app icon only if the resolved file exists
-    const std::filesystem::path iconPath = ResolveDataPath(LYMALINK_APP_ICON_PATH);
-    if (std::filesystem::exists(iconPath))
+    // Check for an environment variable override
+    if (const char* overridePath = std::getenv("LYMALINK_OVERLAY_MANIFEST_PATH"))
     {
-        appIconPath = iconPath.string();
+        if (*overridePath != '\0')
+        {
+            return std::string(overridePath);
+        }
     }
 
-    return appIconPath;
+    return ResolveDataPath("vulkan/implicit_layer.d/lymalink_overlay.json");
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifestPaths() const
+{
+    std::vector<std::string> manifestPaths;
+
+    // Check for a Flatpak-specific environment variable override
+    if (const char* overridePath = std::getenv("LYMALINK_FLATPAK_OVERLAY_MANIFEST_PATH"))
+    {
+        if (*overridePath != '\0')
+        {
+            manifestPaths.push_back(overridePath);
+            return manifestPaths;
+        }
+    }
+
+    // Verify the target Flatpak runtime directory exists
+    const std::filesystem::path runtimeDir = ResolveDataPath("flatpak/runtime/org.freedesktop.Platform.VulkanLayer.lymalink/x86_64/25.08");
+    if (runtimeDir.empty() || !std::filesystem::exists(runtimeDir))
+    {
+        return manifestPaths;
+    }
+
+    // Recursively scan the directory for the overlay manifest
+    std::error_code ec;
+    std::filesystem::recursive_directory_iterator it(runtimeDir, std::filesystem::directory_options::skip_permission_denied, ec);
+    const std::filesystem::recursive_directory_iterator end;
+    while (!ec && it != end)
+    {
+        const std::filesystem::directory_entry& entry = *it;
+
+        // Skip directories and inaccessible files
+        if (!entry.is_regular_file(ec) || ec)
+        {
+            ec.clear();
+            it.increment(ec);
+            continue;
+        }
+
+        // Collect paths matching the specific filename
+        if (entry.path().filename() == "lymalink_overlay.x86_64.json")
+        {
+            manifestPaths.push_back(entry.path().string());
+        }
+
+        it.increment(ec);
+    }
+
+    return manifestPaths;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::vector<std::string> Lymalinkd::ResolveInstalledVulkanOverlayManifestPaths() const
+{
+    std::vector<std::string> manifestPaths;
+
+    // Collect the primary host manifest path
+    const std::string hostManifestPath = ResolveInstalledVulkanOverlayManifestPath();
+    if (!hostManifestPath.empty())
+    {
+        manifestPaths.push_back(hostManifestPath);
+    }
+
+    // Append all discovered Flatpak manifest paths
+    const std::vector<std::string> flatpakManifestPaths = ResolveInstalledFlatpakVulkanOverlayManifestPaths();
+    manifestPaths.insert(manifestPaths.end(), flatpakManifestPaths.begin(), flatpakManifestPaths.end());
+
+    return manifestPaths;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(bool enabled)
+{
+    // Apply the toggle state to every discovered manifest path
+    for (const std::string& manifestPath : ResolveInstalledVulkanOverlayManifestPaths())
+    {
+        SetVulkanOverlayManifestEnableEnvironment(manifestPath, enabled);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& manifestPath, bool enabled)
+{
+    if (manifestPath.empty() || !std::filesystem::exists(manifestPath))
+    {
+        return;
+    }
+
+    // Open the manifest file for reading
+    std::ifstream in(manifestPath);
+    if (!in.is_open())
+    {
+        Logger::Log("[Lymalinkd] Failed to open overlay manifest for read: " + manifestPath);
+        return;
+    }
+
+    // Read the entire file content into memory and close the stream
+    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+
+    const std::string enableKey  = "\"enable_environment\"";
+    const std::string disableKey = "\"disable_environment\"";
+    const bool hasBlock = (content.find(enableKey) != std::string::npos);
+    bool changed = false;
+
+    if (!enabled)
+    {
+        // Remove the "enable_environment" block if it exists
+        if (hasBlock)
+        {
+            const size_t keyPos = content.find(enableKey);
+
+            // Find the start of the line containing the key
+            size_t lineStart = content.rfind('\n', keyPos);
+            lineStart = (lineStart == std::string::npos) ? 0 : lineStart + 1;
+
+            // Find the closing brace+comma that ends this block
+            const size_t braceClose = content.find("},", keyPos);
+            if (braceClose == std::string::npos)
+            {
+                Logger::Log("[Lymalinkd] Invalid overlay manifest enable_environment block: " + manifestPath);
+                return;
+            }
+
+            // Erase from line start through the closing brace+comma and its trailing newline
+            size_t eraseEnd = braceClose + 2; // include "},"
+            if (eraseEnd < content.size() && content[eraseEnd] == '\n')
+            {
+                ++eraseEnd; // include trailing newline
+            }
+
+            content.erase(lineStart, eraseEnd - lineStart);
+            changed = true;
+        }
+    }
+    else
+    {
+        // Insert the "enable_environment" block if it's missing
+        if (!hasBlock)
+        {
+            const size_t markerPos = content.find(disableKey);
+            if (markerPos == std::string::npos)
+            {
+                Logger::Log("[Lymalinkd] disable_environment missing in overlay manifest: " + manifestPath);
+                return;
+            }
+
+            // Detect the indentation of the disable_environment line and match it
+            size_t lineStart = content.rfind('\n', markerPos);
+            lineStart = (lineStart == std::string::npos) ? 0 : lineStart + 1;
+            const std::string indent(content.begin() + lineStart, content.begin() + markerPos);
+
+            // Detect the indentation used one level deeper (first non-whitespace char inside the block)
+            const size_t blockOpen = content.find('{', markerPos);
+            size_t innerLineStart = content.find('\n', blockOpen);
+            innerLineStart = (innerLineStart == std::string::npos) ? blockOpen + 1 : innerLineStart + 1;
+            size_t innerContentStart = content.find_first_not_of(" \t", innerLineStart);
+            if (innerContentStart == std::string::npos)
+            {
+                innerContentStart = innerLineStart;
+            }
+            const std::string innerIndent(content.begin() + innerLineStart, content.begin() + innerContentStart);
+
+            // Build the block using the same indentation as the surrounding JSON
+            const std::string block =
+                indent + "\"enable_environment\": {\n" +
+                innerIndent + "\"LYMALINK_OVERLAY_ENABLE\": \"1\"\n" +
+                indent + "},\n";
+
+            content.insert(lineStart, block);
+            changed = true;
+        }
+    }
+
+    // Skip writing if no modifications were made
+    if (!changed)
+    {
+        return;
+    }
+
+    const std::filesystem::path targetPath = manifestPath;
+    const std::filesystem::path tempPath = targetPath.string() + ".tmp." + std::to_string(getpid());
+    std::error_code ec;
+    const std::filesystem::perms targetPerms = std::filesystem::status(targetPath, ec).permissions();
+
+    // Write through a temp file and rename so Flatpak hardlinked OSTree files are not modified in place.
+    std::ofstream out(tempPath, std::ios::trunc);
+    if (!out.is_open())
+    {
+        Logger::Log("[Lymalinkd] Failed to open overlay manifest for write: " + manifestPath);
+        return;
+    }
+
+    out << content;
+    if (!out.good())
+    {
+        Logger::Log("[Lymalinkd] Failed to write overlay manifest: " + manifestPath);
+        out.close();
+        std::filesystem::remove(tempPath, ec);
+        return;
+    }
+    out.close();
+
+    if (targetPerms != std::filesystem::perms::unknown)
+    {
+        std::filesystem::permissions(tempPath, targetPerms, ec);
+        ec.clear();
+    }
+
+    std::filesystem::rename(tempPath, targetPath, ec);
+    if (ec)
+    {
+        Logger::Log("[Lymalinkd] Failed to replace overlay manifest: " + manifestPath + ": " + ec.message());
+        std::filesystem::remove(tempPath, ec);
+        return;
+    }
+
+    Logger::Log(std::string("[Lymalinkd] Overlay manifest updated: ") + (enabled ? "enable_environment restored" : "enable_environment removed"));
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -945,58 +1325,9 @@ void Lymalinkd::LoadNotificationSoundConfig(bool& outUseCustomSound, std::string
         return;
     }
 
-    std::ifstream configFile(configPath);
-    if (!configFile.is_open())
-    {
-        return;
-    }
-
-    bool inBackgroundServiceGroup = false;
-
-    // Read the config file line-by-line
-    std::string line;
-    while (std::getline(configFile, line))
-    {
-        line = Utils::TrimWhitespace(line);
-        if (line.empty() || line[0] == ';' || line[0] == '#')
-        {
-            continue;
-        }
-
-        // Track whether we are inside the target config section
-        if (line.front() == '[' && line.back() == ']')
-        {
-            inBackgroundServiceGroup = Utils::TrimWhitespace(line.substr(1, line.size() - 2)) == GROUP_BACKGROUND_SERVICE;
-            continue;
-        }
-
-        if (!inBackgroundServiceGroup)
-        {
-            continue;
-        }
-
-        // Ignore malformed config entries without =
-        const size_t separator = line.find('=');
-        if (separator == std::string::npos)
-        {
-            continue;
-        }
-
-        const std::string key = Utils::TrimWhitespace(line.substr(0, separator));
-        const std::string value = Utils::TrimWhitespace(line.substr(separator + 1));
-        if (key == "NotificationSound")
-        {
-            outBundledSound = value;
-        }
-        else if (key == "CustomNotificationSound")
-        {
-            outUseCustomSound = ParseConfigBool(value);
-        }
-        else if (key == "CustomNotificationSoundPath")
-        {
-            outCustomSoundPath = value;
-        }
-    }
+    outBundledSound = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "NotificationSound");
+    outUseCustomSound = ParseConfigBool(Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "CustomNotificationSound"));
+    outCustomSoundPath = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "CustomNotificationSoundPath");
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -324,6 +324,18 @@ void DBusService::OnGameStateChanged(const QList<int> &targetIds, const QString 
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::OnAchievementUnlocked(int appId, const QString &achievementKey)
+{
+    if (appId <= 0 || achievementKey.isEmpty())
+    {
+        return;
+    }
+
+    emit signalAchievementUnlocked(appId, achievementKey);
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -359,6 +371,20 @@ void DBusService::ConnectDaemonSignals()
     if (!connected)
     {
         SetLastError(QStringLiteral("Failed to subscribe to GameStateChanged signal"));
+    }
+
+    const bool achievementConnected = sessionBus.connect(
+        QString::fromLatin1(DBUS_BUS_NAME),
+        QString::fromLatin1(DBUS_OBJECT_PATH),
+        QString::fromLatin1(DBUS_INTERFACE),
+        QStringLiteral("AchievementUnlocked"),
+        this,
+        SLOT(OnAchievementUnlocked(int,QString))
+    );
+
+    if (!achievementConnected)
+    {
+        SetLastError(QStringLiteral("Failed to subscribe to AchievementUnlocked signal"));
     }
 }
 

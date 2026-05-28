@@ -139,6 +139,8 @@ Item {
         property string achievementName: ""
         property string achievementDescription: ""
         property real globalUnlockPercentage: 0.0
+        property int curProgress: 0
+        property int maxProgress: 0
         property string unlockDate: ""
         property bool unlocked: false
         property bool achievementHidden: false
@@ -148,6 +150,9 @@ Item {
         property real leftInset: 0
         readonly property bool concealedHidden: achievementHidden && !unlocked
         readonly property bool contentRevealed: !concealedHidden || revealed
+        readonly property real achievementProgressRatio: maxProgress > 0
+            ? Math.max(0.0, Math.min(1.0, curProgress / maxProgress))
+            : 0.0
         property real contentRevealOpacity: 0.0
         property real contentRevealOffset: 8.0
         property real hiddenPlaceholderOpacity: 0.0
@@ -406,27 +411,100 @@ Item {
                 }
             }
 
-            // Global unlock %
-            Row {
-                spacing: 3
+            Column {
+                Layout.preferredWidth: 220
+                
+                spacing: 7
                 opacity: id_row.contentRevealOpacity
                 transform: Translate {
                     y: id_row.contentRevealOffset
                 }
 
-                Text {
-                    text: id_row.globalUnlockPercentage.toFixed(1) + "%"
-                    color: Themes.targetDetails.colors.text
-                    font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalPercent
-                    horizontalAlignment: Text.AlignRight
-                    opacity: 0.65
+                // Achivement progress track
+                Item {
+                    width: id_achievementProgress.implicitWidth
+                    height: 18
+                    visible: id_row.maxProgress > 1
+
+                    readonly property color progressColor: id_row.unlocked
+                        ? id_root.themedCompletionColor
+                        : Themes.globalStyle.withAlpha(Themes.targetDetails.colors.text, 0.45)
+
+                    Rectangle {
+                        id: id_achievementProgressTrack
+
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            bottom: parent.bottom
+                        }
+                        height: 3
+                        color: Themes.globalStyle.withAlpha(Themes.targetDetails.colors.text, 0.16)
+
+                        Rectangle {
+                            anchors {
+                                left: parent.left
+                                top: parent.top
+                                bottom: parent.bottom
+                            }
+                            width: parent.width * id_row.achievementProgressRatio
+                            color: parent.parent.progressColor
+                        }
+                    }
+
+                    Text {
+                        anchors {
+                            left: parent.left
+                            bottom: id_achievementProgressTrack.top
+                            bottomMargin: 2
+                        }
+                        width: 76
+                        text: id_row.curProgress
+                        color: parent.progressColor
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalLabel
+                        font.bold: id_row.unlocked
+                        elide: Text.ElideRight
+                        opacity: id_row.unlocked ? 1.0 : 0.70
+                    }
+
+                    Text {
+                        anchors {
+                            right: parent.right
+                            bottom: id_achievementProgressTrack.top
+                            bottomMargin: 2
+                        }
+                        width: 76
+                        text: id_row.maxProgress
+                        color: parent.progressColor
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalLabel
+                        font.bold: id_row.unlocked
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideLeft
+                        opacity: id_row.unlocked ? 1.0 : 0.70
+                    }
                 }
-                Text {
-                    text: qsTr("of players have this achievement")
-                    color: Themes.targetDetails.colors.text
-                    font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalLabel
-                    horizontalAlignment: Text.AlignRight
-                    opacity: 0.35
+
+                // Global unlock %
+                Row {
+                    id: id_unlockGlobalRow
+
+                    width: parent.width
+                    spacing: 3
+
+                    Text {
+                        text: id_row.globalUnlockPercentage.toFixed(1) + "%"
+                        color: Themes.targetDetails.colors.text
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalPercent
+                        horizontalAlignment: Text.AlignRight
+                        opacity: 0.65
+                    }
+                    Text {
+                        text: qsTr("of players have this achievement")
+                        color: Themes.targetDetails.colors.text
+                        font.pixelSize: Themes.targetDetails.fontSizes.rowGlobalLabel
+                        horizontalAlignment: Text.AlignRight
+                        opacity: 0.35
+                    }
                 }
             }
 
@@ -722,6 +800,8 @@ Item {
             achievementName: model.achievementName
             achievementDescription: model.achievementDescription
             globalUnlockPercentage: model.globalUnlockPercentage
+            curProgress: model.curProgress
+            maxProgress: model.maxProgress
             unlockDate: model.unlockDate
             unlocked: model.unlocked
 

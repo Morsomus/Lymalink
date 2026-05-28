@@ -56,3 +56,4 @@
 /////////////////////////////////////////////////////////////////////
 
 #define LYMALINK_APP_ICON_PATH          "icons/hicolor/256x256/apps/lymalink.png"
+#define LYMALINK_TEST_ICON_PATH         "/home/morsomus/.local/share/Lymalink/64x64-lymalink-test-icon.png"

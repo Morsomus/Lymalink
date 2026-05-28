@@ -347,6 +347,14 @@ Item {
         }
     }
 
+    Connections {
+        target: typeof ctxDBusService !== "undefined" ? ctxDBusService : null
+
+        function onSignalAchievementUnlocked(appId, achievementKey) {
+            id_root.reloadTargetDetails(appId)
+        }
+    }
+
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// LAYOUTS //////////////////////////////
     /////////////////////////////////////////////////////////////////////

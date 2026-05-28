@@ -11,12 +11,13 @@
 #include "Error.h"
 #include "service/SystemdNotify.h"
 #include "ipc/DBusService.h"
-#include "notification/FreedesktopNotificationService.h"
 #include "notification/CanberraSoundService.h"
 #include "notification/AchievementNotificationService.h"
+#include "overlay/OverlayNotifier.h"
 #include "database/SQLiteManager.h"
 #include "watcher/PathScanner.h"
 #include "watcher/ProcessWatcher.h"
+#include "watcher/AchievementHandler.h"
 
 #include <signal.h>
 #include <atomic>
@@ -42,11 +43,12 @@ private:
     SystemdNotify m_notify;
     DBusService m_dbus;
     SQLiteManager m_database;
-    FreedesktopNotificationService m_freedesktopNotifications;
+    OverlayNotifier m_overlayNotifications;
     CanberraSoundService m_notificationSound;
     AchievementNotificationService m_achievementNotifications;
     PathScanner m_pathScanner;
     ProcessWatcher m_processWatcher;
+    AchievementHandler m_achievementHandler;
 
     std::mutex m_cvMutex;
     std::mutex m_activeTargetsMutex;
@@ -87,10 +89,15 @@ private:
     std::unordered_map<int, std::string> LoadAppIdDirScanTargetsFromDatabase();
     bool HasCurrentActiveTargetsNeedingAppIdDirScan();
     std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
-    void  SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
-    void  SavePlaytime(int targetId, long secondsPlayed);
+    void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
+    void SavePlaytime(int targetId, long secondsPlayed);
+    bool SaveAchievementState(int targetId, const AchievementData& achievement);
     std::string ResolveDatabasePath() const;
-    std::string ResolveInstalledAppIconPath() const;
+    std::string ResolveInstalledVulkanOverlayManifestPath() const;
+    std::vector<std::string> ResolveInstalledVulkanOverlayManifestPaths() const;
+    std::vector<std::string> ResolveInstalledFlatpakVulkanOverlayManifestPaths() const;
+    void SetVulkanOverlayManifestEnableEnvironment(bool enabled);
+    void SetVulkanOverlayManifestEnableEnvironment(const std::string& manifestPath, bool enabled);
     std::string ResolveInstalledNotificationSoundPath(bool allowCustomSound = true) const;
     std::string ResolveConfigPath() const;
     std::string ResolveDataPath(const std::string& relativePath) const;

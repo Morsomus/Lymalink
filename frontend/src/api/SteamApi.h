@@ -49,6 +49,8 @@ struct SteamAchievementData
     QString achievementDescription;
     bool achievementHidden = false;
     double globalUnlockPercentage = 0.0;
+    int minProgress = 0;
+    int maxProgress = 0;
     QString iconSuffix;         // Suffix or Full URL - depends on method FetchAchievementDataPrimary/Secondary
     QString iconGraySuffix;     // Suffix or Full URL - depends on method FetchAchievementDataPrimary/Secondary
 };

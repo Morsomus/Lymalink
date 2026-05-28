@@ -143,7 +143,6 @@ void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& k
 
     try
     {
-        // Notify frontend that one achievement changed state
         m_object->emitSignal(sdbus::SignalName{"AchievementUnlocked"})
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetId, key);

@@ -102,92 +102,9 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 
 std::string PathScanner::DetectEmulatorType(const std::string& appidDirLocation) const
 {
-    std::string emulatorType = "";
-
     // Emulator folder is parent directory of discovered AppId folder
     const fs::path path(appidDirLocation);
     std::string folderName = path.parent_path().filename().string();
-
-    // Normalize known emulator folder names into display labels
-    EmulatorType type = GetEmulatorEnum(folderName);
-    switch (type)
-    {
-        case EmulatorType::CODEX:
-        {
-            emulatorType = "CODEX";
-            break;
-        }
-        case EmulatorType::RUNE:
-        {
-            emulatorType = "RUNE";
-            break;
-        }
-        case EmulatorType::EMPRESS:
-        {
-            emulatorType = "EMPRESS";
-            break;
-        }
-        case EmulatorType::SKIDROW:
-        {
-            emulatorType = "SKIDROW";
-            break;
-        }
-        case EmulatorType::ONLINEFIX:
-        {
-            emulatorType = "OnlineFix";
-            break;
-        }
-        case EmulatorType::GOLDBERG:
-        {
-            emulatorType = "GOLDBERG";
-            break;
-        }
-        case EmulatorType::SMARTSTEAMEMU:
-        {
-            emulatorType = "SmartSteamEmu";
-            break;
-        }
-        case EmulatorType::CREAMAPI:
-        {
-            emulatorType = "CreamAPI";
-            break;
-        }
-        case EmulatorType::RLD:
-        {
-            emulatorType = "RLD!";
-            break;
-        }
-        case EmulatorType::_1911:
-        {
-            emulatorType = "1911";
-            break;
-        }
-        case EmulatorType::CPY:
-        {
-            emulatorType = "CPY";
-            break;
-        }
-        case EmulatorType::STEAMPUNKS:
-        {
-            emulatorType = "STEAMPUNKS";
-            break;
-        }
-        case EmulatorType::UNKNOWN:
-        default:
-        {
-            emulatorType = folderName.empty() ? "UNKNOWN" : folderName;
-            break;
-        }
-    }
-
-    return emulatorType;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-EmulatorType PathScanner::GetEmulatorEnum(const std::string& folderName) const
-{
-    EmulatorType emulatorType = EmulatorType::UNKNOWN;
 
     // Compare lower-case folder names against known emulator aliases
     std::string lower = folderName;
@@ -195,22 +112,22 @@ EmulatorType PathScanner::GetEmulatorEnum(const std::string& folderName) const
         return static_cast<char>(std::tolower(c));
     });
 
-    if (lower == "codex")                               return EmulatorType::CODEX;
-    if (lower == "rune")                                return EmulatorType::RUNE;
-    if (lower == "empress")                             return EmulatorType::EMPRESS;
-    if (lower == "skidrow" || lower == "skid-row")      return EmulatorType::SKIDROW;
-    if (lower == "onlinefix" || lower == "online-fix")  return EmulatorType::ONLINEFIX;
+    if (lower == "codex")                               return "CODEX";
+    if (lower == "rune")                                return "RUNE";
+    if (lower == "empress")                             return "EMPRESS";
+    if (lower == "skidrow" || lower == "skid-row")      return "SKIDROW";
+    if (lower == "onlinefix" || lower == "online-fix")  return "OnlineFix";
     if (lower == "goldberg" || lower.find("goldberg") != std::string::npos ||
         lower == "gse saves" || lower == "gsesaves" ||
-        lower == "goldberg steamemu saves")             return EmulatorType::GOLDBERG;
-    if (lower == "smartsteamemu" || lower == "sse")     return EmulatorType::SMARTSTEAMEMU;
-    if (lower == "creamapi" || lower == "cream api")    return EmulatorType::CREAMAPI;
+        lower == "goldberg steamemu saves")             return "GOLDBERG";
+    if (lower == "smartsteamemu" || lower == "sse")     return "SmartSteamEmu";
+    if (lower == "creamapi" || lower == "cream api")    return "CreamAPI";
     if (lower == "rld!" || lower == "rld" || 
-        lower.find("reloaded") != std::string::npos)    return EmulatorType::RLD;
-    if (lower == ".1911" || lower == "1911")            return EmulatorType::_1911;
-    if (lower == "cpy")                                 return EmulatorType::CPY;
+        lower.find("reloaded") != std::string::npos)    return "RLD!";
+    if (lower == ".1911" || lower == "1911")            return "1911";
+    if (lower == "cpy")                                 return "CPY";
     if (lower == "steampunks" ||
-        lower == "steam punks")                         return EmulatorType::STEAMPUNKS;
+        lower == "steam punks")                         return "STEAMPUNKS";
 
-    return emulatorType;
+    return folderName.empty() ? "UNKNOWN" : folderName;
 }

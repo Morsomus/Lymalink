@@ -1096,6 +1096,8 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
         const QString achievementDescription = achievementObject["localized_desc"].toString();
         const QString icon = achievementObject["icon"].toString();
         const QString iconGray = achievementObject["icon_gray"].toString();
+        const int minProgress = achievementObject["min_progress"].toInt(0);
+        const int maxProgress = achievementObject["max_progress"].toInt(0);
 
         // Normalize percentage from string or numeric JSON value
         bool percentageOk = false;
@@ -1138,6 +1140,8 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
         achievement.achievementDescription = achievementDescription;
         achievement.achievementHidden = achievementObject["hidden"].toBool();
         achievement.globalUnlockPercentage = globalUnlockPercentage;
+        achievement.minProgress = minProgress;
+        achievement.maxProgress = maxProgress;
         achievement.iconSuffix = icon;
         achievement.iconGraySuffix = iconGray;
 

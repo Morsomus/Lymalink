@@ -48,6 +48,7 @@ class Settings : public QObject
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
     Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString overlayNotificationPosition READ GetOverlayNotificationPosition NOTIFY signalConfigChanged)
     Q_PROPERTY(bool customNotificationSound READ GetCustomNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QString customNotificationSoundPath READ GetCustomNotificationSoundPath NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarSort READ GetDashboardToolbarSort NOTIFY signalConfigChanged)
@@ -83,6 +84,7 @@ public:
         SteamId,
         SteamWebApiKey,
         NotificationSound,
+        OverlayNotificationPosition,
         CustomNotificationSound,
         CustomNotificationSoundPath,
         DashboardToolbarSort,
@@ -132,6 +134,7 @@ public:
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
     inline QString GetNotificationSound() const { return m_notificationSound; }
     QStringList GetNotificationSounds() const;
+    inline QString GetOverlayNotificationPosition() const { return m_overlayNotificationPosition; }
     inline bool GetCustomNotificationSound() const { return m_customNotificationSound; }
     inline QString GetCustomNotificationSoundPath() const { return m_customNotificationSoundPath; }
     inline QString GetDashboardToolbarSort() const { return m_dashboardToolbarSort; }
@@ -173,6 +176,7 @@ private:
     QString m_steamId;
     QString m_steamWebApiKey;
     QString m_notificationSound;
+    QString m_overlayNotificationPosition;
     bool m_customNotificationSound;
     QString m_customNotificationSoundPath;
     QString m_dashboardToolbarSort;
