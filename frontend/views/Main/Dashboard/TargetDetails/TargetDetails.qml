@@ -135,7 +135,7 @@ Item {
             color: Themes.targetDetails.colors.text
             font.pixelSize: Themes.targetDetails.fontSizes.sectionTitle
             font.bold: true
-            opacity: 0.55
+            opacity: 0.65
         }
     }
 
@@ -249,8 +249,8 @@ Item {
                 fill: parent
                 leftMargin: id_row.leftInset
                 rightMargin: hasVerticalScroll ? 50 : 16
-                topMargin: 12
-                bottomMargin: 12
+                topMargin: 6
+                bottomMargin: 8
             }
             spacing: 14
 

@@ -494,7 +494,7 @@ QtObject {
     readonly property QtObject targetDetails: QtObject {
         readonly property QtObject colors: QtObject {
             readonly property color text: "#ffffff"
-            readonly property color divider: "#2a2a2a"
+            readonly property color divider: "#363636"
             readonly property color coverBackground: "#2a2a3a"
             readonly property color coverFallbackText: "white"
             readonly property color progressBarTrack: "#2a2a3a"
