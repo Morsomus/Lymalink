@@ -8,6 +8,7 @@
 /////////////////////////////////////////////////////////
 
 #include "AchievementHandler.h"
+#include "Defines.h"
 #include "../tools/parsers/CodexParser.h"
 #include "../tools/Logger.h"
 
@@ -16,6 +17,8 @@
 #include <cstring>
 #include <stdexcept>
 #include <climits>
+
+#define COMPONENT "AchievementHandler"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -56,11 +59,11 @@ void AchievementHandler::Init()
     m_inotifyFd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
     if (m_inotifyFd == -1)
     {
-        Logger::Error("[AchievementHandler] inotify_init1 failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "inotify_init1 failed: %s", strerror(errno));
         return;
     }
 
-    Logger::Log("[AchievementHandler] Initialized.");
+    LOG_BE(Urgency::Debug, "Initialized.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -74,7 +77,7 @@ void AchievementHandler::Start()
 
     if (m_inotifyFd == -1)
     {
-        Logger::Error("[AchievementHandler] Cannot start: not initialized.");
+        LOG_BE(Urgency::Critical, "Cannot start: not initialized.");
         return;
     }
 
@@ -82,7 +85,8 @@ void AchievementHandler::Start()
     m_running.store(true);
     m_paused.store(false);
     m_thread = std::thread(&AchievementHandler::WatchLoop, this);
-    Logger::Log("[AchievementHandler] Started.");
+    
+    LOG_BE(Urgency::Debug, "Started.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -91,7 +95,8 @@ void AchievementHandler::Pause()
 {
     m_paused.store(true);
     m_stateCv.notify_one();
-    Logger::Log("[AchievementHandler] Paused.");
+    
+    LOG_BE(Urgency::Debug, "Paused.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -100,7 +105,8 @@ void AchievementHandler::Resume()
 {
     m_paused.store(false);
     m_stateCv.notify_one();
-    Logger::Log("[AchievementHandler] Resumed.");
+    
+    LOG_BE(Urgency::Debug, "Resumed.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -127,7 +133,7 @@ void AchievementHandler::Stop()
         m_thread.join();
     }
 
-    Logger::Log("[AchievementHandler] Stopped.");
+    LOG_BE(Urgency::Debug, "Stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -139,7 +145,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     // Skip if this target is already being tracked
     if (m_sessions.count(targetId))
     {
-        Logger::Log("[AchievementHandler] Target already tracked: targetId=" + std::to_string(targetId));
+        LOG_BE(Urgency::Debug, "Target already tracked: targetId=%d", targetId);
         return;
     }
 
@@ -147,7 +153,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     AchievementParser* parser = CreateParser(emulatorType);
     if (!parser)
     {
-        Logger::Log("[AchievementHandler] No parser for emulator type: " + emulatorType);
+        LOG_BE(Urgency::Critical, "No parser for emulator type: %s", emulatorType.c_str());
         return;
     }
 
@@ -160,7 +166,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     session.dirWd = inotify_add_watch(m_inotifyFd, appIdDirPath.c_str(), IN_CREATE | IN_MOVED_TO);
     if (session.dirWd == -1)
     {
-        Logger::Error("[AchievementHandler] inotify_add_watch (dir) failed for " + appIdDirPath + ": " + strerror(errno));
+        LOG_BE(Urgency::Critical, "inotify_add_watch (dir) failed for %s: %s", appIdDirPath.c_str(), strerror(errno));
         delete parser;
         return;
     }
@@ -178,7 +184,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
         ReadInitial(stored);
     }
 
-    Logger::Log("[AchievementHandler] Target added: targetId=" + std::to_string(targetId) + " emu=" + emulatorType);
+    LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -213,7 +219,7 @@ void AchievementHandler::RemoveTarget(int targetId)
     m_parsers.erase(targetId);
     m_sessions.erase(it);
 
-    Logger::Log("[AchievementHandler] Target removed: targetId=" + std::to_string(targetId));
+    LOG_BE(Urgency::Debug, "Target removed: targetId=%d", targetId);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -287,7 +293,7 @@ void AchievementHandler::WatchLoop()
                 break;
             }
 
-            Logger::Error("[AchievementHandler] inotify read error: " + std::string(strerror(errno)));
+            LOG_BE(Urgency::Critical, "inotify read error: %s", strerror(errno));
             break;
         }
 
@@ -309,7 +315,7 @@ void AchievementHandler::WatchLoop()
         }
     }
 
-    Logger::Log("[AchievementHandler] WatchLoop exited.");
+    LOG_BE(Urgency::Debug, "WatchLoop exited.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -347,7 +353,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
             return;
         }
 
-        Logger::Log("[AchievementHandler] Achievement file appeared: targetId=" + std::to_string(targetId) + " file=" + fileName);
+        LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d file=%s", targetId, fileName.c_str());
 
         // Start watching the file itself if not already doing so
         if (session.fileWd == -1)
@@ -368,7 +374,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
     {
         // Prefer IN_CLOSE_WRITE over IN_MODIFY - MODIFY fires per write() call so a single save may trigger it multiple times before the file is complete
         // IN_CLOSE_WRITE fires once when the file handle is closed after writing
-        Logger::Log("[AchievementHandler] Achievement file changed: targetId=" + std::to_string(targetId));
+        LOG_BE(Urgency::Debug, "Achievement file changed: targetId=%d", targetId);
         ReadAndDiff(session);
         return;
     }
@@ -376,7 +382,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
     // File was deleted or moved away
     if (ev->wd == session.fileWd && (ev->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
     {
-        Logger::Log("[AchievementHandler] Achievement file removed: targetId=" + std::to_string(targetId));
+        LOG_BE(Urgency::Info, "Achievement file removed: targetId=%d", targetId);
 
         // Clean up the file watch
         m_wdToTarget.erase(session.fileWd);
@@ -404,7 +410,7 @@ void AchievementHandler::ReadInitial(WatchSession& session)
     }
 
     session.initialReadDone = true;
-    Logger::Log("[AchievementHandler] Initial read done: targetId=" + std::to_string(session.targetId) + " count=" + std::to_string(parsed.size()));
+    LOG_BE(Urgency::Debug, "Initial read done: targetId=%d count=%zu", session.targetId, parsed.size());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -432,7 +438,7 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
             session.achievements[ach.key] = entry;
             newUnlocks++;
 
-            Logger::Log("[AchievementHandler] Achievement unlocked: targetId=" + std::to_string(session.targetId) + " key=" + ach.key);
+            LOG_BE(Urgency::Debug, "Achievement unlocked: targetId=%d key=%s", session.targetId, ach.key.c_str());
         }
         else if (it == session.achievements.end())
         {
@@ -451,7 +457,7 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
 
     if (newUnlocks > 0)
     {
-        Logger::Log("[AchievementHandler] Diff done: targetId=" + std::to_string(session.targetId) + " newUnlocks=" + std::to_string(newUnlocks));
+        LOG_BE(Urgency::Debug, "Diff done: targetId=%d newUnlocks=%d", session.targetId, newUnlocks);
     }
 }
 
@@ -465,11 +471,12 @@ void AchievementHandler::AddFileWatch(WatchSession& session)
     session.fileWd = inotify_add_watch(m_inotifyFd, filePath.c_str(), IN_CLOSE_WRITE | IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF);
     if (session.fileWd == -1)
     {
-        Logger::Error("[AchievementHandler] inotify_add_watch (file) failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "inotify_add_watch (file) failed for %s: %s", filePath.c_str(), strerror(errno));
         return;
     }
 
     m_wdToTarget[session.fileWd] = session.targetId;
+    LOG_BE(Urgency::Debug, "Added file watch for targetId=%d path=%s", session.targetId, filePath.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -479,8 +486,10 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     // Instantiate the correct parser subclass based on emulator type
     if (emulatorType == "CODEX")
     {
+        LOG_BE(Urgency::Debug, "Creating CODEX parser.");
         return new CodexParser();
     }
 
+    LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());
     return nullptr;
 }

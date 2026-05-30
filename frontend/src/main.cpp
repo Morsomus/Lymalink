@@ -10,6 +10,7 @@
 #include "SysTray.h"
 #include "Settings.h"
 #include "ipc/DBusService.h"
+#include "tools/Logger.h"
 #include "tools/Utils.h"
 
 #include <QApplication>
@@ -33,6 +34,11 @@ int main(int argc, char *argv[]) {
     #endif
 
     QApplication app(argc, argv);
+    QCoreApplication::setApplicationName("Lymalink");
+
+    Logger &logger = Logger::Instance();
+    logger.SetLogFile(Logger::DefaultLinuxLogPath(QCoreApplication::applicationName().toLower()));
+    logger.Install();
 
     // Single instance guard
     const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");

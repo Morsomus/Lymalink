@@ -12,7 +12,7 @@ This document lists third-party libraries, fonts, and assets used in Lymalink an
 **License:** GNU Lesser General Public License v3.0 (LGPL-3.0)  
 **Source / Info:** https://www.qt.io/licensing
 
-Qt is used under the LGPL-3.0. Lymalink dynamically links against Qt libraries and does not modify Qt source code.
+Qt is used under the LGPL-3.0.
 
 ---
 
@@ -46,6 +46,30 @@ SQLite is released into the public domain. The authors dedicate the code to the 
 
 ---
 
+### gdk-pixbuf
+**License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later)  
+**Source / Info:** https://gitlab.gnome.org/GNOME/gdk-pixbuf
+
+gdk-pixbuf is used for image loading and pixel buffer handling.
+
+---
+
+### Dear ImGui
+**License:** MIT License  
+**Source / Info:** https://github.com/ocornut/imgui
+
+Dear ImGui is used for immediate-mode GUI rendering. Backends used: OpenGL3, Vulkan (`imgui_impl_opengl3`, `imgui_impl_vulkan`).
+
+---
+
+### Vulkan
+**License:** Apache License 2.0  
+**Source / Info:** https://www.khronos.org/vulkan / https://github.com/KhronosGroup/Vulkan-Headers
+
+Vulkan headers and loader are provided by the Khronos Group. Lymalink uses Vulkan as a rendering backend via the system-provided Vulkan loader (`libvulkan`).
+
+---
+
 ## Fonts
 
 ### Inter
@@ -69,5 +93,5 @@ This application and its authors are **not** affiliated with, endorsed by, or ot
 ---
 
 ## C++ Standard Library & System Interfaces
-
-Lymalink uses the C++20 standard library and standard POSIX/Linux system interfaces (`<signal.h>`, `<sys/socket.h>`, `<unistd.h>`, etc.). These are provided by the system toolchain (e.g. libstdc++ / libc++) and are covered by their respective system library licenses, typically GCC Runtime Library Exception or equivalent.
+Lymalink uses the C++20 standard library and standard POSIX/Linux system interfaces (`<signal.h>`, `<sys/socket.h>`, `<sys/inotify.h>`, `<unistd.h>`, `<dlfcn.h>`, etc.). These are provided by the system toolchain (e.g. libstdc++ / libc++) and are covered by their respective system library licenses, typically GCC Runtime Library Exception or equivalent.
+EGL and GLX headers (`<EGL/egl.h>`, `<GL/glx.h>`) are provided by the system graphics stack and are covered by their respective system library licenses.

@@ -27,95 +27,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-
-namespace fs = std::filesystem;
-
-
-
-
-
-
-
-
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
-// Lataa ikonin tiedostopolusta, skaalaa 64×64 RGBA:ksi ja kirjoittaa
-// pikselit suoraan pakettiin. Kutsutaan BuildSocketPacket():sta.
-static bool EmbedIconIntoPacket(OverlaySocketPacket& packet, const std::string& iconPath)
-{
-    if (iconPath.empty())
-    {
-        return false;
-    }
+#define COMPONENT "OverlayNotifier"
 
-    GError*    error  = nullptr;
-    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(
-        iconPath.c_str(),
-        static_cast<int>(OVERLAY_ICON_SIZE),
-        static_cast<int>(OVERLAY_ICON_SIZE),
-        TRUE, &error);
-
-    if (!pixbuf)
-    {
-        if (error)
-        {
-            Logger::Log("[OverlayNotifier][EmbedIconIntoPacket] failed to load icon: "
-                + iconPath + ": " + error->message);
-            g_error_free(error);
-        }
-        return false;
-    }
-
-    GdkPixbuf* rgba = gdk_pixbuf_get_has_alpha(pixbuf)
-        ? pixbuf
-        : gdk_pixbuf_add_alpha(pixbuf, FALSE, 0, 0, 0);
-    if (rgba != pixbuf)
-    {
-        g_object_unref(pixbuf);
-    }
-    if (!rgba)
-    {
-        return false;
-    }
-
-    const int w        = gdk_pixbuf_get_width(rgba);
-    const int h        = gdk_pixbuf_get_height(rgba);
-    const int rs       = gdk_pixbuf_get_rowstride(rgba);
-    const int channels = gdk_pixbuf_get_n_channels(rgba);
-
-    if (w <= 0 || h <= 0 || channels != 4)
-    {
-        g_object_unref(rgba);
-        return false;
-    }
-
-    const guchar* src       = gdk_pixbuf_get_pixels(rgba);
-    const int     copyRows  = std::min(h, static_cast<int>(OVERLAY_ICON_SIZE));
-    const int     copyCols  = std::min(w, static_cast<int>(OVERLAY_ICON_SIZE)) * 4;
-
-    for (int row = 0; row < copyRows; ++row)
-    {
-        std::memcpy(
-            packet.iconPixels + static_cast<size_t>(row) * OVERLAY_ICON_STRIDE,
-            src               + static_cast<size_t>(row) * static_cast<size_t>(rs),
-            static_cast<size_t>(copyCols));
-    }
-
-    g_object_unref(rgba);
-    packet.hasIconPixels = 1;
-    return true;
-}
-
-
-
-
-
-
-
-
-
-
-
+namespace fs = std::filesystem;
 
 OverlayNotifier::OverlayNotifier() :
     m_socketThread(),
@@ -142,9 +58,10 @@ OverlayNotifier::~OverlayNotifier()
 
 bool OverlayNotifier::Init()
 {
-    const bool sharedMemoryReady = CreateSharedMemory();
+    // const bool sharedMemoryReady = CreateSharedMemory();
     const bool socketReady = StartSocketServer();
-    return sharedMemoryReady && socketReady;
+    // return sharedMemoryReady && socketReady;
+    return socketReady;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -152,7 +69,7 @@ bool OverlayNotifier::Init()
 void OverlayNotifier::Shutdown()
 {
     StopSocketServer();
-    DestroySharedMemory();
+    // DestroySharedMemory();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -168,9 +85,10 @@ void OverlayNotifier::SetSocketPaused(bool paused)
 bool OverlayNotifier::ShowAchievementToast(const AchievementNotification& notification)
 {
     // Send via transport, succeed if at least one succeeds.
-    const bool sharedMemoryWritten = WriteNotification(notification);
+    // const bool sharedMemoryWritten = WriteNotification(notification);
     const bool socketWritten = BroadcastSocketNotification(notification);
-    return sharedMemoryWritten || socketWritten;
+    // return sharedMemoryWritten || socketWritten;
+    return socketWritten;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -183,13 +101,13 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
 
     if (!m_shm)
     {
-        Logger::Log("[OverlayNotifier][WriteNotification] Shared memory not initialised.");
+        LOG_BE(Urgency::Critical, "Shared memory not initialised.");
         return false;
     }
 
     if (!m_shm->daemonActive.load())
     {
-        Logger::Log("[OverlayNotifier][WriteNotification] Daemon shared memory marked inactive.");
+        LOG_BE(Urgency::Warning, "Daemon shared memory marked inactive.");
         return false;
     }
 
@@ -201,17 +119,17 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
         const uint64_t activeAgeMs = nowMs > m_shm->timestamp ? (nowMs - m_shm->timestamp) : 0;
         if (activeAgeMs >= ACTIVE_TIMEOUT_MS)
         {
-            Logger::Log("[OverlayNotifier][WriteNotification] Overlay active flag stale, forcing reset.");
+            LOG_BE(Urgency::Warning, "Overlay active flag stale, forcing reset.");
             m_shm->active.store(false);
         }
         else
         {
-            Logger::Log("[OverlayNotifier][WriteNotification] Overlay busy, skipping write.");
+            LOG_BE(Urgency::Debug, "Overlay busy, skipping write.");
             return false;
         }
     }
 
-    Logger::Log("[OverlayNotifier][WriteNotification] Writing to SHM.");
+    LOG_BE(Urgency::Debug, "Writing to SHM.");
 
     // Write data fields before setting active so the reader never sees a partially written state
     m_shm->version = OVERLAY_SHM_VERSION;
@@ -233,7 +151,7 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
     // Release store ensures overlay sees all prior writes before active = true
     m_shm->active.store(true);
 
-    Logger::Log("[OverlayNotifier][WriteNotification] Written: " + notification.achievementName);
+    LOG_BE(Urgency::Debug, "Written: %s", notification.achievementName.c_str());
     return true;
 }
 
@@ -248,13 +166,13 @@ bool OverlayNotifier::CreateSharedMemory()
     m_shmFd = shm_open(OVERLAY_SHM_NAME, O_CREAT | O_RDWR, 0600);
     if (m_shmFd == -1)
     {
-        Logger::Log("[OverlayNotifier][CreateSharedMemory] shm_open failed.");
+        LOG_BE(Urgency::Critical, "shm_open failed: %s", strerror(errno));
         return false;
     }
 
     if (ftruncate(m_shmFd, sizeof(OverlaySharedMemoryState)) == -1)
     {
-        Logger::Log("[OverlayNotifier][CreateSharedMemory] ftruncate failed.");
+        LOG_BE(Urgency::Critical, "ftruncate failed: %s", strerror(errno));
         close(m_shmFd);
         m_shmFd = -1;
         return false;
@@ -263,7 +181,7 @@ bool OverlayNotifier::CreateSharedMemory()
     m_shm = static_cast<OverlaySharedMemoryState*>(mmap(nullptr, sizeof(OverlaySharedMemoryState), PROT_READ | PROT_WRITE, MAP_SHARED, m_shmFd, 0));
     if (m_shm == MAP_FAILED)
     {
-        Logger::Log("[OverlayNotifier][CreateSharedMemory] mmap failed.");
+        LOG_BE(Urgency::Critical, "mmap failed: %s", strerror(errno));
         m_shm = nullptr;
         close(m_shmFd);
         m_shmFd = -1;
@@ -274,7 +192,7 @@ bool OverlayNotifier::CreateSharedMemory()
     std::construct_at(m_shm);
     m_shm->daemonActive.store(true);
 
-    Logger::Log("[OverlayNotifier][CreateSharedMemory] Shared memory ready.");
+    LOG_BE(Urgency::Debug, "Shared memory ready.");
     return true;
 }
 
@@ -301,7 +219,7 @@ void OverlayNotifier::DestroySharedMemory()
     // Unlink so the segment disappears on clean daemon exit
     shm_unlink(OVERLAY_SHM_NAME);
 
-    Logger::Log("[OverlayNotifier][DestroySharedMemory] Shared memory released.");
+    LOG_BE(Urgency::Debug, "Shared memory released.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -316,7 +234,8 @@ bool OverlayNotifier::StartSocketServer()
     m_socketRunning.store(true);
     m_socketPaused.store(false);
     m_socketThread = std::thread(&OverlayNotifier::SocketThread, this);
-    Logger::Log("[OverlayNotifier][StartSocketServer] Flatpak socket server started.");
+    
+    LOG_BE(Urgency::Debug, "Flatpak socket server started.");
     return true;
 }
 
@@ -349,7 +268,8 @@ void OverlayNotifier::StopSocketServer()
         close(clientFd);
     }
     m_socketClients.clear();
-    Logger::Log("[OverlayNotifier][StopSocketServer] Flatpak socket server stopped.");
+    
+    LOG_BE(Urgency::Debug, "Flatpak socket server stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -388,7 +308,7 @@ void OverlayNotifier::SocketThread()
             }
         }
 
-        // No sockets to poll,  sleep briefly to avoid busy-waiting
+        // No sockets to poll, sleep briefly to avoid busy-waiting
         if (pollFds.empty())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -419,7 +339,7 @@ void OverlayNotifier::SocketThread()
                     if (clientFd != -1)
                     {
                         m_socketClients.push_back(clientFd);
-                        Logger::Log("[OverlayNotifier][SocketThread] Overlay client connected.");
+                        LOG_BE(Urgency::Debug, "Overlay client connected.");
                         continue;
                     }
 
@@ -428,7 +348,7 @@ void OverlayNotifier::SocketThread()
                         break;
                     }
 
-                    Logger::Log("[OverlayNotifier][SocketThread] accept failed: " + std::string(std::strerror(errno)));
+                    LOG_BE(Urgency::Critical, "accept failed: %s", std::strerror(errno));
                     break;
                 }
             }
@@ -442,7 +362,7 @@ void OverlayNotifier::SocketThread()
                 {
                     close(clientFd);
                     m_socketClients.erase(std::remove(m_socketClients.begin(), m_socketClients.end(), clientFd), m_socketClients.end());
-                    Logger::Log("[OverlayNotifier][SocketThread] Overlay client disconnected.");
+                    LOG_BE(Urgency::Debug, "Overlay client disconnected.");
                 }
             }
         }
@@ -464,6 +384,7 @@ void OverlayNotifier::RefreshSocketServers()
     {
         if (!fs::exists(fs::path(it->path).parent_path()))
         {
+            LOG_BE(Urgency::Debug, "Flatpak runtime directory removed, closing socket server for appId: %s", it->appId.c_str());
             CloseSocketServer(*it);
             it = m_socketServers.erase(it);
         }
@@ -481,6 +402,7 @@ void OverlayNotifier::RefreshSocketServers()
         });
         if (existing == m_socketServers.end())
         {
+            LOG_BE(Urgency::Debug, "New Flatpak target detected, attempting to bind socket for appId: %s", appId);
             BindSocketForApp(appId);
         }
     }
@@ -500,7 +422,7 @@ bool OverlayNotifier::BindSocketForApp(const std::string& appId)
     // Reject paths that would overflow the sockaddr_un structure
     if (socketPath.size() >= sizeof(sockaddr_un::sun_path))
     {
-        Logger::Log("[OverlayNotifier][BindSocketForApp] socket path too long: " + socketPath);
+        LOG_BE(Urgency::Critical, "Socket path too long: %s", socketPath.c_str());
         return false;
     }
 
@@ -518,7 +440,7 @@ bool OverlayNotifier::BindSocketForApp(const std::string& appId)
 
     if (fd == -1)
     {
-        Logger::Log("[OverlayNotifier][BindSocketForApp] socket failed: " + std::string(std::strerror(errno)));
+        LOG_BE(Urgency::Critical, "Socket creation failed: %s", std::strerror(errno));
         return false;
     }
 
@@ -530,7 +452,7 @@ bool OverlayNotifier::BindSocketForApp(const std::string& appId)
     std::strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
     if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1)
     {
-        Logger::Log("[OverlayNotifier][BindSocketForApp] bind failed for " + socketPath + ": " + std::string(std::strerror(errno)));
+        LOG_BE(Urgency::Critical, "Bind failed for %s: %s", socketPath.c_str(), std::strerror(errno));
         close(fd);
         return false;
     }
@@ -538,14 +460,14 @@ bool OverlayNotifier::BindSocketForApp(const std::string& appId)
     // Backlog of 8 connections
     if (listen(fd, 8) == -1)
     {
-        Logger::Log("[OverlayNotifier][BindSocketForApp] listen failed for " + socketPath + ": " + std::string(std::strerror(errno)));
+        LOG_BE(Urgency::Critical, "Listen failed for %s: %s", socketPath.c_str(), std::strerror(errno));
         close(fd);
         unlink(socketPath.c_str());
         return false;
     }
 
     m_socketServers.push_back(SocketServer{fd, appId, socketPath});
-    Logger::Log("[OverlayNotifier][BindSocketForApp] Listening: " + socketPath);
+    LOG_BE(Urgency::Debug, "Listening: %s", socketPath.c_str());
     return true;
 }
 
@@ -599,7 +521,7 @@ bool OverlayNotifier::BroadcastSocketNotification(const AchievementNotification&
 
     if (sentToAnyClient)
     {
-        Logger::Log("[OverlayNotifier][BroadcastSocketNotification] Sent: " + notification.achievementName);
+        LOG_BE(Urgency::Debug, "Sent: %s", notification.achievementName.c_str());
     }
     return sentToAnyClient;
 }
@@ -632,11 +554,77 @@ OverlaySocketPacket OverlayNotifier::BuildSocketPacket(const AchievementNotifica
     if (!EmbedIconIntoPacket(packet, notification.iconPath))
     {
         EmbedIconIntoPacket(packet, notification.appIconPath);
-        Logger::Log("[Lymalinkd] appIconPath used " + notification.appIconPath);
+        LOG_BE(Urgency::Info, "Fallback to appIconPath used: %s", notification.appIconPath.c_str());
     }
-    Logger::Log("[Lymalinkd] iconPath used " + notification.iconPath);
+    else
+    {
+        LOG_BE(Urgency::Debug, "Primary iconPath successfully embedded: %s", notification.iconPath.c_str());
+    }
 
     return packet;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool OverlayNotifier::EmbedIconIntoPacket(OverlaySocketPacket& packet, const std::string& iconPath) const
+{
+    if (iconPath.empty())
+    {
+        return false;
+    }
+
+    // Load and scale directly to overlay icon target size
+    GError* error = nullptr;
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(iconPath.c_str(), static_cast<int>(OVERLAY_ICON_SIZE), static_cast<int>(OVERLAY_ICON_SIZE), TRUE, &error);
+    if (!pixbuf)
+    {
+        if (error)
+        {
+            LOG_BE(Urgency::Warning, "Failed to load icon from '%s': %s", iconPath.c_str(), error->message);
+            g_error_free(error);
+        }
+        return false;
+    }
+
+    // Ensure RGBA output (add alpha channel if source is RGB)
+    GdkPixbuf* rgba = gdk_pixbuf_get_has_alpha(pixbuf) ? pixbuf : gdk_pixbuf_add_alpha(pixbuf, FALSE, 0, 0, 0);
+    if (rgba != pixbuf)
+    {
+        // If we created a new pixbuf above, drop original RGB one
+        g_object_unref(pixbuf);
+    }
+    if (!rgba)
+    {
+        LOG_BE(Urgency::Critical, "Failed to ensure alpha channel for icon: %s", iconPath.c_str());
+        return false;
+    }
+
+    const int w = gdk_pixbuf_get_width(rgba);
+    const int h = gdk_pixbuf_get_height(rgba);
+    const int rs = gdk_pixbuf_get_rowstride(rgba);
+    const int channels = gdk_pixbuf_get_n_channels(rgba);
+    // Guard against unexpected pixbuf layouts
+    if (w <= 0 || h <= 0 || channels != 4)
+    {
+        LOG_BE(Urgency::Warning, "Unexpected pixbuf geometry/channels for icon '%s' (%dx%d, channels: %d)", iconPath.c_str(), w, h, channels);
+        g_object_unref(rgba);
+        return false;
+    }
+
+    // Copy row-by-row into fixed packet storage (clamp to packet bounds)
+    const guchar* src = gdk_pixbuf_get_pixels(rgba);
+    const int copyRows = std::min(h, static_cast<int>(OVERLAY_ICON_SIZE));
+    const int copyCols = std::min(w, static_cast<int>(OVERLAY_ICON_SIZE)) * 4;
+    for (int row = 0; row < copyRows; ++row)
+    {
+        std::memcpy(packet.iconPixels + static_cast<size_t>(row) * OVERLAY_ICON_STRIDE, src + static_cast<size_t>(row) * static_cast<size_t>(rs), static_cast<size_t>(copyCols));
+    }
+
+    g_object_unref(rgba);
+    packet.hasIconPixels = 1;
+
+    LOG_BE(Urgency::Debug, "Successfully embedded %dx%d icon pixels into packet.", w, h);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -648,7 +636,9 @@ OverlayNotificationPosition OverlayNotifier::ResolveNotificationPosition() const
     {
         if (*value != '\0')
         {
-            return ParseNotificationPosition(value);
+            OverlayNotificationPosition position = ParseNotificationPosition(value);
+            LOG_BE(Urgency::Info, "Overlay notification position overridden via environment variable: %s", value);
+            return position;
         }
     }
 
@@ -662,9 +652,12 @@ OverlayNotificationPosition OverlayNotifier::ResolveNotificationPosition() const
 
     if (!configuredPosition.empty())
     {
-        return ParseNotificationPosition(configuredPosition);
+        OverlayNotificationPosition position = ParseNotificationPosition(configuredPosition);
+        LOG_BE(Urgency::Debug, "Overlay notification position loaded from config: %s", configuredPosition.c_str());
+        return position;
     }
 
+    LOG_BE(Urgency::Debug, "No overlay notification position configured. Using default: BottomRight");
     return OverlayNotificationPosition::BottomRight;
 }
 
@@ -673,9 +666,11 @@ OverlayNotificationPosition OverlayNotifier::ResolveNotificationPosition() const
 OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std::string& value) const
 {
     std::string normalized = value;
+    // Case-insensitive compare
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
+    // Accept separators by stripping them before matching
     normalized.erase(std::remove(normalized.begin(), normalized.end(), '_'), normalized.end());
     normalized.erase(std::remove(normalized.begin(), normalized.end(), '-'), normalized.end());
     normalized.erase(std::remove(normalized.begin(), normalized.end(), ' '), normalized.end());
@@ -697,6 +692,11 @@ OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std
         return OverlayNotificationPosition::BottomLeft;
     }
 
+    if (normalized != "bottomright")
+    {
+        LOG_BE(Urgency::Warning, "Unknown notification position value '%s'. Falling back to BottomRight.", value.c_str());
+    }
+
     return OverlayNotificationPosition::BottomRight;
 }
 
@@ -705,25 +705,30 @@ OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std
 std::string OverlayNotifier::ResolveConfigPath() const
 {
     std::filesystem::path configHome;
+    // Preferred config root from XDG spec
     if (const char* xdgConfigHome = std::getenv("XDG_CONFIG_HOME"))
     {
         if (*xdgConfigHome != '\0')
         {
             configHome = xdgConfigHome;
+            LOG_BE(Urgency::Debug, "XDG_CONFIG_HOME detected: %s", xdgConfigHome);
         }
     }
 
     if (configHome.empty())
     {
+        // Fallback for setups without XDG_CONFIG_HOME
         const char* home = std::getenv("HOME");
         if (!home || *home == '\0')
         {
+            LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve config path.");
             return {};
         }
         configHome = std::filesystem::path(home) / ".config";
     }
 
-    return (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+    std::string configPath = (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+    return configPath;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -735,10 +740,13 @@ std::string OverlayNotifier::ResolveRuntimeDir() const
     {
         if (runtimeDir[0] != '\0')
         {
+            LOG_BE(Urgency::Debug, "XDG_RUNTIME_DIR detected: %s", runtimeDir);
             return runtimeDir;
         }
     }
 
     // Fall back to a heuristic based on the current UID
-    return "/run/user/" + std::to_string(getuid());
+    std::string fallbackDir = "/run/user/" + std::to_string(getuid());
+    LOG_BE(Urgency::Debug, "XDG_RUNTIME_DIR not available, using fallback: %s", fallbackDir.c_str());
+    return fallbackDir;
 }

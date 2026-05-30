@@ -7,6 +7,7 @@
 /////////////////////////////////////////////////////////
 
 #include "SystemdNotify.h"
+#include "Defines.h"
 #include "../tools/Logger.h"
 
 #include <cerrno>
@@ -16,6 +17,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#define COMPONENT "SystemdNotify"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -28,13 +31,13 @@ SystemdNotify::SystemdNotify()
     const char* sock = std::getenv("NOTIFY_SOCKET");
     if (!sock || sock[0] == '\0')
     {
-        Logger::Log("[SystemdNotify] NOTIFY_SOCKET not set - running outside systemd or Type=simple");
+        LOG_BE(Urgency::Info, "NOTIFY_SOCKET not set - running outside systemd or Type=simple");
         return;
     }
 
     m_socket_path = sock;
     m_available = true;
-    Logger::Log("[SystemdNotify] NOTIFY_SOCKET=" + m_socket_path);
+    LOG_BE(Urgency::Debug, "NOTIFY_SOCKET=%s", m_socket_path.c_str());
 }
 
 SystemdNotify::~SystemdNotify()
@@ -50,7 +53,7 @@ void SystemdNotify::NotifyReady()
 {
     // Tell systemd daemon initialization completed
     Notify("READY=1");
-    Logger::Log("[SystemdNotify] READY=1 sent");
+    LOG_BE(Urgency::Debug, "READY=1 sent");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -59,6 +62,7 @@ void SystemdNotify::NotifyStatus(const std::string& msg)
 {
     // Publish status text visible in systemctl status output
     Notify("STATUS=" + msg);
+    LOG_BE(Urgency::Debug, "Status updated: %s", msg.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -67,7 +71,7 @@ void SystemdNotify::NotifyStopping()
 {
     // Tell systemd shutdown sequence has started
     Notify("STOPPING=1");
-    Logger::Log("[SystemdNotify] STOPPING=1 sent");
+    LOG_BE(Urgency::Debug, "STOPPING=1 sent");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -86,7 +90,7 @@ void SystemdNotify::Notify(const std::string& payload)
     int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (fd < 0)
     {
-        Logger::Log("[SystemdNotify] socket() failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "socket() failed: %s", strerror(errno));
         return;
     }
 
@@ -110,7 +114,7 @@ void SystemdNotify::Notify(const std::string& payload)
     ssize_t sent = sendto(fd, payload.c_str(), payload.size(), MSG_NOSIGNAL, reinterpret_cast<struct sockaddr*>(&addr), addr_len);
     if (sent < 0)
     {
-        Logger::Log("[SystemdNotify] sendto() failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "sendto() failed for payload '%s': %s", payload.c_str(), strerror(errno));
     }
 
     close(fd);

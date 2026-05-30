@@ -73,6 +73,7 @@ bool DBusService::StopServiceIfNotEnabled()
     // Keep enabled service running across frontend shutdown
     if (!FetchServiceEnabledStatus())
     {
+        qWarning() << "DBusService::StopServiceIfNotEnabled: failed to fetch service enabled status";
         return serviceStopped;
     }
 
@@ -101,6 +102,7 @@ void DBusService::PingBackend()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::PingBackend: D-Bus session bus unavailable";
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         SetServiceAvailable(false);
         return;
@@ -132,6 +134,7 @@ bool DBusService::StartService()
     serviceStarted = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
     if (!serviceStarted)
     {
+        qWarning() << "DBusService::StartService: failed to call StartUnit";
         SetServiceStarting(false);
     }
     return serviceStarted;
@@ -148,6 +151,10 @@ bool DBusService::StopService()
     SetServiceActive(false);
     SetServiceStarting(false);
     serviceStopped = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
+    if (!serviceStopped)
+    {
+        qWarning() << "DBusService::StopService: failed to call StopUnit";
+    }
     return serviceStopped;
 }
 
@@ -164,6 +171,7 @@ bool DBusService::RestartService()
     serviceRestarted = CallSystemdUnitMethod(QStringLiteral("RestartUnit"));
     if (!serviceRestarted)
     {
+        qWarning() << "DBusService::RestartService: failed to call RestartUnit";
         SetServiceStarting(false);
     }
     return serviceRestarted;
@@ -201,6 +209,7 @@ void DBusService::ReloadAllTargets()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
+        qWarning() << "DBusService::ReloadAllTargets: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
         return;
     }
 
@@ -221,6 +230,7 @@ void DBusService::ReloadConfig()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
+        qWarning() << "DBusService::ReloadConfig: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
         return;
     }
 
@@ -241,6 +251,7 @@ void DBusService::TestToast()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
+        qWarning() << "DBusService::TestToast: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
         return;
     }
 
@@ -266,6 +277,7 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
 
     if (reply.isError())
     {
+        qWarning() << "DBusService::OnPingFinished: ping failed:" << reply.error().message();
         SetLastError(reply.error().message());
         SetServiceAvailable(false);
         return;
@@ -329,6 +341,7 @@ void DBusService::OnAchievementUnlocked(int appId, const QString &achievementKey
 {
     if (appId <= 0 || achievementKey.isEmpty())
     {
+        qWarning() << "DBusService::OnAchievementUnlocked: invalid payload:" << appId << achievementKey;
         return;
     }
 
@@ -356,6 +369,7 @@ void DBusService::ConnectDaemonSignals()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::ConnectDaemonSignals: D-Bus session bus unavailable";
         return;
     }
 
@@ -370,6 +384,7 @@ void DBusService::ConnectDaemonSignals()
 
     if (!connected)
     {
+        qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to GameStateChanged";
         SetLastError(QStringLiteral("Failed to subscribe to GameStateChanged signal"));
     }
 
@@ -384,6 +399,7 @@ void DBusService::ConnectDaemonSignals()
 
     if (!achievementConnected)
     {
+        qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to AchievementUnlocked";
         SetLastError(QStringLiteral("Failed to subscribe to AchievementUnlocked signal"));
     }
 }
@@ -395,6 +411,7 @@ void DBusService::ScheduleActiveTargetsRequest()
     // Debounce target refresh while service startup settles
     if (!m_activeTargetsRequestTimer || !m_serviceAvailable)
     {
+        qWarning() << "DBusService::ScheduleActiveTargetsRequest: request skipped, timer available:" << (m_activeTargetsRequestTimer != nullptr) << "service available:" << m_serviceAvailable;
         return;
     }
 
@@ -409,6 +426,7 @@ void DBusService::RequestActiveTargets()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected() || !m_serviceAvailable)
     {
+        qWarning() << "DBusService::RequestActiveTargets: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
         return;
     }
 
@@ -431,6 +449,7 @@ bool DBusService::EnableService()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::EnableService: D-Bus session bus unavailable";
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         return serviceEnabled;
     }
@@ -446,6 +465,7 @@ bool DBusService::EnableService()
     QDBusMessage reply = sessionBus.call(message, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
+        qWarning() << "DBusService::EnableService: EnableUnitFiles failed:" << reply.errorMessage();
         SetLastError(reply.errorMessage());
         RefreshServiceStatus();
         return serviceEnabled;
@@ -467,6 +487,7 @@ bool DBusService::DisableService()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::DisableService: D-Bus session bus unavailable";
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         return serviceDisabled;
     }
@@ -482,6 +503,7 @@ bool DBusService::DisableService()
     QDBusMessage reply = sessionBus.call(message, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
+        qWarning() << "DBusService::DisableService: DisableUnitFiles failed:" << reply.errorMessage();
         SetLastError(reply.errorMessage());
         RefreshServiceStatus();
         return serviceDisabled;
@@ -503,6 +525,7 @@ bool DBusService::CallSystemdUnitMethod(const QString &method)
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::CallSystemdUnitMethod: D-Bus session bus unavailable for method:" << method;
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         return methodCalled;
     }
@@ -518,6 +541,7 @@ bool DBusService::CallSystemdUnitMethod(const QString &method)
     QDBusMessage reply = sessionBus.call(message, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
+        qWarning() << "DBusService::CallSystemdUnitMethod: method failed:" << method << reply.errorMessage();
         SetLastError(reply.errorMessage());
         return methodCalled;
     }
@@ -537,6 +561,7 @@ bool DBusService::FetchServiceActiveStatus()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::FetchServiceActiveStatus: D-Bus session bus unavailable";
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         SetServiceActive(false);
         SetServiceStarting(false);
@@ -554,6 +579,7 @@ bool DBusService::FetchServiceActiveStatus()
     QDBusReply<QDBusObjectPath> getUnitReply = sessionBus.call(getUnitMessage, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (!getUnitReply.isValid())
     {
+        qWarning() << "DBusService::FetchServiceActiveStatus: GetUnit failed";
         SetServiceActive(false);
         SetServiceStarting(false);
         return statusFetched;
@@ -570,6 +596,7 @@ bool DBusService::FetchServiceActiveStatus()
     QDBusReply<QVariant> activeStateReply = sessionBus.call(activeStateMessage, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (!activeStateReply.isValid())
     {
+        qWarning() << "DBusService::FetchServiceActiveStatus: failed to read ActiveState";
         SetServiceActive(false);
         SetServiceStarting(false);
         return statusFetched;
@@ -592,6 +619,7 @@ bool DBusService::FetchServiceEnabledStatus()
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
     if (!sessionBus.isConnected())
     {
+        qWarning() << "DBusService::FetchServiceEnabledStatus: D-Bus session bus unavailable";
         SetLastError(QStringLiteral("D-Bus session bus unavailable"));
         SetServiceEnabledState(false);
         return statusFetched;
@@ -608,6 +636,7 @@ bool DBusService::FetchServiceEnabledStatus()
     QDBusReply<QString> reply = sessionBus.call(message, QDBus::BlockWithGui, m_systemdTimeoutMs);
     if (!reply.isValid())
     {
+        qWarning() << "DBusService::FetchServiceEnabledStatus: GetUnitFileState failed";
         SetServiceEnabledState(false);
         return statusFetched;
     }
@@ -626,7 +655,7 @@ void DBusService::SetServiceAvailable(bool available)
         return;
     }
 
-    qDebug() << "SetServiceAvailable: lymalinkd dbus status:" << (available ? "available" : "not available");
+    qDebug() << "DBusService::SetServiceAvailable: lymalinkd dbus status:" << (available ? "available" : "not available");
 
     // Clear stale active targets when daemon disappears
     m_serviceAvailable = available;

@@ -3,23 +3,52 @@
 // Date: 2026-05-22
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares a simple logging utility
+// Description: Declares a singleton logging utility
 /////////////////////////////////////////////////////////
 
 #pragma once
 
-#include <cstdarg>
 #include <string>
+#include <cstdarg>
+#include <fstream>
+#include <mutex>
+
+enum class Urgency
+{
+    Debug,
+    Info,
+    Warning,
+    Critical,
+    Fatal
+};
 
 class Logger
 {
 public:
-    static void Init(const std::string& logPath);
-    static void Log(const std::string& msg);
-    static void Log(const char* fmt, ...);
-    static void Error(const std::string& msg);
-    static void Error(const char* fmt, ...);
+    // Returns the single Logger instance
+    static Logger& Instance();
+
+    // Non-copyable, non-movable
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+    Logger(Logger&&) = delete;
+    Logger& operator=(Logger&&) = delete;
+
+    void Init();
+
+    // Logger::Instance().Log(Urgency::Warning, "Lymalinkd", "Main", "sigprocmask failed: %s", strerror(errno));
+    void Log(Urgency level, const char* component, const char* function, const char* fmt, ...) __attribute__((format(printf, 5, 6)));
 
 private:
-    static std::string FormatMessage(const char* fmt, va_list args);
+    std::string m_logPath;
+    std::ofstream m_file;
+    std::mutex m_mutex;
+
+    Logger() = default;
+    ~Logger();
+
+    void Rotate();
+    std::string Timestamp() const;
+    const char* LevelStr(Urgency level) const;
+    std::string ResolveLogPath() const;
 };

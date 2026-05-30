@@ -72,7 +72,7 @@ void SQLiteManager::closeDatabase(const QString &connectionName)
     const QString conn = resolveConn(connectionName);
     if (!m_dbConnections.contains(conn))
     {
-        qDebug() << "SQLiteManager - closeDatabase: Connection not found";
+        qWarning() << "SQLiteManager::closeDatabase: connection not found:" << conn;
         return;
     }
 
@@ -117,7 +117,7 @@ bool SQLiteManager::createDatabase(const QString &connectionName, const QString 
         return false;
     }
 
-    qDebug() << "SQLiteManager: database created at" << dbPath;
+    qDebug() << "SQLiteManager::createDatabase: database created at" << dbPath;
     return true;
 }
 
@@ -129,7 +129,7 @@ bool SQLiteManager::deleteDatabase(const QString &connectionName, const QString 
     if (isDatabaseOpen(connectionName))
     {
         closeDatabase(connectionName);
-    }  
+    }
 
     bool allRemoved = true;
 
@@ -150,13 +150,16 @@ bool SQLiteManager::deleteDatabase(const QString &connectionName, const QString 
         const QString sidePath = dbPath + suffix;
         if (QFile::exists(sidePath))
         {
-            QFile::remove(sidePath); // best-effort, ignore errors
-        }   
+            if (!QFile::remove(sidePath))
+            {
+                qWarning() << "SQLiteManager::deleteDatabase: failed to remove side file:" << sidePath;
+            }
+        }
     }
 
     if (allRemoved)
     {
-        qDebug() << "SQLiteManager: database deleted:" << dbPath;
+        qDebug() << "SQLiteManager::deleteDatabase: database deleted:" << dbPath;
     }
         
     return allRemoved;
@@ -185,7 +188,7 @@ bool SQLiteManager::tableExists(const QString &connectionName, const QString &ta
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        qDebug() << "SQLiteManager - tableExists: database not open ->" << connectionName;
+        qWarning() << "SQLiteManager::tableExists: database not open:" << connectionName;
         return false;
     }
     return db.tables().contains(tableName, Qt::CaseInsensitive);
@@ -409,6 +412,7 @@ QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QStr
         if (q.lastError().isValid())
         {
             setLastError("selectFirst: " + q.lastError().text());
+            emit signalDatabaseError(m_lastError);
         }
         return {};
     }
@@ -449,6 +453,7 @@ int SQLiteManager::count(const QString &connectionName, const QString &tableName
     if (!q.exec() || !q.next())
     {
         setLastError("count: " + q.lastError().text());
+        emit signalDatabaseError(m_lastError);
         return -1;
     }
     return q.value(0).toInt();
@@ -468,6 +473,7 @@ bool SQLiteManager::beginTransaction(const QString &connectionName)
     if (!db.transaction())
     {
         setLastError("beginTransaction: " + db.lastError().text());
+        emit signalDatabaseError(m_lastError);
         return false;
     }
     return true;
@@ -487,6 +493,7 @@ bool SQLiteManager::commitTransaction(const QString &connectionName)
     if (!db.commit())
     {
         setLastError("commitTransaction: " + db.lastError().text());
+        emit signalDatabaseError(m_lastError);
         return false;
     }
     return true;
@@ -506,6 +513,7 @@ bool SQLiteManager::rollbackTransaction(const QString &connectionName)
     if (!db.rollback())
     {
         setLastError("rollbackTransaction: " + db.lastError().text());
+        emit signalDatabaseError(m_lastError);
         return false;
     }
     return true;
@@ -562,5 +570,5 @@ QVariantList SQLiteManager::fetchRows(QSqlQuery &query) const
 void SQLiteManager::setLastError(const QString &error)
 {
     m_lastError = error;
-    qDebug() << "SQLiteManager - setLastError:" << error;
+    qWarning() << "SQLiteManager::setLastError:" << error;
 }

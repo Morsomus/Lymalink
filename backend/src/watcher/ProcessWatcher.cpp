@@ -9,6 +9,7 @@
 /////////////////////////////////////////////////////////
 
 #include "ProcessWatcher.h"
+#include "Defines.h"
 #include "../tools/Logger.h"
 
 #include <chrono>
@@ -21,6 +22,8 @@
 #include <unistd.h>
 
 namespace fs = std::filesystem;
+
+#define COMPONENT "ProcessWatcher"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -68,7 +71,8 @@ void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
         if (!newIds.count(it->targetId))
         {
             const long secs = static_cast<long>(time(nullptr) - it->sessionStart);
-            Logger::Log("[ProcessWatcher] Target removed while active - targetId=" + std::to_string(it->targetId) + " playtime=" + std::to_string(secs) + "s");
+            LOG_BE(Urgency::Warning, "Target removed while active - targetId=%d playtime=%lds", it->targetId, secs);
+            
             if (onProcessStopped)
             {
                 onProcessStopped(it->targetId, secs);
@@ -92,7 +96,7 @@ void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
         m_meta.push_back(BuildMeta(t.executablePath));
     }
 
-    Logger::Log("[ProcessWatcher] Targets set: " + std::to_string(m_targets.size()));
+    LOG_BE(Urgency::Debug, "Targets set: %zu", m_targets.size());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -107,19 +111,26 @@ void ProcessWatcher::Start()
     // Launch polling thread
     m_running.store(true);
     m_thread = std::thread(&ProcessWatcher::PollLoop, this);
-    Logger::Log("[ProcessWatcher] Started.");
+    
+    LOG_BE(Urgency::Debug, "Started.");
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void ProcessWatcher::Stop()
 {
+    if (!m_running.load())
+    {
+        return;
+    }
+
     m_running.store(false);
     if (m_thread.joinable())
     {
         m_thread.join();
     }
-    Logger::Log("[ProcessWatcher] Stopped.");
+    
+    LOG_BE(Urgency::Debug, "Stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -208,7 +219,9 @@ void ProcessWatcher::ScanProc()
 
             m_active.push_back(ap);
             m_activeIds.insert(ap.targetId);
-            Logger::Log("[ProcessWatcher] Process started - targetId=" + std::to_string(ap.targetId) + " exeFile=" + m_meta[i].exeFilename + " pid=" + std::to_string(ap.pid));
+            
+            LOG_BE(Urgency::Debug, "Process started - targetId=%d exeFile=%s pid=%d", ap.targetId, m_meta[i].exeFilename.c_str(), ap.pid);
+            
             if (onProcessStarted)
             {
                 onProcessStarted(ap.targetId, ap.executablePath);
@@ -224,7 +237,9 @@ void ProcessWatcher::ScanProc()
         {
             // Emit stop callback with elapsed session time
             const long secs = static_cast<long>(time(nullptr) - it->sessionStart);
-            Logger::Log("[ProcessWatcher] Process stopped - targetId=" + std::to_string(it->targetId) + " playtime=" + std::to_string(secs) + "s");
+            
+            LOG_BE(Urgency::Debug, "Process stopped - targetId=%d playtime=%lds", it->targetId, secs);
+            
             if (onProcessStopped)
             {
                 onProcessStopped(it->targetId, secs);

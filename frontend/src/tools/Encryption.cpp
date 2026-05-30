@@ -48,7 +48,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
     QByteArray saltData(PBKDF2_SALT_LEN, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char *>(saltData.data()), PBKDF2_SALT_LEN) != 1)
     {
-        qDebug() << "Salt generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: salt generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         return encryptedValue;
     }
 
@@ -63,7 +63,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
     QByteArray ivData(GCM_IV_LEN, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char *>(ivData.data()), GCM_IV_LEN) != 1)
     {
-        qDebug() << "IV generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: IV generation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
     }
@@ -74,7 +74,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
-        qDebug() << "OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
     }
@@ -88,7 +88,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
             reinterpret_cast<const unsigned char *>(ivData.constData()))
         != 1)
     {
-        qDebug() << "Encryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: encryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
@@ -106,7 +106,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
             inputData.size())
         != 1)
     {
-        qDebug() << "Encryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: encryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
@@ -120,7 +120,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
             &finalLength)
         != 1)
     {
-        qDebug() << "Encryption finalization failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: encryption finalization failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
@@ -135,7 +135,7 @@ QString Encryption::Encrypt(const QString &value, const QString &key) const
             reinterpret_cast<unsigned char *>(tagData.data()))
         != 1)
     {
-        qDebug() << "Tag retrieval failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Encrypt: tag retrieval failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return encryptedValue;
@@ -175,7 +175,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
     const int headerLength = 1 + PBKDF2_SALT_LEN + GCM_IV_LEN;
     if (combined.size() <= headerLength + GCM_TAG_LEN)
     {
-        qDebug() << "Invalid encrypted data: too short";
+        qWarning() << "Encryption::Decrypt: invalid encrypted data, too short";
         return decryptedValue;
     }
 
@@ -183,7 +183,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
     const int payloadVersion = static_cast<unsigned char>(combined.at(0));
     if (payloadVersion != ENCRYPTION_PAYLOAD_VERSION)
     {
-        qDebug() << "Unsupported encrypted data version:" << payloadVersion;
+        qWarning() << "Encryption::Decrypt: unsupported encrypted data version:" << payloadVersion;
         return decryptedValue;
     }
 
@@ -204,7 +204,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
-        qDebug() << "OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Decrypt: OpenSSL context creation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return decryptedValue;
     }
@@ -218,7 +218,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
             reinterpret_cast<const unsigned char *>(ivData.constData()))
         != 1)
     {
-        qDebug() << "Decryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Decrypt: decryption init failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return decryptedValue;
@@ -232,7 +232,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
             reinterpret_cast<unsigned char *>(tagData.data()))
         != 1)
     {
-        qDebug() << "Tag set failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Decrypt: tag set failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return decryptedValue;
@@ -250,7 +250,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
             encryptedData.size())
         != 1)
     {
-        qDebug() << "Decryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Decrypt: decryption failed:" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return decryptedValue;
@@ -264,7 +264,7 @@ QString Encryption::Decrypt(const QString &value, const QString &key) const
             &finalLength)
         != 1)
     {
-        qDebug() << "Decryption finalization failed (auth tag mismatch?):" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::Decrypt: decryption finalization failed (auth tag mismatch?):" << ERR_error_string(ERR_get_error(), nullptr);
         EVP_CIPHER_CTX_free(ctx);
         OPENSSL_cleanse(keyData.data(), keyData.size());
         return decryptedValue;
@@ -303,7 +303,7 @@ QByteArray Encryption::DeriveKey(const QString &key, const QByteArray &saltData)
 
     if (result != 1)
     {
-        qDebug() << "PBKDF2 key derivation failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        qWarning() << "Encryption::DeriveKey: PBKDF2 key derivation failed:" << ERR_error_string(ERR_get_error(), nullptr);
         derivedKey = {};
         return derivedKey;
     }

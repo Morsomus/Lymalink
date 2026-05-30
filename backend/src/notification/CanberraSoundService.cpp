@@ -8,10 +8,13 @@
 /////////////////////////////////////////////////////////
 
 #include "CanberraSoundService.h"
+#include "Defines.h"
 #include "tools/Logger.h"
 
 #include <filesystem>
 #include <utility>
+
+#define COMPONENT "CanberraSoundService"
 
 namespace fs = std::filesystem;
 
@@ -41,7 +44,7 @@ Error CanberraSoundService::Init(std::string defaultSoundPath)
     // Create libcanberra context before configuring playback properties
     if (ca_context_create(&m_context) != CA_SUCCESS)
     {
-        Logger::Log("[CanberraSoundService][Init] Failed to create context.");
+        LOG_BE(Urgency::Critical, "Failed to create libcanberra context.");
         err = Error::UnknownError;
         return err;
     }
@@ -55,7 +58,8 @@ Error CanberraSoundService::Init(std::string defaultSoundPath)
     // Store default notification sound path from daemon configuration
     m_soundPath = std::move(defaultSoundPath);
     m_fallbackSoundPath = m_soundPath;
-    Logger::Log("[CanberraSoundService][Init] Ready.");
+    
+    LOG_BE(Urgency::Debug, "Ready.");
     return err;
 }
 
@@ -63,11 +67,15 @@ Error CanberraSoundService::Init(std::string defaultSoundPath)
 
 void CanberraSoundService::Stop()
 {
-    if (m_context)
+    if (!m_context)
     {
-        ca_context_destroy(m_context);
-        m_context = nullptr;
+        return;
     }
+
+    ca_context_destroy(m_context);
+    m_context = nullptr;
+    
+    LOG_BE(Urgency::Debug, "Stopped and context destroyed.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -76,7 +84,7 @@ void CanberraSoundService::SetSoundPath(std::string soundPath)
 {
     std::lock_guard<std::mutex> lock(m_soundPathMutex);
     m_soundPath = std::move(soundPath);
-    Logger::Log("[CanberraSoundService][SetSoundPath] Sound path set: " + m_soundPath);
+    LOG_BE(Urgency::Debug, "Sound path set: %s", m_soundPath.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -85,7 +93,7 @@ void CanberraSoundService::SetFallbackSoundPath(std::string fallbackSoundPath)
 {
     std::lock_guard<std::mutex> lock(m_soundPathMutex);
     m_fallbackSoundPath = std::move(fallbackSoundPath);
-    Logger::Log("[CanberraSoundService][SetFallbackSoundPath] Fallback sound path set: " + m_fallbackSoundPath);
+    LOG_BE(Urgency::Debug, "Fallback sound path set: %s", m_fallbackSoundPath.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -96,6 +104,7 @@ bool CanberraSoundService::PlayNotificationSound()
 
     if (!m_context)
     {
+        LOG_BE(Urgency::Warning, "Cannot play sound: service not initialized.");
         return soundPlayed;
     }
 
@@ -109,16 +118,17 @@ bool CanberraSoundService::PlayNotificationSound()
 
     if (soundPath.empty() || !fs::exists(soundPath))
     {
-        Logger::Log("[CanberraSoundService][PlayNotificationSound] Sound file not found: " + soundPath);
+        LOG_BE(Urgency::Warning, "Sound file not found: %s", soundPath.c_str());
 
         std::error_code ec;
         if (fallbackSoundPath.empty() || fallbackSoundPath == soundPath || !fs::is_regular_file(fallbackSoundPath, ec))
         {
+            LOG_BE(Urgency::Critical, "Fallback sound file is also invalid or missing. Aborting playback.");
             return soundPlayed;
         }
 
         soundPath = fallbackSoundPath;
-        Logger::Log("[CanberraSoundService][PlayNotificationSound] Falling back to: " + soundPath);
+        LOG_BE(Urgency::Info, "Falling back to: %s", soundPath.c_str());
     }
 
     // Submit one notification sound playback request
@@ -130,11 +140,11 @@ bool CanberraSoundService::PlayNotificationSound()
 
     if (result != CA_SUCCESS)
     {
-        Logger::Log("[CanberraSoundService][PlayNotificationSound] Playback failed: " + std::string(ca_strerror(result)));
+        LOG_BE(Urgency::Critical, "Playback failed: %s", ca_strerror(result));
         return soundPlayed;
     }
 
-    Logger::Log("[CanberraSoundService][PlayNotificationSound] Playing: " + soundPath);
+    LOG_BE(Urgency::Debug, "Playing: %s", soundPath.c_str());
     soundPlayed = true;
     return soundPlayed;
 }

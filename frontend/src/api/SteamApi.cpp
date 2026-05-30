@@ -50,6 +50,7 @@ Error SteamApi::SearchAppId(const QString &term, QList<SteamSearchResult> &resul
 
     if (term.isEmpty())
     {
+        qWarning() << "SteamApi::SearchAppId: Search term is empty";
         err = Error::InvalidParameter;
         return err;
     }
@@ -76,7 +77,8 @@ Error SteamApi::SearchAppId(const QString &term, QList<SteamSearchResult> &resul
     loop.exec(QEventLoop::ExcludeUserInputEvents);
     if (reply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "SearchAppId - app id search failed:" << reply->errorString();
+        // Muutettu qDebug -> qWarning, koska kyseessä on verkkoyhteysvirhe
+        qWarning() << "SteamApi::SearchAppId: App id search failed:" << reply->errorString();
         reply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -102,6 +104,7 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
 
     if (appId <= 0)
     {
+        qWarning() << "SteamApi::SearchGameInfo: Invalid appId:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
@@ -143,7 +146,7 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
     loop.exec(QEventLoop::ExcludeUserInputEvents);
     if (reply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "SearchGameInfo - primary game info search failed:" << reply->errorString();
+        qWarning() << "SteamApi::SearchGameInfo: Primary game info search failed:" << reply->errorString();
         reply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -157,7 +160,7 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
     gameInfo = ParseGameInfoResponse(data, appId, &errorMessage);
     if (!errorMessage.isEmpty())
     {
-        qDebug() << "SearchGameInfo - primary game info parse failed:" << errorMessage;
+        qCritical() << "SteamApi::SearchGameInfo: Primary game info parse failed:" << errorMessage;
         gameInfo = SteamGameInfo();
         err = Error::ParseError;
         return err;
@@ -177,7 +180,7 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
 
     if (appId <= 0)
     {
-        qDebug() << "GetLibraryCapsuleUrls - invalid app id:" << appId;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: Invalid app id:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
@@ -186,14 +189,14 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
     QString normalizedFileName = lcSuffix.trimmed();
     if (normalizedFileName.isEmpty())
     {
-        qDebug() << "GetLibraryCapsuleUrls - empty lcSuffix";
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: Empty lcSuffix";
         err = Error::InvalidParameter;
         return err;
     }
 
     if (normalizedFileName.startsWith("http", Qt::CaseInsensitive))
     {
-        qDebug() << "GetLibraryCapsuleUrls - lcSuffix already contains URL:" << normalizedFileName;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: lcSuffix already contains URL:" << normalizedFileName;
         err = Error::InvalidParameter;
         return err;
     }
@@ -208,7 +211,7 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
     }
     if (!IncludesExpectedExtension(normalizedFileName))
     {
-        qDebug() << "GetLibraryCapsuleUrls - invalid lcSuffix filename:" << lcSuffix;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: Invalid lcSuffix filename:" << lcSuffix;
         err = Error::InvalidParameter;
         return err;
     }
@@ -217,14 +220,14 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
     QString normalizedAssetUrlFormat = assetUrlFormat.trimmed();
     if (normalizedAssetUrlFormat.isEmpty())
     {
-        qDebug() << "GetLibraryCapsuleUrls - empty assetUrlFormat";
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: Empty assetUrlFormat";
         err = Error::InvalidParameter;
         return err;
     }
 
     if (normalizedAssetUrlFormat.startsWith("http", Qt::CaseInsensitive))
     {
-        qDebug() << "GetLibraryCapsuleUrls - assetUrlFormat contains URL:" << normalizedAssetUrlFormat;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: assetUrlFormat contains URL:" << normalizedAssetUrlFormat;
         err = Error::InvalidParameter;
         return err;
     }
@@ -235,7 +238,7 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
     }
     if (!normalizedAssetUrlFormat.contains("${FILENAME}"))
     {
-        qDebug() << "GetLibraryCapsuleUrls - assetUrlFormat missing filename placeholder:" << assetUrlFormat;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: assetUrlFormat missing filename placeholder:" << assetUrlFormat;
         err = Error::InvalidParameter;
         return err;
     }
@@ -244,7 +247,7 @@ Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const 
     const QString expectedAssetPrefix = QString("steam/apps/%1/").arg(appId);
     if (!normalizedAssetUrlFormat.startsWith(expectedAssetPrefix))
     {
-        qDebug() << "GetLibraryCapsuleUrls - assetUrlFormat app id mismatch:" << assetUrlFormat;
+        qWarning() << "SteamApi::GetLibraryCapsuleUrls: assetUrlFormat app id mismatch:" << assetUrlFormat;
         err = Error::InvalidParameter;
         return err;
     }
@@ -270,7 +273,7 @@ Error SteamApi::GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<Q
 
     if (appId <= 0)
     {
-        qDebug() << "GetCommunityIconUrls - invalid app id:" << appId;
+        qWarning() << "SteamApi::GetCommunityIconUrls: Invalid app id:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
@@ -278,14 +281,14 @@ Error SteamApi::GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<Q
     const QString trimmedCiUrl = ciSuffix.trimmed();
     if (trimmedCiUrl.isEmpty())
     {
-        qDebug() << "GetCommunityIconUrls - empty ciSuffix";
+        qWarning() << "SteamApi::GetCommunityIconUrls: Empty ciSuffix";
         err = Error::InvalidParameter;
         return err;
     }
 
     if (trimmedCiUrl.startsWith("http", Qt::CaseInsensitive))
     {
-        qDebug() << "GetCommunityIconUrls - ciSuffix already contains URL:" << trimmedCiUrl;
+        qWarning() << "SteamApi::GetCommunityIconUrls: ciSuffix already contains URL:" << trimmedCiUrl;
         err = Error::InvalidParameter;
         return err;
     }
@@ -303,7 +306,7 @@ Error SteamApi::GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<Q
 
     if (normalizedFileName.isEmpty())
     {
-        qDebug() << "GetCommunityIconUrls - invalid ciSuffix filename:" << ciSuffix;
+        qWarning() << "SteamApi::GetCommunityIconUrls: Invalid ciSuffix filename:" << ciSuffix;
         err = Error::InvalidParameter;
         return err;
     }
@@ -337,14 +340,14 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
 
     if (appId <= 0)
     {
-        qDebug() << "GetAchievementIconUrls - invalid app id:" << appId;
+        qWarning() << "SteamApi::GetAchievementIconUrls: Invalid app id:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
 
     if (achievements.isEmpty())
     {
-        qDebug() << "GetAchievementIconUrls - empty achievements";
+        qWarning() << "SteamApi::GetAchievementIconUrls: Empty achievements";
         err = Error::InvalidParameter;
         return err;
     }
@@ -366,14 +369,14 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
         // Validate every achievement belongs to requested app
         if (achievement.appId != appId)
         {
-            qDebug() << "GetAchievementIconUrls - achievement app id mismatch:" << achievement.appId;
+            qWarning() << "SteamApi::GetAchievementIconUrls: Achievement app id mismatch:" << achievement.appId;
             urls.clear();
             err = Error::InvalidParameter;
             return err;
         }
         if (achievement.achievementKey.isEmpty())
         {
-            qDebug() << "GetAchievementIconUrls - empty achievement key";
+            qWarning() << "SteamApi::GetAchievementIconUrls: Empty achievement key";
             urls.clear();
             err = Error::InvalidParameter;
             return err;
@@ -384,7 +387,7 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
         const QString normalizedGrayIconFileName = NormalizeSteamImageFileName(achievement.iconGraySuffix);
         if (normalizedIconFileName.isEmpty() || normalizedGrayIconFileName.isEmpty())
         {
-            qDebug() << "GetAchievementIconUrls - invalid achievement icon suffix:" << achievement.achievementKey;
+            qWarning() << "SteamApi::GetAchievementIconUrls: Invalid achievement icon suffix:" << achievement.achievementKey;
             urls.clear();
             err = Error::InvalidParameter;
             return err;
@@ -418,6 +421,7 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
 
     if (appId <= 0)
     {
+        qWarning() << "SteamApi::FetchAchievementDataPrimary: Invalid app id:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
@@ -443,7 +447,7 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
     loop.exec(QEventLoop::ExcludeUserInputEvents);
     if (reply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "FetchAchievementDataPrimary - primary achievement data fetch failed:" << reply->errorString();
+        qWarning() << "SteamApi::FetchAchievementDataPrimary: Primary achievement data fetch failed:" << reply->errorString();
         reply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -460,6 +464,7 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
     {
         if (noDataDoc.isNull())
         {
+            qWarning() << "SteamApi::FetchAchievementDataPrimary: JSON document is null";
             err = Error::NoData;
             return err;
         }
@@ -475,12 +480,14 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
                 (responseValue.isObject() && responseObject.isEmpty()) ||
                 (achievementsValue.isArray() && achievementsValue.toArray().isEmpty()))
             {
+                qWarning() << "SteamApi::FetchAchievementDataPrimary: Response object or achievement list is empty";
                 err = Error::NoData;
                 return err;
             }
         }
         else if (noDataDoc.isArray() && noDataDoc.array().isEmpty())
         {
+            qWarning() << "SteamApi::FetchAchievementDataPrimary: JSON array is empty";
             err = Error::NoData;
             return err;
         }
@@ -490,12 +497,14 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
     achievements = ParseAchievementDataResponse(data, appId, &errorMessage);
     if (!errorMessage.isEmpty())
     {
+        qCritical() << "SteamApi::FetchAchievementDataPrimary: Primary achievement data parse failed:" << errorMessage;
         achievements.clear();
         err = Error::ParseError;
         return err;
     }
     if (achievements.isEmpty())
     {
+        qWarning() << "SteamApi::FetchAchievementDataPrimary: Parsed achievements list is empty";
         err = Error::NoData;
     }
 
@@ -513,12 +522,14 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
 
     if (appId <= 0)
     {
+        qWarning() << "SteamApi::FetchAchievementDataSecondary: Invalid app id:" << appId;
         err = Error::InvalidParameter;
         return err;
     }
 
     if (apiKey.isEmpty())
     {
+        qWarning() << "SteamApi::FetchAchievementDataSecondary: Api key is empty";
         err = Error::InvalidParameter;
         return err;
     }
@@ -544,7 +555,7 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     schemaLoop.exec(QEventLoop::ExcludeUserInputEvents);
     if (schemaReply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "FetchAchievementDataSecondary - secondary achievement schema fetch failed:" << schemaReply->errorString();
+        qWarning() << "SteamApi::FetchAchievementDataSecondary: Secondary achievement schema fetch failed:" << schemaReply->errorString();
         schemaReply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -571,7 +582,7 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     percentageLoop.exec(QEventLoop::ExcludeUserInputEvents);
     if (percentageReply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "FetchAchievementDataSecondary - global achievement percentage fetch failed:" << percentageReply->errorString();
+        qWarning() << "SteamApi::FetchAchievementDataSecondary: Global achievement percentage fetch failed:" << percentageReply->errorString();
         percentageReply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -594,7 +605,7 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     descriptionsLoop.exec(QEventLoop::ExcludeUserInputEvents);
     if (descriptionsReply->error() != QNetworkReply::NoError)
     {
-        qDebug() << "FetchAchievementDataSecondary - Steam Hunters achievement descriptions fetch failed:" << descriptionsReply->errorString();
+        qWarning() << "SteamApi::FetchAchievementDataSecondary: Steam Hunters achievement descriptions fetch failed:" << descriptionsReply->errorString();
         descriptionsReply->deleteLater();
         err = Error::NotFound;
         return err;
@@ -608,7 +619,7 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     const QByteArray primaryCompatibleData = BuildPrimaryAchievementDataResponseFromSecondary(schemaData, percentageData, descriptionsData, &errorMessage);
     if (!errorMessage.isEmpty())
     {
-        qDebug() << "FetchAchievementDataSecondary - Error while building primary data response from secondary:" << errorMessage;
+        qCritical() << "SteamApi::FetchAchievementDataSecondary: Error while building primary data response from secondary:" << errorMessage;
         err = Error::ParseError;
         return err;
     }
@@ -617,6 +628,7 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     achievements = ParseAchievementDataResponse(primaryCompatibleData, appId, &errorMessage);
     if (!errorMessage.isEmpty())
     {
+        qCritical() << "SteamApi::FetchAchievementDataSecondary: Secondary achievement data parse failed:" << errorMessage;
         achievements.clear();
         err = Error::ParseError;
     }
@@ -754,13 +766,15 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        *errorMessage = "ParseGameInfoResponse - Failed to parse primary game info response";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Failed to parse primary game info response";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
     if (!doc.isObject())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info response is not an object";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info response is not an object";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
@@ -768,26 +782,30 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     const QJsonArray storeItems = doc.object()["response"].toObject()["store_items"].toArray();
     if (storeItems.isEmpty() || !storeItems.first().isObject())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info response has no store item";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info response has no store item";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
     const QJsonObject storeItem = storeItems.first().toObject();
     if (storeItem["success"].toInt() != 1)
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info store item failed";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info store item failed";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
     const int responseAppId = storeItem["appid"].toInt(storeItem["id"].toInt());
     if (responseAppId <= 0)
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info missing app id";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing app id";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
     if (responseAppId != appId)
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info app id mismatch";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info app id mismatch";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
     gameInfo.appId = responseAppId;
@@ -797,7 +815,8 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     gameInfo.gameName = storeItem["name"].toString();
     if (gameInfo.gameName.isEmpty())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info missing game name";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing game name";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
@@ -814,14 +833,16 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     }
     if (gameInfo.lcSuffix.isEmpty())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info missing library capsule";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing library capsule";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
     gameInfo.ciSuffix = assets["community_icon"].toString();
     if (gameInfo.ciSuffix.isEmpty())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info missing community icon";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing community icon";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
@@ -832,7 +853,8 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     }
     if (gameInfo.assetUrlFormat.isEmpty())
     {
-        *errorMessage = "ParseGameInfoResponse - primary game info missing asset url format";
+        *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing asset url format";
+        qCritical() << *errorMessage;
         return gameInfo;
     }
 
@@ -850,13 +872,15 @@ QMap<QString, double> SteamApi::ParseGlobalAchievementPercentagesResponse(const 
     const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        *errorMessage = "ParseGlobalAchievementPercentagesResponse - Failed to parse global achievement percentages response";
+        *errorMessage = "SteamApi::ParseGlobalAchievementPercentagesResponse: Failed to parse global achievement percentages response";
+        qCritical() << *errorMessage;
         return percentages;
     }
 
     if (!doc.isObject())
     {
-        *errorMessage = "ParseGlobalAchievementPercentagesResponse - global achievement percentages response is not an object";
+        *errorMessage = "SteamApi::ParseGlobalAchievementPercentagesResponse: Global achievement percentages response is not an object";
+        qCritical() << *errorMessage;
         return percentages;
     }
 
@@ -864,7 +888,8 @@ QMap<QString, double> SteamApi::ParseGlobalAchievementPercentagesResponse(const 
     const QJsonValue achievementsValue = doc.object()["achievementpercentages"].toObject()["achievements"];
     if (!achievementsValue.isArray())
     {
-        *errorMessage = "ParseGlobalAchievementPercentagesResponse - global achievement percentages response missing achievements array";
+        *errorMessage = "SteamApi::ParseGlobalAchievementPercentagesResponse: Global achievement percentages response missing achievements array";
+        qCritical() << *errorMessage;
         return percentages;
     }
 
@@ -913,13 +938,15 @@ QMap<QString, QString> SteamApi::ParseSteamHuntersAchievementDescriptionsRespons
     const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        *errorMessage = "ParseSteamHuntersAchievementDescriptionsResponse - Failed to parse Steam Hunters achievement descriptions response";
+        *errorMessage = "SteamApi::ParseSteamHuntersAchievementDescriptionsResponse: Failed to parse Steam Hunters achievement descriptions response";
+        qCritical() << *errorMessage;
         return descriptions;
     }
 
     if (!doc.isArray())
     {
-        *errorMessage = "ParseSteamHuntersAchievementDescriptionsResponse - Steam Hunters achievement descriptions response is not an array";
+        *errorMessage = "SteamApi::ParseSteamHuntersAchievementDescriptionsResponse: Steam Hunters achievement descriptions response is not an array";
+        qCritical() << *errorMessage;
         return descriptions;
     }
 
@@ -955,13 +982,15 @@ QByteArray SteamApi::BuildPrimaryAchievementDataResponseFromSecondary(const QByt
     const QJsonDocument doc = QJsonDocument::fromJson(schemaResponse, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        *errorMessage = "BuildPrimaryAchievementDataResponseFromSecondary - Failed to parse secondary achievement schema response";
+        *errorMessage = "SteamApi::BuildPrimaryAchievementDataResponseFromSecondary: Failed to parse secondary achievement schema response";
+        qCritical() << *errorMessage;
         return primaryCompatibleResponse;
     }
 
     if (!doc.isObject())
     {
-        *errorMessage = "BuildPrimaryAchievementDataResponseFromSecondary - secondary achievement schema response is not an object";
+        *errorMessage = "SteamApi::BuildPrimaryAchievementDataResponseFromSecondary: Secondary achievement schema response is not an object";
+        qCritical() << *errorMessage;
         return primaryCompatibleResponse;
     }
 
@@ -969,7 +998,8 @@ QByteArray SteamApi::BuildPrimaryAchievementDataResponseFromSecondary(const QByt
     const QJsonValue achievementsValue = doc.object()["game"].toObject()["availableGameStats"].toObject()["achievements"];
     if (!achievementsValue.isArray())
     {
-        *errorMessage = "BuildPrimaryAchievementDataResponseFromSecondary - secondary achievement schema response missing achievements array";
+        *errorMessage = "SteamApi::BuildPrimaryAchievementDataResponseFromSecondary: Secondary achievement schema response missing achievements array";
+        qCritical() << *errorMessage;
         return primaryCompatibleResponse;
     }
 
@@ -1056,13 +1086,15 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        *errorMessage = "ParseAchievementDataResponse - Failed to parse primary achievement data response";
+        *errorMessage = "SteamApi::ParseAchievementDataResponse: Failed to parse primary achievement data response";
+        qCritical() << *errorMessage;
         return achievements;
     }
 
     if (!doc.isObject())
     {
-        *errorMessage = "ParseAchievementDataResponse - primary achievement data response is not an object";
+        *errorMessage = "SteamApi::ParseAchievementDataResponse: Primary achievement data response is not an object";
+        qCritical() << *errorMessage;
         return achievements;
     }
 
@@ -1070,14 +1102,16 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
     const QJsonValue responseValue = doc.object()["response"];
     if (!responseValue.isObject())
     {
-        *errorMessage = "ParseAchievementDataResponse - primary achievement data response missing response object";
+        *errorMessage = "SteamApi::ParseAchievementDataResponse: Primary achievement data response missing response object";
+        qCritical() << *errorMessage;
         return achievements;
     }
 
     const QJsonValue achievementsValue = responseValue.toObject()["achievements"];
     if (!achievementsValue.isArray())
     {
-        *errorMessage = "ParseAchievementDataResponse - primary achievement data response missing achievements array";
+        *errorMessage = "SteamApi::ParseAchievementDataResponse: Primary achievement data response missing achievements array";
+        qCritical() << *errorMessage;
         return achievements;
     }
 

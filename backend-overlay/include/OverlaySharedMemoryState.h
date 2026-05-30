@@ -5,6 +5,8 @@
 // Copyright: see /LICENSE
 // Description: Shared memory layout used by backend
 //              service and overlay.
+//              Currently not used in code,
+//              left for future fallback
 /////////////////////////////////////////////////////////
 
 #pragma once

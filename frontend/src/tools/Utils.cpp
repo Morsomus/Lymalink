@@ -100,7 +100,7 @@ QString ReadTextResource(const QString& resourcePath)
     QFile file(resourcePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
-        qWarning() << "Failed to read resource:" << resourcePath << file.errorString();
+        qWarning() << "Tools:ReadTextResource: Failed to read resource:" << resourcePath << file.errorString();
         return {};
     }
 

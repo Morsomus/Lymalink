@@ -79,6 +79,10 @@ Deploy file transfer map:
 - generated content -> `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/lymalink_overlay.json`
 - generated Flatpak bundle install (`org.freedesktop.Platform.VulkanLayer.lymalink//25.08`) -> user Flatpak runtime
 
+Logs:
+- frontend ~/.local/state/lymalink/lymalink-frontend.log
+- backend ~/.local/state/lymalink/lymalink-backend.log
+
 Commands:
 
 ```bash

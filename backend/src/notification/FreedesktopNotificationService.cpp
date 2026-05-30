@@ -8,11 +8,14 @@
 /////////////////////////////////////////////////////////
 
 #include "FreedesktopNotificationService.h"
+#include "Defines.h"
 #include "tools/Logger.h"
 
 #include <map>
 #include <string>
 #include <vector>
+
+#define COMPONENT "FreedesktopNotificationService"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -49,14 +52,14 @@ Error FreedesktopNotificationService::Init()
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[FreedesktopNotificationService][Init] Init failed: " + std::string(e.what()));
+        LOG_BE(Urgency::Critical, "Init failed: %s", e.what());
         m_notificationsProxy.reset();
         m_connection.reset();
         err = Error::UnknownError;
         return err;
     }
 
-    Logger::Log("[FreedesktopNotificationService][Init] Ready.");
+    LOG_BE(Urgency::Debug, "Ready.");
     return err;
 }
 
@@ -66,6 +69,7 @@ void FreedesktopNotificationService::Stop()
 {
     m_notificationsProxy.reset();
     m_connection.reset();
+    LOG_BE(Urgency::Debug, "Stopped and D-Bus proxy released.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -76,6 +80,7 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
 
     if (!m_notificationsProxy)
     {
+        LOG_BE(Urgency::Warning, "Cannot show toast: service proxy not initialized.");
         return notificationSent;
     }
 
@@ -113,13 +118,14 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
             )
             .storeResultsTo(notificationId);
 
-        Logger::Log("[FreedesktopNotificationService][ShowAchievementToast] Notification sent: targetId=" + std::to_string(notification.targetId) + " key=" + notification.achievementKey);
+        LOG_BE(Urgency::Debug, "Notification sent successfully (ID: %u): targetId=%d key=%s", notificationId, notification.targetId, notification.achievementKey.c_str());
+               
         notificationSent = true;
         return notificationSent;
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[FreedesktopNotificationService][ShowAchievementToast] Notify failed: " + std::string(e.what()));
+        LOG_BE(Urgency::Critical, "Notify method call failed: %s", e.what());
         return notificationSent;
     }
 }

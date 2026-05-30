@@ -57,7 +57,7 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
 {
     if (appId <= 0)
     {
-        qWarning() << "SteamApiHydrationWorker: invalid appId:" << appId;
+        qWarning() << "SteamApiHydrationWorker::EnqueueTask: invalid appId:" << appId;
         return;
     }
 
@@ -67,11 +67,11 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets)
     });
     if (alreadyQueued)
     {
-        qDebug() << "SteamApiHydrationWorker: appId already in queue:" << appId;
+        qDebug() << "SteamApiHydrationWorker::EnqueueTask: appId already in queue:" << appId;
         return;
     }
 
-    qDebug() << "SteamApiHydrationWorker: enqueuing appId:" << appId << "reloadAssets:" << reloadAssets;
+    qDebug() << "SteamApiHydrationWorker::EnqueueTask: enqueuing appId:" << appId << "reloadAssets:" << reloadAssets;
 
     HydrationTask task = {};
     task.appId = appId;
@@ -92,7 +92,7 @@ void SteamApiHydrationWorker::CancelAllEnqueueTasks()
     // Mark current task cancelled and drop queued tasks
     m_cancelled.storeRelease(1);
     m_taskQueue.clear();
-    qDebug() << "SteamApiHydrationWorker: cancellation requested, queue cleared";
+    qDebug() << "SteamApiHydrationWorker::CancelAllEnqueueTasks: cancellation requested, queue cleared";
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -126,13 +126,13 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     m_cancelled.storeRelease(0);
 
     const int appId = task.appId;
-    qDebug() << "SteamApiHydrationWorker: starting task for appId:" << appId;
+    qDebug() << "SteamApiHydrationWorker::ProcessTask: starting task for appId:" << appId;
     emit signalHydrationTaskStarted(appId);
 
     // Ensure Init() ran in this worker thread
     if (!m_steamApi || !m_imageCache)
     {
-        qCritical() << "SteamApiHydrationWorker: not initialized";
+        qCritical() << "SteamApiHydrationWorker::ProcessTask: not initialized";
         emit signalHydrationTaskError(appId, "Asset reload failed", "Steam asset worker is not initialized.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
@@ -142,7 +142,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
-        qCritical() << "SteamApiHydrationWorker: failed to resolve app data location";
+        qCritical() << "SteamApiHydrationWorker::ProcessTask: failed to resolve app data location";
         emit signalHydrationTaskError(appId, "Asset reload failed", "Could not resolve application data location.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
@@ -157,7 +157,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     {
         // Remove stale files before downloading replacement assets
         emit signalHydrationTaskProgress(appId, "ClearingAssets", 0, 0);
-        if (!ClearAssetDirectory(coversDir) || !ClearAssetDirectory(iconsDir))
+        if (!ClearAssetDirectory(coversDir, appId) || !ClearAssetDirectory(iconsDir, appId))
         {
             emit signalHydrationTaskError(appId, "Asset reload failed", "Could not clear existing asset files.");
             emit signalHydrationTaskFinished(appId, false, false);
@@ -172,7 +172,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     const Error gameInfoError = m_steamApi->SearchGameInfo(appId, gameInfo);
     if (gameInfoError != Error::NoError)
     {
-        qWarning() << "SteamApiHydrationWorker: failed to fetch game info for appId:" << appId;
+        qWarning() << "SteamApiHydrationWorker::ProcessTask: failed to fetch game info for appId:" << appId;
         emit signalHydrationTaskError(appId, "Asset reload failed", "Could not fetch Steam game info. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
@@ -224,7 +224,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     const Error achievementsError = m_steamApi->FetchAchievementDataPrimary(appId, achievements);
     if (achievementsError == Error::NoData)
     {
-        qDebug() << "SteamApiHydrationWorker: no achievement data available for appId:" << appId;
+        qDebug() << "SteamApiHydrationWorker::ProcessTask: no achievement data available for appId:" << appId;
         emit signalAchievementsReady(appId, QVariantList());
         emit signalHydrationTaskFinished(appId, true, false);
         return;
@@ -232,7 +232,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     if (achievementsError != Error::NoError)
     {
-        qWarning() << "SteamApiHydrationWorker: failed to fetch achievements for appId:" << appId;
+        qWarning() << "SteamApiHydrationWorker::ProcessTask: failed to fetch achievements for appId:" << appId;
         emit signalHydrationTaskError(appId, "Asset reload failed", "Could not fetch Steam achievements. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
@@ -249,7 +249,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     const Error iconUrlsError = m_steamApi->GetAchievementIconUrls(appId, achievements, achievementIconUrls);
     if (iconUrlsError != Error::NoError)
     {
-        qWarning() << "SteamApiHydrationWorker: failed to resolve achievement icon urls for appId:" << appId;
+        qWarning() << "SteamApiHydrationWorker::ProcessTask: failed to resolve achievement icon urls for appId:" << appId;
         emit signalHydrationTaskError(appId, "Asset reload failed", "Could not resolve Steam achievement icons. Check internet connection and try again.");
         emit signalHydrationTaskFinished(appId, false, false);
         return;
@@ -303,12 +303,12 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     emit signalAchievementsReady(appId, achievementList);
     emit signalHydrationTaskFinished(appId, true, false);
 
-    qDebug() << "SteamApiHydrationWorker: task completed for appId:" << appId << "- achievements:" << achievements.size();
+    qDebug() << "SteamApiHydrationWorker::ProcessTask: task completed for appId:" << appId << "- achievements:" << achievements.size();
 }
 
 /////////////////////////////////////////////////////////////////////
 
-bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath)
+bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath, int appId)
 {
     bool directoryCleared = true;
 
@@ -317,6 +317,14 @@ bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath)
     if (!directory.exists())
     {
         directoryCleared = QDir().mkpath(directoryPath);
+        if (directoryCleared)
+        {
+            qDebug() << "SteamApiHydrationWorker::ClearAssetDirectory: created directory for appId" << appId << directoryPath;
+        }
+        else
+        {
+            qWarning() << "SteamApiHydrationWorker::ClearAssetDirectory: failed to create directory for appId" << appId << directoryPath;
+        }
         return directoryCleared;
     }
 
@@ -329,17 +337,26 @@ bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath)
             QDir childDir(entry.absoluteFilePath());
             if (!childDir.removeRecursively())
             {
-                qWarning() << "SteamApiHydrationWorker: failed to remove asset folder:" << entry.absoluteFilePath();
+                qWarning() << "SteamApiHydrationWorker::ClearAssetDirectory: failed to remove asset folder for appId" << appId << entry.absoluteFilePath();
                 directoryCleared = false;
                 return directoryCleared;
             }
         }
         else if (!QFile::remove(entry.absoluteFilePath()))
         {
-            qWarning() << "SteamApiHydrationWorker: failed to remove asset file:" << entry.absoluteFilePath();
+            qWarning() << "SteamApiHydrationWorker::ClearAssetDirectory: failed to remove asset file for appId" << appId << entry.absoluteFilePath();
             directoryCleared = false;
             return directoryCleared;
         }
+    }
+
+    if (entries.size() > 0)
+    {
+        qDebug() << "SteamApiHydrationWorker::ClearAssetDirectory: cleared" << entries.size() << "entries for appId" << appId << directoryPath;
+    }
+    else
+    {
+        qDebug() << "SteamApiHydrationWorker::ClearAssetDirectory: directory already empty for appId" << appId << directoryPath;
     }
 
     return directoryCleared;
@@ -352,17 +369,20 @@ QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &u
     QString downloadedPath = "";
 
     // Try CDN URLs in priority order until one downloads and caches
-    for (const QString &url : urls)
+    const int urlCount = urls.size();
+    for (int i = 0; i < urlCount; ++i)
     {
+        const QString &url = urls.at(i);
         QString cachedPath = "";
         const Error err = m_imageCache->DownloadAndCache(url, savePath, targetSize, cachedPath, newName);
         if (err == Error::NoError && !cachedPath.isEmpty())
         {
             downloadedPath = cachedPath;
+            qDebug() << "SteamApiHydrationWorker::TryDownloadFirstWorking: downloaded" << newName << "from URL" << i + 1 << "/" << urlCount << "to" << downloadedPath;
             return downloadedPath;
         }
     }
 
-    qWarning() << "SteamApiHydrationWorker: all URLs failed for:" << newName << savePath;
+    qWarning() << "SteamApiHydrationWorker::TryDownloadFirstWorking: failed to download" << newName << "from" << urlCount << "URLs for savePath" << savePath;
     return downloadedPath;
 }

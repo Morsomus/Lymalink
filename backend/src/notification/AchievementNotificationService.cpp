@@ -9,9 +9,12 @@
 
 #include "AchievementNotificationService.h"
 #include "Defines.h"
+#include "../tools/Logger.h"
 
 #include <filesystem>
 #include <utility>
+
+#define COMPONENT "AchievementNotificationService"
 
 namespace fs = std::filesystem;
 
@@ -39,6 +42,8 @@ void AchievementNotificationService::Configure(std::string connectionName, std::
 {
     m_connectionName = std::move(connectionName);
     m_appDataPath = std::move(appDataPath);
+    
+    LOG_BE(Urgency::Debug, "Configured service: connectionName=%s, appDataPath=%s", m_connectionName.c_str(), m_appDataPath.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -51,12 +56,15 @@ bool AchievementNotificationService::NotifyUnlocked(int32_t targetId, const std:
     AchievementNotification notification;
     if (!BuildNotification(targetId, achievementKey, notification))
     {
+        LOG_BE(Urgency::Warning, "Failed to build notification payload: targetId=%d, key=%s", targetId, achievementKey.c_str());
         return notificationSent;
     }
 
     // Show desktop toast and play configured sound for successful unlocks
     notificationSent = m_notifier.ShowAchievementToast(notification);
     m_soundService.PlayNotificationSound();
+    
+    LOG_BE(Urgency::Debug, "Notification process completed. Sent successfully: %s", notificationSent ? "true" : "false");
     return notificationSent;
 }
 
@@ -73,6 +81,7 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
 
     if (targetId <= 0 || achievementKey.empty() || m_appDataPath.empty())
     {
+        LOG_BE(Urgency::Warning, "Validation failed: targetId=%d, keyEmpty=%d, appDataPathEmpty=%d", targetId, achievementKey.empty(), m_appDataPath.empty());
         return notificationBuilt;
     }
 
@@ -92,6 +101,7 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
 
     if (achievement.empty())
     {
+        LOG_BE(Urgency::Warning, "Achievement record not found in DB: targetId=%d, key=%s", targetId, achievementKey.c_str());
         return notificationBuilt;
     }
 
@@ -117,6 +127,10 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
     {
         notification.iconPath = iconPath.string();
     }
+    else
+    {
+        LOG_BE(Urgency::Debug, "Primary achievement icon missing from path: %s", iconPath.c_str());
+    }
 
     const fs::path appIconPath = iconsPath / "community_icon.jpg";
 
@@ -125,7 +139,14 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
     {
         notification.appIconPath = appIconPath.string();
     }
+    else
+    {
+        LOG_BE(Urgency::Debug, "Community fallback icon missing from path: %s", appIconPath.c_str());
+    }
 
     notificationBuilt = true;
+    
+    LOG_BE(Urgency::Debug, "Successfully built notification for '%s' (Game: '%s')", notification.achievementName.c_str(), notification.gameName.c_str());
+           
     return notificationBuilt;
 }

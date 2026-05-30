@@ -67,6 +67,6 @@ private:
 
     void ProcessNext();
     void ProcessTask(const HydrationTask &task);
-    bool ClearAssetDirectory(const QString &directoryPath);
+    bool ClearAssetDirectory(const QString &directoryPath, int appId);
     QString TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName = QString());
 };

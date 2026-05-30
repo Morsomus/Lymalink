@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
     (void)argv;
 
     // Temporary log while dev
-    Logger::Init("/tmp/lymalinkd.log");
+    Logger::Instance().Init();
 
     Lymalinkd lymalinkd;
     Error err = lymalinkd.Main();

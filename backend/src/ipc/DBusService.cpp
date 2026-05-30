@@ -8,9 +8,12 @@
 /////////////////////////////////////////////////////////
 
 #include "DBusService.h"
+#include "Defines.h"
 #include "../tools/Logger.h"
 
 #include <sstream>
+
+#define COMPONENT "DBusService"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -101,11 +104,11 @@ Error DBusService::Init()
         // Non-blocking event loop, runs in internal thread
         m_connection->enterEventLoopAsync();
 
-        Logger::Log("[DBusService][Init] Registered on session bus as: " + std::string(DBUS_BUS_NAME));
+        LOG_BE(Urgency::Debug, "Registered on session bus as: %s", DBUS_BUS_NAME);
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService][Init] Init failed: " + std::string(e.what()));
+        LOG_BE(Urgency::Critical, "Init failed: %s", e.what());
         err = Error::UnknownError;
         return err;
     }
@@ -128,7 +131,7 @@ void DBusService::Stop()
     m_connection->leaveEventLoop();
     m_connection.reset();
 
-    Logger::Log("[DBusService][Stop] Stopped.");
+    LOG_BE(Urgency::Debug, "Stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -147,11 +150,11 @@ void DBusService::EmitAchievementUnlocked(int32_t targetId, const std::string& k
             .onInterface(DBUS_INTERFACE)
             .withArguments(targetId, key);
 
-        Logger::Log("[DBusService][EmitAchievementUnlocked] AchievementUnlocked emitted: targetId=" + std::to_string(targetId) + " key=" + key);
+        LOG_BE(Urgency::Debug, "AchievementUnlocked emitted: targetId=%d key=%s", targetId, key.c_str());
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService][EmitAchievementUnlocked] EmitAchievementUnlocked failed: " + std::string(e.what()));
+        LOG_BE(Urgency::Critical, "EmitGameStateChanged failed: %s", e.what());
     }
 }
 
@@ -191,11 +194,11 @@ void DBusService::EmitGameStateChanged(const std::vector<int32_t>& targetIds, co
             ids << targetIds[i];
         }
 
-        Logger::Log("[DBusService][EmitGameStateChanged] GameStateChanged emitted: targetIds=[" + ids.str() + "] state=" + state);
+        LOG_BE(Urgency::Debug, "GameStateChanged emitted: targetIds=[%s] state=%s", ids.str().c_str(), state.c_str());
     }
     catch (const sdbus::Error& e)
     {
-        Logger::Log("[DBusService][EmitGameStateChanged] EmitGameStateChanged failed: " + std::string(e.what()));
+        LOG_BE(Urgency::Critical, "EmitGameStateChanged failed: %s", e.what());
     }
 }
 
@@ -216,7 +219,7 @@ std::string DBusService::OnPing()
 void DBusService::OnReloadTarget(int32_t targetId)
 {
     // Log target-specific reload request for future handler implementation
-    Logger::Log("[DBusService][OnReloadTarget] ReloadTarget received: targetId=" + std::to_string(targetId));
+    LOG_BE(Urgency::Debug, "ReloadTarget received: targetId=%d", targetId);
     // TODO: trigger immediate reload for this targetId
 }
 
@@ -224,7 +227,7 @@ void DBusService::OnReloadTarget(int32_t targetId)
 
 void DBusService::OnReloadAllTargets()
 {
-    Logger::Log("[DBusService][OnReloadAllTargets] ReloadAllTargets received.");
+    LOG_BE(Urgency::Debug, "ReloadAllTargets received.");
 
     // Forward reload request to daemon if callback is connected
     if (onReloadAllTargets)
@@ -237,7 +240,7 @@ void DBusService::OnReloadAllTargets()
 
 void DBusService::OnReloadConfig()
 {
-    Logger::Log("[DBusService][OnReloadConfig] ReloadConfig received.");
+    LOG_BE(Urgency::Debug, "ReloadConfig received.");
 
     // Forward config reload request to daemon if callback is connected
     if (onReloadConfig)
@@ -250,7 +253,7 @@ void DBusService::OnReloadConfig()
 
 void DBusService::OnRequestActiveTargets()
 {
-    Logger::Log("[DBusService][OnRequestActiveTargets] RequestActiveTargets received.");
+    LOG_BE(Urgency::Debug, "RequestActiveTargets received.");
 
     // Ask daemon to publish currently active targets
     if (onRequestActiveTargets)
@@ -263,7 +266,7 @@ void DBusService::OnRequestActiveTargets()
 
 void DBusService::OnTestToast()
 {
-    Logger::Log("[DBusService][OnTestToast] TestToast received.");
+    LOG_BE(Urgency::Info, "TestToast received.");
 
     // Forward notification test request to daemon if callback is connected
     if (onTestToast)

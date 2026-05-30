@@ -8,6 +8,7 @@
 /////////////////////////////////////////////////////////
 
 #include "PathScanner.h"
+#include "Defines.h"
 #include "../tools/Logger.h"
 
 #include <algorithm>
@@ -17,6 +18,8 @@
 #include <system_error>
 
 namespace fs = std::filesystem;
+
+#define COMPONENT "PathScanner"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -38,7 +41,7 @@ void PathScanner::SetTargets(const std::vector<AppIdDirPathScanTarget>& targets)
 {
     // Replace scan targets with latest database state from daemon
     m_targets = targets;
-    Logger::Log("[PathScanner] Targets set: " + std::to_string(m_targets.size()));
+    LOG_BE(Urgency::Info, "Targets set: %zu", m_targets.size());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -59,7 +62,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         std::error_code ec;
         if (!fs::exists(target.prefixLocation, ec) || !fs::is_directory(target.prefixLocation, ec))
         {
-            Logger::Log("[PathScanner] Prefix missing or not directory: targetId=" + std::to_string(target.targetId) + " prefix=" + target.prefixLocation);
+            LOG_BE(Urgency::Warning, "Prefix missing or not directory: targetId=%d prefix=%s", target.targetId, target.prefixLocation.c_str());
             continue;
         }
 
@@ -82,14 +85,16 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             const std::string foundPath = it->path().string();
 
             // Store discovered path and inferred emulator type
-            results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, DetectEmulatorType(foundPath)});
-            Logger::Log("[PathScanner] Found APPID dir: targetId=" + std::to_string(target.targetId) + " path=" + foundPath);
+            std::string emuType = DetectEmulatorType(foundPath);
+            results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, emuType});
+            
+            LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
             break;
         }
 
         if (ec)
         {
-            Logger::Log("[PathScanner] Scan error: targetId=" + std::to_string(target.targetId) + " error=" + ec.message());
+            LOG_BE(Urgency::Critical, "Scan error: targetId=%d error=%s", target.targetId, ec.message().c_str());
         }
     }
 

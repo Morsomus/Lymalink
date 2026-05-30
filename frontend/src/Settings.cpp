@@ -79,7 +79,7 @@ void Settings::SetTempEncryptionKey(const QString &encryptionKey)
 
 bool Settings::ResetDefaults()
 {
-    qDebug() << "Settings::ResetDefaults - Resetting configuration to defaults...";
+    qInfo() << "Settings::ResetDefaults - Resetting configuration to defaults...";
 
     SetDefaults();
     m_settings.clear();
@@ -91,7 +91,7 @@ bool Settings::ResetDefaults()
 
 bool Settings::SaveConfig()
 {
-    qDebug() << "Settings::SaveConfig - Saving configuration...";
+    qInfo() << "Settings::SaveConfig - Saving configuration...";
 
     SavePlainValues();
 
@@ -471,7 +471,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         }
         default:
         {
-            qDebug() << "Settings::SaveValue - unknown setting key:" << key;
+            qWarning() << "Settings::SaveValue - unknown setting key:" << key;
             return false;
         } 
     }
@@ -656,14 +656,14 @@ bool Settings::SaveEncryptedWebApiKey(const QString &webApiKey)
     Encryption encryption;
     if (m_tempEncryptionKey.isEmpty())
     {
-        qDebug() << "Settings::SaveEncryptedWebApiKey() - Missing temporary encryption key";
+        qWarning() << "Settings::SaveEncryptedWebApiKey() - Missing temporary encryption key";
         return false;
     }
 
     const QString encryptedWebApiKey = encryption.Encrypt(webApiKey, m_tempEncryptionKey);
     if (encryptedWebApiKey.isEmpty())
     {
-        qDebug() << "Settings::SaveEncryptedWebApiKey() - Creating encryptedWebApiKey failed";
+        qWarning() << "Settings::SaveEncryptedWebApiKey() - Creating encryptedWebApiKey failed";
         return false;
     }
 

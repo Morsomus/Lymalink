@@ -30,6 +30,8 @@ qt_add_executable(Lymalink
     src/tools/FileManager.cpp
     src/tools/ImageCacheManager.h
     src/tools/ImageCacheManager.cpp
+    src/tools/Logger.h
+    src/tools/Logger.cpp
     src/tools/Utils.h
     src/tools/Utils.cpp
     src/api/SteamApi.h

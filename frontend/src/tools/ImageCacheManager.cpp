@@ -49,7 +49,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
 
     if (url.isEmpty() || savePath.isEmpty() || !targetSize.isValid())
     {
-        qWarning() << "Invalid image cache parameters:" << url << savePath << targetSize;
+        qWarning() << "ImageCacheManager::DownloadAndCache: invalid image cache parameters:" << url << savePath << targetSize;
         downloadResult = Error::InvalidParameter;
         return downloadResult;
     }
@@ -59,14 +59,14 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     // Reuse existing scaled image when present on disk
     if (QFileInfo::exists(finalPath))
     {
-        qDebug() << "Cache hit:" << finalPath;
+        qDebug() << "ImageCacheManager::DownloadAndCache: cache hit:" << finalPath;
         cachedPath = finalPath;
         return downloadResult;
     }
 
     if (!QDir().mkpath(savePath))
     {
-        qWarning() << "Cannot create directory:" << savePath;
+        qWarning() << "ImageCacheManager::DownloadAndCache: cannot create directory:" << savePath;
         downloadResult = Error::FileSystemError;
         return downloadResult;
     }
@@ -75,7 +75,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     if (m_lastDownloadedUrl == url && !m_lastDownloadedData.isEmpty())
     {
         // Reuse prior network payload for multiple target sizes of same image
-        qDebug() << "Reusing downloaded image data:" << url;
+        qDebug() << "ImageCacheManager::DownloadAndCache: reusing downloaded image data:" << url;
         data = m_lastDownloadedData;
     }
     else
@@ -93,7 +93,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError)
         {
-            qWarning() << "Network error:" << reply->errorString() << url;
+            qWarning() << "ImageCacheManager::DownloadAndCache: network error:" << reply->errorString() << url;
             downloadResult = Error::NotFound;
             return downloadResult;
         }
@@ -101,7 +101,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
         data = reply->readAll();
         if (data.isEmpty())
         {
-            qWarning() << "Empty response:" << url;
+            qWarning() << "ImageCacheManager::DownloadAndCache: empty response:" << url;
             downloadResult = Error::NotFound;
             return downloadResult;
         }
@@ -122,7 +122,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     QImage image = reader.read();
     if (image.isNull())
     {
-        qWarning() << "Invalid image data:" << reader.errorString() << url;
+        qWarning() << "ImageCacheManager::DownloadAndCache: invalid image data:" << reader.errorString() << url;
         downloadResult = Error::ParseError;
         return downloadResult;
     }
@@ -142,7 +142,7 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     const QString tmpPath = QDir(TempDir()).filePath(QFileInfo(finalPath).fileName() + ".tmp");
     if (!result.save(tmpPath, "JPG", 90))
     {
-        qWarning() << "Failed to save temp file:" << tmpPath;
+        qWarning() << "ImageCacheManager::DownloadAndCache: failed to save temp file:" << tmpPath;
         downloadResult = Error::FileSystemError;
         return downloadResult;
     }
@@ -152,11 +152,11 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     if (!QFile::rename(tmpPath, finalPath))
     {
         QFile::remove(tmpPath);
-        qWarning() << "Failed to move image to:" << finalPath;
+        qWarning() << "ImageCacheManager::DownloadAndCache: failed to move image to:" << finalPath;
         downloadResult = Error::FileSystemError;
     }
 
-    qDebug() << "Saved:" << finalPath;
+    qDebug() << "ImageCacheManager::DownloadAndCache: saved:" << finalPath;
     cachedPath = finalPath;
     return downloadResult;
 }

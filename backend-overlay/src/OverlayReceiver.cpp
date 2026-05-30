@@ -32,7 +32,7 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "imgui.h"
 #ifndef LYMALINK_OVERLAY_OPENGL_TEXTURES
-#include "backends/imgui_impl_vulkan.h"
+#include "imgui_impl_vulkan.h"
 #endif
 
 /////////////////////////////////////////////////////////////////////
@@ -55,15 +55,17 @@ OverlayReceiver::~OverlayReceiver()
 
 bool OverlayReceiver::InitConnection()
 {
+    return SocketConnect();
+
     // Try connections on init, failing is not fatal
-    if (m_useSocket)
-    {
-        return SocketConnect();
-    }
-    else
-    {
-        return SharedMemoryOpen();
-    }
+    // if (m_useSocket)
+    // {
+    //     return SocketConnect();
+    // }
+    // else
+    // {
+    //     return SharedMemoryOpen();
+    // }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -73,7 +75,7 @@ void OverlayReceiver::Shutdown()
     DestroyOpenGLIconTexture();
     DestroyVulkanIconTexture();
     SocketClose();
-    SharedMemoryClose();
+    // SharedMemoryClose();
 
     // Only destroy a context that this service created. Some hook paths create
     // the context before handing control here so renderer backends can attach.
@@ -95,38 +97,46 @@ void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeigh
     m_fbWidth = fbWidth;
     m_fbHeight = fbHeight;
 
-    if (m_useSocket)    // Using Socket method
+    // Maintain socket connection and process incoming data stream
+    if (m_socketFd == -1)
     {
-        // Maintain socket connection and process incoming data stream
-        if (m_socketFd == -1)
-        {
-            SocketConnect();
-        }
-        SocketDrain();
-        SocketClaimPendingNotification();
+        SocketConnect();
     }
-    else                // Using Shared Memory method
-    {
-        // Establish shared memory mapping if not already connected
-        if (!m_shm)
-        {
-            SharedMemoryOpen();
-            return;
-        }
+    SocketDrain();
+    SocketClaimPendingNotification();
 
-        // Handle daemon shutdown
-        if (!m_shm->daemonActive.load())
-        {
-            m_currentActiveNotification = ActiveNotification{};
-            m_fadingOut = false;
-            m_alpha = 0.0f;
-            m_slideOffset = 0.0f;
-            SharedMemoryClose();
-            return;
-        }
+    // if (m_useSocket)    // Using Socket method
+    // {
+    //     // Maintain socket connection and process incoming data stream
+    //     if (m_socketFd == -1)
+    //     {
+    //         SocketConnect();
+    //     }
+    //     SocketDrain();
+    //     SocketClaimPendingNotification();
+    // }
+    // else                // Using Shared Memory method
+    // {
+    //     // Establish shared memory mapping if not already connected
+    //     if (!m_shm)
+    //     {
+    //         SharedMemoryOpen();
+    //         return;
+    //     }
 
-        SharedMemoryClaimPendingNotification();
-    }
+    //     // Handle daemon shutdown
+    //     if (!m_shm->daemonActive.load())
+    //     {
+    //         m_currentActiveNotification = ActiveNotification{};
+    //         m_fadingOut = false;
+    //         m_alpha = 0.0f;
+    //         m_slideOffset = 0.0f;
+    //         SharedMemoryClose();
+    //         return;
+    //     }
+
+    //     SharedMemoryClaimPendingNotification();
+    // }
 
     // Early exit if no active notification
     if (!m_currentActiveNotification.visible && !m_fadingOut)

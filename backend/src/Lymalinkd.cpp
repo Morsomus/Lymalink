@@ -7,6 +7,7 @@
 /////////////////////////////////////////////////////////
 
 #include "Lymalinkd.h"
+#include "Defines.h"
 #include "tools/Logger.h"
 #include "tools/Utils.h"
 
@@ -19,6 +20,8 @@
 #include <algorithm>
 #include <sys/signalfd.h>
 #include <unistd.h>
+
+#define COMPONENT "Lymalinkd"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -56,7 +59,7 @@ Error Lymalinkd::Main()
     sigaddset(&mask, SIGINT);
     if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0)
     {
-        Logger::Log("[Lymalinkd] sigprocmask failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "sigprocmask failed: %s", strerror(errno));
         err = Error::UnknownError;
         return err;
     }
@@ -65,7 +68,7 @@ Error Lymalinkd::Main()
     err = Init();
     if (err != Error::NoError)
     {
-        Logger::Log("[Lymalinkd] Init failed, exiting.");
+        LOG_BE(Urgency::Fatal, "Init failed, exiting.");
         return err;
     }
 
@@ -84,7 +87,7 @@ Error Lymalinkd::Main()
 
 Error Lymalinkd::Init()
 {
-	Error err = Error::NoError;
+    Error err = Error::NoError;
 
     // Reset monitor state before services start
     m_processActive.store(false);
@@ -104,14 +107,14 @@ Error Lymalinkd::Init()
 
     if (!m_overlayNotifications.Init())
     {
-        Logger::Log("[Lymalinkd] Overlay notifications unavailable.");
+        LOG_BE(Urgency::Warning, "Overlay notifications unavailable.");
     }
 
     err = m_notificationSound.Init(ResolveInstalledNotificationSoundPath());
     m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));
     if (err != Error::NoError)
     {
-        Logger::Log("[Lymalinkd] Achievement sounds unavailable.");
+        LOG_BE(Urgency::Warning, "Achievement sounds unavailable.");
     }
 
     // Cache targets still requiring AppId dir scan
@@ -127,10 +130,10 @@ Error Lymalinkd::Init()
     m_dbus.onReloadConfig = [this]() { OnReloadConfig(); };
     m_dbus.onTestToast = [this]() { OnTestToast(); };
 
-	err = m_dbus.Init();
+    err = m_dbus.Init();
     if (err != Error::NoError)
     {
-        Logger::Log("[Lymalinkd] DBusService init failed.");
+        LOG_BE(Urgency::Critical, "DBusService init failed.");
         return err;
     }
 
@@ -149,7 +152,7 @@ Error Lymalinkd::Init()
     m_notify.NotifyReady();
     m_notify.NotifyStatus("Running");
 
-	Logger::Log("[Lymalinkd] Init complete.");
+    LOG_BE(Urgency::Debug, "Init complete.");
     return err;
 }
 
@@ -163,26 +166,26 @@ Error Lymalinkd::DatabaseInit()
     m_databasePath = ResolveDatabasePath();
     if (m_databasePath.empty())
     {
-        Logger::Log("[Lymalinkd] Database path resolve failed.");
+        LOG_BE(Urgency::Critical, "Database path resolve failed.");
         err = Error::DatabaseError;
         return err;
     }
 
     if (!m_database.DatabaseFileExists(m_databasePath))
     {
-        Logger::Log("[Lymalinkd] Database file not found: " + m_databasePath);
+        LOG_BE(Urgency::Critical, "Database file not found: %s", m_databasePath.c_str());
         err = Error::DatabaseError;
         return err;
     }
 
     if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath))
     {
-        Logger::Log("[Lymalinkd] Database open failed: " + m_database.LastError());
+        LOG_BE(Urgency::Fatal, "Database open failed: %s", m_database.LastError().c_str());
         err = Error::DatabaseError;
         return err;
     }
 
-    Logger::Log("[Lymalinkd] Database opened: " + m_databasePath);
+    LOG_BE(Urgency::Debug, "Database opened: %s", m_databasePath.c_str());
     return err;
 }
 
@@ -190,13 +193,13 @@ Error Lymalinkd::DatabaseInit()
 
 void Lymalinkd::Monitor()
 {
-    Logger::Log("[Lymalinkd] Entering main Monitor loop");
+    LOG_BE(Urgency::Debug, "Entering main Monitor loop");
 
-	while (m_running.load())
+    while (m_running.load())
     {
         if (!m_processActive.load())
         {
-            Logger::Log("[Lymalinkd][Monitor] No active processes, going to sleep...");
+            LOG_BE(Urgency::Info, "No active processes, going to sleep...");
             m_overlayNotifications.SetSocketPaused(true);
             m_achievementHandler.Pause();
 
@@ -223,7 +226,7 @@ void Lymalinkd::Monitor()
             m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
         }
 
-        Logger::Log("[Lymalinkd] Process active, orchestrating...");
+        LOG_BE(Urgency::Info, "Process active, orchestrating...");
 
         auto lastScanTime = std::chrono::steady_clock::now();
         while (m_running.load() && m_processActive.load())
@@ -260,7 +263,7 @@ void Lymalinkd::Monitor()
 
                     if (!currentActivePrefixPaths.empty())
                     {
-                        Logger::Log("[Lymalinkd][Monitor] Scanning for AppId dir...");
+                        LOG_BE(Urgency::Debug, "Scanning for AppId dir...");
 
                         const std::vector<AppIdDirPathScanResult> scanResults = m_pathScanner.ScanOnceForAppIdDir();
                         if (!scanResults.empty())
@@ -296,7 +299,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
     int sfd = signalfd(-1, &mask, SFD_CLOEXEC);
     if (sfd < 0)
     {
-        Logger::Log("[Lymalinkd] signalfd failed: " + std::string(strerror(errno)));
+        LOG_BE(Urgency::Critical, "signalfd failed: %s", strerror(errno));
         m_running.store(false);
         return;
     }
@@ -314,19 +317,19 @@ void Lymalinkd::SignalThread(sigset_t mask)
                 continue;
             }
 
-            Logger::Log("[Lymalinkd] signalfd read failed: " + std::string(strerror(errno)));
+            LOG_BE(Urgency::Critical, "signalfd read failed: %s", strerror(errno));
             m_running.store(false);
             break;
         }
 
         if (bytes != sizeof(info))
         {
-            Logger::Log("[Lymalinkd] signalfd read returned incomplete signal info");
+            LOG_BE(Urgency::Warning, "signalfd read returned incomplete signal info");
             continue;
         }
 
         // Valid signal means daemon should exit main loop
-        Logger::Log("[Lymalinkd] Signal received: " + std::to_string(info.ssi_signo));
+        LOG_BE(Urgency::Debug, "Signal received: %u", info.ssi_signo);
         m_running.store(false);
         break;
     }
@@ -341,7 +344,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
 
 void Lymalinkd::Shutdown()
 {
-    Logger::Log("[Lymalinkd] Shutdown initiated.");
+    LOG_BE(Urgency::Debug, "Shutdown initiated.");
 
     // Wait signal thread to shutdown
     if (m_signalThread.joinable())
@@ -355,7 +358,7 @@ void Lymalinkd::Shutdown()
     m_processWatcher.Stop();
     m_overlayNotifications.Shutdown();
     m_notificationSound.Stop();
-	m_dbus.Stop();
+    m_dbus.Stop();
 
     // Cancel pending sleep timer and wait for thread exit
     m_sleepTimerGeneration.fetch_add(1);
@@ -373,15 +376,14 @@ void Lymalinkd::Shutdown()
 
     // Disable Vulkan based Overlay loading to games by tweaking manifest
     SetVulkanOverlayManifestEnableEnvironment(true);
-    Logger::Log("[Lymalinkd] Shutdown complete.");
+    LOG_BE(Urgency::Debug, "Shutdown complete.");
 }
-
 
 /////////////////////////////////////////////////////////////////////
 
 void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath)
 {
-    Logger::Log("[Lymalinkd] OnProcessStarted - targetId=" + std::to_string(targetId) + " exe=" + executablePath);
+    LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
 
     // Mark daemon active and wake monitor loop
     m_activeCount.fetch_add(1);
@@ -424,7 +426,7 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
 
 void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 {
-    Logger::Log("[Lymalinkd] OnProcessStopped - targetId=" + std::to_string(targetId) + " playtime=" + std::to_string(secondsPlayed) + "s");
+    LOG_BE(Urgency::Debug, "OnProcessStopped - targetId=%d playtime=%lds", targetId, secondsPlayed);
 
     // Persist playtime before removing active state
     SavePlaytime(targetId, secondsPlayed);
@@ -460,7 +462,7 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 
             if (m_running.load() && generation == m_sleepTimerGeneration.load() && m_activeCount.load() <= 0)
             {
-                Logger::Log("[Lymalinkd] No active processes for 60s, returning to sleep.");
+                LOG_BE(Urgency::Debug, "No active processes for 60s, returning to sleep.");
                 {
                     std::lock_guard<std::mutex> lock(m_cvMutex);
                     m_processActive.store(false);
@@ -480,6 +482,8 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
         return;
     }
 
+    LOG_BE(Urgency::Debug, "Achievement unlocked for targetId=%d: %s", targetId, achievementKey.c_str());
+
     // Show local notification and forward event over DBus
     m_achievementNotifications.NotifyUnlocked(targetId, achievementKey);
     m_dbus.EmitAchievementUnlocked(targetId, achievementKey);
@@ -489,6 +493,8 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
 
 void Lymalinkd::OnTestToast()
 {
+    LOG_BE(Urgency::Debug, "Test toast requested.");
+
     std::string appIconPath = "";
 
     // Use installed test icon if found
@@ -545,7 +551,7 @@ void Lymalinkd::OnRequestActiveTargets()
 
 void Lymalinkd::OnReloadAllTargets()
 {
-    Logger::Log("[Lymalinkd] Reloading all targets from database.");
+    LOG_BE(Urgency::Debug, "Reloading all targets from database.");
 
     // Reload watched executables from current database state
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
@@ -589,6 +595,7 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
         targets.push_back(WatchTarget{static_cast<int>(SQLiteManager::RowInt(row, "id")), executable});
     }
 
+    LOG_BE(Urgency::Debug, "Loaded %zu executable watch targets.", targets.size());
     return targets;
 }
 
@@ -622,7 +629,7 @@ std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatab
         );
     }
 
-    Logger::Log("[Lymalinkd] AppID dir scan targets loaded: " + std::to_string(targets.size()));
+    LOG_BE(Urgency::Debug, "AppID dir scan targets loaded: %zu", targets.size());
     return targets;
 }
 
@@ -651,6 +658,7 @@ bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
     {
         if (m_targetIdsRequiringDirScan.contains(activeTarget.first))
         {
+            LOG_BE(Urgency::Debug, "Active target %d requires AppId dir scan.", activeTarget.first);
             hasActiveTargetsNeedingAppIdDirScan = true;
             return hasActiveTargetsNeedingAppIdDirScan;
         }
@@ -695,6 +703,11 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
         }
     }
 
+    if (!targets.empty())
+    {
+        LOG_BE(Urgency::Debug, "Found %zu active targets requiring prefix path scanning.", targets.size());
+    }
+
     return targets;
 }
 
@@ -721,12 +734,12 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 
             if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(result.targetId)}))
             {
-                Logger::Log("[Lymalinkd] Failed to save APPID dir result: targetId=" + std::to_string(result.targetId) + " error=" + m_database.LastError());
+                LOG_BE(Urgency::Critical, "Failed to save APPID dir result: targetId=%d error=%s", result.targetId, m_database.LastError().c_str());
                 continue;
             }
 
             savedTargetIds.push_back(result.targetId);
-            Logger::Log("[Lymalinkd] APPID dir saved: targetId=" + std::to_string(result.targetId) + " emulator=" + result.emulatorType);
+            LOG_BE(Urgency::Debug, "APPID dir saved: targetId=%d emulator=%s", result.targetId, result.emulatorType.c_str());
         }
     }
 
@@ -759,7 +772,11 @@ void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 
     if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
     {
-        Logger::Log("[Lymalinkd] Failed to save playtime: targetId=" + std::to_string(targetId) + " error=" + m_database.LastError());
+        LOG_BE(Urgency::Critical, "Failed to save playtime: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+    }
+    else
+    {
+        LOG_BE(Urgency::Debug, "Playtime updated for targetId=%d (+%llds, total: %llds)", targetId, static_cast<long long>(secondsPlayed), static_cast<long long>(totalSeconds));
     }
 }
 
@@ -787,7 +804,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (existingAchievement.empty())
     {
-        Logger::Log("[Lymalinkd] Achievement not found for DB update: targetId=" + std::to_string(targetId) + " key=" + achievement.key);
+        LOG_BE(Urgency::Warning, "Achievement not found for DB update: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
 
@@ -824,7 +841,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         "id = ? AND achievement_key = ?",
         {static_cast<int64_t>(targetId), achievement.key}))
     {
-        Logger::Log("[Lymalinkd] Failed to update achievement state: targetId=" + std::to_string(targetId) + " key=" + achievement.key + " error=" + m_database.LastError());
+        LOG_BE(Urgency::Critical, "Failed to update achievement state: targetId=%d key=%s error=%s", targetId, achievement.key.c_str(), m_database.LastError().c_str());
         return achievementStateUpdated;
     }
 
@@ -837,7 +854,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (unlockedCount < 0)
     {
-        Logger::Log("[Lymalinkd] Failed to count unlocked achievements: targetId=" + std::to_string(targetId) + " error=" + m_database.LastError());
+        LOG_BE(Urgency::Critical, "Failed to count unlocked achievements: targetId=%d error=%s", targetId, m_database.LastError().c_str());
         return achievementStateUpdated;
     }
 
@@ -856,7 +873,11 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (!achievementStateUpdated)
     {
-        Logger::Log("[Lymalinkd] Failed to update target achievement count: targetId=" + std::to_string(targetId) + " error=" + m_database.LastError());
+        LOG_BE(Urgency::Critical, "Failed to update target achievement count: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+    }
+    else
+    {
+        LOG_BE(Urgency::Debug, "Achievement state saved successfully: targetId=%d key=%s (Total unlocked: %lld)", targetId, achievement.key.c_str(), static_cast<long long>(unlockedCount));
     }
 
     return achievementStateUpdated;
@@ -874,6 +895,7 @@ std::string Lymalinkd::ResolveDatabasePath() const
         if (*overridePath != '\0')
         {
             databasePath = overridePath;
+            LOG_BE(Urgency::Info, "Database path overridden via environment variable: %s", databasePath.c_str());
             return databasePath;
         }
     }
@@ -882,10 +904,12 @@ std::string Lymalinkd::ResolveDatabasePath() const
     const char* home = std::getenv("HOME");
     if (!home || *home == '\0')
     {
+        LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve database path.");
         return databasePath;
     }
 
     databasePath = (std::filesystem::path(home) / ".local" / "share" / "Lymalink" / DATABASE_FILE_NAME).string();
+    LOG_BE(Urgency::Debug, "Database path resolved to default location: %s", databasePath.c_str());
     return databasePath;
 }
 
@@ -898,11 +922,14 @@ std::string Lymalinkd::ResolveInstalledVulkanOverlayManifestPath() const
     {
         if (*overridePath != '\0')
         {
+            LOG_BE(Urgency::Info, "Vulkan overlay manifest path overridden via environment variable: %s", overridePath);
             return std::string(overridePath);
         }
     }
 
-    return ResolveDataPath("vulkan/implicit_layer.d/lymalink_overlay.json");
+    std::string defaultPath = ResolveDataPath("vulkan/implicit_layer.d/lymalink_overlay.json");
+    LOG_BE(Urgency::Debug, "Vulkan overlay manifest path resolved to: %s", defaultPath.c_str());
+    return defaultPath;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -917,6 +944,7 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
         if (*overridePath != '\0')
         {
             manifestPaths.push_back(overridePath);
+            LOG_BE(Urgency::Info, "Flatpak Vulkan overlay manifest path overridden via environment variable: %s", overridePath);
             return manifestPaths;
         }
     }
@@ -925,8 +953,11 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
     const std::filesystem::path runtimeDir = ResolveDataPath("flatpak/runtime/org.freedesktop.Platform.VulkanLayer.lymalink/x86_64/25.08");
     if (runtimeDir.empty() || !std::filesystem::exists(runtimeDir))
     {
+        LOG_BE(Urgency::Debug, "Flatpak runtime directory not found or empty: %s", runtimeDir.string().c_str());
         return manifestPaths;
     }
+
+    LOG_BE(Urgency::Debug, "Scanning Flatpak runtime directory for manifests: %s", runtimeDir.string().c_str());
 
     // Recursively scan the directory for the overlay manifest
     std::error_code ec;
@@ -948,9 +979,15 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
         if (entry.path().filename() == "lymalink_overlay.x86_64.json")
         {
             manifestPaths.push_back(entry.path().string());
+            LOG_BE(Urgency::Info, "Found Flatpak Vulkan overlay manifest: %s", entry.path().string().c_str());
         }
 
         it.increment(ec);
+    }
+
+    if (ec)
+    {
+        LOG_BE(Urgency::Warning, "Error occurred during Flatpak manifest directory scan: %s", ec.message().c_str());
     }
 
     return manifestPaths;
@@ -973,6 +1010,7 @@ std::vector<std::string> Lymalinkd::ResolveInstalledVulkanOverlayManifestPaths()
     const std::vector<std::string> flatpakManifestPaths = ResolveInstalledFlatpakVulkanOverlayManifestPaths();
     manifestPaths.insert(manifestPaths.end(), flatpakManifestPaths.begin(), flatpakManifestPaths.end());
 
+    LOG_BE(Urgency::Debug, "Resolved total of %zu Vulkan overlay manifest paths.", manifestPaths.size());
     return manifestPaths;
 }
 
@@ -993,6 +1031,7 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
 {
     if (manifestPath.empty() || !std::filesystem::exists(manifestPath))
     {
+        LOG_BE(Urgency::Warning, "Manifest path empty or does not exist: %s", manifestPath.c_str());
         return;
     }
 
@@ -1000,7 +1039,7 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
     std::ifstream in(manifestPath);
     if (!in.is_open())
     {
-        Logger::Log("[Lymalinkd] Failed to open overlay manifest for read: " + manifestPath);
+        LOG_BE(Urgency::Critical, "Failed to open overlay manifest for read: %s", manifestPath.c_str());
         return;
     }
 
@@ -1028,7 +1067,7 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
             const size_t braceClose = content.find("},", keyPos);
             if (braceClose == std::string::npos)
             {
-                Logger::Log("[Lymalinkd] Invalid overlay manifest enable_environment block: " + manifestPath);
+                LOG_BE(Urgency::Critical, "Invalid overlay manifest enable_environment block: %s", manifestPath.c_str());
                 return;
             }
 
@@ -1051,7 +1090,7 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
             const size_t markerPos = content.find(disableKey);
             if (markerPos == std::string::npos)
             {
-                Logger::Log("[Lymalinkd] disable_environment missing in overlay manifest: " + manifestPath);
+                LOG_BE(Urgency::Critical, "disable_environment missing in overlay manifest: %s", manifestPath.c_str());
                 return;
             }
 
@@ -1085,6 +1124,7 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
     // Skip writing if no modifications were made
     if (!changed)
     {
+        LOG_BE(Urgency::Debug, "Manifest already in desired state (%s): %s", enabled ? "enabled" : "disabled", manifestPath.c_str());
         return;
     }
 
@@ -1097,14 +1137,14 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
     std::ofstream out(tempPath, std::ios::trunc);
     if (!out.is_open())
     {
-        Logger::Log("[Lymalinkd] Failed to open overlay manifest for write: " + manifestPath);
+        LOG_BE(Urgency::Critical, "Failed to open overlay manifest for write: %s", manifestPath.c_str());
         return;
     }
 
     out << content;
     if (!out.good())
     {
-        Logger::Log("[Lymalinkd] Failed to write overlay manifest: " + manifestPath);
+        LOG_BE(Urgency::Critical, "Failed to write overlay manifest: %s", manifestPath.c_str());
         out.close();
         std::filesystem::remove(tempPath, ec);
         return;
@@ -1120,12 +1160,12 @@ void Lymalinkd::SetVulkanOverlayManifestEnableEnvironment(const std::string& man
     std::filesystem::rename(tempPath, targetPath, ec);
     if (ec)
     {
-        Logger::Log("[Lymalinkd] Failed to replace overlay manifest: " + manifestPath + ": " + ec.message());
+        LOG_BE(Urgency::Critical, "Failed to replace overlay manifest: %s: %s", manifestPath.c_str(), ec.message().c_str());
         std::filesystem::remove(tempPath, ec);
         return;
     }
 
-    Logger::Log(std::string("[Lymalinkd] Overlay manifest updated: ") + (enabled ? "enable_environment restored" : "enable_environment removed"));
+    LOG_BE(Urgency::Debug, "Overlay manifest updated: %s (%s)", manifestPath.c_str(), enabled ? "enable_environment restored" : "enable_environment removed");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1142,9 +1182,10 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
             if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
             {
                 notificationSoundPath = overridePath;
+                LOG_BE(Urgency::Info, "Notification sound path overridden via LYMALINK_NOTIFICATION_SOUND_PATH: %s", notificationSoundPath.c_str());
                 return notificationSoundPath;
             }
-            Logger::Log("[Lymalinkd] Ignoring invalid LYMALINK_NOTIFICATION_SOUND_PATH override.");
+            LOG_BE(Urgency::Warning, "Ignoring invalid LYMALINK_NOTIFICATION_SOUND_PATH override.");
         }
     }
 
@@ -1155,9 +1196,10 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
             if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
             {
                 notificationSoundPath = overridePath;
+                LOG_BE(Urgency::Info, "Notification sound path overridden via LYMALINK_ACHIEVEMENT_SOUND_PATH: %s", notificationSoundPath.c_str());
                 return notificationSoundPath;
             }
-            Logger::Log("[Lymalinkd] Ignoring invalid LYMALINK_ACHIEVEMENT_SOUND_PATH override.");
+            LOG_BE(Urgency::Warning, "Ignoring invalid LYMALINK_ACHIEVEMENT_SOUND_PATH override.");
         }
     }
 
@@ -1165,6 +1207,7 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
     const std::filesystem::path soundDir = ResolveDataPath("Lymalink/sounds");
     if (soundDir.empty())
     {
+        LOG_BE(Urgency::Warning, "Notification sounds directory path is empty.");
         return notificationSoundPath;
     }
 
@@ -1179,11 +1222,11 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
         if (!customSoundPath.empty() && IsSupportedCustomNotificationSound(std::filesystem::path(customSoundPath)))
         {
             notificationSoundPath = customSoundPath;
-            Logger::Log("[Lymalinkd] Custom notification sound loaded from config: " + notificationSoundPath);
+            LOG_BE(Urgency::Info, "Custom notification sound loaded from config: %s", notificationSoundPath.c_str());
             return notificationSoundPath;
         }
 
-        Logger::Log("[Lymalinkd] Custom notification sound unavailable, falling back to bundled sounds: " + customSoundPath);
+        LOG_BE(Urgency::Warning, "Custom notification sound unavailable, falling back to bundled sounds: %s", customSoundPath.c_str());
     }
 
     // Try loading a user-configured bundled achievement sound
@@ -1200,15 +1243,15 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
             if (std::filesystem::exists(installedSoundPath))
             {
                 notificationSoundPath = installedSoundPath.string();
-                Logger::Log("[Lymalinkd] Notification sound loaded from config: " + notificationSoundPath);
+                LOG_BE(Urgency::Debug, "Notification sound loaded from config: %s", notificationSoundPath.c_str());
                 return notificationSoundPath;
             }
 
-            Logger::Log("[Lymalinkd] Configured notification sound not found: " + installedSoundPath.string());
+            LOG_BE(Urgency::Warning, "Configured notification sound not found: %s", installedSoundPath.string().c_str());
         }
         else
         {
-            Logger::Log("[Lymalinkd] Ignoring invalid notification sound config value: " + bundledSound);
+            LOG_BE(Urgency::Warning, "Ignoring invalid notification sound config value: %s", bundledSound.c_str());
         }
     }
 
@@ -1232,18 +1275,18 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
     if (std::filesystem::exists(defaultSoundPath))
     {
         notificationSoundPath = defaultSoundPath.string();
-        Logger::Log("[Lymalinkd] Using default notification sound: " + notificationSoundPath);
+        LOG_BE(Urgency::Debug, "Using default notification sound: %s", notificationSoundPath.c_str());
         return notificationSoundPath;
     }
 
     if (!installedSounds.empty())
     {
         notificationSoundPath = installedSounds.front().string();
-        Logger::Log("[Lymalinkd] Using default notification sound: " + notificationSoundPath);
+        LOG_BE(Urgency::Debug, "Using default notification sound: %s", notificationSoundPath.c_str());
         return notificationSoundPath;
     }
 
-    Logger::Log("[Lymalinkd] No installed notification sounds found under: " + soundDir.string());
+    LOG_BE(Urgency::Critical, "No installed notification sounds found under: %s", soundDir.string().c_str());
     return notificationSoundPath;
 }
 
@@ -1260,6 +1303,7 @@ std::string Lymalinkd::ResolveConfigPath() const
         if (*xdgConfigHome != '\0')
         {
             configHome = xdgConfigHome;
+            LOG_BE(Urgency::Debug, "XDG_CONFIG_HOME detected: %s", xdgConfigHome);
         }
     }
 
@@ -1269,12 +1313,14 @@ std::string Lymalinkd::ResolveConfigPath() const
         const char* home = std::getenv("HOME");
         if (!home || *home == '\0')
         {
+            LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve config path.");
             return configPath;
         }
         configHome = std::filesystem::path(home) / ".config";
     }
 
     configPath = (configHome / ORGANIZATION / (std::string(APPLICATION) + ".ini")).string();
+    LOG_BE(Urgency::Debug, "Config path resolved to: %s", configPath.c_str());
     return configPath;
 }
 
@@ -1291,6 +1337,7 @@ std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
         if (*xdgDataHome != '\0')
         {
             dataHome = xdgDataHome;
+            LOG_BE(Urgency::Debug, "XDG_DATA_HOME detected: %s", xdgDataHome);
         }
     }
 
@@ -1300,6 +1347,7 @@ std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
         const char* home = std::getenv("HOME");
         if (!home || *home == '\0')
         {
+            LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve data path.");
             return dataPath;
         }
         dataHome = std::filesystem::path(home) / ".local" / "share";
@@ -1322,12 +1370,16 @@ void Lymalinkd::LoadNotificationSoundConfig(bool& outUseCustomSound, std::string
     const std::string configPath = ResolveConfigPath();
     if (configPath.empty())
     {
+        LOG_BE(Urgency::Warning, "Cannot load sound config because config path is empty.");
         return;
     }
 
     outBundledSound = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "NotificationSound");
     outUseCustomSound = ParseConfigBool(Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "CustomNotificationSound"));
     outCustomSoundPath = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "CustomNotificationSoundPath");
+
+    LOG_BE(Urgency::Debug, "Sound config loaded. Bundled: %s, Use custom: %d, Custom path: %s", 
+        outBundledSound.empty() ? "none" : outBundledSound.c_str(), outUseCustomSound, outCustomSoundPath.empty() ? "none" : outCustomSoundPath.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1356,11 +1408,22 @@ bool Lymalinkd::IsSupportedCustomNotificationSound(const std::filesystem::path& 
 
     if (extension != ".ogg" && extension != ".wav")
     {
+        LOG_BE(Urgency::Debug, "Unsupported extension '%s' for sound path: %s", extension.c_str(), soundPath.c_str());
         return false;
     }
 
     // Confirm the path resolves to an actual file
     std::error_code ec;
     const bool isFile = std::filesystem::is_regular_file(soundPath, ec);
+    
+    if (!isFile)
+    {
+        LOG_BE(Urgency::Warning, "Sound path does not resolve to a regular file: %s", soundPath.c_str());
+    }
+    else
+    {
+        LOG_BE(Urgency::Debug, "Validated supported custom sound file: %s", soundPath.c_str());
+    }
+
     return isFile;
 }

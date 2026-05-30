@@ -38,12 +38,12 @@ bool FileManager::DeleteFile(const QString &filePath) const
     QFile file(filePath);
     if (file.remove())
     {
-        qDebug() << "Successfully deleted file:" << filePath;
+        qDebug() << "FileManager::DeleteFile: successfully deleted file:" << filePath;
         fileDeleted = true;
         return fileDeleted;
     }
 
-    qDebug() << "Failed to delete file:" << filePath << "Error:" << file.errorString();
+    qWarning() << "FileManager::DeleteFile: failed to delete file:" << filePath << "Error:" << file.errorString();
     return fileDeleted;
 }
 
@@ -57,12 +57,12 @@ bool FileManager::DeleteFolder(const QString &folderPath) const
     QDir folder(folderPath);
     if (folder.removeRecursively())
     {
-        qDebug() << "Successfully deleted folder:" << folderPath;
+        qDebug() << "FileManager::DeleteFolder: successfully deleted folder:" << folderPath;
         folderDeleted = true;
         return folderDeleted;
     }
 
-    qDebug() << "Failed to delete folder:" << folderPath;
+    qWarning() << "FileManager::DeleteFolder: failed to delete folder:" << folderPath;
     return folderDeleted;
 }
 
@@ -77,28 +77,31 @@ bool FileManager::MoveFile(const QString &sourceFilePath, const QString &destina
     // Rename first, then copy for cross-device moves.
     if (sourceFile.rename(destinationFilePath))
     {
-        qDebug() << "Successfully moved file:" << sourceFilePath << "to" << destinationFilePath;
+        qDebug() << "FileManager::MoveFile: successfully moved file:" << sourceFilePath << "to" << destinationFilePath;
         fileMoved = true;
         return fileMoved;
     }
 
     if (!QFile::copy(sourceFilePath, destinationFilePath))
     {
-        qDebug() << "Failed to move file:" << sourceFilePath << "to" << destinationFilePath;
+        qWarning() << "FileManager::MoveFile: failed to move file:" << sourceFilePath << "to" << destinationFilePath;
         return fileMoved;
     }
 
     // Remove source only after destination copy succeeds
     if (QFile::remove(sourceFilePath))
     {
-        qDebug() << "Successfully moved file:" << sourceFilePath << "to" << destinationFilePath;
+        qDebug() << "FileManager::MoveFile: successfully moved file:" << sourceFilePath << "to" << destinationFilePath;
         fileMoved = true;
         return fileMoved;
     }
 
     // Roll back copied destination when source cleanup fails
-    QFile::remove(destinationFilePath);
-    qDebug() << "Failed to remove source file after copy:" << sourceFilePath;
+    if (!QFile::remove(destinationFilePath))
+    {
+        qWarning() << "FileManager::MoveFile: failed to roll back destination file after source cleanup failure:" << destinationFilePath;
+    }
+    qWarning() << "FileManager::MoveFile: failed to remove source file after copy:" << sourceFilePath;
     return fileMoved;
 }
 
@@ -113,7 +116,7 @@ bool FileManager::MoveFolder(const QString &sourceFolderPath, const QString &des
     // Rename first, then copy for cross-device moves.
     if (folder.rename(sourceFolderPath, destinationFolderPath))
     {
-        qDebug() << "Successfully moved folder:" << sourceFolderPath << "to" << destinationFolderPath;
+        qDebug() << "FileManager::MoveFolder: successfully moved folder:" << sourceFolderPath << "to" << destinationFolderPath;
         folderMoved = true;
         return folderMoved;
     }
@@ -122,19 +125,19 @@ bool FileManager::MoveFolder(const QString &sourceFolderPath, const QString &des
     {
         // Remove partial destination tree after failed recursive copy
         QDir(destinationFolderPath).removeRecursively();
-        qDebug() << "Failed to move folder:" << sourceFolderPath << "to" << destinationFolderPath;
+        qWarning() << "FileManager::MoveFolder: failed to move folder:" << sourceFolderPath << "to" << destinationFolderPath;
         return folderMoved;
     }
 
     // Remove source only after recursive copy succeeds
     if (QDir(sourceFolderPath).removeRecursively())
     {
-        qDebug() << "Successfully moved folder:" << sourceFolderPath << "to" << destinationFolderPath;
+        qDebug() << "FileManager::MoveFolder: successfully moved folder:" << sourceFolderPath << "to" << destinationFolderPath;
         folderMoved = true;
         return folderMoved;
     }
 
-    qDebug() << "Failed to remove source folder after copy:" << sourceFolderPath;
+    qWarning() << "FileManager::MoveFolder: failed to remove source folder after copy:" << sourceFolderPath;
     return folderMoved;
 }
 
@@ -148,12 +151,12 @@ bool FileManager::RenameFile(const QString &filePath, const QString &newFilePath
     QFile file(filePath);
     if (file.rename(newFilePath))
     {
-        qDebug() << "Successfully renamed file:" << filePath << "to" << newFilePath;
+        qDebug() << "FileManager::RenameFile: successfully renamed file:" << filePath << "to" << newFilePath;
         fileRenamed = true;
         return fileRenamed;
     }
 
-    qDebug() << "Failed to rename file:" << filePath << "to" << newFilePath << "Error:" << file.errorString();
+    qWarning() << "FileManager::RenameFile: failed to rename file:" << filePath << "to" << newFilePath << "Error:" << file.errorString();
     return fileRenamed;
 }
 
@@ -167,12 +170,12 @@ bool FileManager::RenameFolder(const QString &folderPath, const QString &newFold
     QDir folder;
     if (folder.rename(folderPath, newFolderPath))
     {
-        qDebug() << "Successfully renamed folder:" << folderPath << "to" << newFolderPath;
+        qDebug() << "FileManager::RenameFolder: successfully renamed folder:" << folderPath << "to" << newFolderPath;
         folderRenamed = true;
         return folderRenamed;
     }
 
-    qDebug() << "Failed to rename folder:" << folderPath << "to" << newFolderPath;
+    qWarning() << "FileManager::RenameFolder: failed to rename folder:" << folderPath << "to" << newFolderPath;
     return folderRenamed;
 }
 
@@ -184,6 +187,12 @@ QStringList FileManager::FileListCreate(const QString &folderPath) const
 
     // Return absolute paths for files directly under target folder
     QDir folder(folderPath);
+    if (!folder.exists())
+    {
+        qWarning() << "FileManager::FileListCreate: folder does not exist:" << folderPath;
+        return fileList;
+    }
+
     const QFileInfoList entries = folder.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     for (const QFileInfo &entry : entries)
     {
@@ -201,6 +210,12 @@ QStringList FileManager::FolderListCreate(const QString &folderPath) const
 
     // Return absolute paths for child folders directly under target folder
     QDir folder(folderPath);
+    if (!folder.exists())
+    {
+        qWarning() << "FileManager::FolderListCreate: folder does not exist:" << folderPath;
+        return folderList;
+    }
+
     const QFileInfoList entries = folder.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     for (const QFileInfo &entry : entries)
     {
@@ -217,10 +232,13 @@ QString FileManager::LocalFileSource(const QString &filePath) const
     QString fileSource = "";
 
     // Convert filesystem path into QML-friendly file URL
-    if (!filePath.isEmpty())
+    if (filePath.isEmpty())
     {
-        fileSource = QUrl::fromLocalFile(filePath).toString();
+        qWarning() << "FileManager::LocalFileSource: empty file path";
+        return fileSource;
     }
+
+    fileSource = QUrl::fromLocalFile(filePath).toString();
 
     return fileSource;
 }
@@ -235,6 +253,7 @@ QString FileManager::FirstImageInDirectory(const QString &directoryPath) const
     QDir directory(directoryPath);
     if (!directory.exists())
     {
+        qWarning() << "FileManager::FirstImageInDirectory: directory does not exist:" << directoryPath;
         return imagePath;
     }
 
@@ -246,8 +265,11 @@ QString FileManager::FirstImageInDirectory(const QString &directoryPath) const
     if (!imageFiles.isEmpty())
     {
         imagePath = LocalFileSource(imageFiles.first().absoluteFilePath());
+        qDebug() << "FileManager::FirstImageInDirectory: found image:" << imagePath;
+        return imagePath;
     }
 
+    qWarning() << "FileManager::FirstImageInDirectory: no image files found in directory:" << directoryPath;
     return imagePath;
 }
 
@@ -263,12 +285,14 @@ bool FileManager::CopyFolder(const QString &sourceFolderPath, const QString &des
     QDir sourceFolder(sourceFolderPath);
     if (!sourceFolder.exists())
     {
+        qWarning() << "FileManager::CopyFolder: source folder does not exist:" << sourceFolderPath;
         return folderCopied;
     }
 
     QDir destinationFolder(destinationFolderPath);
     if (!destinationFolder.exists() && !QDir().mkpath(destinationFolderPath))
     {
+        qWarning() << "FileManager::CopyFolder: failed to create destination folder:" << destinationFolderPath;
         return folderCopied;
     }
 
@@ -282,15 +306,18 @@ bool FileManager::CopyFolder(const QString &sourceFolderPath, const QString &des
         {
             if (!CopyFolder(sourcePath, destinationPath))
             {
+                qWarning() << "FileManager::CopyFolder: failed to copy child folder:" << sourcePath << "to" << destinationPath;
                 return folderCopied;
             }
         }
         else if (!QFile::copy(sourcePath, destinationPath))
         {
+            qWarning() << "FileManager::CopyFolder: failed to copy file:" << sourcePath << "to" << destinationPath;
             return folderCopied;
         }
     }
 
+    qDebug() << "FileManager::CopyFolder: copied folder:" << sourceFolderPath << "to" << destinationFolderPath;
     folderCopied = true;
     return folderCopied;
 }

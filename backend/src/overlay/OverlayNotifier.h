@@ -67,6 +67,7 @@ private:
     void CloseSocketServer(SocketServer& server);
     bool BroadcastSocketNotification(const AchievementNotification& notification, uint32_t durationMs = 4000);
     OverlaySocketPacket BuildSocketPacket(const AchievementNotification& notification, uint32_t durationMs) const;
+    bool EmbedIconIntoPacket(OverlaySocketPacket& packet, const std::string& iconPath) const;
     OverlayNotificationPosition ResolveNotificationPosition() const;
     OverlayNotificationPosition ParseNotificationPosition(const std::string& value) const;
     std::string ResolveConfigPath() const;
