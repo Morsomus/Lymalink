@@ -48,10 +48,11 @@ The backend test command builds and runs the Catch2 test binary under `/tmp/lyma
 /tmp/lymalinkd-build/debug/bin/lymalinkd
 ```
 
-Temporary dev log:
+Logs:
 
 ```bash
-tail -f /tmp/lymalinkd.log
+tail -f ~/.local/state/lymalink/lymalink-frontend.log
+tail -f ~/.local/state/lymalink/lymalink-backend.log
 ```
 
 ## User Service
@@ -78,10 +79,6 @@ Deploy file transfer map:
 - generated content -> `~/.config/systemd/user/lymalinkd.service`
 - generated content -> `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/lymalink_overlay.json`
 - generated Flatpak bundle install (`org.freedesktop.Platform.VulkanLayer.lymalink//25.08`) -> user Flatpak runtime
-
-Logs:
-- frontend ~/.local/state/lymalink/lymalink-frontend.log
-- backend ~/.local/state/lymalink/lymalink-backend.log
 
 Commands:
 
@@ -158,6 +155,7 @@ backend-overlay
 ├── lymalink-overlay.sh
 ├── Makefile
 └── src
+    ├── FontEmbedded.h
     ├── GLOverlayOpenGL.cpp
     ├── GLOverlayPreloader.cpp
     ├── Logger.cpp

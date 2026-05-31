@@ -56,7 +56,7 @@ private:
     {
         bool visible = false;
         uint64_t shownAtMs = 0;
-        uint32_t durationMs = 5000;
+        uint32_t durationMs = 7000;
         std::string title;
         std::string description;
         std::string iconPath;
@@ -73,6 +73,11 @@ private:
 
     uint32_t m_fbWidth = 0;
     uint32_t m_fbHeight = 0;
+
+    // Image Animation
+    float m_iconAlpha = 0.0f;
+    float m_iconAnimProgress = 0.0f;
+    float m_iconAnimationDuration = 0.25f;
 
     // Internal shared memory state
     int m_shmFd = -1;
@@ -133,4 +138,8 @@ private:
     uint32_t VulkanFindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags props) const;
     bool EnsureOpenGLIconTexture(const std::string& iconPath);
     void DestroyOpenGLIconTexture();
+
+    // Helpers
+    std::string ImElideRight(const char* text, float max_width);
+    std::string ImLimitLines(const char* text, float wrap_width, int max_lines);
 };

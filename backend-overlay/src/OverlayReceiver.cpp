@@ -10,6 +10,7 @@
 
 #include "OverlayReceiver.h"
 #include "Logger.h"
+#include "FontEmbedded.h"
 #include "tools/Utils.h"
 
 #include <fstream>
@@ -25,6 +26,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <vector>
+#include <cmath>
 // ImGui, backend headers are included conditionally
 #ifdef LYMALINK_OVERLAY_OPENGL_TEXTURES
 #include <GL/gl.h>
@@ -55,17 +57,15 @@ OverlayReceiver::~OverlayReceiver()
 
 bool OverlayReceiver::InitConnection()
 {
-    return SocketConnect();
-
     // Try connections on init, failing is not fatal
-    // if (m_useSocket)
-    // {
-    //     return SocketConnect();
-    // }
-    // else
-    // {
-    //     return SharedMemoryOpen();
-    // }
+    if (m_useSocket)
+    {
+        return SocketConnect();
+    }
+    else
+    {
+        return SharedMemoryOpen();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ void OverlayReceiver::Shutdown()
     DestroyOpenGLIconTexture();
     DestroyVulkanIconTexture();
     SocketClose();
-    // SharedMemoryClose();
+    SharedMemoryClose();
 
     // Only destroy a context that this service created. Some hook paths create
     // the context before handing control here so renderer backends can attach.
@@ -97,46 +97,38 @@ void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeigh
     m_fbWidth = fbWidth;
     m_fbHeight = fbHeight;
 
-    // Maintain socket connection and process incoming data stream
-    if (m_socketFd == -1)
+    if (m_useSocket)    // Using Socket method
     {
-        SocketConnect();
+        // Maintain socket connection and process incoming data stream
+        if (m_socketFd == -1)
+        {
+            SocketConnect();
+        }
+        SocketDrain();
+        SocketClaimPendingNotification();
     }
-    SocketDrain();
-    SocketClaimPendingNotification();
+    else                // Using Shared Memory method
+    {
+        // Establish shared memory mapping if not already connected
+        if (!m_shm)
+        {
+            SharedMemoryOpen();
+            return;
+        }
 
-    // if (m_useSocket)    // Using Socket method
-    // {
-    //     // Maintain socket connection and process incoming data stream
-    //     if (m_socketFd == -1)
-    //     {
-    //         SocketConnect();
-    //     }
-    //     SocketDrain();
-    //     SocketClaimPendingNotification();
-    // }
-    // else                // Using Shared Memory method
-    // {
-    //     // Establish shared memory mapping if not already connected
-    //     if (!m_shm)
-    //     {
-    //         SharedMemoryOpen();
-    //         return;
-    //     }
+        // Handle daemon shutdown
+        if (!m_shm->daemonActive.load())
+        {
+            m_currentActiveNotification = ActiveNotification{};
+            m_fadingOut = false;
+            m_alpha = 0.0f;
+            m_slideOffset = 0.0f;
+            SharedMemoryClose();
+            return;
+        }
 
-    //     // Handle daemon shutdown
-    //     if (!m_shm->daemonActive.load())
-    //     {
-    //         m_currentActiveNotification = ActiveNotification{};
-    //         m_fadingOut = false;
-    //         m_alpha = 0.0f;
-    //         m_slideOffset = 0.0f;
-    //         SharedMemoryClose();
-    //         return;
-    //     }
-
-    //     SharedMemoryClaimPendingNotification();
-    // }
+        SharedMemoryClaimPendingNotification();
+    }
 
     // Early exit if no active notification
     if (!m_currentActiveNotification.visible && !m_fadingOut)
@@ -188,6 +180,7 @@ void OverlayReceiver::EnsureVulkanImGuiContext(VkDevice device, VkPhysicalDevice
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
             m_ownsImguiContext = true;
+            OverlayFonts::EnsureEmbeddedFontLoaded();
         }
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(m_fbWidth), static_cast<float>(m_fbHeight));
@@ -212,6 +205,7 @@ void OverlayReceiver::EnsureOpenGLImGuiContext()
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
             m_ownsImguiContext = true;
+            OverlayFonts::EnsureEmbeddedFontLoaded();
         }
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(m_fbWidth), static_cast<float>(m_fbHeight));
@@ -323,10 +317,17 @@ bool OverlayReceiver::SharedMemoryClaimPendingNotification()
     m_currentActiveNotification.appIconPath = m_shm->appIconPath;
     m_currentActiveNotification.position = static_cast<OverlayNotificationPosition>(m_shm->notificationPosition);
 
+    if (m_shm->hasIconPixels == 1)
+    {
+        m_currentActiveNotification.iconPixels.assign(m_shm->iconPixels, m_shm->iconPixels + OVERLAY_ICON_DATA_SIZE);
+    }
+
     // Reset animation state for new notification
     m_alpha = 0.0f;
     m_slideOffset = 40.0f;
     m_fadingOut = false;
+    m_iconAlpha = 0.0f;
+    m_iconAnimProgress = 0.0f;
 
     return true;
 }
@@ -536,6 +537,8 @@ bool OverlayReceiver::SocketClaimPendingNotification()
     m_alpha = 0.0f;
     m_slideOffset = 40.0f;
     m_fadingOut = false;
+    m_iconAlpha = 0.0f;
+    m_iconAnimProgress = 0.0f;
     Logger::Log("[OverlayReceiver][SocketClaimPendingNotification] claimed: " + m_currentActiveNotification.title);
     return true;
 }
@@ -653,11 +656,12 @@ void OverlayReceiver::DrawNotificationWindow()
     // Logger::Log("alpha=" + std::to_string(m_alpha) + " openGLReady=" + std::to_string(m_openGLReady ? 1 : 0) + " vulkanReady=" + std::to_string(m_vulkanReady ? 1 : 0));
 
     // Layout boundaries for the notification window
-    constexpr float MARGIN = 20.0f;
-    constexpr float NOTIF_WIDTH  = 360.0f;
-    constexpr float NOTIF_HEIGHT = 80.0f;
-    constexpr float ICON_SIZE = 52.0f;
-    constexpr float ICON_GAP = 12.0f;
+    constexpr float MARGIN = 40.0f;
+    constexpr float NOTIF_WIDTH  = 480.0f;
+    constexpr float NOTIF_HEIGHT = 100.0f;
+    constexpr float ICON_SIZE = 84.0f;
+    constexpr float ICON_GAP = 10.0f;
+    constexpr float PAD_X = 16.0f;
 
     // Calculate baseline safe zones for screen placement
     const float fbWidth = static_cast<float>(m_fbWidth);
@@ -691,6 +695,12 @@ void OverlayReceiver::DrawNotificationWindow()
             y = fbHeight - NOTIF_HEIGHT - MARGIN;
             slideX = -m_slideOffset;
             break;
+        case OverlayNotificationPosition::BottomCenter:
+            x = (fbWidth - NOTIF_WIDTH) * 0.5f;
+            y = fbHeight - NOTIF_HEIGHT - MARGIN;
+            slideX = 0.0f;
+            slideY = m_slideOffset;
+            break;
         case OverlayNotificationPosition::BottomRight:
         default:
             x = fbWidth - NOTIF_WIDTH - MARGIN;
@@ -723,9 +733,9 @@ void OverlayReceiver::DrawNotificationWindow()
         // Resolve texture backing via active graphics API
         const bool hasIconTexture = m_openGLReady
             ? EnsureOpenGLIconTexture(m_currentActiveNotification.iconPath)
-            : EnsureVulkanIconTexture(m_currentActiveNotification.iconPath);
-
+            : EnsureVulkanIconTexture(m_currentActiveNotification.iconPath);            
         const ImVec2 iconCursor = ImGui::GetCursorScreenPos();
+        const ImVec2 targetSize = ImVec2(ICON_SIZE, ICON_SIZE);
 
         // Render graphics API native texture descriptor if valid
         if (hasIconTexture)
@@ -733,7 +743,9 @@ void OverlayReceiver::DrawNotificationWindow()
             const ImTextureID texId = m_openGLReady
                 ? static_cast<ImTextureID>(static_cast<uintptr_t>(m_iconTextureId))
                 : static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(m_vkIconDescSet));
-            ImGui::Image(texId, ImVec2(ICON_SIZE, ICON_SIZE));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, m_iconAlpha));
+            ImGui::Image(texId, targetSize, ImVec2(0,0), ImVec2(1,1));
+            ImGui::PopStyleColor();
         }
         else
         {
@@ -747,13 +759,24 @@ void OverlayReceiver::DrawNotificationWindow()
         // Arrange elements horizontally alongside the icon slot
         ImGui::SameLine(0.0f, ICON_GAP);
         ImGui::BeginGroup();
-        // Render the main notification header
-        ImGui::TextUnformatted(m_currentActiveNotification.title.c_str());
+
+        // Render the main notification header, elide right
+        float text_max_width = NOTIF_WIDTH - ICON_SIZE - ICON_GAP - PAD_X;
+        std::string title_display = ImElideRight(m_currentActiveNotification.title.c_str(), text_max_width);
+        ImGui::TextUnformatted(title_display.c_str());
         ImGui::Spacing();
+
         // Render the secondary body text with a slightly muted color
+        // Wrap + max 3 rows + elide right
+        ImGui::PushTextWrapPos(NOTIF_WIDTH - PAD_X); // Use same max width than the main notification header
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.75f, m_alpha));
-        ImGui::TextUnformatted(m_currentActiveNotification.description.c_str());
+        std::string desc_display = ImLimitLines(m_currentActiveNotification.description.c_str(), NOTIF_WIDTH - ICON_SIZE - ICON_GAP - PAD_X, 3);
+        ImGui::TextUnformatted(desc_display.c_str());
         ImGui::PopStyleColor();
+        // Pops the text wrapping width pushed earlier
+        // Essential to restore the default layout flow: without it, all subsequent widgets would be unintentionally constrained to this narrow width, breaking the UI structure
+        ImGui::PopTextWrapPos();
+
         ImGui::EndGroup();
     }
     ImGui::End();
@@ -770,22 +793,44 @@ void OverlayReceiver::UpdateNotificationAnimation(float delta)
     constexpr float FADE_SPEED = 4.0f;      // alpha units per second
     constexpr float SLIDE_SPEED = 200.0f;   // pixels per second
 
+    delta = std::min(delta, 0.1f); 
+
     if (!m_fadingOut)
     {
         // Animate entrance: fade in and slide to the target position
         m_alpha = std::min(1.0f, m_alpha + delta * FADE_SPEED);
         m_slideOffset = std::max(0.0f, m_slideOffset - delta * SLIDE_SPEED);
+        if (m_iconAnimationDuration > 0.0f)
+        {
+            m_iconAnimProgress = std::min(1.0f, m_iconAnimProgress + delta / m_iconAnimationDuration);
+        }
+        else
+        {
+            m_iconAnimProgress = 1.0f;
+        }
+
+        // EaseOutCubic: fast start, slow end
+        float t = m_iconAnimProgress;
+        float ease = 1.0f - std::pow(1.0f - t, 3.0f);
+        m_iconAlpha = ease;
     }
     else
     {
         // Animate exit: fade out and slide away
         m_alpha = std::max(0.0f, m_alpha - delta * FADE_SPEED);
         m_slideOffset = std::min(40.0f, m_slideOffset + delta * SLIDE_SPEED);
+
+        // Image animation exit
+        m_iconAlpha = std::max(0.0f, m_alpha);
+        m_iconAnimProgress = 0.0f;
+
         if (m_alpha <= 0.0f)
         {
             // Animation complete, clear notification
             m_currentActiveNotification.visible = false;
             m_fadingOut = false;
+            m_iconAlpha = 0.0f;
+            m_slideOffset = 40.0f;
         }
     }
 }
@@ -1301,4 +1346,96 @@ void OverlayReceiver::DestroyOpenGLIconTexture()
 #endif
     m_iconTextureId = 0;
     m_loadedIconPath.clear();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string OverlayReceiver::ImElideRight(const char* text, float max_width)
+{
+    if (!text || !*text)
+    {
+        return "";
+    }
+
+    ImFont* font = ImGui::GetFont();
+    float fs = ImGui::GetFontSize();
+
+    std::string ellipsis = "...";
+    // Measure the pixel width of the ellipsis characters themselves
+    float ew = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, ellipsis.c_str(), ellipsis.c_str() + 3).x;
+
+    // Check if the full text fits within the allowed width (reserving space for ellipsis)
+    ImVec2 full_sz = font->CalcTextSizeA(fs, max_width, 0.0f, text, nullptr);
+    if (full_sz.x <= max_width - ew)
+    {
+        return text;
+    }
+    
+    // Measure characters incrementally from the left until adding the next one exceeds the limit
+    float cur_w = 0.0f;
+    const char* p = text;
+    const char* end = text + strlen(text);
+    while (p < end)
+    {
+        float cw = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, p, p + 1).x;
+        if (cur_w + cw > max_width - ew)
+        {
+            break;  // Width limit reached
+        }
+        cur_w += cw;
+        ++p;
+    }
+
+    // Return truncated string + ellipsis
+    return std::string(text, p - text).append(ellipsis);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string OverlayReceiver::ImLimitLines(const char* text, float wrap_width, int max_lines)
+{
+    if (!text || !*text)
+    {
+        return "";
+    }
+
+    ImFont* font = ImGui::GetFont();
+    float fs = ImGui::GetFontSize();
+    float line_h = ImGui::GetTextLineHeight();
+    float max_h = max_lines * line_h;
+
+    int len = strlen(text);
+    int lo = 0, hi = len;
+
+    // Binary search: finds the longest prefix whose wrapped height fits within max_h
+    while (lo < hi)
+    {
+        int mid = lo + (hi - lo + 1) / 2;   // Bias right to prevent infinite loops
+        ImVec2 sz = font->CalcTextSizeA(fs, FLT_MAX, wrap_width, text, text + mid);
+        if (sz.y <= max_h + 0.5f)
+        {
+            lo = mid; // Fits, try longer
+        }
+        else
+        {
+            hi = mid - 1; // Too tall, try shorter
+        }
+    }
+
+    if (lo < len)
+    {
+        // Step back to the nearest safe word/rule break to avoid mid-word clipping
+        for (int i = 0; i < 2; ++i)
+        {
+            --lo;
+            while (lo > 0 && text[lo] != ' ' && text[lo] != '\n')
+            {
+                --lo;
+            }
+        }
+        return std::string(text, lo).append("...");
+    }
+
+    // Full text fits within the height limit
+    return text;
 }

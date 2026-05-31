@@ -9,6 +9,7 @@
 
 #include "VulkanOverlayRenderer.h"
 #include "Logger.h"
+#include "FontEmbedded.h"
 
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
@@ -512,6 +513,7 @@ bool VulkanOverlayRenderer::InitializeImGuiVulkanBackend()
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        OverlayFonts::EnsureEmbeddedFontLoaded();
     }
 
     if (m_imguiBackendReady)

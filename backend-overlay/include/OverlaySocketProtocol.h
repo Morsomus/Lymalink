@@ -16,11 +16,6 @@
 constexpr const char* OVERLAY_SOCKET_FILENAME = "lymalink-overlay.sock";
 constexpr uint32_t OVERLAY_SOCKET_VERSION = 1;
 
-// 64x64 RGBA, matches the scale used by EnsureOpenGLIconTexture / EnsureVulkanIconTexture
-constexpr uint32_t OVERLAY_ICON_SIZE = 64;
-constexpr uint32_t OVERLAY_ICON_STRIDE = OVERLAY_ICON_SIZE * 4; // bytes per row
-constexpr uint32_t OVERLAY_ICON_DATA_SIZE = OVERLAY_ICON_SIZE * OVERLAY_ICON_STRIDE; // 16 384 bytes
-
 struct OverlaySocketPacket
 {
     uint32_t version = OVERLAY_SOCKET_VERSION;

@@ -28,8 +28,8 @@ Item {
     readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
     readonly property var activeTargetIds: dbusServiceReady ? ctxDBusService.activeTargetIds : []
     readonly property bool hasActiveTarget: activeTargetIds.length > 0
-    readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-left"]
-    readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-left")]
+    readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-center", "bottom-left"]
+    readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-center"), qsTr("Bottom-left")]
 
     function saveSteamWebApiKey(apiKey, passcode) {
         ctxSettings.SetTempEncryptionKey(passcode)

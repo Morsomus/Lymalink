@@ -58,9 +58,9 @@ OverlayNotifier::~OverlayNotifier()
 
 bool OverlayNotifier::Init()
 {
-    // const bool sharedMemoryReady = CreateSharedMemory();
+    const bool sharedMemoryReady = CreateSharedMemory();
     const bool socketReady = StartSocketServer();
-    // return sharedMemoryReady && socketReady;
+    return sharedMemoryReady && socketReady;
     return socketReady;
 }
 
@@ -69,7 +69,7 @@ bool OverlayNotifier::Init()
 void OverlayNotifier::Shutdown()
 {
     StopSocketServer();
-    // DestroySharedMemory();
+    DestroySharedMemory();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -85,9 +85,9 @@ void OverlayNotifier::SetSocketPaused(bool paused)
 bool OverlayNotifier::ShowAchievementToast(const AchievementNotification& notification)
 {
     // Send via transport, succeed if at least one succeeds.
-    // const bool sharedMemoryWritten = WriteNotification(notification);
+    const bool sharedMemoryWritten = WriteNotification(notification);
     const bool socketWritten = BroadcastSocketNotification(notification);
-    // return sharedMemoryWritten || socketWritten;
+    return sharedMemoryWritten || socketWritten;
     return socketWritten;
 }
 
@@ -131,6 +131,46 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
 
     LOG_BE(Urgency::Debug, "Writing to SHM.");
 
+    // Load and scale directly to overlay icon target size
+    int kIconSize = 64;
+    int kIconStride = kIconSize * 4; // 256 bytes per row
+    m_shm->hasIconPixels = 0;
+    // Load primary icon, fallback to secondary
+    const char* candidatePaths[] = { notification.iconPath.c_str(), notification.appIconPath.c_str() };
+    for (const char* path : candidatePaths)
+    {
+        if (path && path[0] != '\0')
+        {
+            GError* error = nullptr;
+            GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(path, kIconSize, kIconSize, TRUE, &error);       
+            if (pixbuf)
+            {
+                GdkPixbuf* rgba = gdk_pixbuf_get_has_alpha(pixbuf) ? pixbuf : gdk_pixbuf_add_alpha(pixbuf, FALSE, 0, 0, 0);
+                if (rgba != pixbuf) g_object_unref(pixbuf);
+                
+                if (rgba)
+                {
+                    const guchar* src = gdk_pixbuf_get_pixels(rgba);
+                    const int stride = gdk_pixbuf_get_rowstride(rgba);
+
+                    for (int i = 0; i < kIconSize; ++i)
+                    {
+                        std::memcpy(m_shm->iconPixels + (i * kIconStride), src + (i * stride), kIconStride);
+                    }
+                    g_object_unref(rgba);
+                    m_shm->hasIconPixels = 1;
+                    LOG_BE(Urgency::Debug, "Embedded icon '%s' into SHM.", path);
+
+                    break;
+                }
+            }
+            else if (error)
+            {
+                g_error_free(error);
+            }
+        }
+    }
+    
     // Write data fields before setting active so the reader never sees a partially written state
     m_shm->version = OVERLAY_SHM_VERSION;
     m_shm->timestamp = nowMs;
@@ -404,6 +444,12 @@ void OverlayNotifier::RefreshSocketServers()
         {
             LOG_BE(Urgency::Debug, "New Flatpak target detected, attempting to bind socket for appId: %s", appId);
             BindSocketForApp(appId);
+
+            // TODO: Remove
+            LOG_BE(Urgency::Debug, "Currently bound Flatpak targets (%zu):", m_socketServers.size());
+            for (const auto& server : m_socketServers) {
+                LOG_BE(Urgency::Debug, "  - %s", server.appId.c_str());
+            }
         }
     }
 }
@@ -679,7 +725,7 @@ OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std
     {
         return OverlayNotificationPosition::TopLeft;
     }
-    if (normalized == "topcenter" || normalized == "topcentre")
+    if (normalized == "topcenter")
     {
         return OverlayNotificationPosition::TopCenter;
     }
@@ -690,6 +736,10 @@ OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std
     if (normalized == "bottomleft")
     {
         return OverlayNotificationPosition::BottomLeft;
+    }
+    if (normalized == "bottomcenter")
+    {
+        return OverlayNotificationPosition::BottomCenter;
     }
 
     if (normalized != "bottomright")

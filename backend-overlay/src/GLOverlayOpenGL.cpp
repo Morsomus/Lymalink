@@ -12,6 +12,7 @@
 
 #include "OverlayReceiver.h"
 #include "Logger.h"
+#include "FontEmbedded.h"
 
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
@@ -209,6 +210,7 @@ static void InitImGui(uint32_t w, uint32_t h)
     std::call_once(s_imguiInitFlag, [w, h]()
     {
         ImGui::CreateContext();
+        OverlayFonts::EnsureEmbeddedFontLoaded();
 
         ImGuiIO& io = ImGui::GetIO();
 
