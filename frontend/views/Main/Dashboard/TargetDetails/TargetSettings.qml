@@ -104,6 +104,8 @@ Popup {
         if (ctxLymalink.SetTargetExecutableLocation(id_root.p_appId, path)) {
             id_root.currentExecutableLocation = path
             id_root.reloadBackendTargets()
+        } else {
+            id_errorPopup.showError(qsTr("Couldn't Edit Executable Location"), ctxLymalink.GetLastOperationError())
         }
     }
 
@@ -219,6 +221,10 @@ Popup {
         onConfirmed: function(path) {
             id_root.setExecutableLocation(path)
         }
+    }
+
+    ErrorPopup {
+        id: id_errorPopup
     }
 
     background: Rectangle {

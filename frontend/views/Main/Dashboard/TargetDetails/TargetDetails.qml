@@ -50,7 +50,7 @@ Item {
         : 0.0
 
     Component.onCompleted: {
-        if (!ctxSettings.targetDetailsHelpText) {
+        if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
             id_targetHelpTextMarkdownPopup.openDocument(qsTr("Tips"), CREDITS_MD_TEXT)
         }
     }
@@ -553,8 +553,8 @@ Item {
     MarkdownDocumentPopup {
         id: id_targetHelpTextMarkdownPopup
         onClosed: {
-            if (!ctxSettings.targetDetailsHelpText) {
-                ctxSettings.SaveValue(Settings.TargetDetailsHelpText, true)
+            if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
+                ctxSettings.SaveValue(Settings.TargetDetailsHelpText, LYMALINK_APP_VERSION)
             }
         }
     }

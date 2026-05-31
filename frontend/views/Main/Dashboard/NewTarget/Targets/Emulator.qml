@@ -154,7 +154,7 @@ Item {
         id_root.targetStatusIsError = !success
         id_root.targetStatusText = success
             ? qsTr("Target created")
-            : qsTr("Couldn't create target. Emulator target with this ID " + id_root.selectedAppId + " may already exist.")
+            : ctxLymalink.GetLastOperationError()
 
         if (success) {
             id_root.targetAdded(id_root.selectedAppId)

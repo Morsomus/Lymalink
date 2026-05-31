@@ -33,7 +33,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        if (!ctxSettings.welcomeHelpText) {
+        if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), CREDITS_MD_TEXT)
         }
     }
@@ -86,8 +86,8 @@ ApplicationWindow {
     MarkdownDocumentPopup {
         id: id_welcomeHelpTextMarkdownPopup
         onClosed: {
-            if (!ctxSettings.welcomeHelpText) {
-                ctxSettings.SaveValue(AppSettings.Settings.WelcomeHelpText, true)
+            if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
+                ctxSettings.SaveValue(AppSettings.Settings.WelcomeHelpText, LYMALINK_APP_VERSION)
             }
         }
     }

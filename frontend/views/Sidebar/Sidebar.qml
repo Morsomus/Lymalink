@@ -47,6 +47,14 @@ Item {
 
     Component.onCompleted: p_collapsed = ctxSettings.sidebarCollapsed
 
+    Connections {
+        target: ctxSettings
+
+        function onSignalDefaultsReset() {
+            id_root.p_collapsed = ctxSettings.sidebarCollapsed
+        }
+    }
+
     Layout.preferredWidth: id_root.panelWidth
     Layout.fillHeight: true
 

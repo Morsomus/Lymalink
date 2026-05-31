@@ -53,6 +53,22 @@ Item {
 
     Component.onCompleted: refreshTargets()
 
+    Connections {
+        target: ctxSettings
+
+        function onSignalDefaultsReset() {
+            id_root.activeLayout = ctxSettings.dashboardToolbarLayout
+            id_root.activeSort = ctxSettings.dashboardToolbarSort
+            id_root.activeSortDescending = ctxSettings.dashboardToolbarSortDescending
+            id_root.activeFilters = ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
+            id_root.targetDetailsActiveSort = "unlockDate"
+            id_root.targetDetailsSortDescending = false
+            id_root.targetDetailsActiveFilters = ["all"]
+            id_root.refreshTargets()
+            id_root.refreshTargetDetailsAchievements()
+        }
+    }
+
     onActiveLayoutChanged: {
         dashboardScrollLocation = 0
         syncTargetRowLayout()

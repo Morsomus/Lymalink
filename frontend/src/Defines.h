@@ -15,6 +15,7 @@
 #define ORGANIZATION        "Lymalink"
 #define APPLICATION         "config"
 // Config Groups
+#define GROUP_APPLICATION   "Application"
 #define GROUP_APPEARANCE    "Appearance"
 #define GROUP_INTERFACE     "Interface"
 #define GROUP_DISPLAY       "Display"

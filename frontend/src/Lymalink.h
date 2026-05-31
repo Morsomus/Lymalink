@@ -43,6 +43,7 @@ public:
     Q_INVOKABLE QString GetTargetTitle(int appId);
     Q_INVOKABLE QString GetTargetPrefixLocation(int appId);
     Q_INVOKABLE QString GetTargetExecutableLocation(int appId);
+    Q_INVOKABLE QString GetLastOperationError() const;
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId);
 
@@ -67,6 +68,7 @@ private:
     SQLiteManager m_databaseManager;
     QString m_databaseConnectionName;
     QString m_databasePath;
+    QString m_lastOperationError;
 
     QThread m_searchWorkerThread;
     SteamApiSearchWorker *m_steamApiSearchWorker;
@@ -83,4 +85,5 @@ private:
     QString CommunityIconFilePath(const QString &iconsPath) const;
     QString AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const;
     QString ExecutableInstallationStatus(const QVariantMap &row) const;
+    bool IsTargetExecutableLocationInUse(const QString &executablePath, int excludedAppId, bool *querySucceeded = nullptr);
 };

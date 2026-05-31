@@ -119,6 +119,7 @@ void Lymalink::CancelSteamHydration()
 bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath)
 {
     bool targetCreated = false;
+    m_lastOperationError.clear();
 
     // Normalize user-provided paths before validation/database write
     gameName = gameName.trimmed();
@@ -127,6 +128,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
 
     if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
     {
+        m_lastOperationError = tr("Invalid emulator target data.");
         qWarning() << "Lymalink::CreateNewSteamEmuTarget: invalid emulator target data";
         return targetCreated;
     }
@@ -134,6 +136,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty())
     {
+        m_lastOperationError = tr("Couldn't resolve app data location.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to resolve app data location for emulator target";
         return targetCreated;
     }
@@ -141,6 +144,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     // Open database lazily for QML calls made after startup
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
+        m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to open database for emulator target:" << m_databaseManager.lastError();
         return targetCreated;
     }
@@ -153,13 +157,29 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     const int existingGameRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     if (existingGameRows < 0)
     {
+        m_lastOperationError = tr("Couldn't check existing targets.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to check emulator target database row:" << m_databaseManager.lastError();
         return targetCreated;
     }
 
     if (existingGameRows > 0)
     {
+        m_lastOperationError = tr("Emulator target with ID %1 already exists.").arg(appId);
         qWarning() << "Lymalink::CreateNewSteamEmuTarget: emulator target already exists in database, skipping creation:" << appId;
+        return targetCreated;
+    }
+
+    bool executableQuerySucceeded = false;
+    if (IsTargetExecutableLocationInUse(exePath, 0, &executableQuerySucceeded))
+    {
+        m_lastOperationError = tr("Game executable is already set for another target.");
+        qWarning() << "Lymalink::CreateNewSteamEmuTarget: executable location already in use, skipping creation:" << exePath;
+        return targetCreated;
+    }
+    if (!executableQuerySucceeded)
+    {
+        m_lastOperationError = tr("Couldn't check existing target executables.");
+        qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to check executable location:" << m_databaseManager.lastError();
         return targetCreated;
     }
 
@@ -168,6 +188,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     {
         if (!m_fileManager.DeleteFolder(targetPath))
         {
+            m_lastOperationError = tr("Couldn't remove stale target folder.");
             qCritical() << "Lymalink::CreateNewSteamEmuTarget: stale emulator target folder exists and couldn't be removed:" << targetPath;
             return targetCreated;
         }
@@ -176,6 +197,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     // Create per-target asset folders before database insert
     if (!emulatorDir.mkpath(appIdText) || !emulatorDir.mkpath(appIdText + "/icons") || !emulatorDir.mkpath(appIdText + "/covers"))
     {
+        m_lastOperationError = tr("Couldn't create target folders.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to create emulator target folders:" << targetPath;
         return targetCreated;
     }
@@ -194,6 +216,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
         // Roll back folder creation when database insert fails
         QDir cleanupDir(targetPath);
         cleanupDir.removeRecursively();
+        m_lastOperationError = tr("Couldn't save target.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to insert emulator target:" << m_databaseManager.lastError();
         return targetCreated;
     }
@@ -284,18 +307,35 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executablePath)
 {
     bool targetUpdated = false;
+    m_lastOperationError.clear();
 
     // Store trimmed executable path and update modification timestamp
     const QString trimmedExecutablePath = executablePath.trimmed();
     if (appId <= 0 || trimmedExecutablePath.isEmpty())
     {
+        m_lastOperationError = tr("Invalid target executable location.");
         qWarning() << "Lymalink::SetTargetExecutableLocation: invalid target executable location update:" << appId << trimmedExecutablePath;
         return targetUpdated;
     }
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
     {
+        m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::SetTargetExecutableLocation: failed to open database for target executable location update:" << m_databaseManager.lastError();
+        return targetUpdated;
+    }
+
+    bool executableQuerySucceeded = false;
+    if (IsTargetExecutableLocationInUse(trimmedExecutablePath, appId, &executableQuerySucceeded))
+    {
+        m_lastOperationError = tr("Game executable is already set for another target.");
+        qWarning() << "Lymalink::SetTargetExecutableLocation: executable location already in use, skipping update:" << trimmedExecutablePath;
+        return targetUpdated;
+    }
+    if (!executableQuerySucceeded)
+    {
+        m_lastOperationError = tr("Couldn't check existing target executables.");
+        qCritical() << "Lymalink::SetTargetExecutableLocation: failed to check executable location:" << m_databaseManager.lastError();
         return targetUpdated;
     }
 
@@ -312,6 +352,7 @@ bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executableP
 
     if (!targetUpdated)
     {
+        m_lastOperationError = tr("Couldn't save target executable location.");
         qCritical() << "Lymalink::SetTargetExecutableLocation: failed to update target executable location:" << m_databaseManager.lastError();
     }
 
@@ -542,6 +583,13 @@ QString Lymalink::GetTargetExecutableLocation(int appId)
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     executableLocation = Utils::MapStringValue(row, "executable_location");
     return executableLocation;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::GetLastOperationError() const
+{
+    return m_lastOperationError;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1075,4 +1123,31 @@ QString Lymalink::ExecutableInstallationStatus(const QVariantMap &row) const
     const QFileInfo executableInfo(executableLocation);
     installationStatus = executableInfo.exists() && executableInfo.isFile() ? tr("Installed") : tr("Not Installed");
     return installationStatus;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::IsTargetExecutableLocationInUse(const QString &executablePath, int excludedAppId, bool *querySucceeded)
+{
+    if (querySucceeded != nullptr)
+    {
+        *querySucceeded = false;
+    }
+
+    const int existingRows = m_databaseManager.count(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        "TRIM(executable_location) = ? AND id != ?",
+        {executablePath.trimmed(), excludedAppId}
+    );
+    if (existingRows < 0)
+    {
+        return false;
+    }
+
+    if (querySucceeded != nullptr)
+    {
+        *querySucceeded = true;
+    }
+    return existingRows > 0;
 }

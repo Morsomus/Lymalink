@@ -81,10 +81,20 @@ bool Settings::ResetDefaults()
 {
     qInfo() << "Settings::ResetDefaults - Resetting configuration to defaults...";
 
+    const QString welcomeHelpText = m_welcomeHelpText;
+    const QString targetDetailsHelpText = m_targetDetailsHelpText;
     SetDefaults();
+    m_welcomeHelpText = welcomeHelpText;
+    m_targetDetailsHelpText = targetDetailsHelpText;
     m_settings.clear();
 
-    return SaveConfig();
+    const bool saved = SaveConfig();
+    if (saved)
+    {
+        emit signalDefaultsReset();
+    }
+
+    return saved;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -111,6 +121,16 @@ bool Settings::SaveConfig()
 bool Settings::LoadConfig()
 {
     qDebug() << "Settings::LoadConfig - Loading configuration from: " << m_settings.fileName();
+
+    m_settings.beginGroup(GROUP_APPLICATION);
+    const QString savedVersion = m_settings.value("CurrentVersion").toString();
+    m_currentVersion = QStringLiteral(LYMALINK_VERSION);
+    m_settings.setValue("CurrentVersion", m_currentVersion);
+    m_settings.endGroup();
+    if (savedVersion != m_currentVersion)
+    {
+        qInfo() << "Settings::LoadConfig - Application version changed:" << savedVersion << "->" << m_currentVersion;
+    }
 
     m_settings.beginGroup(GROUP_APPEARANCE);
     m_theme = m_settings.value("Theme", m_theme).toString();
@@ -164,11 +184,12 @@ bool Settings::LoadConfig()
     m_dashboardToolbarFilters = m_settings.value("ToolbarFilters", m_dashboardToolbarFilters).toStringList();
     m_dashboardToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_dashboardToolbarSortDescending).toBool();
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
-    m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toBool();
-    m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toBool();
+    m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toString();
+    m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toString();
     m_settings.endGroup();
 
     LoadEncryptedValueState();
+    m_settings.sync();
 
     emit signalConfigChanged();
 
@@ -455,7 +476,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         }
         case WelcomeHelpText:
         {
-            m_welcomeHelpText = value.toBool();
+            m_welcomeHelpText = value.toString();
             group = GROUP_DASHBOARD;
             settingsKey = "WelcomeHelpText";
             settingsValue = m_welcomeHelpText;
@@ -463,7 +484,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         }
         case TargetDetailsHelpText:
         {
-            m_targetDetailsHelpText = value.toBool();
+            m_targetDetailsHelpText = value.toString();
             group = GROUP_DASHBOARD;
             settingsKey = "TargetDetailsHelpText";
             settingsValue = m_targetDetailsHelpText;
@@ -546,8 +567,9 @@ void Settings::SetDefaults()
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
-    m_welcomeHelpText = false;
-    m_targetDetailsHelpText = false;
+    m_currentVersion = QStringLiteral(LYMALINK_VERSION);
+    m_welcomeHelpText = "";
+    m_targetDetailsHelpText = "";
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -591,6 +613,10 @@ bool Settings::SaveSteamWebApiKey(const QString &webApiKey)
 
 void Settings::SavePlainValues()
 {
+    m_settings.beginGroup(GROUP_APPLICATION);
+    m_settings.setValue("CurrentVersion", m_currentVersion);
+    m_settings.endGroup();
+
     m_settings.beginGroup(GROUP_APPEARANCE);
     m_settings.setValue("Theme", m_theme);
     m_settings.setValue("ShowLymalinkLogo", m_showLymalinkLogo);

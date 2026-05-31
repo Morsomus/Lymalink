@@ -91,6 +91,23 @@ Item {
         }
     }
 
+    Connections {
+        target: ctxSettings
+
+        function onSignalDefaultsReset() {
+            id_root.activePanel = ""
+            id_root.activeSort = ctxSettings.dashboardToolbarSort
+            id_root.activeFilters = ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
+            id_root.activeFilter = id_root.activeFilters.length > 1 ? "multiple" : id_root.activeFilters[0]
+            id_orderPill.isDescending = ctxSettings.dashboardToolbarSortDescending
+            id_root.targetDetailsActivePanel = ""
+            id_root.targetDetailsActiveSort = "unlockDate"
+            id_root.targetDetailsActiveFilters = ["all"]
+            id_root.targetDetailsActiveFilter = "all"
+            id_detailsOrderPill.isDescending = false
+        }
+    }
+
     function sortLabel(sort) {
         switch (sort) {
             case "title":        return qsTr("Title")
