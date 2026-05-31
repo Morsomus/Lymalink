@@ -49,7 +49,7 @@
 // Backend Service
 /////////////////////////////////////////////////////////////////////
 
-#define DEFAULT_NOTIFICATION_SOUND      "universfield-new-notification-09-352705.ogg"
+#define DEFAULT_NOTIFICATION_SOUND      "universfield-new-notification-04-326127.ogg"
 
 /////////////////////////////////////////////////////////////////////
 // Assets

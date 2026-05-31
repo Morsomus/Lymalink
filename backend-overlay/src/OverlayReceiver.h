@@ -56,7 +56,7 @@ private:
     {
         bool visible = false;
         uint64_t shownAtMs = 0;
-        uint32_t durationMs = 7000;
+        uint32_t durationMs = 6000;
         std::string title;
         std::string description;
         std::string iconPath;

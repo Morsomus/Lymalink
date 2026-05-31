@@ -54,7 +54,7 @@ private:
     std::vector<int> m_socketClients;
 
     // SHM based methods - Writes notification payload to SHM
-    bool WriteNotification(const AchievementNotification& notification, uint32_t durationMs = 4000);
+    bool WriteNotification(const AchievementNotification& notification, uint32_t durationMs = 6000);
     bool CreateSharedMemory();
     void DestroySharedMemory();
 
@@ -65,7 +65,7 @@ private:
     void RefreshSocketServers();
     bool BindSocketForApp(const std::string& appId);
     void CloseSocketServer(SocketServer& server);
-    bool BroadcastSocketNotification(const AchievementNotification& notification, uint32_t durationMs = 4000);
+    bool BroadcastSocketNotification(const AchievementNotification& notification, uint32_t durationMs = 6000);
     OverlaySocketPacket BuildSocketPacket(const AchievementNotification& notification, uint32_t durationMs) const;
     bool EmbedIconIntoPacket(OverlaySocketPacket& packet, const std::string& iconPath) const;
     OverlayNotificationPosition ResolveNotificationPosition() const;
