@@ -10,6 +10,7 @@
 #   ./build.sh release      - Release build
 #   ./build.sh clean        - Clean build directory
 #   ./build.sh deploy       - Clean + Release build + deploy
+#   ./build.sh deploy --debug - Clean + Debug build + deploy
 #   ./build.sh uninstall    - Remove deployed binary, desktop entry, icon
 #   ./build.sh dev          - Clean + Debug build + Execute
 #   ./build.sh test         - Clean + Debug build + Test
@@ -22,7 +23,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 DEPLOY_BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 DEPLOY_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
-DEPLOY_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 ICON_DIR="$DEPLOY_DATA_DIR/icons/hicolor/256x256/apps"
 DESKTOP_FILE="$DEPLOY_DATA_DIR/applications/lymalink.desktop"
 
@@ -30,7 +30,20 @@ APP_NAME="lymalink"
 ICON_NAME="$APP_NAME"
 
 # When enabled, build output is diverted to /tmp (RAMfs)
-BUILD_TO_TMP=1
+BUILD_TO_TMP=0
+
+##############################################################################
+
+_require_no_extra_args() {
+    local COMMAND="$1"
+    shift
+
+    if [ "$#" -gt 0 ]; then
+        echo "==> ERROR: Too many options for $COMMAND."
+        echo "==> Usage: $0 $COMMAND"
+        exit 1
+    fi
+}
 
 ##############################################################################
 
@@ -80,21 +93,42 @@ build() {
 ##############################################################################
 
 deploy() {
+    local DEPLOY_OPTION="${1:-}"
+    local MODE="Release"
+    local MODE_LOWER="release"
+
+    if [ "$#" -gt 1 ]; then
+        echo "==> ERROR: Too many deploy options."
+        echo "==> Usage: $0 deploy [--debug]"
+        exit 1
+    fi
+
+    if [ "$DEPLOY_OPTION" = "--debug" ]; then
+        MODE="Debug"
+        MODE_LOWER="debug"
+    elif [ -n "$DEPLOY_OPTION" ]; then
+        echo "==> ERROR: Unknown deploy option: $DEPLOY_OPTION"
+        echo "==> Usage: $0 deploy [--debug]"
+        exit 1
+    fi
+
     clean
-    build Release
+    build "$MODE"
 
     if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
-        local BUILD_DIR="/tmp/lymalink-build/release"
+        local BUILD_DIR="/tmp/lymalink-build/${MODE_LOWER}"
     else
-        local BUILD_DIR="$SCRIPT_DIR/build/release"
+        local BUILD_DIR="$SCRIPT_DIR/build/${MODE_LOWER}"
     fi
 
     local BINARY_PATH="$BUILD_DIR/bin/Lymalink"
 
-    # Copy and stric binary
+    # Copy and strip release binary
     mkdir -p "$DEPLOY_BIN_DIR"
     cp "$BINARY_PATH" "$DEPLOY_BIN_DIR/Lymalink"
-    strip "$DEPLOY_BIN_DIR/Lymalink"
+    if [ "$MODE" = "Release" ]; then
+        strip "$DEPLOY_BIN_DIR/Lymalink"
+    fi
 
     # Copy icon
     mkdir -p "$ICON_DIR"
@@ -110,6 +144,7 @@ deploy() {
 Name=Lymalink
 Exec=$DEPLOY_BIN_DIR/Lymalink
 Icon=$ICON_NAME
+StartupWMClass=Lymalink
 Type=Application
 Terminal=false
 Categories=Game;Utility;
@@ -148,20 +183,6 @@ uninstall() {
         echo "==> Icon not found: $ICON_DIR/${ICON_NAME}.png"
     fi
 
-    if [ -d "$DEPLOY_CONFIG_DIR/Lymalink" ]; then
-        echo "==> Removing config directory: $DEPLOY_CONFIG_DIR/Lymalink"
-        rm -rf "$DEPLOY_CONFIG_DIR/Lymalink"
-    else
-        echo "==> Config directory not found: $DEPLOY_CONFIG_DIR/Lymalink"
-    fi
-
-    if [ -d "$DEPLOY_DATA_DIR/Lymalink" ]; then
-        echo "==> Removing data directory: $DEPLOY_DATA_DIR/Lymalink"
-        rm -rf "$DEPLOY_DATA_DIR/Lymalink"
-    else
-        echo "==> Data directory not found: $DEPLOY_DATA_DIR/Lymalink"
-    fi
-
     if command -v gtk-update-icon-cache &>/dev/null; then
         gtk-update-icon-cache -f -t "$DEPLOY_DATA_DIR/icons/hicolor" 2>/dev/null || true
     fi
@@ -191,6 +212,12 @@ dev() {
 run_tests() {
     local TEST_OUTPUT_MODE="${1:-}"
 
+    if [ "$#" -gt 1 ]; then
+        echo "==> ERROR: Too many test options."
+        echo "==> Usage: $0 test [--silent]"
+        exit 1
+    fi
+
     if [ -n "$TEST_OUTPUT_MODE" ] && [ "$TEST_OUTPUT_MODE" != "--silent" ]; then
         echo "==> ERROR: Unknown test option: $TEST_OUTPUT_MODE"
         echo "==> Usage: $0 test [--silent]"
@@ -217,13 +244,13 @@ run_tests() {
 ##############################################################################
 
 case "${1:-}" in
-    clean)   clean ;;
-    debug)   build Debug ;;
-    release) build Release ;;
-    deploy)  deploy ;;
-    uninstall) uninstall ;;
-    dev)     dev ;;
-    test)    run_tests "${2:-}" ;;
+    clean)   _require_no_extra_args clean "${@:2}"; clean ;;
+    debug)   _require_no_extra_args debug "${@:2}"; build Debug ;;
+    release) _require_no_extra_args release "${@:2}"; build Release ;;
+    deploy)  deploy "${@:2}" ;;
+    uninstall) _require_no_extra_args uninstall "${@:2}"; uninstall ;;
+    dev)     _require_no_extra_args dev "${@:2}"; dev ;;
+    test)    run_tests "${@:2}" ;;
     *)
         echo "Usage: $0 [clean|debug|release|deploy|uninstall|dev|test]"
         echo ""
@@ -231,6 +258,7 @@ case "${1:-}" in
         echo "  debug          - Debug build   -> build/debug/"
         echo "  release        - Release build -> build/release/"
         echo "  deploy         - clean + release build + strip"
+        echo "  deploy --debug - clean + debug build without strip"
         echo "                   + binary    -> $DEPLOY_BIN_DIR/"
         echo "                   + icon      -> $ICON_DIR/"
         echo "                   + desktop   -> $DESKTOP_FILE"

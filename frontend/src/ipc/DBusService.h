@@ -43,6 +43,7 @@ public:
     Q_INVOKABLE void ReloadAllTargets();
     Q_INVOKABLE void ReloadConfig();
     Q_INVOKABLE void TestToast();
+    Q_INVOKABLE void TestSound();
 
     inline bool GetServiceAvailable() const { return m_serviceAvailable; }
     inline bool GetServiceActive() const { return m_serviceActive; }

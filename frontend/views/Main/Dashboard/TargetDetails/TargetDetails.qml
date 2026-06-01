@@ -49,11 +49,11 @@ Item {
         ? p_achievementCount / p_achievementTotal
         : 0.0
 
-    Component.onCompleted: {
-        if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
-            id_targetHelpTextMarkdownPopup.openDocument(qsTr("Tips"), CREDITS_MD_TEXT)
-        }
-    }
+    // Component.onCompleted: {
+    //     if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
+    //         id_targetHelpTextMarkdownPopup.openDocument(qsTr("Tips"), CREDITS_MD_TEXT)
+    //     }
+    // }
 
     /////////////////////////////////////////////////////////////////////
     //////////////////////////// COMPONENTS /////////////////////////////

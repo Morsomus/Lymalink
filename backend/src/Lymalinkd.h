@@ -81,6 +81,7 @@ private:
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);
     void  OnTestToast();
+    void  OnTestSound();
     void  OnRequestActiveTargets();
     void  OnReloadAllTargets();
     void  OnReloadConfig();

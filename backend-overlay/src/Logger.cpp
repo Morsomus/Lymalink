@@ -8,6 +8,8 @@
 
 #include "Logger.h"
 
+#ifndef LYMALINK_OVERLAY_DISABLE_LOGGING
+
 #include <cstdio>
 #include <ctime>
 #include <cstring>
@@ -54,11 +56,13 @@ void Logger::Log(const std::string& msg)
 __attribute__((constructor))
 static void OnOverlayLibraryLoaded()
 {
-    Logger::Log("[OverlayLibrary] Loaded");
+    LYMALINK_LOG("[OverlayLibrary] Loaded");
 }
 
 __attribute__((destructor))
 static void OnOverlayLibraryUnloaded()
 {
-    Logger::Log("[OverlayLibrary] Unloaded");
+    LYMALINK_LOG("[OverlayLibrary] Unloaded");
 }
+
+#endif

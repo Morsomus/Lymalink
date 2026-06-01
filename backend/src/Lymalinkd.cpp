@@ -129,6 +129,7 @@ Error Lymalinkd::Init()
     m_dbus.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
     m_dbus.onReloadConfig = [this]() { OnReloadConfig(); };
     m_dbus.onTestToast = [this]() { OnTestToast(); };
+    m_dbus.onTestSound = [this]() { OnTestSound(); };
 
     err = m_dbus.Init();
     if (err != Error::NoError)
@@ -512,6 +513,16 @@ void Lymalinkd::OnTestToast()
 
     // Display notification and play configured sound
     m_overlayNotifications.ShowAchievementToast(notification);
+    m_notificationSound.PlayNotificationSound();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnTestSound()
+{
+    LOG_BE(Urgency::Debug, "Test sound requested.");
+
+    // Play configured notification sound only, no overlay toast.
     m_notificationSound.PlayNotificationSound();
 }
 

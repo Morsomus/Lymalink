@@ -57,7 +57,7 @@ static PFN_eglGetProcAddress s_realEGLGetProcAddress = nullptr;
 
 static void LogMissingSymbol(const char* symbol)
 {
-    Logger::Log(std::string("[GLOverlayPreloader] missing symbol: ") + symbol);
+    LYMALINK_LOG(std::string("[GLOverlayPreloader] missing symbol: ") + symbol);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -111,7 +111,7 @@ static bool ResolvePreloaderDirectory(char* outPath, size_t outPathSize)
 
     if (ctx.path[0] == '\0')
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve preloader path from loaded objects");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve preloader path from loaded objects");
         return false;
     }
 
@@ -119,7 +119,7 @@ static bool ResolvePreloaderDirectory(char* outPath, size_t outPathSize)
     const char* slash = std::strrchr(ctx.path, '/');
     if (!slash)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve preloader directory from loaded object path");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve preloader directory from loaded object path");
         return false;
     }
 
@@ -155,14 +155,14 @@ static void LoadOpenGLLib()
     if (!s_openglLib)
     {
         const char* error = dlerror();
-        Logger::Log("[GLOverlayPreloader] failed to load " + openglPath + ": " + (error ? error : "unknown dlerror"));
+        LYMALINK_LOG("[GLOverlayPreloader] failed to load " + openglPath + ": " + (error ? error : "unknown dlerror"));
         return;
     }
 
     auto* realDlsym = RealDlsym();
     if (!realDlsym)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve real dlsym");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve real dlsym");
         return;
     }
 
@@ -188,7 +188,7 @@ static void* ResolveRealSymbol(const char* name)
     auto* realDlsym = RealDlsym();
     if (!realDlsym)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve real dlsym while resolving fallback symbol");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve real dlsym while resolving fallback symbol");
         return nullptr;
     }
 
@@ -210,7 +210,7 @@ extern "C" LYMALINK_EXPORT void* dlsym(void* handle, const char* name)
     auto* realDlsym = RealDlsym();
     if (!realDlsym)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve real dlsym inside dlsym hook");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve real dlsym inside dlsym hook");
         return nullptr;
     }
 
@@ -242,7 +242,7 @@ LYMALINK_EXPORT void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         static bool s_loggedMissingReal = false;
         if (!s_loggedMissingReal)
         {
-            Logger::Log("[GLOverlayPreloader] failed to resolve fallback real glXSwapBuffers");
+            LYMALINK_LOG("[GLOverlayPreloader] failed to resolve fallback real glXSwapBuffers");
             s_loggedMissingReal = true;
         }
     }
@@ -267,7 +267,7 @@ LYMALINK_EXPORT EGLBoolean eglSwapBuffers(EGLDisplay dpy, EGLSurface surface)
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve fallback real eglSwapBuffers");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve fallback real eglSwapBuffers");
         s_loggedMissingReal = true;
     }
     return EGL_FALSE;
@@ -292,7 +292,7 @@ LYMALINK_EXPORT __GLXextFuncPtr glXGetProcAddress(const GLubyte* name)
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve fallback real glXGetProcAddress");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve fallback real glXGetProcAddress");
         s_loggedMissingReal = true;
     }
     return nullptr;
@@ -316,7 +316,7 @@ LYMALINK_EXPORT __GLXextFuncPtr glXGetProcAddressARB(const GLubyte* name)
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve fallback real glXGetProcAddressARB");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve fallback real glXGetProcAddressARB");
         s_loggedMissingReal = true;
     }
     return nullptr;
@@ -341,7 +341,7 @@ LYMALINK_EXPORT __eglMustCastToProperFunctionPointerType eglGetProcAddress(const
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayPreloader] failed to resolve fallback real eglGetProcAddress");
+        LYMALINK_LOG("[GLOverlayPreloader] failed to resolve fallback real eglGetProcAddress");
         s_loggedMissingReal = true;
     }
     return nullptr;

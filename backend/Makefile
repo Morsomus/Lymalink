@@ -18,6 +18,8 @@ BIN_DIR := $(BUILD_DIR)/bin
 TEST_BIN_DIR := $(BUILD_DIR)/tests
 
 CPPFLAGS := -Isrc -I../frontend/src -I../backend-overlay/include
+CPPFLAGS_debug := -DBACKEND_DEBUG
+CPPFLAGS += $(CPPFLAGS_$(BUILD))
 CXXFLAGS_COMMON := -std=c++20 -Wall -Wextra -pedantic
 CXXFLAGS_debug := -O0 -g
 CXXFLAGS_release := -O2 -DNDEBUG
@@ -57,7 +59,7 @@ TEST_SOURCES := \
 all: $(BIN_DIR)/$(TARGET)
 
 $(BIN_DIR)/$(TARGET): $(OBJECTS) | $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(SDBUS_LIBS) $(CANBERRA_LIBS) $(GDK_PIXBUF_LIBS) -lsqlite3 -lrt
+	$(CXX) $(CXXFLAGS) -Wl,--no-undefined -o $@ $^ $(SDBUS_LIBS) $(CANBERRA_LIBS) $(GDK_PIXBUF_LIBS) -lsqlite3 -lrt
 
 $(OBJ_DIR)/%.o: src/%.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)

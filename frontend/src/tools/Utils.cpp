@@ -35,7 +35,7 @@ qint64 IsoDateToEpoch(const QString &isoDate)
 
 QString EpochToIsoDate(qint64 epochTime)
 {
-    return QDateTime::fromSecsSinceEpoch(epochTime, QTimeZone::UTC).toString(Qt::ISODate);
+    return QDateTime::fromSecsSinceEpoch(epochTime, Qt::UTC).toString(Qt::ISODate);
 }
 
 /////////////////////////////////////////////////////////////////////

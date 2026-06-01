@@ -16,6 +16,7 @@
 //   ReloadConfig()
 //   RequestActiveTargets()
 //   TestToast()
+//   TestSound()
 // Signals (backend -> frontend):
 //   AchievementUnlocked(int32 appid, string key)
 //   GameStateChanged(array<int32> appids, string state)
@@ -52,6 +53,7 @@ public:
     std::function<void()> onReloadAllTargets;
     std::function<void()> onReloadConfig;
     std::function<void()> onTestToast;
+    std::function<void()> onTestSound;
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;
@@ -64,4 +66,5 @@ private:
     void OnReloadConfig();
     void OnRequestActiveTargets();
     void OnTestToast();
+    void OnTestSound();
 };

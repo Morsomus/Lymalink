@@ -46,6 +46,8 @@ target_compile_definitions(Lymalink PRIVATE
     LYMALINK_VERSION="${LYMALINK_VERSION}"
 )
 
+target_link_options(Lymalink PRIVATE "-Wl,--no-undefined")
+
 set_target_properties(Lymalink PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -62,6 +64,7 @@ qt_add_qml_module(Lymalink
         res/docs/CREDITS.md
         res/docs/THIRD-PARTY-LICENSES-LINUX.md
         res/docs/LICENSE.md
+        res/docs/help/user-guide-0.8.0-beta.md
         res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf
         res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf
         res/fonts/Inter/OFL.txt

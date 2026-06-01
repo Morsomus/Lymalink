@@ -86,4 +86,6 @@ CMakeLists.txt.user*
 a_notes/
 frontend/build/
 backend/build/
+backend-overlay/build/
+installer/build/
 imgui

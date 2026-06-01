@@ -72,11 +72,14 @@ int main(int argc, char *argv[]) {
 
     QQmlApplicationEngine engine;
 
+    engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
+
     // Set context
     engine.rootContext()->setContextProperty("LYMALINK_APP_VERSION", QStringLiteral(LYMALINK_VERSION));
     engine.rootContext()->setContextProperty("LICENSE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/LICENSE.md")));
     engine.rootContext()->setContextProperty("THIRD_PARTY_LICENSES_LINUX_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/THIRD-PARTY-LICENSES-LINUX.md")));
     engine.rootContext()->setContextProperty("CREDITS_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/CREDITS.md")));
+    engine.rootContext()->setContextProperty("USER_GUIDE_0_8_0_BETA_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.8.0-beta.md")));
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
     );
 
     // Load main QML component
-    engine.loadFromModule("Lymalink", "Main");
+    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/Lymalink/Main.qml")));
 
     settings->TrackWindowSizeSetting(&engine);
 

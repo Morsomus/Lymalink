@@ -104,8 +104,8 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
     try
     {
         // Send Notify method call to desktop notification daemon
-        m_notificationsProxy->callMethod(sdbus::MethodName{"Notify"})
-            .onInterface(sdbus::InterfaceName{"org.freedesktop.Notifications"})
+        m_notificationsProxy->callMethod("Notify")
+            .onInterface("org.freedesktop.Notifications")
             .withArguments(
                 std::string{"Lymalink"},
                 uint32_t{0},

@@ -27,6 +27,7 @@ DBusService::DBusService() :
     onReloadAllTargets = nullptr;
     onReloadConfig = nullptr;
     onTestToast = nullptr;
+    onTestSound = nullptr;
 }
 
 DBusService::~DBusService()
@@ -91,6 +92,12 @@ Error DBusService::Init()
                 .implementedAs([this]()
                 {
                     OnTestToast();
+                }),
+
+            sdbus::registerMethod("TestSound")
+                .implementedAs([this]()
+                {
+                    OnTestSound();
                 }),
 
             sdbus::registerSignal("AchievementUnlocked")
@@ -272,5 +279,18 @@ void DBusService::OnTestToast()
     if (onTestToast)
     {
         onTestToast();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::OnTestSound()
+{
+    LOG_BE(Urgency::Info, "TestSound received.");
+
+    // Forward sound-only test request to daemon if callback is connected
+    if (onTestSound)
+    {
+        onTestSound();
     }
 }

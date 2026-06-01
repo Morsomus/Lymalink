@@ -265,6 +265,27 @@ void DBusService::TestToast()
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::TestSound()
+{
+    // Fire-and-forget sound-only test from settings UI
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        qWarning() << "DBusService::TestSound: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("TestSound")
+    );
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
+}
+
+/////////////////////////////////////////////////////////////////////
 //////////////////////////// PRIVATE SLOTS //////////////////////////
 /////////////////////////////////////////////////////////////////////
 

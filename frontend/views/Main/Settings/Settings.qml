@@ -1166,50 +1166,61 @@ Item {
                             label: qsTr("Notification sound")
                             tooltip: qsTr("Select the achievement notification sound")
 
-                            ComboBox {
-                                id: id_notificationSoundCombo
+                            RowLayout {
+                                spacing: 8
 
-                                readonly property int visibleSoundRows: 7
-                                readonly property int soundRowHeight: 32
-
-                                model: ctxSettings.notificationSounds
-                                enabled: count > 0 && !ctxSettings.customNotificationSound
-                                currentIndex: Math.max(0, model.indexOf(ctxSettings.notificationSound))
-                                implicitWidth: 140
-                                displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
-                                delegate: ItemDelegate {
-                                    width: id_notificationSoundCombo.width
-                                    text: qsTr("Sound %1").arg(index + 1)
+                                Button {
+                                    text: qsTr("Test")
+                                    enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
+                                        && (id_notificationSoundCombo.count > 0 || ctxSettings.customNotificationSound)
+                                    onClicked: ctxDBusService.TestSound()
                                 }
-                                popup: Popup {
-                                    y: id_notificationSoundCombo.height
-                                    width: id_notificationSoundCombo.width
-                                    implicitHeight: Math.min(
-                                        id_notificationSoundCombo.visibleSoundRows * id_notificationSoundCombo.soundRowHeight,
-                                        id_notificationSoundList.contentHeight
-                                    )
-                                    padding: 0
 
-                                    contentItem: ListView {
-                                        id: id_notificationSoundList
+                                ComboBox {
+                                    id: id_notificationSoundCombo
 
-                                        clip: true
-                                        implicitHeight: contentHeight
-                                        model: id_notificationSoundCombo.popup.visible ? id_notificationSoundCombo.delegateModel : null
-                                        currentIndex: id_notificationSoundCombo.highlightedIndex
+                                    readonly property int visibleSoundRows: 7
+                                    readonly property int soundRowHeight: 32
 
-                                        ScrollIndicator.vertical: ScrollIndicator {}
+                                    model: ctxSettings.notificationSounds
+                                    enabled: count > 0 && !ctxSettings.customNotificationSound
+                                    currentIndex: Math.max(0, model.indexOf(ctxSettings.notificationSound))
+                                    implicitWidth: 140
+                                    displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
+                                    delegate: ItemDelegate {
+                                        width: id_notificationSoundCombo.width
+                                        text: qsTr("Sound %1").arg(index + 1)
                                     }
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
+                                    popup: Popup {
+                                        y: id_notificationSoundCombo.height
+                                        width: id_notificationSoundCombo.width
+                                        implicitHeight: Math.min(
+                                            id_notificationSoundCombo.visibleSoundRows * id_notificationSoundCombo.soundRowHeight,
+                                            id_notificationSoundList.contentHeight
+                                        )
+                                        padding: 0
+
+                                        contentItem: ListView {
+                                            id: id_notificationSoundList
+
+                                            clip: true
+                                            implicitHeight: contentHeight
+                                            model: id_notificationSoundCombo.popup.visible ? id_notificationSoundCombo.delegateModel : null
+                                            currentIndex: id_notificationSoundCombo.highlightedIndex
+
+                                            ScrollIndicator.vertical: ScrollIndicator {}
+                                        }
                                     }
-                                }
-                                onActivated: (index) => {
-                                    if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.dbusServiceReady) {
-                                        ctxDBusService.ReloadConfig()
+                                    WheelHandler {
+                                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                        onWheel: function(event) {
+                                            event.accepted = true
+                                        }
+                                    }
+                                    onActivated: (index) => {
+                                        if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.dbusServiceReady) {
+                                            ctxDBusService.ReloadConfig()
+                                        }
                                     }
                                 }
                             }
@@ -1336,6 +1347,11 @@ Item {
 
                             Item {
                                 Layout.fillWidth: true
+                            }
+
+                            Button {
+                                text: qsTr("User Guide")
+                                onClicked: id_markdownDocumentPopup.openDocument(qsTr("User Guide"), USER_GUIDE_0_8_0_BETA_MD_TEXT)
                             }
 
                             Button {

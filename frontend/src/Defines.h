@@ -57,7 +57,7 @@
 /////////////////////////////////////////////////////////////////////
 
 #define LYMALINK_APP_ICON_PATH          "icons/hicolor/256x256/apps/lymalink.png"
-#define LYMALINK_TEST_ICON_PATH         "/home/morsomus/.local/share/Lymalink/64x64-lymalink-test-icon.png"
+#define LYMALINK_TEST_ICON_PATH         "Lymalink/64x64-lymalink-test-icon.png"
 
 /////////////////////////////////////////////////////////////////////
 // Logging
@@ -67,7 +67,6 @@
 #define LOG_LYMALINK_FRONTEND_MAX_SIZE      5242880
 #define LOG_LYMALINK_FRONTEND_MAX_BACKUPS   1
 
-#define BACKEND_DEBUG   // TODO: Comment out before releases
 #define LOG_BE(level, fmt, ...) Logger::Instance().Log(level, COMPONENT, __func__, fmt, ##__VA_ARGS__)
 #define LOG_LYMALINK_BACKEND_MAX_SIZE       5242880
 #define LOG_LYMALINK_BACKEND_MAX_BACKUPS    1

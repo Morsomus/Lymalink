@@ -34,7 +34,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
-            id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), CREDITS_MD_TEXT)
+            id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_0_8_0_BETA_MD_TEXT)
         }
     }
 

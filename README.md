@@ -17,6 +17,8 @@ The frontend provides a clean interface for viewing progress and managing settin
 - [Building for Linux](#building-for-linux)
   - [Frontend](#frontend)
   - [Backend](#backend)
+  - [Backend Overlay](#backend-overlay)
+  - [Installer](#installer)
 - [Credits](#credits)
 - [Disclaimer](#disclaimer)
   - [General](#general)
@@ -32,18 +34,22 @@ Current progress towards the first working version, platform-wise
 | Component | Status<br>v0.8.0-beta | Milestone |
 |-----------|--------|--------|
 | **Frontend** | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | 🚧 In Development | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started | v0.9.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started | v0.9.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Localisation | 🔴 To Be Started | |
-| **Backend Service** | 🚧 In Development | v0.8.0-beta |
+| **Backend Service** | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Emulator Support | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Sound System | ✅ Ready to Deploy | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | v0.8.0-beta |
 | **Compatibility & Testing** | 🚧 In Development | v1.0.0 |
 | &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | v1.0.0 |
 
@@ -102,6 +108,7 @@ frontend/build.sh clean       # Remove build/
 frontend/build.sh debug       # Debug build   -> frontend/build/debug/
 frontend/build.sh release     # Release build -> frontend/build/release/
 frontend/build.sh deploy      # Clean + release build, strip binary, install to XDG user dirs
+frontend/build.sh deploy --debug # Clean + debug build, install without stripping
 frontend/build.sh uninstall   # Remove Lymalink and resources from system
 frontend/build.sh dev         # Clean + debug build, launch
 ```
@@ -113,7 +120,7 @@ frontend/build.sh dev         # Clean + debug build, launch
 | `debug`       | Debug     | `frontend/build/debug/`       | `build/debug/bin/Lymalink`           |
 | `release`     | Release   | `frontend/build/release/`     | `build/release/bin/Lymalink`         |
 | `deploy`      | Release   | XDG user dirs (see below)     | `~/.local/bin/Lymalink`              |
-| `dev`         | Debug     | `/tmp/lymalink-build/` + launch | `build/debug/bin/Lymalink`         |
+| `dev`         | Debug     | `frontend/build/debug/` + launch | `build/debug/bin/Lymalink`     |
 
 **Deploy installs to standard XDG directories:**
 
@@ -122,6 +129,8 @@ frontend/build.sh dev         # Clean + debug build, launch
 | Binary | `~/.local/bin/Lymalink` |
 | Icon | `~/.local/share/icons/hicolor/256x256/apps/lymalink.png` |
 | Desktop entry | `~/.local/share/applications/lymalink.desktop` |
+
+<br>
 
 ### Backend
 
@@ -134,12 +143,11 @@ backend/build.sh release
 backend/build.sh test
 ```
 
-Debug and release binaries are built under `/tmp/lymalinkd-build` by default.
-
 To install and manage the user service:
 
 ```bash
 backend/build.sh deploy
+backend/build.sh deploy --debug
 backend/build.sh start
 backend/build.sh stop
 backend/build.sh restart
@@ -149,6 +157,60 @@ backend/build.sh uninstall
 ```
 
 For backend requirements, direct `make` usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
+
+<br>
+
+### Backend Overlay
+
+The standalone overlay libraries can be built and deployed separately:
+
+```bash
+backend-overlay/build.sh clean
+backend-overlay/build.sh debug
+backend-overlay/build.sh release
+backend-overlay/build.sh deploy
+backend-overlay/build.sh deploy --debug
+backend-overlay/build.sh uninstall
+```
+
+<br>
+
+### Installer
+
+The `installer/build.sh` script builds the frontend, backend, overlay libraries, Flatpak VulkanLayer extension, and a self-extracting user-level installer:
+
+```bash
+installer/build.sh
+```
+
+The build requires `makeself`, Flatpak tooling, the frontend and backend build dependencies. Output is written to:
+
+```text
+installer/build/lymalink-release/
+installer/build/lymalink-installer-<VERSION>-x86_64.run
+```
+
+Chmod +x and run the generated `.run` file to install Lymalink (no root required). It installs application binaries under `~/.local/bin`, overlay libraries under `~/.local/lib`, XDG data files, the systemd user unit, and the bundled Flatpak extension. Distro-specific runtime libraries, GPU drivers, systemd/D-Bus, and Flatpak itself remain host prerequisites; the installer checks required commands and ELF dependencies before copying files.
+
+Installed files:
+
+| Files | Destination |
+|-------|-------------|
+| `Lymalink`, `lymalinkd`, `lymalink-overlay`, `uninstall-lymalink` | `~/.local/bin/` |
+| `lymalink-overlay*.so` | `~/.local/lib/` |
+| `lymalink_overlay.json` | `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/` |
+| Icon and `lymalink.desktop` | `${XDG_DATA_HOME:-~/.local/share}/icons/`, `applications/` |
+| Sounds and test icon | `${XDG_DATA_HOME:-~/.local/share}/Lymalink/` |
+| `lymalinkd.service` | `${XDG_CONFIG_HOME:-~/.config}/systemd/user/` |
+| Flatpak VulkanLayer extension | User Flatpak installation |
+
+The installer reloads systemd user units but does not enable or start background `lymalinkd.service`. The desktop application controls backend service activation. To remove installer-managed files while preserving user configuration and database data, run:
+
+```bash
+~/.local/bin/uninstall-lymalink
+```
+
+The uninstaller removes the files listed above, disables the user service if needed, and preserves user configuration and database data.
 
 ---
 

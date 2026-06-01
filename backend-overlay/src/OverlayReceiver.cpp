@@ -232,7 +232,7 @@ bool OverlayReceiver::SharedMemoryOpen()
         // Daemon not running yet, silent failure, retry next frame
         if (!s_loggedMissing)
         {
-            Logger::Log("[OverlayReceiver][SharedMemoryOpen] shm_open failed for " + std::string(OVERLAY_SHM_NAME) + ": " + std::strerror(errno));
+            LYMALINK_LOG("[OverlayReceiver][SharedMemoryOpen] shm_open failed for " + std::string(OVERLAY_SHM_NAME) + ": " + std::strerror(errno));
             s_loggedMissing = true;
         }
         return false;
@@ -242,7 +242,7 @@ bool OverlayReceiver::SharedMemoryOpen()
     m_shm = static_cast<OverlaySharedMemoryState*>(mmap(nullptr, sizeof(OverlaySharedMemoryState), PROT_READ | PROT_WRITE, MAP_SHARED, m_shmFd, 0));
     if (m_shm == MAP_FAILED)
     {
-        Logger::Log("[OverlayReceiver][SharedMemoryOpen] mmap failed: " + std::string(std::strerror(errno)));
+        LYMALINK_LOG("[OverlayReceiver][SharedMemoryOpen] mmap failed: " + std::string(std::strerror(errno)));
         m_shm = nullptr;
         close(m_shmFd);
         m_shmFd = -1;
@@ -253,7 +253,7 @@ bool OverlayReceiver::SharedMemoryOpen()
     if (m_shm->version != OVERLAY_SHM_VERSION)
     {
         // Version mismatch between daemon and overlay, unmap and bail
-        Logger::Log("[OverlayReceiver][SharedMemoryOpen] version mismatch got=" + std::to_string(m_shm->version) + " expected=" + std::to_string(OVERLAY_SHM_VERSION));
+        LYMALINK_LOG("[OverlayReceiver][SharedMemoryOpen] version mismatch got=" + std::to_string(m_shm->version) + " expected=" + std::to_string(OVERLAY_SHM_VERSION));
         SharedMemoryClose();
         return false;
     }
@@ -270,7 +270,7 @@ void OverlayReceiver::SharedMemoryClose()
     {
         if (munmap(m_shm, sizeof(OverlaySharedMemoryState)) == -1)
         {
-            Logger::Log("[OverlayReceiver][SharedMemoryClose] munmap failed: " + std::string(std::strerror(errno)));
+            LYMALINK_LOG("[OverlayReceiver][SharedMemoryClose] munmap failed: " + std::string(std::strerror(errno)));
         }
         m_shm = nullptr;
     }
@@ -280,7 +280,7 @@ void OverlayReceiver::SharedMemoryClose()
     {
         if (close(m_shmFd) == -1)
         {
-            Logger::Log("[OverlayReceiver][SharedMemoryClose] close failed: " + std::string(std::strerror(errno)));
+            LYMALINK_LOG("[OverlayReceiver][SharedMemoryClose] close failed: " + std::string(std::strerror(errno)));
         }
         m_shmFd = -1;
     }
@@ -356,7 +356,7 @@ bool OverlayReceiver::SocketConnect()
         static bool s_loggedPathTooLong = false;
         if (!s_loggedPathTooLong)
         {
-            Logger::Log("[OverlayReceiver][SocketConnect] socket path too long: " + m_socketPath);
+            LYMALINK_LOG("[OverlayReceiver][SocketConnect] socket path too long: " + m_socketPath);
             s_loggedPathTooLong = true;
         }
         return false;
@@ -379,7 +379,7 @@ bool OverlayReceiver::SocketConnect()
     {
         if (!m_loggedSocketFailed)
         {
-            Logger::Log("[OverlayReceiver][SocketConnect] socket failed: " + std::string(std::strerror(errno)));
+            LYMALINK_LOG("[OverlayReceiver][SocketConnect] socket failed: " + std::string(std::strerror(errno)));
             m_loggedSocketFailed = true;
         }
         return false;
@@ -393,7 +393,7 @@ bool OverlayReceiver::SocketConnect()
     {
         m_socketFd = fd;
         m_socketConnecting = false;
-        Logger::Log("[OverlayReceiver][SocketConnect] connected.");
+        LYMALINK_LOG("[OverlayReceiver][SocketConnect] connected.");
         return true;
     }
 
@@ -445,7 +445,7 @@ bool OverlayReceiver::SocketIsConnected()
     {
         if (m_socketConnecting)
         {
-            Logger::Log("[OverlayReceiver][SocketIsConnected] connected.");
+            LYMALINK_LOG("[OverlayReceiver][SocketIsConnected] connected.");
         }
         m_socketConnecting = false;
         return true;
@@ -488,7 +488,7 @@ void OverlayReceiver::SocketDrain()
             {
                 m_socketPending = SocketPacketToNotification(packet);
                 m_hasSocketPending = true;
-                Logger::Log("[OverlayReceiver][SocketDrain] packet received: " + m_socketPending.title);
+                LYMALINK_LOG("[OverlayReceiver][SocketDrain] packet received: " + m_socketPending.title);
             }
             continue;
         }
@@ -508,7 +508,7 @@ void OverlayReceiver::SocketDrain()
         // Handle partial/malformed packets
         if (bytes > 0)
         {
-            Logger::Log("[OverlayReceiver][SocketDrain] invalid packet size: " + std::to_string(bytes));
+            LYMALINK_LOG("[OverlayReceiver][SocketDrain] invalid packet size: " + std::to_string(bytes));
             continue;
         }
 
@@ -539,7 +539,7 @@ bool OverlayReceiver::SocketClaimPendingNotification()
     m_fadingOut = false;
     m_iconAlpha = 0.0f;
     m_iconAnimProgress = 0.0f;
-    Logger::Log("[OverlayReceiver][SocketClaimPendingNotification] claimed: " + m_currentActiveNotification.title);
+    LYMALINK_LOG("[OverlayReceiver][SocketClaimPendingNotification] claimed: " + m_currentActiveNotification.title);
     return true;
 }
 
@@ -575,7 +575,7 @@ std::string OverlayReceiver::SocketDetectFlatpakPath() const
     // Check if this specific Flatpak process/launcher should be ignored/blocked
     if (SocketIsBlockedFlatpakLauncherProcess(appId))
     {
-        Logger::Log("[OverlayReceiver] Flatpak process ignored for app-id: " + appId);
+        LYMALINK_LOG("[OverlayReceiver] Flatpak process ignored for app-id: " + appId);
         return {};
     }
 
@@ -653,7 +653,7 @@ OverlayReceiver::ActiveNotification OverlayReceiver::SocketPacketToNotification(
 
 void OverlayReceiver::DrawNotificationWindow()
 {
-    // Logger::Log("alpha=" + std::to_string(m_alpha) + " openGLReady=" + std::to_string(m_openGLReady ? 1 : 0) + " vulkanReady=" + std::to_string(m_vulkanReady ? 1 : 0));
+    // LYMALINK_LOG("alpha=" + std::to_string(m_alpha) + " openGLReady=" + std::to_string(m_openGLReady ? 1 : 0) + " vulkanReady=" + std::to_string(m_vulkanReady ? 1 : 0));
 
     // Layout boundaries for the notification window
     constexpr float MARGIN = 40.0f;
@@ -845,7 +845,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
         || m_vkPhysicalDevice == VK_NULL_HANDLE || m_vkQueue == VK_NULL_HANDLE
         || m_vkCommandPool == VK_NULL_HANDLE)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] invalid Vulkan state, skipping icon upload.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] invalid Vulkan state, skipping icon upload.");
         DestroyVulkanIconTexture();
         return false;
     }
@@ -879,7 +879,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
         {
             if (error)
             {
-                Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] failed to load icon: " + iconPath + ": " + error->message);
+                LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] failed to load icon: " + iconPath + ": " + error->message);
                 g_error_free(error);
             }
             return false;
@@ -929,7 +929,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     VkBuffer stagingBuf = VK_NULL_HANDLE;
     if (vkCreateBuffer(m_vkDevice, &bufCI, nullptr, &stagingBuf) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateBuffer failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateBuffer failed.");
         return false;
     }
 
@@ -945,7 +945,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
     if (vkAllocateMemory(m_vkDevice, &allocInfo, nullptr, &stagingMem) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateMemory (staging) failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateMemory (staging) failed.");
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
         return false;
     }
@@ -974,7 +974,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
 
     if (vkCreateImage(m_vkDevice, &imgCI, nullptr, &m_vkIconImage) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateImage failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateImage failed.");
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
         vkFreeMemory(m_vkDevice, stagingMem, nullptr);
         return false;
@@ -987,7 +987,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
 
     if (vkAllocateMemory(m_vkDevice, &allocInfo, nullptr, &m_vkIconMemory) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateMemory (image) failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateMemory (image) failed.");
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
         vkFreeMemory(m_vkDevice, stagingMem, nullptr);
         DestroyVulkanIconTexture();
@@ -1006,7 +1006,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     VkCommandBuffer cb = VK_NULL_HANDLE;
     if (vkAllocateCommandBuffers(m_vkDevice, &cbAlloc, &cb) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateCommandBuffers failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkAllocateCommandBuffers failed.");
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
         vkFreeMemory(m_vkDevice, stagingMem, nullptr);
         DestroyVulkanIconTexture();
@@ -1052,7 +1052,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     VkFence fence = VK_NULL_HANDLE;
     if (vkCreateFence(m_vkDevice, &fenceCI, nullptr, &fence) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateFence failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateFence failed.");
         vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, 1, &cb);
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
         vkFreeMemory(m_vkDevice, stagingMem, nullptr);
@@ -1068,7 +1068,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     const VkResult submitResult = vkQueueSubmit(m_vkQueue, 1, &submitInfo, fence);
     if (submitResult != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkQueueSubmit failed: " + std::to_string(submitResult));
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkQueueSubmit failed: " + std::to_string(submitResult));
         vkDestroyFence(m_vkDevice, fence, nullptr);
         vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, 1, &cb);
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
@@ -1082,7 +1082,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     const VkResult waitResult = vkWaitForFences(m_vkDevice, 1, &fence, VK_TRUE, ICON_UPLOAD_WAIT_NS);
     if (waitResult != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkWaitForFences failed/timeout: " + std::to_string(waitResult));
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkWaitForFences failed/timeout: " + std::to_string(waitResult));
         vkDestroyFence(m_vkDevice, fence, nullptr);
         vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, 1, &cb);
         vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
@@ -1106,7 +1106,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     viewCI.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     if (vkCreateImageView(m_vkDevice, &viewCI, nullptr, &m_vkIconImageView) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateImageView failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateImageView failed.");
         DestroyVulkanIconTexture();
         return false;
     }
@@ -1123,7 +1123,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     samplerCI.maxLod = 1.0f;
     if (vkCreateSampler(m_vkDevice, &samplerCI, nullptr, &m_vkIconSampler) != VK_SUCCESS)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateSampler failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] vkCreateSampler failed.");
         DestroyVulkanIconTexture();
         return false;
     }
@@ -1132,14 +1132,14 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     m_vkIconDescSet = ImGui_ImplVulkan_AddTexture(m_vkIconSampler, m_vkIconImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (m_vkIconDescSet == VK_NULL_HANDLE)
     {
-        Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] ImGui_ImplVulkan_AddTexture failed.");
+        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] ImGui_ImplVulkan_AddTexture failed.");
         DestroyVulkanIconTexture();
         return false;
     }
 
     // Cache texture metadata
     m_loadedIconPath = iconPath;
-    Logger::Log("[OverlayReceiver][EnsureVulkanIconTexture] loaded: " + iconPath);
+    LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] loaded: " + iconPath);
     return true;
 #else
     // Handle disabled Vulkan feature fallback
@@ -1201,7 +1201,7 @@ uint32_t OverlayReceiver::VulkanFindMemoryType(uint32_t typeFilter, VkMemoryProp
     // Validate physical device and function pointer availability
     if (m_vkPhysicalDevice == VK_NULL_HANDLE || !m_vkGetPhysicalDeviceMemoryProperties)
     {
-        Logger::Log("[OverlayReceiver][VulkanFindMemoryType] physical device or fn ptr null.");
+        LYMALINK_LOG("[OverlayReceiver][VulkanFindMemoryType] physical device or fn ptr null.");
         return 0;
     }
 
@@ -1219,7 +1219,7 @@ uint32_t OverlayReceiver::VulkanFindMemoryType(uint32_t typeFilter, VkMemoryProp
         }
     }
 
-    Logger::Log("[OverlayReceiver][VulkanFindMemoryType] no suitable memory type found.");
+    LYMALINK_LOG("[OverlayReceiver][VulkanFindMemoryType] no suitable memory type found.");
     return 0;
 #else
     // Handle disabled Vulkan feature fallback
@@ -1270,7 +1270,7 @@ bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
         {
             if (error)
             {
-                Logger::Log("[OverlayReceiver][EnsureOpenGLIconTexture] failed to load icon: " + iconPath + ": " + error->message);
+                LYMALINK_LOG("[OverlayReceiver][EnsureOpenGLIconTexture] failed to load icon: " + iconPath + ": " + error->message);
                 g_error_free(error);
             }
             return false;

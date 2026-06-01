@@ -32,7 +32,6 @@ enum class OverlayNotificationPosition : uint32_t
     BottomLeft = 5
 };
 
-// __attribute__((packed))
 struct OverlaySharedMemoryState
 {
     uint32_t version = OVERLAY_SHM_VERSION;

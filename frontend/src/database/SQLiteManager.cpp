@@ -13,6 +13,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QDebug>
+#include <QCoreApplication>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -69,6 +70,12 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
 
 void SQLiteManager::closeDatabase(const QString &connectionName)
 {
+    if (QCoreApplication::instance() == nullptr)
+    {
+        m_dbConnections.remove(resolveConn(connectionName));
+        return;
+    }
+
     const QString conn = resolveConn(connectionName);
     if (!m_dbConnections.contains(conn))
     {

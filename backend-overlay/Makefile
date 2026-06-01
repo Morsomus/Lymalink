@@ -21,6 +21,8 @@ IMGUI_DIR ?= src/imgui
 IMGUI_CFLAGS := -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 
 CPPFLAGS := -Iinclude -Isrc -I../backend/src
+CPPFLAGS_release := -DLYMALINK_OVERLAY_DISABLE_LOGGING
+CPPFLAGS += $(CPPFLAGS_$(BUILD))
 CXXFLAGS_COMMON := -std=c++20 -Wall -Wextra -pedantic
 CXXFLAGS_debug := -O0 -g
 CXXFLAGS_release := -O2 -DNDEBUG

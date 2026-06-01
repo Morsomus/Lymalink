@@ -57,7 +57,7 @@ static PFN_vkVoidFunction ImGuiVulkanLoader(const char* functionName, void* user
     do { \
         VkResult _r = (call); \
         if (_r != VK_SUCCESS) { \
-            Logger::Log(std::string("[VulkanOverlayRenderer] ") + (msg) + \
+            LYMALINK_LOG(std::string("[VulkanOverlayRenderer] ") + (msg) + \
                         " VkResult=" + std::to_string(_r)); \
             return false; \
         } \
@@ -89,13 +89,13 @@ bool VulkanOverlayRenderer::Initialize(const VulkanOverlayRendererInitInfo& info
     // Sanity check to prevent initialization with invalid core Vulkan handles
     if (m_device == VK_NULL_HANDLE || m_graphicsQueue == VK_NULL_HANDLE)
     {
-        Logger::Log("[VulkanOverlayRenderer][Initialize] invalid device or graphics queue.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][Initialize] invalid device or graphics queue.");
         return false;
     }
     // Verify that host application swapchain data pointers are valid
     if (m_info.imageCount == 0 || m_info.swapchainImages.empty() || m_info.swapchainViews.empty())
     {
-        Logger::Log("[VulkanOverlayRenderer][Initialize] invalid swapchain image data.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][Initialize] invalid swapchain image data.");
         return false;
     }
 
@@ -123,7 +123,7 @@ void VulkanOverlayRenderer::Shutdown()
     VkResult waitResult = vkDeviceWaitIdle(m_device);
     if (waitResult != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][Shutdown] vkDeviceWaitIdle failed result=" + std::to_string(waitResult));
+        LYMALINK_LOG("[VulkanOverlayRenderer][Shutdown] vkDeviceWaitIdle failed result=" + std::to_string(waitResult));
     }
 
     // Unregister and clean up the ImGui Vulkan context
@@ -197,7 +197,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     // Use the first swapchain image index from the present info
     if (!pPresentInfo || pPresentInfo->swapchainCount == 0 || !pPresentInfo->pImageIndices)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] invalid present info.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] invalid present info.");
         return;
     }
 
@@ -209,17 +209,17 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
         imgIdx >= static_cast<uint32_t>(m_framebuffers.size()) ||
         imgIdx >= static_cast<uint32_t>(m_info.swapchainImages.size()))
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] image index out of range index=" + std::to_string(imgIdx));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] image index out of range index=" + std::to_string(imgIdx));
         return;
     }
     if (presentQueue == VK_NULL_HANDLE)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] present queue is null.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] present queue is null.");
         return;
     }
     if (pPresentInfo->waitSemaphoreCount > 0 && !pPresentInfo->pWaitSemaphores)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] waitSemaphoreCount is non-zero but pWaitSemaphores is null.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] waitSemaphoreCount is non-zero but pWaitSemaphores is null.");
         return;
     }
 
@@ -230,19 +230,19 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     VkResult result = vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkWaitForFences failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkWaitForFences failed result=" + std::to_string(result));
         return;
     }
     result = vkResetFences(m_device, 1, &fence);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkResetFences failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkResetFences failed result=" + std::to_string(result));
         return;
     }
     result = vkResetCommandBuffer(cmd, 0);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkResetCommandBuffer failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkResetCommandBuffer failed result=" + std::to_string(result));
         return;
     }
 
@@ -253,7 +253,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     result = vkBeginCommandBuffer(cmd, &beginInfo);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkBeginCommandBuffer failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkBeginCommandBuffer failed result=" + std::to_string(result));
         return;
     }
 
@@ -308,7 +308,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     result = vkEndCommandBuffer(cmd);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkEndCommandBuffer failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkEndCommandBuffer failed result=" + std::to_string(result));
         return;
     }
 
@@ -329,7 +329,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     result = vkQueueSubmit(presentQueue, 1, &submitInfo, fence);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayRenderer][RenderDrawData] vkQueueSubmit failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkQueueSubmit failed result=" + std::to_string(result));
         return;
     }
 
@@ -396,7 +396,7 @@ bool VulkanOverlayRenderer::CreateSwapchainFramebuffers()
 {
     if (m_info.swapchainViews.size() < m_info.imageCount)
     {
-        Logger::Log("[VulkanOverlayRenderer][CreateSwapchainFramebuffers] not enough swapchain image views.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][CreateSwapchainFramebuffers] not enough swapchain image views.");
         return false;
     }
 
@@ -538,14 +538,14 @@ bool VulkanOverlayRenderer::InitializeImGuiVulkanBackend()
     // Load Vulkan extension function hooks using localized function resolver
     if (!ImGui_ImplVulkan_LoadFunctions(vkInfo.ApiVersion, ImGuiVulkanLoader, &m_info))
     {
-        Logger::Log("[VulkanOverlayRenderer][InitializeImGuiVulkanBackend] ImGui_ImplVulkan_LoadFunctions failed.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][InitializeImGuiVulkanBackend] ImGui_ImplVulkan_LoadFunctions failed.");
         return false;
     }
 
     // Execute standard library backend init call
     if (!ImGui_ImplVulkan_Init(&vkInfo))
     {
-        Logger::Log("[VulkanOverlayRenderer][InitializeImGuiVulkanBackend] ImGui_ImplVulkan_Init failed.");
+        LYMALINK_LOG("[VulkanOverlayRenderer][InitializeImGuiVulkanBackend] ImGui_ImplVulkan_Init failed.");
         return false;
     }
     m_imguiBackendReady = true;

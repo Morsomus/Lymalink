@@ -69,7 +69,7 @@ static void* OpenLibrary(const char* name)
     if (!handle)
     {
         const char* error = dlerror();
-        Logger::Log("[GLOverlayOpenGL] failed to open " + std::string(name) + ": " + (error ? error : "unknown dlerror"));
+        LYMALINK_LOG("[GLOverlayOpenGL] failed to open " + std::string(name) + ": " + (error ? error : "unknown dlerror"));
     }
 
     return handle;
@@ -107,7 +107,7 @@ static void ResolveRealFunctions()
 
     if (!realDlsym)
     {
-        Logger::Log("[GLOverlayOpenGL] failed to resolve real dlsym");
+        LYMALINK_LOG("[GLOverlayOpenGL] failed to resolve real dlsym");
         return;
     }
 
@@ -117,7 +117,7 @@ static void ResolveRealFunctions()
         s_realGLX = reinterpret_cast<PFN_glXSwapBuffers>(realDlsym(libGL, "glXSwapBuffers"));
         if (!s_realGLX)
         {
-            Logger::Log("[GLOverlayOpenGL] missing symbol glXSwapBuffers from libGL.so.1");
+            LYMALINK_LOG("[GLOverlayOpenGL] missing symbol glXSwapBuffers from libGL.so.1");
         }
     }
     if (libEGL)
@@ -126,12 +126,12 @@ static void ResolveRealFunctions()
         s_realEGL = reinterpret_cast<PFN_eglSwapBuffers>(realDlsym(libEGL, "eglSwapBuffers"));
         if (!s_realEGL)
         {
-            Logger::Log("[GLOverlayOpenGL] missing symbol eglSwapBuffers from libEGL.so.1");
+            LYMALINK_LOG("[GLOverlayOpenGL] missing symbol eglSwapBuffers from libEGL.so.1");
         }
     }
 
-    Logger::Log("[GLOverlayOpenGL] glXSwapBuffers real=" + std::to_string(reinterpret_cast<uintptr_t>(s_realGLX)));
-    Logger::Log("[GLOverlayOpenGL] eglSwapBuffers real=" + std::to_string(reinterpret_cast<uintptr_t>(s_realEGL)));
+    LYMALINK_LOG("[GLOverlayOpenGL] glXSwapBuffers real=" + std::to_string(reinterpret_cast<uintptr_t>(s_realGLX)));
+    LYMALINK_LOG("[GLOverlayOpenGL] eglSwapBuffers real=" + std::to_string(reinterpret_cast<uintptr_t>(s_realEGL)));
 
     // Close handles
     if (libGL)
@@ -158,7 +158,7 @@ static void QueryGLXSize(Display* dpy, GLXDrawable drawable, uint32_t& outW, uin
         static bool s_loggedZeroSize = false;
         if (!s_loggedZeroSize)
         {
-            Logger::Log("[GLOverlayOpenGL] glXQueryDrawable returned zero size " + std::to_string(w) + "x" + std::to_string(h));
+            LYMALINK_LOG("[GLOverlayOpenGL] glXQueryDrawable returned zero size " + std::to_string(w) + "x" + std::to_string(h));
             s_loggedZeroSize = true;
         }
     }
@@ -182,7 +182,7 @@ static void QueryEGLSize(EGLDisplay dpy, EGLSurface surface, uint32_t& outW, uin
         static bool s_loggedInvalidSize = false;
         if (!s_loggedInvalidSize)
         {
-            Logger::Log("[GLOverlayOpenGL] eglQuerySurface failed or returned invalid size " + std::to_string(w) + "x" + std::to_string(h));
+            LYMALINK_LOG("[GLOverlayOpenGL] eglQuerySurface failed or returned invalid size " + std::to_string(w) + "x" + std::to_string(h));
             s_loggedInvalidSize = true;
         }
     }
@@ -198,7 +198,7 @@ static void InitOverlay()
     std::call_once(s_overlayInitFlag, []()
     {
         const bool ready = s_overlay.InitConnection();
-        Logger::Log(std::string("[GLOverlayOpenGL] overlay connection ") + (ready ? "initialised" : "not ready"));
+        LYMALINK_LOG(std::string("[GLOverlayOpenGL] overlay connection ") + (ready ? "initialised" : "not ready"));
     });
 }
 
@@ -223,11 +223,11 @@ static void InitImGui(uint32_t w, uint32_t h)
         ImGui::StyleColorsDark();
         if (!ImGui_ImplOpenGL3_Init("#version 130"))
         {
-            Logger::Log("[GLOverlayOpenGL] ImGui_ImplOpenGL3_Init failed");
+            LYMALINK_LOG("[GLOverlayOpenGL] ImGui_ImplOpenGL3_Init failed");
         }
         s_overlay.EnsureOpenGLImGuiContext();
 
-        Logger::Log("[GLOverlayOpenGL] ImGui OpenGL3 ready " + std::to_string(w) + "x" + std::to_string(h));
+        LYMALINK_LOG("[GLOverlayOpenGL] ImGui OpenGL3 ready " + std::to_string(w) + "x" + std::to_string(h));
     });
 }
 
@@ -254,7 +254,7 @@ static void RenderOverlay(uint32_t w, uint32_t h)
         static bool s_loggedMissingDrawData = false;
         if (!s_loggedMissingDrawData)
         {
-            Logger::Log("[GLOverlayOpenGL] ImGui::GetDrawData returned null");
+            LYMALINK_LOG("[GLOverlayOpenGL] ImGui::GetDrawData returned null");
             s_loggedMissingDrawData = true;
         }
         return;
@@ -271,7 +271,7 @@ static void RenderOverlay(uint32_t w, uint32_t h)
             static bool s_loggedFramebufferBind = false;
             if (!s_loggedFramebufferBind)
             {
-                Logger::Log("[GLOverlayOpenGL] binding default draw framebuffer, previous=" + std::to_string(previousDrawFramebuffer));
+                LYMALINK_LOG("[GLOverlayOpenGL] binding default draw framebuffer, previous=" + std::to_string(previousDrawFramebuffer));
                 s_loggedFramebufferBind = true;
             }
             glBindFramebufferFn(GL_DRAW_FRAMEBUFFER, 0);
@@ -314,7 +314,7 @@ LYMALINK_EXPORT void lymalink_glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         static bool s_loggedMissingReal = false;
         if (!s_loggedMissingReal)
         {
-            Logger::Log("[GLOverlayOpenGL] real glXSwapBuffers is missing");
+            LYMALINK_LOG("[GLOverlayOpenGL] real glXSwapBuffers is missing");
             s_loggedMissingReal = true;
         }
     }
@@ -342,7 +342,7 @@ LYMALINK_EXPORT EGLBoolean lymalink_eglSwapBuffers(EGLDisplay dpy, EGLSurface su
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayOpenGL] real eglSwapBuffers is missing");
+        LYMALINK_LOG("[GLOverlayOpenGL] real eglSwapBuffers is missing");
         s_loggedMissingReal = true;
     }
     return EGL_FALSE;
@@ -367,7 +367,7 @@ LYMALINK_EXPORT __GLXextFuncPtr lymalink_glXGetProcAddress(const GLubyte* name)
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayOpenGL] real glXGetProcAddress is missing");
+        LYMALINK_LOG("[GLOverlayOpenGL] real glXGetProcAddress is missing");
         s_loggedMissingReal = true;
     }
     return nullptr;
@@ -391,7 +391,7 @@ LYMALINK_EXPORT __GLXextFuncPtr lymalink_glXGetProcAddressARB(const GLubyte* nam
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayOpenGL] real glXGetProcAddressARB is missing");
+        LYMALINK_LOG("[GLOverlayOpenGL] real glXGetProcAddressARB is missing");
         s_loggedMissingReal = true;
     }
     return nullptr;
@@ -415,7 +415,7 @@ LYMALINK_EXPORT __eglMustCastToProperFunctionPointerType lymalink_eglGetProcAddr
     static bool s_loggedMissingReal = false;
     if (!s_loggedMissingReal)
     {
-        Logger::Log("[GLOverlayOpenGL] real eglGetProcAddress is missing");
+        LYMALINK_LOG("[GLOverlayOpenGL] real eglGetProcAddress is missing");
         s_loggedMissingReal = true;
     }
     return nullptr;

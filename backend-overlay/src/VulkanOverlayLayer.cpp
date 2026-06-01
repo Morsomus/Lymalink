@@ -98,7 +98,7 @@ static uint32_t FindGraphicsFamily(VkPhysicalDevice physDev, PFN_vkGetPhysicalDe
         }
     }
 
-    Logger::Log("[VulkanOverlayLayer][FindGraphicsFamily] no graphics queue family found; falling back to family 0.");
+    LYMALINK_LOG("[VulkanOverlayLayer][FindGraphicsFamily] no graphics queue family found; falling back to family 0.");
     return 0;
 }
 
@@ -120,7 +120,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateInstance(const VkInstanceCrea
 
     if (!linkInfo)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateInstance] missing loader link info.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] missing loader link info.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -131,7 +131,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateInstance(const VkInstanceCrea
     auto createInstance = reinterpret_cast<PFN_vkCreateInstance>(nextGIPA(VK_NULL_HANDLE, "vkCreateInstance"));
     if (!createInstance)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkCreateInstance missing.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkCreateInstance missing.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -139,7 +139,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateInstance(const VkInstanceCrea
     VkResult result = createInstance(pCreateInfo, pAllocator, pInstance);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkCreateInstance failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkCreateInstance failed result=" + std::to_string(result));
         return result;
     }
 
@@ -153,12 +153,12 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateInstance(const VkInstanceCrea
             VkResult enumResult = enumPhys(*pInstance, &devCount, &physDev);
             if (enumResult != VK_SUCCESS)
             {
-                Logger::Log("[VulkanOverlayLayer][Hook_vkCreateInstance] vkEnumeratePhysicalDevices failed result=" + std::to_string(enumResult));
+                LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] vkEnumeratePhysicalDevices failed result=" + std::to_string(enumResult));
             }
         }
         else
         {
-            Logger::Log("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkEnumeratePhysicalDevices missing.");
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] next vkEnumeratePhysicalDevices missing.");
         }
     }
 
@@ -219,7 +219,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
 
     if (!linkInfo)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] missing loader link info.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] missing loader link info.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -231,7 +231,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
     auto createDevice = reinterpret_cast<PFN_vkCreateDevice>(nextGIPA(VK_NULL_HANDLE, "vkCreateDevice"));
     if (!createDevice)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkCreateDevice missing.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkCreateDevice missing.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -239,7 +239,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
     VkResult result = createDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkCreateDevice failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkCreateDevice failed result=" + std::to_string(result));
         return result;
     }
 
@@ -256,7 +256,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
     auto getQueueFamilyProps = reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(nextGIPA(inst, "vkGetPhysicalDeviceQueueFamilyProperties"));
     if (!getQueueFamilyProps)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] getQueueFamilyProps null, skipping graphics family detection.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] getQueueFamilyProps null, skipping graphics family detection.");
     }
     // Determine which queue family handles graphics, index 0 used as fallback
     const uint32_t gfxFamily = getQueueFamilyProps ? FindGraphicsFamily(physicalDevice, getQueueFamilyProps) : 0;
@@ -270,7 +270,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
     }
     else
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkGetDeviceQueue missing.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] next vkGetDeviceQueue missing.");
     }
 
     // Cache device dispatch table and queue info for use in later hooks
@@ -291,7 +291,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
 
     if (!gfxQueue)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateDevice] graphics queue is null for family=" + std::to_string(gfxFamily));
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateDevice] graphics queue is null for family=" + std::to_string(gfxFamily));
     }
 
     // Connect the overlay receiver exactly once, regardless of how many devices are created
@@ -352,7 +352,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
 
     if (!createSwapchain)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] next vkCreateSwapchainKHR missing.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] next vkCreateSwapchainKHR missing.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -360,7 +360,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
     VkResult result = createSwapchain(device, pCreateInfo, pAllocator, pSwapchain);
     if (result != VK_SUCCESS)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] next vkCreateSwapchainKHR failed result=" + std::to_string(result));
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] next vkCreateSwapchainKHR failed result=" + std::to_string(result));
         return result;
     }
 
@@ -375,7 +375,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
         auto it = s_devices.find(key);
         if (it == s_devices.end())
         {
-            Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] device not tracked after swapchain creation.");
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] device not tracked after swapchain creation.");
             return result;
         }
 
@@ -384,7 +384,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
 
         if (!dev.getSwapchainImages || !dev.createImageView)
         {
-            Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] required swapchain device functions missing.");
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] required swapchain device functions missing.");
             return result;
         }
 
@@ -393,14 +393,14 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
         VkResult imageResult = dev.getSwapchainImages(device, *pSwapchain, &imgCount, nullptr);
         if (imageResult != VK_SUCCESS)
         {
-            Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetSwapchainImagesKHR count failed result=" + std::to_string(imageResult));
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetSwapchainImagesKHR count failed result=" + std::to_string(imageResult));
             return result;
         }
         dev.swapchainImages.resize(imgCount);
         imageResult = dev.getSwapchainImages(device, *pSwapchain, &imgCount, dev.swapchainImages.data());
         if (imageResult != VK_SUCCESS)
         {
-            Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetSwapchainImagesKHR data failed result=" + std::to_string(imageResult));
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetSwapchainImagesKHR data failed result=" + std::to_string(imageResult));
             dev.swapchainImages.clear();
             return result;
         }
@@ -430,7 +430,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
             VkResult viewResult = dev.createImageView(device, &viewInfo, nullptr, &dev.swapchainViews[i]);
             if (viewResult != VK_SUCCESS)
             {
-                Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkCreateImageView failed image=" + std::to_string(i) + " result=" + std::to_string(viewResult));
+                LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkCreateImageView failed image=" + std::to_string(i) + " result=" + std::to_string(viewResult));
                 imageViewsReady = false;
             }
         }
@@ -482,7 +482,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
     const bool backendReady = backend && backend->Initialize(backendInfo);
     if (!backendReady)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] overlay backend init failed for swapchain images=" + std::to_string(backendInfo.imageCount) + " size=" + std::to_string(swapchainWidth) + "x" + std::to_string(swapchainHeight));
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] overlay backend init failed for swapchain images=" + std::to_string(backendInfo.imageCount) + " size=" + std::to_string(swapchainWidth) + "x" + std::to_string(swapchainHeight));
         return result;
     }
 
@@ -503,7 +503,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
 
     if (!getMemProps)
     {
-        Logger::Log("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetPhysicalDeviceMemoryProperties not resolved.");
+        LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateSwapchainKHR] vkGetPhysicalDeviceMemoryProperties not resolved.");
     }
 
     // Feed runtime Vulkan handles to OverlayReceiver after backend init, when command pool is valid
@@ -573,7 +573,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
         return nextPresent(queue, pPresentInfo);
     }
 
-    Logger::Log("[VulkanOverlayLayer][Hook_vkQueuePresentKHR] next vkQueuePresentKHR missing.");
+    LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkQueuePresentKHR] next vkQueuePresentKHR missing.");
 
     return VK_ERROR_DEVICE_LOST;
 }
