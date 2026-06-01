@@ -63,7 +63,6 @@
 // Logging
 /////////////////////////////////////////////////////////////////////
 
-#define QT_DEBUG        // TODO: Comment out before releases
 #define LOG_LYMALINK_FRONTEND_MAX_SIZE      5242880
 #define LOG_LYMALINK_FRONTEND_MAX_BACKUPS   1
 

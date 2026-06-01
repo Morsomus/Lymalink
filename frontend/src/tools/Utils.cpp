@@ -33,13 +33,6 @@ qint64 IsoDateToEpoch(const QString &isoDate)
 
 /////////////////////////////////////////////////////////////////////
 
-QString EpochToIsoDate(qint64 epochTime)
-{
-    return QDateTime::fromSecsSinceEpoch(epochTime, Qt::UTC).toString(Qt::ISODate);
-}
-
-/////////////////////////////////////////////////////////////////////
-
 QString RelativeTime(qint64 epochSeconds)
 {
     if (epochSeconds <= 0)
