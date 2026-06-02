@@ -1130,8 +1130,13 @@ QList<SteamAchievementData> SteamApi::ParseAchievementDataResponse(const QByteAr
         const QString achievementDescription = achievementObject["localized_desc"].toString();
         const QString icon = achievementObject["icon"].toString();
         const QString iconGray = achievementObject["icon_gray"].toString();
-        const int minProgress = achievementObject["min_progress"].toInt(0);
-        const int maxProgress = achievementObject["max_progress"].toInt(0);
+        // Steam uses *_int for newer progress entries. Keep legacy names for older games.
+        const int minProgress = achievementObject.contains("min_progress_int")
+            ? achievementObject["min_progress_int"].toInt(0)
+            : achievementObject["min_progress"].toInt(0);
+        const int maxProgress = achievementObject.contains("max_progress_int")
+            ? achievementObject["max_progress_int"].toInt(0)
+            : achievementObject["max_progress"].toInt(0);
 
         // Normalize percentage from string or numeric JSON value
         bool percentageOk = false;

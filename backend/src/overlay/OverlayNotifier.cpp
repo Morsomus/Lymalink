@@ -119,7 +119,7 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
         const uint64_t activeAgeMs = nowMs > m_shm->timestamp ? (nowMs - m_shm->timestamp) : 0;
         if (activeAgeMs >= ACTIVE_TIMEOUT_MS)
         {
-            LOG_BE(Urgency::Warning, "Overlay active flag stale, forcing reset.");
+            LOG_BE(Urgency::Debug, "Overlay active flag stale, forcing reset.");
             m_shm->active.store(false);
         }
         else

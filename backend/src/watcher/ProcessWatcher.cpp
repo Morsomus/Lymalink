@@ -220,7 +220,7 @@ void ProcessWatcher::ScanProc()
             m_active.push_back(ap);
             m_activeIds.insert(ap.targetId);
             
-            LOG_BE(Urgency::Debug, "Process started - targetId=%d exeFile=%s pid=%d", ap.targetId, m_meta[i].exeFilename.c_str(), ap.pid);
+            LOG_BE(Urgency::Info, "Process started - targetId=%d exeFile=%s pid=%d", ap.targetId, m_meta[i].exeFilename.c_str(), ap.pid);
             
             if (onProcessStarted)
             {
@@ -238,7 +238,7 @@ void ProcessWatcher::ScanProc()
             // Emit stop callback with elapsed session time
             const long secs = static_cast<long>(time(nullptr) - it->sessionStart);
             
-            LOG_BE(Urgency::Debug, "Process stopped - targetId=%d playtime=%lds", it->targetId, secs);
+            LOG_BE(Urgency::Info, "Process stopped - targetId=%d playtime=%lds", it->targetId, secs);
             
             if (onProcessStopped)
             {

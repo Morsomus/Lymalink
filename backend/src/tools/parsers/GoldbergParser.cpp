@@ -139,10 +139,12 @@ std::vector<AchievementData> GoldbergParser::Parse(const std::string& filePath)
             if (it->is_number_integer())
             {
                 data.curProgress = it->get<int>();
+                data.hasCurProgress = true;
             }
             else if (it->is_string())
             {
                 data.curProgress = static_cast<int>(Utils::ToInt64(it->get<std::string>()));
+                data.hasCurProgress = true;
             }
         }
 
@@ -152,10 +154,12 @@ std::vector<AchievementData> GoldbergParser::Parse(const std::string& filePath)
             if (it->is_number_integer())
             {
                 data.maxProgress = it->get<int>();
+                data.hasMaxProgress = true;
             }
             else if (it->is_string())
             {
                 data.maxProgress = static_cast<int>(Utils::ToInt64(it->get<std::string>()));
+                data.hasMaxProgress = true;
             }
         }
 

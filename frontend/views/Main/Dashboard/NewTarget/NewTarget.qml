@@ -26,7 +26,7 @@ Item {
             key: "emulator",
             label: qsTr("Emulator"),
             iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00037_ED.png",
-            description: qsTr("Track achievements from a local emulator such as Goldberg and CODEX."),
+            description: qsTr("Track achievements from a local emulator achievement file."),
             enabled: true
         },
         {

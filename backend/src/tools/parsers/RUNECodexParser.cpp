@@ -152,11 +152,13 @@ std::vector<AchievementData> RUNECodexParser::Parse(const std::string& filePath)
         else if (key == "CurProgress" || key == "progress")
         {
             current.curProgress = Utils::IsHexLeUint32(val) ? static_cast<int>(Utils::ParseHexLeUint32(val)) : std::stoi(val);
+            current.hasCurProgress = true;
         }
         // MaxProgress, hex LE or decimal
         else if (key == "MaxProgress" || key == "max_progress")
         {
             current.maxProgress = Utils::IsHexLeUint32(val) ? static_cast<int>(Utils::ParseHexLeUint32(val)) : std::stoi(val);
+            current.hasMaxProgress = true;
         }
     }
 

@@ -819,30 +819,62 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         return achievementStateUpdated;
     }
 
+    const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
+    if (achievement.achieved && existingUnlockTime > 0)
+    {
+        LOG_BE(Urgency::Debug, "Achievement already unlocked in DB, skipping update and notification: targetId=%d key=%s", targetId, achievement.key.c_str());
+        return achievementStateUpdated;
+    }
+
+    if ((achievement.hasCurProgress && achievement.curProgress < 0) || (achievement.hasMaxProgress && achievement.maxProgress < 0))
+    {
+        LOG_BE(Urgency::Warning, "Rejecting negative achievement progress: targetId=%d key=%s progress=%d/%d", targetId, achievement.key.c_str(), achievement.curProgress, achievement.maxProgress);
+        return achievementStateUpdated;
+    }
+
+    const int64_t dbCurProgress = SQLiteManager::RowInt(existingAchievement, "cur_progress");
     const int64_t dbMaxProgress = SQLiteManager::RowInt(existingAchievement, "max_progress");
     const int64_t effectiveMaxProgress = achievement.maxProgress > 0 ? achievement.maxProgress : dbMaxProgress;
     int64_t currentProgress = static_cast<int64_t>(achievement.curProgress);
+    bool shouldUpdateCurrentProgress = achievement.hasCurProgress;
     if (achievement.achieved && effectiveMaxProgress > 0 && currentProgress < effectiveMaxProgress)
     {
         currentProgress = effectiveMaxProgress;
+        shouldUpdateCurrentProgress = true;
+    }
+
+    const bool currentProgressChanged = shouldUpdateCurrentProgress && currentProgress != dbCurProgress;
+    const bool maxProgressChanged = achievement.hasMaxProgress && achievement.maxProgress != dbMaxProgress;
+    int64_t updatedUnlockTime = existingUnlockTime;
+    if (achievement.achieved)
+    {
+        updatedUnlockTime = achievement.unlockTime > 0 ? achievement.unlockTime : now;
+    }
+    const bool unlockTimeChanged = updatedUnlockTime != existingUnlockTime;
+
+    if (!currentProgressChanged && !maxProgressChanged && !unlockTimeChanged)
+    {
+        LOG_BE(Urgency::Debug, "Achievement state unchanged, skipping DB update: targetId=%d key=%s", targetId, achievement.key.c_str());
+        return achievementStateUpdated;
     }
 
     DbRecord achievementUpdate{
-        {"cur_progress", currentProgress},
         {"date_updated", now}
     };
 
-    if (achievement.achieved)
+    if (currentProgressChanged)
     {
-        const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
-        if (achievement.unlockTime > 0)
-        {
-            achievementUpdate["date_unlocked"] = achievement.unlockTime;
-        }
-        else if (existingUnlockTime <= 0)
-        {
-            achievementUpdate["date_unlocked"] = now;
-        }
+        achievementUpdate["cur_progress"] = currentProgress;
+    }
+
+    if (maxProgressChanged)
+    {
+        achievementUpdate["max_progress"] = static_cast<int64_t>(achievement.maxProgress);
+    }
+
+    if (unlockTimeChanged)
+    {
+        achievementUpdate["date_unlocked"] = updatedUnlockTime;
     }
 
     if (!m_database.Update(
@@ -854,6 +886,13 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     {
         LOG_BE(Urgency::Critical, "Failed to update achievement state: targetId=%d key=%s error=%s", targetId, achievement.key.c_str(), m_database.LastError().c_str());
         return achievementStateUpdated;
+    }
+
+    if (currentProgressChanged || maxProgressChanged)
+    {
+        const int64_t updatedCurProgress = currentProgressChanged ? currentProgress : dbCurProgress;
+        const int64_t updatedMaxProgress = achievement.hasMaxProgress ? achievement.maxProgress : dbMaxProgress;
+        LOG_BE(Urgency::Info, "Achievement progress updated: targetId=%d key=%s progress=%lld/%lld", targetId, achievement.key.c_str(), static_cast<long long>(updatedCurProgress), static_cast<long long>(updatedMaxProgress));
     }
 
     const int64_t unlockedCount = m_database.Count(

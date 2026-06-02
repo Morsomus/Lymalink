@@ -17,6 +17,7 @@
 #include <condition_variable>
 #include <functional>
 #include <cstdint>
+#include <chrono>
 #include <unordered_map>
 #include <sys/inotify.h>
 
@@ -26,6 +27,8 @@ struct AchievementData
     bool achieved = false;
     int curProgress = 0;
     int maxProgress = 0;
+    bool hasCurProgress = false;
+    bool hasMaxProgress = false;
     int64_t unlockTime  = 0;
     bool handled = false;
     bool newlyUnlocked = false;
@@ -39,6 +42,8 @@ struct WatchSession
     int dirWd = -1;
     int fileWd = -1;
     bool initialReadDone = false;
+    bool modifyPending = false;
+    std::chrono::steady_clock::time_point modifyDeadline{};
     std::unordered_map<std::string, AchievementData> achievements;
 };
 

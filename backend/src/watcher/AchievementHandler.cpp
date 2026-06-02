@@ -24,6 +24,7 @@
 /////////////////////////////////////////////////////////////////////
 
 static constexpr size_t INOTIFY_BUF = (sizeof(struct inotify_event) + NAME_MAX + 1) * 32;
+static constexpr auto MODIFY_DEBOUNCE = std::chrono::milliseconds(200);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -272,6 +273,20 @@ void AchievementHandler::WatchLoop()
             break;
         }
 
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            const auto now = std::chrono::steady_clock::now();
+            for (auto& [targetId, session] : m_sessions)
+            {
+                if (session.modifyPending && session.modifyDeadline <= now)
+                {
+                    session.modifyPending = false;
+                    LOG_BE(Urgency::Debug, "Achievement file modify debounce elapsed: targetId=%d", targetId);
+                    ReadAndDiff(session);
+                }
+            }
+        }
+
         // IN_NONBLOCK: read() returns immediately with EAGAIN if no events are queued
         ssize_t n = read(m_inotifyFd, buf, INOTIFY_BUF);
 
@@ -356,27 +371,46 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
 
         LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d file=%s", targetId, fileName.c_str());
 
-        // Start watching the file itself if not already doing so
-        if (session.fileWd == -1)
+        // Replacements can arrive before IN_MOVE_SELF for the old inode. Drop the stale watch so later changes are observed on the new file
+        if (session.fileWd != -1)
         {
-            AddFileWatch(session);
+            LOG_BE(Urgency::Debug, "Replacing stale achievement file watch: targetId=%d oldWd=%d", targetId, session.fileWd);
+            m_wdToTarget.erase(session.fileWd);
+            inotify_rm_watch(m_inotifyFd, session.fileWd);
+            session.fileWd = -1;
         }
+        AddFileWatch(session);
+        session.modifyPending = false;
 
-        // First time seeing the file, snapshot current state silently
+        // Existing files are snapshotted silently in AddTarget(). A file that appears while tracking is active may be Emulators's first write for an unlock, so diff it against the session state
         if (!session.initialReadDone)
         {
-            ReadInitial(session);
+            LOG_BE(Urgency::Debug, "Achievement file first appeared during active tracking, diffing current state: targetId=%d", targetId);
+            session.initialReadDone = true;
         }
+        else
+        {
+            LOG_BE(Urgency::Debug, "Achievement file replaced during active tracking, diffing against existing baseline: targetId=%d", targetId);
+        }
+        ReadAndDiff(session);
         return;
     }
 
     // File event: achievement file was written
-    if (ev->wd == session.fileWd && (ev->mask & (IN_CLOSE_WRITE | IN_MODIFY)))
+    if (ev->wd == session.fileWd && (ev->mask & IN_CLOSE_WRITE))
     {
-        // Prefer IN_CLOSE_WRITE over IN_MODIFY - MODIFY fires per write() call so a single save may trigger it multiple times before the file is complete
-        // IN_CLOSE_WRITE fires once when the file handle is closed after writing
+        // IN_CLOSE_WRITE fires once when the file handle is closed after writing.
+        session.modifyPending = false;
         LOG_BE(Urgency::Debug, "Achievement file changed: targetId=%d", targetId);
         ReadAndDiff(session);
+        return;
+    }
+
+    // Some writers might keep the file open. Debounce IN_MODIFY so parsing happens after writes settle instead of once per write() call
+    if (ev->wd == session.fileWd && (ev->mask & IN_MODIFY))
+    {
+        session.modifyPending = true;
+        session.modifyDeadline = std::chrono::steady_clock::now() + MODIFY_DEBOUNCE;
         return;
     }
 
@@ -389,8 +423,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
         m_wdToTarget.erase(session.fileWd);
         inotify_rm_watch(m_inotifyFd, session.fileWd);
         session.fileWd = -1;
-        // Reset initial read flag
-        session.initialReadDone = false;
+        session.modifyPending = false;
     }
 }
 
@@ -399,7 +432,16 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
 void AchievementHandler::ReadInitial(WatchSession& session)
 {
     const std::string filePath = session.appIdDirPath + "/" + m_parsers[session.targetId]->GetFileName();
-    std::vector<AchievementData> parsed = m_parsers[session.targetId]->Parse(filePath);
+    std::vector<AchievementData> parsed;
+    try
+    {
+        parsed = m_parsers[session.targetId]->Parse(filePath);
+    }
+    catch (const std::exception& e)
+    {
+        LOG_BE(Urgency::Warning, "Failed to parse achievement file: targetId=%d path=%s error=%s", session.targetId, filePath.c_str(), e.what());
+        return;
+    }
 
     for (const auto& ach : parsed)
     {
@@ -411,7 +453,7 @@ void AchievementHandler::ReadInitial(WatchSession& session)
     }
 
     session.initialReadDone = true;
-    LOG_BE(Urgency::Debug, "Initial read done: targetId=%d count=%zu", session.targetId, parsed.size());
+    LOG_BE(Urgency::Info, "Initial read done: targetId=%d count=%zu", session.targetId, parsed.size());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -419,7 +461,16 @@ void AchievementHandler::ReadInitial(WatchSession& session)
 void AchievementHandler::ReadAndDiff(WatchSession& session)
 {
     const std::string filePath = session.appIdDirPath + "/" + m_parsers[session.targetId]->GetFileName();
-    std::vector<AchievementData> parsed = m_parsers[session.targetId]->Parse(filePath);
+    std::vector<AchievementData> parsed;
+    try
+    {
+        parsed = m_parsers[session.targetId]->Parse(filePath);
+    }
+    catch (const std::exception& e)
+    {
+        LOG_BE(Urgency::Warning, "Failed to parse achievement file: targetId=%d path=%s error=%s", session.targetId, filePath.c_str(), e.what());
+        return;
+    }
 
     int newUnlocks = 0;
 
@@ -428,7 +479,9 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
         auto it = session.achievements.find(ach.key);
 
         const bool wasAchieved = (it != session.achievements.end()) && it->second.achieved;
-        const bool progressChanged = (it != session.achievements.end()) && (it->second.curProgress != ach.curProgress || it->second.maxProgress != ach.maxProgress);
+        const bool progressChanged = (it != session.achievements.end()) &&
+            ((ach.hasCurProgress && (!it->second.hasCurProgress || it->second.curProgress != ach.curProgress)) ||
+            (ach.hasMaxProgress && (!it->second.hasMaxProgress || it->second.maxProgress != ach.maxProgress)));
 
         if (ach.achieved && !wasAchieved)
         {
