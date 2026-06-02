@@ -124,8 +124,8 @@ backend
 │   │   ├── Logger.h
 │   │   ├── parsers
 │   │   │   ├── AchievementParser.h
-│   │   │   ├── CodexParser.cpp
-│   │   │   └── CodexParser.h
+│   │   │   ├── RUNECodexParser.cpp
+│   │   │   └── RUNECodexParser.h
 │   │   ├── Utils.cpp
 │   │   └── Utils.h
 │   └── watcher

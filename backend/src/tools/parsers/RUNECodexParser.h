@@ -1,10 +1,9 @@
 /////////////////////////////////////////////////////////
-// File: CodexParser.h
+// File: RUNECodexParser.h
 // Date: 2026-05-26
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares CodexParser, parses CODEX
-//              emulator INI achievement files
+// Description: Declares parser, parses INI achievement files
 /////////////////////////////////////////////////////////
 
 #pragma once
@@ -13,11 +12,11 @@
 
 /////////////////////////////////////////////////////////////////////
 
-class CodexParser : public AchievementParser
+class RUNECodexParser : public AchievementParser
 {
 public:
-    CodexParser();
-    ~CodexParser() override;
+    RUNECodexParser();
+    ~RUNECodexParser() override;
 
     std::string GetFileName() const override;
     std::vector<AchievementData> Parse(const std::string& filePath) override;

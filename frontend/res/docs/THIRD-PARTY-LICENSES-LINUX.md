@@ -70,6 +70,16 @@ Vulkan headers and loader are provided by the Khronos Group. Lymalink uses Vulka
 
 ---
 
+### JSON for Modern C++ (nlohmann/json)
+
+**License:** MIT License
+
+**Source / Info:** [https://github.com/nlohmann/json](https://github.com/nlohmann/json)
+
+nlohmann/json is used for parsing, manipulating, and validating JSON configuration and achievement data.
+
+---
+
 ## Fonts
 
 ### Inter

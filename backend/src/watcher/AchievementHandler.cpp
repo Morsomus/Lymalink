@@ -9,7 +9,8 @@
 
 #include "AchievementHandler.h"
 #include "Defines.h"
-#include "../tools/parsers/CodexParser.h"
+#include "../tools/parsers/RUNECodexParser.h"
+#include "../tools/parsers/GoldbergParser.h"
 #include "../tools/Logger.h"
 
 #include <unistd.h>
@@ -483,11 +484,16 @@ void AchievementHandler::AddFileWatch(WatchSession& session)
 
 AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorType)
 {
-    // Instantiate the correct parser subclass based on emulator type
+    // Instantiate the correct achievement file parser subclass based on emulator type
     if (emulatorType == "CODEX" || emulatorType == "RUNE")
     {
         LOG_BE(Urgency::Debug, "Creating CODEX/RUNE parser.");
-        return new CodexParser();
+        return new RUNECodexParser();
+    }
+    else if (emulatorType == "GOLDBERG")
+    {
+        LOG_BE(Urgency::Debug, "Creating Goldberg parser.");
+        return new GoldbergParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());

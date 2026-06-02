@@ -46,7 +46,8 @@ SOURCES := \
     src/watcher/PathScanner.cpp \
     src/watcher/ProcessWatcher.cpp \
     src/watcher/AchievementHandler.cpp \
-    src/tools/parsers/CodexParser.cpp
+    src/tools/parsers/RUNECodexParser.cpp \
+    src/tools/parsers/GoldbergParser.cpp
 
 OBJECTS := $(SOURCES:src/%.cpp=$(OBJ_DIR)/%.o)
 

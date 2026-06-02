@@ -9,6 +9,7 @@
 #include "Utils.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -46,6 +47,33 @@ std::string TrimWhitespace(const std::string& value)
 
     const size_t end = value.find_last_not_of(" \t\r\n");
     return value.substr(begin, end - begin + 1);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string ToLower(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(),
+        [](unsigned char c)
+        {
+            return static_cast<char>(std::tolower(c));
+        });
+
+    return value;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+int64_t ToInt64(const std::string& value)
+{
+    try
+    {
+        return std::stoll(TrimWhitespace(value));
+    }
+    catch (...)
+    {
+        return 0;
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -134,6 +162,37 @@ std::string ReadIniValue(const std::string& configPath, const std::string& secti
     }
 
     return {};
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool IsHexLeUint32(const std::string& val)
+{
+    if (val.size() != 8)
+    {
+        return false;
+    }
+    for (char c : val)
+    {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+uint32_t ParseHexLeUint32(const std::string& val)
+{
+    uint32_t result = 0;
+    for (int i = 0; i < 4; ++i)
+    {
+        uint8_t byte = static_cast<uint8_t>(std::stoul(val.substr(i * 2, 2), nullptr, 16));
+        result |= static_cast<uint32_t>(byte) << (i * 8);
+    }
+    return result;
 }
 
 }

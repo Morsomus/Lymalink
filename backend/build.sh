@@ -30,6 +30,8 @@ BUILD_TO_TMP=0
 
 SERVICE_NAME="lymalinkd"
 
+NLOHMANN_VERSION="3.12.0"
+NLOHMANN_DIR="$SCRIPT_DIR/src/nlohmann"
 INSTALL_BIN_DIR="$HOME/.local/bin"
 INSTALL_SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$INSTALL_SERVICE_DIR/${SERVICE_NAME}.service"
@@ -87,6 +89,37 @@ clean() {
 
 ##############################################################################
 
+_require_command() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "==> ERROR: Required command not found: $1"
+        exit 1
+    fi
+}
+
+##############################################################################
+
+_install_nlohmann() {
+    if [ -f "$NLOHMANN_DIR/json.hpp" ]; then
+        echo "==> nlohmann/json found at $NLOHMANN_DIR"
+        return 0
+    fi
+
+    echo "==> nlohmann/json not found. Downloading version $NLOHMANN_VERSION..."
+
+    local HEADER_URL="https://github.com/nlohmann/json/releases/download/v${NLOHMANN_VERSION}/json.hpp"
+
+    _require_command wget
+
+    mkdir -p "$NLOHMANN_DIR"
+
+    echo "==> Downloading nlohmann/json $NLOHMANN_VERSION..."
+    wget -q --show-progress -O "$NLOHMANN_DIR/json.hpp" "$HEADER_URL"
+
+    echo "==> nlohmann/json successfully installed to $NLOHMANN_DIR"
+}
+
+##############################################################################
+
 build() {
     local MODE="$1"
     local MODE_LOWER
@@ -96,6 +129,7 @@ build() {
     local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
 
     echo "==> Building backend ($MODE_LOWER)..."
+    _install_nlohmann
     make -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
 
     local BINARY_PATH="$BUILD_DIR/bin/$SERVICE_NAME"
