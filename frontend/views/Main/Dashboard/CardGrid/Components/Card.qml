@@ -101,6 +101,7 @@ Rectangle {
                 visible: p_running
                 p_indicatorSize: 64
                 p_running: id_coverImage.status === Image.Loading || id_root.p_isLoading
+                opacity: 0.6
             }
 
             Column {

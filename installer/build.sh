@@ -38,6 +38,7 @@ INSTALLER_PATH="$BUILD_DIR/lymalink-installer-${VERSION}-${ARCH}.run"
 FRONTEND_BINARY="$ROOT_DIR/frontend/build/release/bin/Lymalink"
 BACKEND_BUILD_BIN_DIR="$ROOT_DIR/backend/build/release/bin"
 OVERLAY_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/release/bin"
+OVERLAY_FLATPAK_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/flatpak/release/bin"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
 FLATPAK_EXTENSION_BRANCH="25.08"
 FLATPAK_BUNDLE="$RELEASE_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
@@ -104,11 +105,17 @@ echo "==> Building backend release..."
 echo "==> Building overlay release..."
 "$ROOT_DIR/backend-overlay/build.sh" release
 
+echo "==> Building Flatpak overlay release..."
+"$ROOT_DIR/backend-overlay/build.sh" flatpak-release
+
 require_file "$FRONTEND_BINARY"
 require_file "$BACKEND_BUILD_BIN_DIR/lymalinkd"
 require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay.so"
 require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-opengl.so"
 require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-preloader.so"
+require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay.so"
+require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay-opengl.so"
+require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay-preloader.so"
 require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 
 echo "==> Staging release payload..."
@@ -192,7 +199,7 @@ mkdir -p \
     "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu" \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d" \
     "$FLATPAK_REPO_DIR"
-cp "$RELEASE_DIR/lib/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"
+cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"
 chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"*.so
 write_vulkan_manifest \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \

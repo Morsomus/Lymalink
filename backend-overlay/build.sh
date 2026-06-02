@@ -9,6 +9,8 @@
 #   ./build.sh clean        - Clean build directory
 #   ./build.sh debug        - Debug build
 #   ./build.sh release      - Release build
+#   ./build.sh flatpak-debug   - Debug build targeting Freedesktop SDK
+#   ./build.sh flatpak-release - Release build targeting Freedesktop SDK
 #   ./build.sh deploy       - Clean + Release + strip + install overlay
 #   ./build.sh deploy --debug - Clean + Debug + install overlay
 #   ./build.sh uninstall    - Remove overlay libraries, launcher and manifest
@@ -17,6 +19,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # When enabled, build output is diverted to /tmp (RAMfs)
 BUILD_TO_TMP=0
@@ -35,6 +38,8 @@ INSTALL_VULKAN_LAYER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/vulkan/implicit_l
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
 FLATPAK_EXTENSION_BRANCH="25.08"
 FLATPAK_EXTENSION_MANIFEST="lymalink_overlay.x86_64.json"
+FLATPAK_PLATFORM_ID="org.freedesktop.Platform"
+FLATPAK_SDK_ID="org.freedesktop.Sdk"
 SUPPORTED_DEPLOY_ARCH="x86_64"
 
 ##############################################################################
@@ -67,6 +72,53 @@ _require_command() {
         echo "==> ERROR: Required command not found: $1"
         exit 1
     fi
+}
+
+##############################################################################
+
+_require_flatpak_sdk() {
+    _require_command flatpak
+
+    if ! flatpak info --user "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" >/dev/null 2>&1; then
+        echo "==> ERROR: Required Flatpak SDK not installed: $FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH"
+        echo "==> Install it with: flatpak install --user flathub $FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH"
+        exit 1
+    fi
+}
+
+##############################################################################
+
+_check_flatpak_runtime_dependencies() {
+    local BUILD_DIR="$1"
+
+    if ! flatpak info --user "$FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH" >/dev/null 2>&1; then
+        echo "==> ERROR: Required Flatpak runtime not installed: $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH"
+        echo "==> Install it with: flatpak install --user flathub $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH"
+        exit 1
+    fi
+
+    echo "==> Checking Flatpak overlay dependencies against $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH..."
+    flatpak run --user \
+        --filesystem="$BUILD_DIR:ro" \
+        --command=bash \
+        "$FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH" \
+        -c '
+            for library in "$@"; do
+                if ! output="$(ldd "$library" 2>&1)"; then
+                    echo "==> ERROR: Unable to inspect Flatpak runtime dependencies for $library" >&2
+                    printf "%s\n" "$output" >&2
+                    exit 1
+                fi
+                if printf "%s\n" "$output" | grep -q "not found"; then
+                    echo "==> ERROR: Flatpak runtime libraries missing for $library:" >&2
+                    printf "%s\n" "$output" | grep "not found" >&2
+                    exit 1
+                fi
+            done
+        ' bash \
+        "$BUILD_DIR/bin/$OVERLAY_LIB" \
+        "$BUILD_DIR/bin/$OVERLAY_OPENGL_LIB" \
+        "$BUILD_DIR/bin/$OVERLAY_PRELOADER_LIB"
 }
 
 ##############################################################################
@@ -224,9 +276,10 @@ _install_flatpak_extension() {
 
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)"
-    local OVERLAY_PATH="$BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_LIB"
-    local OVERLAY_OPENGL_PATH="$BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_OPENGL_LIB"
-    local OVERLAY_PRELOADER_PATH="$BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_PRELOADER_LIB"
+    build_flatpak "$MODE_LOWER"
+    local OVERLAY_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_LIB"
+    local OVERLAY_OPENGL_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_OPENGL_LIB"
+    local OVERLAY_PRELOADER_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_PRELOADER_LIB"
     local EXT_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-extension"
     local REPO_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-repo"
     local BUNDLE_PATH="$BUILD_ROOT/$MODE_LOWER/${FLATPAK_EXTENSION_ID}.flatpak"
@@ -291,6 +344,38 @@ build() {
 
 ##############################################################################
 
+build_flatpak() {
+    local MODE="$1"
+    local MODE_LOWER
+    MODE_LOWER="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
+    local BUILD_ROOT
+    BUILD_ROOT="$(_get_build_root)/flatpak"
+    local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
+
+    echo "==> Building Flatpak overlay ($MODE_LOWER, Freedesktop SDK $FLATPAK_EXTENSION_BRANCH)..."
+    _install_imgui
+    _require_flatpak_sdk
+    flatpak run --user \
+        --filesystem="$PROJECT_ROOT" \
+        --command=make \
+        "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" \
+        -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
+
+    local LIB
+    for LIB in "$OVERLAY_LIB" "$OVERLAY_OPENGL_LIB" "$OVERLAY_PRELOADER_LIB"; do
+        if [ -f "$BUILD_DIR/bin/$LIB" ]; then
+            echo "==> Done: $BUILD_DIR/bin/$LIB (Flatpak shared library)"
+        else
+            echo "==> ERROR: Expected Flatpak library not found at $BUILD_DIR/bin/$LIB"
+            exit 1
+        fi
+    done
+
+    _check_flatpak_runtime_dependencies "$BUILD_DIR"
+}
+
+##############################################################################
+
 deploy() {
     local DEPLOY_OPTION="${1:-}"
     local MODE="Release"
@@ -350,13 +435,15 @@ uninstall_overlay() {
 ##############################################################################
 
 case "${1:-}" in
-    clean)     _require_no_extra_args clean "${@:2}"; clean ;;
-    debug)     _require_no_extra_args debug "${@:2}"; build Debug ;;
-    release)   _require_no_extra_args release "${@:2}"; build Release ;;
-    deploy)    deploy "${@:2}" ;;
-    uninstall) _require_no_extra_args uninstall "${@:2}"; uninstall_overlay ;;
+    clean)           _require_no_extra_args clean "${@:2}"; clean ;;
+    debug)           _require_no_extra_args debug "${@:2}"; build Debug ;;
+    release)         _require_no_extra_args release "${@:2}"; build Release ;;
+    flatpak-debug)   _require_no_extra_args flatpak-debug "${@:2}"; build_flatpak Debug ;;
+    flatpak-release) _require_no_extra_args flatpak-release "${@:2}"; build_flatpak Release ;;
+    deploy)          deploy "${@:2}" ;;
+    uninstall)       _require_no_extra_args uninstall "${@:2}"; uninstall_overlay ;;
     *)
-        echo "Usage: $0 [clean|debug|release|deploy [--debug]|uninstall]"
+        echo "Usage: $0 [clean|debug|release|flatpak-debug|flatpak-release|deploy [--debug]|uninstall]"
         exit 1
         ;;
 esac

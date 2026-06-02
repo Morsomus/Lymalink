@@ -484,9 +484,9 @@ void AchievementHandler::AddFileWatch(WatchSession& session)
 AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorType)
 {
     // Instantiate the correct parser subclass based on emulator type
-    if (emulatorType == "CODEX")
+    if (emulatorType == "CODEX" || emulatorType == "RUNE")
     {
-        LOG_BE(Urgency::Debug, "Creating CODEX parser.");
+        LOG_BE(Urgency::Debug, "Creating CODEX/RUNE parser.");
         return new CodexParser();
     }
 

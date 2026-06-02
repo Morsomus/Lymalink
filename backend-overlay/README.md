@@ -10,9 +10,19 @@ From repository root:
 backend-overlay/build.sh clean
 backend-overlay/build.sh debug
 backend-overlay/build.sh release
+backend-overlay/build.sh flatpak-debug
+backend-overlay/build.sh flatpak-release
 ```
 
 Release builds compile overlay logging out fully. Debug builds retain logging.
+Flatpak builds run inside `org.freedesktop.Sdk//25.08` so extension libraries match
+the Freedesktop runtime ABI. After compilation, runtime dependency checks run
+inside `org.freedesktop.Platform//25.08`. Install the SDK and runtime with:
+
+```bash
+flatpak install --user flathub org.freedesktop.Sdk//25.08
+flatpak install --user flathub org.freedesktop.Platform//25.08
+```
 
 ## Deploy
 

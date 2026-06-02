@@ -168,6 +168,8 @@ The standalone overlay libraries can be built and deployed separately:
 backend-overlay/build.sh clean
 backend-overlay/build.sh debug
 backend-overlay/build.sh release
+backend-overlay/build.sh flatpak-debug
+backend-overlay/build.sh flatpak-release
 backend-overlay/build.sh deploy
 backend-overlay/build.sh deploy --debug
 backend-overlay/build.sh uninstall
@@ -183,7 +185,10 @@ The `installer/build.sh` script builds the frontend, backend, overlay libraries,
 installer/build.sh
 ```
 
-The build requires `makeself`, Flatpak tooling, the frontend and backend build dependencies. Output is written to:
+The build requires `makeself`, Flatpak tooling, `org.freedesktop.Sdk//25.08`,
+`org.freedesktop.Platform//25.08`, and the frontend and backend build
+dependencies. Flatpak overlay libraries compile inside the SDK and are checked
+against the Platform runtime before packaging. Output is written to:
 
 ```text
 installer/build/lymalink-release/

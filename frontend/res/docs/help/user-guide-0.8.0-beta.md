@@ -90,14 +90,14 @@ Hidden targets disappear from normal Dashboard view. To show one again:
 
 Achievement notifications appear as an in-game overlay. Vulkan games should work automatically. OpenGL games need an extra launch setting:
 
-**Note:** After modifying any launch options or environment variables, make sure to restart Steam, Heroic, and/or Bottles for the changes to take effect properly.
+**Note: After modifying any launch options or environment variables or updating Lymalink, make sure to restart Steam, Heroic, Bottles and/or Wine (wineserver -k) for the changes to take effect properly.**
 
 ###
 ###
 
 | Launcher | OpenGL setup |
 | --- | --- |
-| **Wine command line** | Run `lymalink-overlay wine "/path/to/game.exe"` |
+| **Wine command line** | Run: `lymalink-overlay wine "/path/to/game.exe"` |
 | **Steam** | Add launch option: `lymalink-overlay %command%` |
 | **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
 | **Bottles** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |

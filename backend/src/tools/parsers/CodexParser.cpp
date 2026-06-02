@@ -4,7 +4,7 @@
 // Author: Morsomus
 // Copyright: see /LICENSE
 // Description: Implements CodexParser, parses CODEX
-//              emulator INI achievement files
+//              and RUNE emulator INI achievement files
 //
 // CODEX achievement INI format example:
 //  [ACHIEVEMENT_KEY]

@@ -72929,11 +72929,9 @@ static bool EnsureEmbeddedFontLoaded()
         ImGuiIO& io = ImGui::GetIO();
         if (!io.FontDefault)
         {
-            io.FontDefault = io.Fonts->AddFontFromMemoryTTF(VariableFont_ttf, VariableFont_ttf_len, 18.0f);
-            if (io.FontDefault)
-            {
-                io.Fonts->Build();
-            }
+          ImFontConfig fontConfig;
+          fontConfig.FontDataOwnedByAtlas = false;
+          io.FontDefault = io.Fonts->AddFontFromMemoryTTF(VariableFont_ttf, VariableFont_ttf_len, 18.0f, &fontConfig);
         }
     });
     return ImGui::GetIO().FontDefault != nullptr;

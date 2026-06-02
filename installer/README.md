@@ -12,6 +12,8 @@ Root access is not required to run the generated installer.
 - Linux `x86_64`
 - User-level installation only
 - Flatpak VulkanLayer extension branch `25.08`
+- Flatpak extension libraries compiled inside `org.freedesktop.Sdk//25.08`
+- Flatpak extension dependencies checked inside `org.freedesktop.Platform//25.08`
 
 The installer does not bundle distro runtime libraries, GPU drivers, systemd,
 D-Bus, or Flatpak itself.
@@ -37,6 +39,13 @@ Installer build also requires:
 - `strip`
 - `wget` and `unzip` when `backend-overlay/src/imgui/` has not been populated
 
+Install Flatpak SDK and runtime branch `25.08`:
+
+```bash
+flatpak install --user flathub org.freedesktop.Sdk//25.08
+flatpak install --user flathub org.freedesktop.Platform//25.08
+```
+
 Overlay compilation requires Vulkan, OpenGL, EGL, and GDK Pixbuf development
 files. Frontend compilation requires Qt 6 modules and OpenSSL development files.
 
@@ -50,11 +59,13 @@ installer/build.sh
 
 The script:
 
-1. Builds release frontend, backend, and overlay artifacts.
-2. Stages installer payload under `installer/build/lymalink-release/`.
-3. Strips binaries and shared libraries.
-4. Builds bundled Flatpak VulkanLayer extension.
-5. Creates self-extracting installer with `makeself`.
+1. Builds release frontend, backend, and native overlay artifacts.
+2. Builds Flatpak overlay artifacts inside Freedesktop SDK `25.08` and checks
+   their dependencies inside Freedesktop Platform `25.08`.
+3. Stages installer payload under `installer/build/lymalink-release/`.
+4. Strips native binaries and shared libraries.
+5. Builds bundled Flatpak VulkanLayer extension from SDK-built overlay libraries.
+6. Creates self-extracting installer with `makeself`.
 
 Version comes from repository root `VERSION` file.
 
@@ -124,4 +135,3 @@ installer/
 
 - Re-running generated installer updates existing user-level installation.
 - Release payload embeds absolute home directory paths during installation.
-

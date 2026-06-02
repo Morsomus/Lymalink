@@ -200,6 +200,7 @@ Rectangle {
                     visible: p_running
                     p_indicatorSize: 32
                     p_running: id_logoImage.status === Image.Loading || id_root.p_isLoading
+                    opacity: 0.6
                 }
 
                 // Show first letter of the title if icon/logo missing
