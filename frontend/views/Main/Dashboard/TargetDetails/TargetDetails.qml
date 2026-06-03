@@ -737,7 +737,7 @@ Item {
                 C_MetaRow {
                     label: qsTr("Status")
                     value: id_root.p_installationStatus
-                    // visible: id_root.p_installationStatus !== ""
+                    visible: id_root.p_targetType !== "Steam"
                 }
                 C_MetaRow {
                     label: qsTr("Type")
@@ -763,6 +763,7 @@ Item {
                     label: qsTr("Achievement file")
                     value: id_root.p_appIdDirFound ? qsTr("Found") : qsTr("Missing")
                     valueColor: id_root.p_appIdDirFound ? Themes.targetDetails.colors.text : Themes.targetDetails.colors.errorText
+                    visible: id_root.p_targetType !== "Steam"
                 }
 
                 // Bottom separator

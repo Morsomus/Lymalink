@@ -32,6 +32,7 @@ Rectangle {
     property bool p_isLoading: false
     property bool p_miniAchievementsBadgeEnabled: false
     property bool p_targetTypeBadgeEnabled: false
+    property int p_targetTypeBadgeColorStyle: 1
     property bool p_edgeProgressFrameEnabled: false
     property int p_edgeProgressFrameColorStyle: 1
     property bool p_edgeProgressFrameStaticGrayColor: false
@@ -43,6 +44,7 @@ Rectangle {
     
     // Internals _____________________________________________
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
+    readonly property bool targetTypeBadgeAllowed: p_targetType === "Custom" || p_targetType === "Steam"
 
     width: 200
     height: 300
@@ -428,7 +430,7 @@ Rectangle {
         }
         width: 24
         height: 24
-        opacity: id_root.p_targetTypeBadgeEnabled && id_root.p_targetType !== "" && !id_rootMouseArea.containsMouse ? 1.0 : 0.0
+        opacity: id_root.p_targetTypeBadgeEnabled && id_root.targetTypeBadgeAllowed && !id_rootMouseArea.containsMouse ? 1.0 : 0.0
         visible: opacity > 0.0 && !(id_root.p_installationStatus === "Not Installed" && ctxSettings.showInstallationStatusBadge)
 
         Behavior on opacity {
@@ -442,7 +444,7 @@ Rectangle {
             radius: width / 2
             color: Qt.rgba(0.18, 0.18, 0.18, 0.68)
             border.width: 1
-            border.color: Themes.globalStyle.withAlpha(Themes.globalStyle.completionColor(id_root.p_edgeProgressFrameColorStyle), 0.72)
+            border.color: Themes.globalStyle.withAlpha(Themes.globalStyle.completionColor(id_root.p_targetTypeBadgeColorStyle), 0.72)
         }
 
         Image {
@@ -461,7 +463,7 @@ Rectangle {
         MultiEffect {
             anchors.fill: id_targetTypeIcon
             source: id_targetTypeIcon
-            colorizationColor: Themes.globalStyle.completionColor(id_root.p_edgeProgressFrameColorStyle)
+            colorizationColor: Themes.globalStyle.completionColor(id_root.p_targetTypeBadgeColorStyle)
             colorization: 1.0
         }
     }

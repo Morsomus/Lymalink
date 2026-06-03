@@ -170,12 +170,9 @@ bool Settings::LoadConfig()
     m_globalColorStyle = m_settings.value("GlobalColorStyle", m_globalColorStyle).toInt();
     m_progressFrameColorStyle = m_settings.value("ProgressFrameColorStyle", m_progressFrameColorStyle).toInt();
     m_progressBarColorStyle = m_settings.value("ProgressBarColorStyle", m_progressBarColorStyle).toInt();
-    m_showProgressFrame = m_settings.value("ShowProgressFrame", m_showProgressFrame).toBool();
-    m_showProgressBar = m_settings.value("ShowProgressBar", m_showProgressBar).toBool();
+    m_targetTypeBadgeColorStyle = m_settings.value("TargetTypeBadgeColorStyle", m_targetTypeBadgeColorStyle).toInt();
     m_showInstallationStatusBadge = m_settings.value("ShowInstallationStatusBadge", m_showInstallationStatusBadge).toBool();
-    m_progressFrameGrayscaleMode = m_settings.value("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode).toBool();
     m_showTotalAchievementsBadge = m_settings.value("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge).toBool();
-    m_showTargetTypeBadge = m_settings.value("ShowTargetTypeBadge", m_showTargetTypeBadge).toBool();
     m_enableProgressFrameCompletionAnimation = m_settings.value("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation).toBool();
     m_enableDynamicAchievementRows = m_settings.value("EnableDynamicAchievementRows", m_enableDynamicAchievementRows).toBool();
     m_windowSizeX = m_settings.value("WindowSizeX", m_windowSizeX).toUInt();
@@ -324,20 +321,12 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_progressBarColorStyle;
             break;
         }
-        case ShowProgressFrame:
+        case TargetTypeBadgeColorStyle:
         {
-            m_showProgressFrame = value.toBool();
+            m_targetTypeBadgeColorStyle = value.toInt();
             group = GROUP_DISPLAY;
-            settingsKey = "ShowProgressFrame";
-            settingsValue = m_showProgressFrame;
-            break;
-        }
-        case ShowProgressBar:
-        {
-            m_showProgressBar = value.toBool();
-            group = GROUP_DISPLAY;
-            settingsKey = "ShowProgressBar";
-            settingsValue = m_showProgressBar;
+            settingsKey = "TargetTypeBadgeColorStyle";
+            settingsValue = m_targetTypeBadgeColorStyle;
             break;
         }
         case ShowInstallationStatusBadge:
@@ -348,28 +337,12 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_showInstallationStatusBadge;
             break;
         }
-        case ProgressFrameGrayscaleMode:
-        {
-            m_progressFrameGrayscaleMode = value.toBool();
-            group = GROUP_DISPLAY;
-            settingsKey = "ProgressFrameGrayscaleMode";
-            settingsValue = m_progressFrameGrayscaleMode;
-            break;
-        }
         case ShowTotalAchievementsBadge:
         {
             m_showTotalAchievementsBadge = value.toBool();
             group = GROUP_DISPLAY;
             settingsKey = "ShowTotalAchievementsBadge";
             settingsValue = m_showTotalAchievementsBadge;
-            break;
-        }
-        case ShowTargetTypeBadge:
-        {
-            m_showTargetTypeBadge = value.toBool();
-            group = GROUP_DISPLAY;
-            settingsKey = "ShowTargetTypeBadge";
-            settingsValue = m_showTargetTypeBadge;
             break;
         }
         case EnableProgressFrameCompletionAnimation:
@@ -566,12 +539,9 @@ void Settings::SetDefaults()
     m_globalColorStyle = 1;
     m_progressFrameColorStyle = 1;
     m_progressBarColorStyle = 5;
-    m_showProgressFrame = true;
-    m_showProgressBar = true;
+    m_targetTypeBadgeColorStyle = 5;
     m_showInstallationStatusBadge = true;
-    m_progressFrameGrayscaleMode = false;
     m_showTotalAchievementsBadge = true;
-    m_showTargetTypeBadge = false;
     m_enableProgressFrameCompletionAnimation = true;
     m_enableDynamicAchievementRows = true;
     m_windowSizeX = m_windowSizeXDefault;
@@ -655,12 +625,9 @@ void Settings::SavePlainValues()
     m_settings.setValue("GlobalColorStyle", m_globalColorStyle);
     m_settings.setValue("ProgressFrameColorStyle", m_progressFrameColorStyle);
     m_settings.setValue("ProgressBarColorStyle", m_progressBarColorStyle);
-    m_settings.setValue("ShowProgressFrame", m_showProgressFrame);
-    m_settings.setValue("ShowProgressBar", m_showProgressBar);
+    m_settings.setValue("TargetTypeBadgeColorStyle", m_targetTypeBadgeColorStyle);
     m_settings.setValue("ShowInstallationStatusBadge", m_showInstallationStatusBadge);
-    m_settings.setValue("ProgressFrameGrayscaleMode", m_progressFrameGrayscaleMode);
     m_settings.setValue("ShowTotalAchievementsBadge", m_showTotalAchievementsBadge);
-    m_settings.setValue("ShowTargetTypeBadge", m_showTargetTypeBadge);
     m_settings.setValue("EnableProgressFrameCompletionAnimation", m_enableProgressFrameCompletionAnimation);
     m_settings.setValue("EnableDynamicAchievementRows", m_enableDynamicAchievementRows);
     m_settings.setValue("WindowSizeX", m_windowSizeX);

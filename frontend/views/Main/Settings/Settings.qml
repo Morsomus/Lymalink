@@ -51,6 +51,32 @@ Item {
         return 3
     }
 
+    function colorStyleLabel(value) {
+        switch (value) {
+            case -2: return qsTr("Grayscale")
+            case -1: return qsTr("Disabled")
+            case 0: return qsTr("Gold")
+            case 1: return qsTr("Blue")
+            case 2: return qsTr("Purple")
+            case 3: return qsTr("Emerald")
+            case 4: return qsTr("Ember")
+            case 5: return qsTr("Frost")
+        }
+        return qsTr("Blue")
+    }
+
+    function saveProgressBarSelection(value) {
+        ctxSettings.SaveValue(Settings.ProgressBarColorStyle, value)
+    }
+
+    function saveProgressFrameSelection(value) {
+        ctxSettings.SaveValue(Settings.ProgressFrameColorStyle, value)
+    }
+
+    function saveTargetTypeBadgeSelection(value) {
+        ctxSettings.SaveValue(Settings.TargetTypeBadgeColorStyle, value)
+    }
+
     /////////////////////////////////////////////////////////////////////
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////
@@ -808,16 +834,22 @@ Item {
                         C_SettingRow {
                             label: qsTr("Target type badge")
                             tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
-                            Switch {
-                                checked: ctxSettings.showTargetTypeBadge
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_targetTypeBadgeHover }
-                                CustomTooltip {
-                                    p_active: id_targetTypeBadgeHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                            ComboBox {
+                                model: [-1, 0, 1, 2, 3, 4, 5]
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.targetTypeBadgeColorStyle))
+                                implicitWidth: 150
+                                displayText: id_root.colorStyleLabel(model[currentIndex])
+                                delegate: ItemDelegate {
+                                    width: parent.width
+                                    text: id_root.colorStyleLabel(modelData)
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowTargetTypeBadge, checked)
+                                WheelHandler {
+                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                    onWheel: function(event) {
+                                        event.accepted = true
+                                    }
+                                }
+                                onActivated: (index) => id_root.saveTargetTypeBadgeSelection(model[index])
                             }
                         }
 
@@ -825,50 +857,15 @@ Item {
 
                         C_SettingRow {
                             label: qsTr("Progress bar")
-                            tooltip: qsTr("Show achievement progress bars on cards")
-                            Switch {
-                                checked: ctxSettings.showProgressBar
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressBarHover }
-                                CustomTooltip {
-                                    p_active: id_progressBarHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Show achievement progress bars on cards")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressBar, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress bar color theme")
-                            tooltip: qsTr("Select color theme for the card progress bar")
+                            tooltip: qsTr("Select color theme for the card progress bar, or disable it")
                             ComboBox {
-                                model: [0, 1, 2, 3, 4, 5]
-                                enabled: ctxSettings.showProgressBar
+                                model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
                                 implicitWidth: 150
-                                displayText: {
-                                    switch (model[currentIndex]) {
-                                        case 0: return qsTr("Gold")
-                                        case 1: return qsTr("Blue")
-                                        case 2: return qsTr("Purple")
-                                        case 3: return qsTr("Emerald")
-                                        case 4: return qsTr("Ember")
-                                        case 5: return qsTr("Frost")
-                                    }
-                                }
+                                displayText: id_root.colorStyleLabel(model[currentIndex])
                                 delegate: ItemDelegate {
                                     width: parent.width
-                                    text: {
-                                        switch (modelData) {
-                                            case 0: return qsTr("Gold")
-                                            case 1: return qsTr("Blue")
-                                            case 2: return qsTr("Purple")
-                                            case 3: return qsTr("Emerald")
-                                            case 4: return qsTr("Ember")
-                                            case 5: return qsTr("Frost")
-                                        }
-                                    }
+                                    text: id_root.colorStyleLabel(modelData)
                                 }
                                 WheelHandler {
                                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -876,58 +873,23 @@ Item {
                                         event.accepted = true
                                     }
                                 }
-                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressBarColorStyle, model[index])
+                                onActivated: (index) => id_root.saveProgressBarSelection(model[index])
                             }
                         }
 
-                        C_SettingDivider {}
+                        C_SettingRow {}
 
                         C_SettingRow {
                             label: qsTr("Progress frame")
-                            tooltip: qsTr("Show an overall achievement progress frame around cards")
-                            Switch {
-                                checked: ctxSettings.showProgressFrame
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressFrameHover }
-                                CustomTooltip {
-                                    p_active: id_progressFrameHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Show an overall achievement progress frame around cards")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowProgressFrame, checked)
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress frame color theme")
-                            tooltip: qsTr("Select color theme for the card progress frame")
+                            tooltip: qsTr("Select color theme for the card progress frame, grayscale mode, or disable it")
                             ComboBox {
-                                model: [0, 1, 2, 3, 4, 5]
-                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                model: [-1, -2, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressFrameColorStyle))
                                 implicitWidth: 150
-                                displayText: {
-                                    switch (model[currentIndex]) {
-                                        case 0: return qsTr("Gold")
-                                        case 1: return qsTr("Blue")
-                                        case 2: return qsTr("Purple")
-                                        case 3: return qsTr("Emerald")
-                                        case 4: return qsTr("Ember")
-                                        case 5: return qsTr("Frost")
-                                    }
-                                }
+                                displayText: id_root.colorStyleLabel(model[currentIndex])
                                 delegate: ItemDelegate {
                                     width: parent.width
-                                    text: {
-                                        switch (modelData) {
-                                            case 0: return qsTr("Gold")
-                                            case 1: return qsTr("Blue")
-                                            case 2: return qsTr("Purple")
-                                            case 3: return qsTr("Emerald")
-                                            case 4: return qsTr("Ember")
-                                            case 5: return qsTr("Frost")
-                                        }
-                                    }
+                                    text: id_root.colorStyleLabel(modelData)
                                 }
                                 WheelHandler {
                                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -935,24 +897,7 @@ Item {
                                         event.accepted = true
                                     }
                                 }
-                                onActivated: (index) => ctxSettings.SaveValue(Settings.ProgressFrameColorStyle, model[index])
-                            }
-                        }
-
-                        C_SettingRow {
-                            label: qsTr("Progress frame grayscale mode")
-                            tooltip: qsTr("Render the progress frame in grayscale instead of color - disables animations")
-                            Switch {
-                                enabled: ctxSettings.showProgressFrame
-                                checked: ctxSettings.progressFrameGrayscaleMode && enabled
-                                text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_progressGrayHover }
-                                CustomTooltip {
-                                    p_active: id_progressGrayHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Render the progress frame in grayscale instead of color - disables animations")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.ProgressFrameGrayscaleMode, checked)
+                                onActivated: (index) => id_root.saveProgressFrameSelection(model[index])
                             }
                         }
 
@@ -960,7 +905,7 @@ Item {
                             label: qsTr("Progress frame completion animation")
                             tooltip: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
                             Switch {
-                                enabled: ctxSettings.showProgressFrame && !ctxSettings.progressFrameGrayscaleMode
+                                enabled: ctxSettings.progressFrameColorStyle >= 0
                                 checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_progressAnimHover }

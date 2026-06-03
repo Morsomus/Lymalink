@@ -64,12 +64,13 @@ Item {
 
         Card {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
-            p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
-            p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_targetTypeBadgeEnabled: ctxSettings.targetTypeBadgeColorStyle >= 0
+            p_targetTypeBadgeColorStyle: ctxSettings.targetTypeBadgeColorStyle
+            p_edgeProgressFrameEnabled: ctxSettings.progressFrameColorStyle !== -1
             p_edgeProgressFrameColorStyle: ctxSettings.progressFrameColorStyle
-            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
+            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameColorStyle === -2
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
-            p_progressBarEnabled: ctxSettings.showProgressBar
+            p_progressBarEnabled: ctxSettings.progressBarColorStyle >= 0
             p_progressBarColorStyle: ctxSettings.progressBarColorStyle
         }
     }
@@ -79,12 +80,13 @@ Item {
 
         CardSmall {
             p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
-            p_targetTypeBadgeEnabled: ctxSettings.showTargetTypeBadge
-            p_edgeProgressFrameEnabled: ctxSettings.showProgressFrame
+            p_targetTypeBadgeEnabled: ctxSettings.targetTypeBadgeColorStyle >= 0
+            p_targetTypeBadgeColorStyle: ctxSettings.targetTypeBadgeColorStyle
+            p_edgeProgressFrameEnabled: ctxSettings.progressFrameColorStyle !== -1
             p_edgeProgressFrameColorStyle: ctxSettings.progressFrameColorStyle
-            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameGrayscaleMode
+            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameColorStyle === -2
             p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
-            p_progressBarEnabled: ctxSettings.showProgressBar
+            p_progressBarEnabled: ctxSettings.progressBarColorStyle >= 0
             p_progressBarColorStyle: ctxSettings.progressBarColorStyle
         }
     }

@@ -31,12 +31,9 @@ class Settings : public QObject
     Q_PROPERTY(int globalColorStyle READ GetGlobalColorStyle NOTIFY signalConfigChanged)
     Q_PROPERTY(int progressFrameColorStyle READ GetProgressFrameColorStyle NOTIFY signalConfigChanged)
     Q_PROPERTY(int progressBarColorStyle READ GetProgressBarColorStyle NOTIFY signalConfigChanged)
-    Q_PROPERTY(bool showProgressFrame READ GetShowProgressFrame NOTIFY signalConfigChanged)
-    Q_PROPERTY(bool showProgressBar READ GetShowProgressBar NOTIFY signalConfigChanged)
+    Q_PROPERTY(int targetTypeBadgeColorStyle READ GetTargetTypeBadgeColorStyle NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showInstallationStatusBadge READ GetShowInstallationStatusBadge NOTIFY signalConfigChanged)
-    Q_PROPERTY(bool progressFrameGrayscaleMode READ GetProgressFrameGrayscaleMode NOTIFY signalConfigChanged)
     Q_PROPERTY(bool showTotalAchievementsBadge READ GetShowTotalAchievementsBadge NOTIFY signalConfigChanged)
-    Q_PROPERTY(bool showTargetTypeBadge READ GetShowTargetTypeBadge NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableProgressFrameCompletionAnimation READ GetEnableProgressFrameCompletionAnimation NOTIFY signalConfigChanged)
     Q_PROPERTY(bool enableDynamicAchievementRows READ GetEnableDynamicAchievementRows NOTIFY signalConfigChanged)
     Q_PROPERTY(bool sidebarCollapsed READ GetSidebarCollapsed NOTIFY signalConfigChanged)
@@ -73,12 +70,9 @@ public:
         GlobalColorStyle,
         ProgressFrameColorStyle,
         ProgressBarColorStyle,
-        ShowProgressFrame,
-        ShowProgressBar,
         ShowInstallationStatusBadge,
-        ProgressFrameGrayscaleMode,
         ShowTotalAchievementsBadge,
-        ShowTargetTypeBadge,
+        TargetTypeBadgeColorStyle,
         EnableProgressFrameCompletionAnimation,
         EnableDynamicAchievementRows,
         SidebarCollapsed,
@@ -124,12 +118,9 @@ public:
     inline int GetGlobalColorStyle() const { return m_globalColorStyle; }
     inline int GetProgressFrameColorStyle() const { return m_progressFrameColorStyle; }
     inline int GetProgressBarColorStyle() const { return m_progressBarColorStyle; }
-    inline bool GetShowProgressFrame() const { return m_showProgressFrame; }
-    inline bool GetShowProgressBar() const { return m_showProgressBar; }
+    inline int GetTargetTypeBadgeColorStyle() const { return m_targetTypeBadgeColorStyle; }
     inline bool GetShowInstallationStatusBadge() const { return m_showInstallationStatusBadge; }
-    inline bool GetProgressFrameGrayscaleMode() const { return m_progressFrameGrayscaleMode; }
     inline bool GetShowTotalAchievementsBadge() const { return m_showTotalAchievementsBadge; }
-    inline bool GetShowTargetTypeBadge() const { return m_showTargetTypeBadge; }
     inline bool GetEnableProgressFrameCompletionAnimation() const { return m_enableProgressFrameCompletionAnimation; }
     inline bool GetEnableDynamicAchievementRows() const { return m_enableDynamicAchievementRows; }
     inline uint16_t GetWindowSizeX() const { return m_windowSizeX; }
@@ -170,12 +161,9 @@ private:
     int m_globalColorStyle;
     int m_progressFrameColorStyle;
     int m_progressBarColorStyle;
-    bool m_showProgressFrame;
-    bool m_showProgressBar;
+    int m_targetTypeBadgeColorStyle;
     bool m_showInstallationStatusBadge;
-    bool m_progressFrameGrayscaleMode;
     bool m_showTotalAchievementsBadge;
-    bool m_showTargetTypeBadge;
     bool m_enableProgressFrameCompletionAnimation;
     bool m_enableDynamicAchievementRows;
     bool m_sidebarCollapsed;
