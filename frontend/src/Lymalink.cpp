@@ -451,6 +451,321 @@ QVariantMap Lymalink::ImportSteamGames(QVariantList games, const QString &steamI
 
 /////////////////////////////////////////////////////////////////////
 
+QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey)
+{
+    QVariantMap payload = {
+        {"success", false},
+        {"updatedCount", 0},
+        {"skippedCount", 0},
+        {"assetRefreshAppIds", QVariantList()},
+        {"errors", QVariantList()}
+    };
+
+    if (games.isEmpty())
+    {
+        m_lastOperationError = tr("No imported Steam games found to update.");
+        payload["errors"] = QVariantList{m_lastOperationError};
+        return payload;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        payload["errors"] = QVariantList{m_lastOperationError};
+        return payload;
+    }
+
+    SteamApi steamApi;
+    QVariantList errors;
+    QVariantList assetRefreshAppIds;
+    int updatedCount = 0;
+    int skippedCount = 0;
+    bool profilePrivacyErrorReported = false;
+
+    // Iterate through each game provided in the import list
+    for (const QVariant &gameValue : games)
+    {
+        // Extract and validate core game metadata
+        const QVariantMap game = gameValue.toMap();
+        const int appId = Utils::MapIntValue(game, "appId");
+        const QString gameName = Utils::MapStringValue(game, "name").trimmed();
+        const qint64 totalSecondsPlayed = game.value("playtimeSeconds").toLongLong();
+        const qint64 lastPlayedDate = game.value("lastPlayedTimestamp").toLongLong();
+        const QString errorPrefix = gameName.isEmpty() ? tr("App ID %1").arg(appId) : QString("%1 (%2)").arg(gameName).arg(appId);
+
+        if (appId <= 0 || gameName.isEmpty())
+        {
+            ++skippedCount;
+            errors << tr("%1: invalid game data.").arg(errorPrefix);
+            continue;
+        }
+
+        // Skip if the game doesn't already exist in the local database
+        const QVariantMap existingGame = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_GAMES, "id = ?", {appId});
+        if (existingGame.isEmpty())
+        {
+            ++skippedCount;
+            continue;
+        }
+
+        // Fetch existing achievement keys for this game to track structure changes
+        const QVariantList existingAchievementRows = m_databaseManager.selectWhere(
+            m_databaseConnectionName,
+            DATABASE_TABLE_ACHIEVEMENTS,
+            "id = ?",
+            {appId},
+            QStringList{"achievement_key"}
+        );
+
+        QSet<QString> existingKeys;
+        for (const QVariant &rowValue : existingAchievementRows)
+        {
+            const QString achievementKey = rowValue.toMap().value("achievement_key").toString();
+            if (!achievementKey.isEmpty())
+            {
+                existingKeys.insert(achievementKey);
+            }
+        }
+
+        // Fetch public achievement metadata from API
+        // Attempts primary endpoint first, falls back to secondary with API key on failure
+        QList<SteamAchievementData> publicAchievements;
+        Error publicError = steamApi.FetchAchievementDataPrimary(appId, publicAchievements);
+        if (publicError != Error::NoError && publicError != Error::NoData)
+        {
+            publicAchievements.clear();
+            publicError = steamApi.FetchAchievementDataSecondary(appId, publicAchievements, SteamApi::English, apiKey);
+        }
+
+        // Skip if public metadata fetch fails unexpectedly
+        if (publicError != Error::NoError && publicError != Error::NoData)
+        {
+            ++skippedCount;
+            errors << tr("%1: couldn't fetch achievement metadata.").arg(errorPrefix);
+            continue;
+        }
+
+        // Determine if player-specific achievement data is needed
+        QList<SteamPlayerAchievementData> playerAchievements;
+        const bool hasPublicAchievements = publicError == Error::NoError && !publicAchievements.isEmpty();
+        const bool hasExistingAchievements = !existingKeys.isEmpty();
+        const bool shouldFetchPlayerAchievements = hasPublicAchievements || hasExistingAchievements;
+        const Error playerError = shouldFetchPlayerAchievements
+            ? steamApi.FetchPlayerAchievements(appId, steamId, playerAchievements, apiKey)
+            : Error::NoData;
+
+        // Handle player data fetch errors, with special handling for private profiles
+        if (shouldFetchPlayerAchievements && playerError != Error::NoError && playerError != Error::NoData)
+        {
+            ++skippedCount;
+            if (playerError == Error::ProfileNotPublic)
+            {
+                const QString errorText = tr("%1: Steam profile is not public. Make your Steam profile and game details public, then retry.").arg(errorPrefix);
+                errors << errorText;
+                if (!profilePrivacyErrorReported)
+                {
+                    profilePrivacyErrorReported = true;
+                    emit signalErrorOccurred(
+                        tr("Steam Profile Is Private"),
+                        tr("Steam rejected player achievement data request because your profile is not public. Make your Steam profile and game details public, then retry.")
+                    );
+                }
+            }
+            else
+            {
+                errors << tr("%1: couldn't fetch player achievements.").arg(errorPrefix);
+            }
+            continue;
+        }
+
+        // Map player achievements by key and count total unlocked
+        QMap<QString, SteamPlayerAchievementData> playerByKey;
+        int playerUnlockedCount = 0;
+        for (const SteamPlayerAchievementData &achievement : playerAchievements)
+        {
+            if (!achievement.achievementKey.isEmpty())
+            {
+                playerByKey.insert(achievement.achievementKey, achievement);
+                if (achievement.dateUnlocked > 0)
+                {
+                    ++playerUnlockedCount;
+                }
+            }
+        }
+
+        // Calculate unlocked count and track which achievements exist in public data
+        QSet<QString> fetchedKeys;
+        int unlockedCount = 0;
+        for (const SteamAchievementData &achievement : publicAchievements)
+        {
+            if (achievement.achievementKey.isEmpty())
+            {
+                continue;
+            }
+
+            // Check if the player has unlocked this specific achievement
+            fetchedKeys.insert(achievement.achievementKey);
+            if (playerByKey.value(achievement.achievementKey).dateUnlocked > 0)
+            {
+                ++unlockedCount;
+            }
+        }
+
+        // Detect if achievements have been added or removed since last sync
+        const bool achievementStructureChanged = hasPublicAchievements && existingKeys != fetchedKeys;
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+        if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
+        {
+            ++skippedCount;
+            errors << tr("%1: couldn't start database transaction.").arg(errorPrefix);
+            continue;
+        }
+
+        // Prepare updated game record with latest metadata & playtime stats
+        QVariantMap gameRow = {
+            {"game_name", gameName},
+            {"total_seconds_played", totalSecondsPlayed},
+            {"last_played_date", lastPlayedDate},
+            {"date_updated", now}
+        };
+        if (hasPublicAchievements)
+        {
+            gameRow["total_amount_achievements"] = fetchedKeys.size();
+            gameRow["total_unlocked_amount_achievements"] = unlockedCount;
+        }
+        else if (playerError == Error::NoError)
+        {
+            // Fallback: use player data counts when public metadata is unavailable
+            gameRow["total_unlocked_amount_achievements"] = playerUnlockedCount;
+        }
+
+        // Apply game record update
+        bool updated = m_databaseManager.update(
+            m_databaseConnectionName,
+            DATABASE_TABLE_GAMES,
+            gameRow,
+            "id = ?",
+            {appId}
+        );
+
+        // Remove achievements that no longer exist in the public dataset
+        if (updated && hasPublicAchievements)
+        {
+            const QSet<QString> removedKeys = existingKeys - fetchedKeys;
+            for (const QString &achievementKey : removedKeys)
+            {
+                if (!m_databaseManager.remove(m_databaseConnectionName, DATABASE_TABLE_ACHIEVEMENTS, "id = ? AND achievement_key = ?", {appId, achievementKey}))
+                {
+                    updated = false;
+                    break;
+                }
+            }
+        }
+
+        // Insert or update achievement rows based on fetched public data
+        if (updated && hasPublicAchievements)
+        {
+            for (const SteamAchievementData &achievement : publicAchievements)
+            {
+                if (achievement.achievementKey.isEmpty())
+                {
+                    continue;
+                }
+
+                const SteamPlayerAchievementData playerAchievement = playerByKey.value(achievement.achievementKey);
+                QVariantMap achievementRow = {
+                    {"achievement_name", achievement.achievementName.isEmpty() ? playerAchievement.achievementName : achievement.achievementName},
+                    {"achievement_description", achievement.achievementDescription.isEmpty() ? playerAchievement.achievementDescription : achievement.achievementDescription},
+                    {"achievement_hidden", achievement.achievementHidden ? 1 : 0},
+                    {"global_unlock_percentage", achievement.globalUnlockPercentage},
+                    {"date_unlocked", playerAchievement.dateUnlocked},
+                    {"date_updated", now}
+                };
+
+                // Update existing achievement record
+                if (existingKeys.contains(achievement.achievementKey))
+                {
+                    if (!m_databaseManager.update(
+                        m_databaseConnectionName,
+                        DATABASE_TABLE_ACHIEVEMENTS,
+                        achievementRow,
+                        "id = ? AND achievement_key = ?",
+                        {appId, achievement.achievementKey}))
+                    {
+                        updated = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    // Insert new achievement record
+                    achievementRow["id"] = appId;
+                    achievementRow["achievement_key"] = achievement.achievementKey;
+                    achievementRow["date_added"] = now;
+                    if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_ACHIEVEMENTS, achievementRow))
+                    {
+                        updated = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Update existing achievements with player unlock dates when public data is unavailable
+        if (updated && !hasPublicAchievements && playerError == Error::NoError)
+        {
+            for (const QString &achievementKey : existingKeys)
+            {
+                if (!playerByKey.contains(achievementKey))
+                {
+                    continue;
+                }
+
+                const SteamPlayerAchievementData playerAchievement = playerByKey.value(achievementKey);
+                if (!m_databaseManager.update(
+                    m_databaseConnectionName,
+                    DATABASE_TABLE_ACHIEVEMENTS,
+                    {{"date_unlocked", playerAchievement.dateUnlocked}, {"date_updated", now}},
+                    "id = ? AND achievement_key = ?",
+                    {appId, achievementKey}))
+                {
+                    updated = false;
+                    break;
+                }
+            }
+        }
+
+        // Commit on success, rollback on failure
+        if (updated && m_databaseManager.commitTransaction(m_databaseConnectionName))
+        {
+            ++updatedCount;
+            // Track apps that need external asset refresh due to structure changes
+            if (achievementStructureChanged)
+            {
+                assetRefreshAppIds << appId;
+            }
+        }
+        else
+        {
+            m_databaseManager.rollbackTransaction(m_databaseConnectionName);
+            ++skippedCount;
+            errors << tr("%1: couldn't write Steam update to database.").arg(errorPrefix);
+        }
+    }
+
+    // Compile final results and update global error state
+    payload["success"] = updatedCount > 0;
+    payload["updatedCount"] = updatedCount;
+    payload["skippedCount"] = skippedCount;
+    payload["assetRefreshAppIds"] = assetRefreshAppIds;
+    payload["errors"] = errors;
+    m_lastOperationError = errors.isEmpty() ? QString() : errors.first().toString();
+    return payload;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::SetTargetHidden(int appId, bool hidden, const QString &targetType)
 {
     bool targetUpdated = false;

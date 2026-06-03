@@ -81,6 +81,77 @@ Item {
         id_root.statusIsError = false
     }
 
+    // Refreshes assets and achievement data for already imported Steam games
+    function updateSteamImports() {
+        if (!id_root.steamConfigured || id_root.unlockedSteamWebApiKey.length === 0) {
+            id_root.statusText = qsTr("Please unlock your Steam Web API key to update Steam imports.")
+            id_root.statusIsError = true
+            return
+        }
+
+        id_root.libraryLoading = true
+        id_root.statusText = qsTr("Checking imported games...")
+        id_root.statusIsError = false
+
+        const payload = ctxLymalink.FetchSteamOwnedGames(ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        id_root.libraryLoading = false
+
+        if (!payload.success) {
+            id_root.statusText = payload.error.length > 0
+                ? payload.error
+                : qsTr("Imported games could not be checked.")
+            id_root.statusIsError = true
+            return
+        }
+
+        id_root.libraryGames = payload.games
+        id_root.libraryLoaded = true
+
+        const importedGames = id_root.libraryGames.filter(function(game) {
+            return game.imported
+        })
+
+        if (importedGames.length === 0) {
+            id_root.statusText = qsTr("No imported games found to update.")
+            id_root.statusIsError = false
+            return
+        }
+
+        id_root.libraryLoading = true
+        id_root.statusText = qsTr("Updating progress...")
+
+        const updatePayload = ctxLymalink.UpdateSteamImports(importedGames, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        id_root.libraryLoading = false
+
+        const assetRefreshAppIds = updatePayload.assetRefreshAppIds ?? []
+        for (let i = 0; i < assetRefreshAppIds.length; ++i) {
+            ctxLymalink.EnqueueSteamHydrationTask(assetRefreshAppIds[i], true, "Steam")
+        }
+
+        const updatedCount = updatePayload.updatedCount ?? 0
+        const skippedCount = updatePayload.skippedCount ?? 0
+        const updatedWord = updatedCount === 1 ? "game" : "games"
+        const refreshWord = assetRefreshAppIds.length === 1 ? "game" : "games"
+        let status = qsTr("Updated progress for %1 imported %2.").arg(updatedCount).arg(updatedWord)
+
+        if (assetRefreshAppIds.length > 0) {
+            status += " " + qsTr("Queued asset refresh for %1 %2 with achievement changes.").arg(assetRefreshAppIds.length).arg(refreshWord)
+        }
+        if (skippedCount > 0) {
+            const skippedWord = skippedCount === 1 ? "game" : "games"
+            status += " " + qsTr("%1 %2 skipped or failed.").arg(skippedCount).arg(skippedWord)
+        }
+
+        const errors = updatePayload.errors ?? []
+        if (errors.length > 0) {
+            status += "\n" + errors.slice(0, 3).join("\n")
+        }
+
+        id_root.statusText = status
+        id_root.statusIsError = updatedCount === 0 && errors.length > 0
+        id_root.importsApplied()
+    }
+
     // Returns a list of games that are either marked for import or removal
     function changedGames(imported, selected) {
         return id_root.libraryGames.filter(function(game) {
@@ -144,54 +215,89 @@ Item {
         id_root.pendingOperation = ""
         id_root.statusIsError = false
 
+        // Route to the appropriate handler based on the pending operation type
         if (operation === "load") {
             id_root.loadSteamLibrary()
         } else if (operation === "update") {
-            id_root.statusText = qsTr("Steam import update is not wired yet.")
-            id_root.statusIsError = true
+            id_root.updateSteamImports()
         } else if (operation === "apply") {
+            // Extract pending import and removal lists from the UI state
             const imports = id_root.newImports
             const removals = id_root.removals
+            let removalFailures = 0
 
-            if (imports.length === 0) {
-                id_root.statusText = removals.length > 0
-                    ? qsTr("Removal is not implemented yet. No new Steam games were selected for import.")
-                    : qsTr("No Steam import changes to apply.")
-                id_root.statusIsError = removals.length > 0
+            if (imports.length === 0 && removals.length === 0) {
+                id_root.statusText = qsTr("No Steam import changes to apply.")
+                id_root.statusIsError = false
                 return
             }
 
-            const importWord = imports.length === 1 ? "game" : "games"
-            id_root.statusText = qsTr("Importing %1 %2...").arg(imports.length).arg(importWord)
-            id_root.statusIsError = false
+            // Process removals first (delete from backend/local state)
+            if (removals.length > 0) {
+                for (let i = 0; i < removals.length; ++i) {
+                    const removal = removals[i]
+                    if (!ctxLymalink.DeleteTarget(removal.appId, "Steam")) {
+                        ++removalFailures
+                    }
+                }
+            }
+            let payload = {
+                importedCount: 0,
+                skippedCount: 0,
+                importedAppIds: [],
+                errors: []
+            }
 
-            const payload = ctxLymalink.ImportSteamGames(imports, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
-            const importedAppIds = payload.importedAppIds ?? []
-            for (let i = 0; i < importedAppIds.length; ++i) {
-                ctxLymalink.EnqueueSteamHydrationTask(importedAppIds[i], true, "Steam")
+            // Process imports (call backend API and handle results)
+            if (imports.length > 0) {
+                const importWord = imports.length === 1 ? "game" : "games"
+                id_root.statusText = qsTr("Importing %1 %2...").arg(imports.length).arg(importWord)
+                id_root.statusIsError = false
+
+                // Execute backend import operation
+                payload = ctxLymalink.ImportSteamGames(imports, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+                const importedAppIds = payload.importedAppIds ?? []
+
+                // Queue background tasks to fetch assets/metadata for newly imported games
+                for (let i = 0; i < importedAppIds.length; ++i) {
+                    ctxLymalink.EnqueueSteamHydrationTask(importedAppIds[i], true, "Steam")
+                }
             }
 
             const importedCount = payload.importedCount ?? 0
             const importedWord = importedCount === 1 ? "game" : "games"
-            let status = qsTr("Imported %1 Steam %2.").arg(importedCount).arg(importedWord)
+            let status = ""
+
+            if (removals.length > 0) {
+                const removalWord = removals.length === 1 ? "game" : "games"
+                status = qsTr("Removed %1 Steam %2.").arg(removals.length - removalFailures).arg(removalWord)
+                if (removalFailures > 0) {
+                    status += " " + qsTr("%1 removal(s) failed.").arg(removalFailures)
+                }
+            }
+
+            if (imports.length > 0) {
+                status += (status.length > 0 ? " " : "") + qsTr("Imported %1 Steam %2.").arg(importedCount).arg(importedWord)
+            }
 
             if ((payload.skippedCount ?? 0) > 0) {
                 const skippedCount = payload.skippedCount ?? 0
                 const skippedWord = skippedCount === 1 ? "game" : "games"
                 status += " " + qsTr("%1 %2 skipped or failed.").arg(skippedCount).arg(skippedWord)
             }
-            if (removals.length > 0) {
-                const removalWord = removals.length === 1 ? "game" : "games"
-                status += " " + qsTr("Removal is not implemented yet; %1 unchecked imported %2 were left unchanged.").arg(removals.length).arg(removalWord)
-            }
             
             const errors = payload.errors ?? []
+            if (removalFailures > 0) {
+                errors.push(qsTr("%1 removal(s) failed.").arg(removalFailures))
+            }
             if (errors.length > 0) {
-                status += "\n" + errors.slice(0, 3).join("\n")
+                status += "\n" + errors.slice(0, 3).join("\n") // Limit to first 3 errors for readability
             }
 
             id_root.statusText = status
-            id_root.statusIsError = importedCount === 0 && errors.length > 0
+            id_root.statusIsError = (importedCount === 0 && errors.length > 0) || removalFailures > 0
+
+            // Signal that imports have been applied and refresh the library view
             id_root.importsApplied()
             id_root.loadSteamLibrary()
         }
@@ -206,7 +312,7 @@ Item {
         id: id_passcodePopup
 
         p_title: qsTr("Unlock Steam Web API Key")
-        p_description: qsTr("Enter encryption passcode for saved Steam Web API key.")
+        p_description: qsTr("Enter passcode for saved Steam Web API key.")
         p_confirmText: qsTr("Continue")
         p_singleVerificationMode: true
         onClosed: {
