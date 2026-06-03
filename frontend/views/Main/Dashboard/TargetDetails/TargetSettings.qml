@@ -18,12 +18,13 @@ Popup {
 
     // Public ________________________________________________
     property int p_appId: 0
+    property string p_targetType: "Emulator"
     property bool p_targetHidden: false
     property bool deleteConfirmVisible: false
 
-    signal reloadAssetsRequested(int appId)
-    signal targetHiddenChanged(int appId, bool hidden)
-    signal targetDeleted(int appId)
+    signal reloadAssetsRequested(int appId, string targetType)
+    signal targetHiddenChanged(int appId, string targetType, bool hidden)
+    signal targetDeleted(int appId, string targetType)
 
     // Internals _____________________________________________
     property bool targetHiddenState: p_targetHidden
@@ -68,9 +69,9 @@ Popup {
             return
         }
 
-        if (ctxLymalink.SetTargetHidden(id_root.p_appId, hidden)) {
+        if (ctxLymalink.SetTargetHidden(id_root.p_appId, hidden, id_root.p_targetType)) {
             id_root.targetHiddenState = hidden
-            id_root.targetHiddenChanged(id_root.p_appId, hidden)
+            id_root.targetHiddenChanged(id_root.p_appId, id_root.p_targetType, hidden)
         }
     }
 
@@ -115,8 +116,8 @@ Popup {
         }
 
         const appId = id_root.p_appId
-        if (ctxLymalink.DeleteTarget(appId)) {
-            id_root.targetDeleted(appId)
+        if (ctxLymalink.DeleteTarget(appId, id_root.p_targetType)) {
+            id_root.targetDeleted(appId, id_root.p_targetType)
             id_root.close()
         }
     }
@@ -250,7 +251,9 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: qsTr("Manage local target data and visibility.")
+            text: id_root.p_targetType === "Steam"
+                ? qsTr("Manage imported Steam target data and visibility.")
+                : qsTr("Manage local target data and visibility.")
             color: Themes.targetSettings.colors.bodyText
             font.pixelSize: Themes.targetSettings.fontSizes.body
             wrapMode: Text.WordWrap
@@ -263,8 +266,8 @@ Popup {
             tooltipText: qsTr("Reloads image assets and achievement data")
             onClicked: {
                 if (id_root.p_appId > 0) {
-                    ctxLymalink.EnqueueSteamHydrationTask(id_root.p_appId, true)
-                    id_root.reloadAssetsRequested(id_root.p_appId)
+                    ctxLymalink.EnqueueSteamHydrationTask(id_root.p_appId, true, id_root.p_targetType)
+                    id_root.reloadAssetsRequested(id_root.p_appId, id_root.p_targetType)
                     id_root.close()
                 }
             }
@@ -273,6 +276,7 @@ Popup {
         C_ActionButton {
             id: id_editExecutableLocationButton
 
+            visible: id_root.p_targetType !== "Steam"
             text: qsTr("Edit Executable Location")
             tooltipText: qsTr("Select Game Executable")
             onClicked: id_executableLocationPopup.open()
@@ -281,6 +285,7 @@ Popup {
         C_ActionButton {
             id: id_editPrefixLocationButton
 
+            visible: id_root.p_targetType !== "Steam"
             text: qsTr("Edit Prefix Location")
             tooltipText: qsTr("Select Prefix Location (drive_c or equivalent)")
             onClicked: id_prefixLocationPopup.open()

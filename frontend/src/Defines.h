@@ -31,6 +31,8 @@
 #define DATABASE_FILE_NAME              "lymalink_database"
 #define DATABASE_TABLE_EMU_GAMES        "steam_emu_games"
 #define DATABASE_TABLE_EMU_ACHIEVEMENTS "steam_emu_achievements"
+#define DATABASE_TABLE_GAMES            "steam_games"
+#define DATABASE_TABLE_ACHIEVEMENTS     "steam_achievements"
 
 /////////////////////////////////////////////////////////////////////
 // D-Bus

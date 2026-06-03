@@ -17,5 +17,7 @@ enum class Error {
     NotFound,
     Nullptr,
     ParseError,
+    AccessDenied,
+    ProfileNotPublic,
     UnknownError
 };

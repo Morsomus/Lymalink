@@ -288,7 +288,7 @@ Item {
 
                     anchors.fill: parent
                     z: 10
-                    visible: id_root.p_appId > 0 && id_row.achievementKey.length > 0 && id_row.contentRevealOpacity > 0.95
+                    visible: id_root.p_targetType !== "Steam" && id_root.p_appId > 0 && id_row.achievementKey.length > 0 && id_row.contentRevealOpacity > 0.95
 
                     Rectangle {
                         anchors.fill: parent

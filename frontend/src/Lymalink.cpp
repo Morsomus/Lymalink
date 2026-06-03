@@ -16,6 +16,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QLocale>
+#include <QSet>
+#include <QStringList>
 #include <QStandardPaths>
 #include <QVariantMap>
 
@@ -102,9 +104,9 @@ void Lymalink::CancelSteamAppIdSearch()
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::EnqueueSteamHydrationTask(int appId, bool reloadAssets)
+void Lymalink::EnqueueSteamHydrationTask(int appId, bool reloadAssets, const QString &targetType)
 {
-    emit signalRequestEnqueueSteamHydrationTask(appId, reloadAssets);
+    emit signalRequestEnqueueSteamHydrationTask(appId, reloadAssets, NormalizeTargetType(targetType));
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -228,9 +230,232 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::SetTargetHidden(int appId, bool hidden)
+QVariantMap Lymalink::ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey)
+{
+    QVariantMap payload = {
+        {"success", false},
+        {"importedCount", 0},
+        {"skippedCount", 0},
+        {"errors", QVariantList()},
+        {"importedAppIds", QVariantList()}
+    };
+
+    if (games.isEmpty())
+    {
+        m_lastOperationError = tr("No Steam games selected for import.");
+        payload["errors"] = QVariantList{m_lastOperationError};
+        return payload;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        payload["errors"] = QVariantList{m_lastOperationError};
+        return payload;
+    }
+
+    SteamApi steamApi;
+    QVariantList errors;
+    QVariantList importedAppIds;
+    int importedCount = 0;
+    int skippedCount = 0;
+    bool profilePrivacyErrorReported = false;
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    // Iterate through each game in the provided list
+    for (const QVariant &gameValue : games)
+    {
+        // Extract game metadata from the input map
+        const QVariantMap game = gameValue.toMap();
+        const int appId = Utils::MapIntValue(game, "appId");
+        const QString gameName = Utils::MapStringValue(game, "name").trimmed();
+        const qint64 totalSecondsPlayed = game.value("playtimeSeconds").toLongLong();
+        const qint64 lastPlayedDate = game.value("lastPlayedTimestamp").toLongLong();
+        const QString errorPrefix = gameName.isEmpty()
+            ? tr("App ID %1").arg(appId)
+            : QString("%1 (%2)").arg(gameName).arg(appId);
+
+        // Skip entries with invalid or missing core data
+        if (appId <= 0 || gameName.isEmpty())
+        {
+            ++skippedCount;
+            errors << tr("%1: invalid game data.").arg(errorPrefix);
+            continue;
+        }
+
+        // Check if the game already exists in the database
+        const int existingSteamRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_GAMES, "id = ?", {appId});
+        if (existingSteamRows < 0)
+        {
+            ++skippedCount;
+            errors << tr("%1: couldn't check existing Steam import.").arg(errorPrefix);
+            continue;
+        }
+        if (existingSteamRows > 0)
+        {
+            // Game already exists, skip to avoid duplicates
+            ++skippedCount;
+            continue;
+        }
+
+        QList<SteamAchievementData> publicAchievements;
+        Error publicError = steamApi.FetchAchievementDataPrimary(appId, publicAchievements);
+        if (publicError != Error::NoError && publicError != Error::NoData)
+        {
+            publicAchievements.clear();
+            publicError = steamApi.FetchAchievementDataSecondary(appId, publicAchievements, SteamApi::English, apiKey);
+        }
+
+        if (publicError != Error::NoError && publicError != Error::NoData)
+        {
+            ++skippedCount;
+            errors << tr("%1: couldn't fetch achievement metadata.").arg(errorPrefix);
+            continue;
+        }
+
+        // Fetch player-specific achievement progress
+        QList<SteamPlayerAchievementData> playerAchievements;
+        const bool hasPublicAchievements = publicError == Error::NoError && !publicAchievements.isEmpty();
+        const Error playerError = hasPublicAchievements
+            ? steamApi.FetchPlayerAchievements(appId, steamId, playerAchievements, apiKey)
+            : Error::NoData;
+        
+        // Check for errors
+        if (hasPublicAchievements && playerError != Error::NoError && playerError != Error::NoData)
+        {
+            ++skippedCount;
+            if (playerError == Error::ProfileNotPublic)
+            {
+                const QString errorText = tr("%1: Steam profile is not public. Make your Steam profile and game details public, then retry.").arg(errorPrefix);
+                errors << errorText;
+                if (!profilePrivacyErrorReported)
+                {
+                    profilePrivacyErrorReported = true;
+                    emit signalErrorOccurred(
+                        tr("Steam Profile Is Private"),
+                        tr("Steam rejected player achievement data request because your profile is not public. Make your Steam profile and game details public, then retry.")
+                    );
+                }
+            }
+            else
+            {
+                errors << tr("%1: couldn't fetch player achievements.").arg(errorPrefix);
+            }
+            continue;
+        }
+        if (hasPublicAchievements && playerError == Error::NoData)
+        {
+            errors << tr("%1: player achievement unlock data is unavailable; imported achievements as locked.").arg(errorPrefix);
+        }
+
+        // Map player achievements by key for quick lookup during iteration
+        QMap<QString, SteamPlayerAchievementData> playerByKey;
+        for (const SteamPlayerAchievementData &achievement : playerAchievements)
+        {
+            if (!achievement.achievementKey.isEmpty())
+            {
+                playerByKey.insert(achievement.achievementKey, achievement);
+            }
+        }
+
+        // Prepare rows for database insertion
+        QVariantList achievementRows;
+        int unlockedCount = 0;
+        for (const SteamAchievementData &achievement : publicAchievements)
+        {
+            if (achievement.achievementKey.isEmpty())
+            {
+                continue;
+            }
+
+            const SteamPlayerAchievementData playerAchievement = playerByKey.value(achievement.achievementKey);
+            const qint64 dateUnlocked = playerAchievement.dateUnlocked;
+            if (dateUnlocked > 0)
+            {
+                ++unlockedCount;
+            }
+
+            // Construct achievement row with fallback names/descriptions to player data if public is missing
+            QVariantMap achievementRow = {
+                {"id", appId},
+                {"achievement_key", achievement.achievementKey},
+                {"achievement_name", achievement.achievementName.isEmpty() ? playerAchievement.achievementName : achievement.achievementName},
+                {"achievement_description", achievement.achievementDescription.isEmpty() ? playerAchievement.achievementDescription : achievement.achievementDescription},
+                {"achievement_hidden", achievement.achievementHidden ? 1 : 0},
+                {"global_unlock_percentage", achievement.globalUnlockPercentage},
+                {"date_unlocked", dateUnlocked},
+                {"date_updated", now},
+                {"date_added", now}
+            };
+            achievementRows << achievementRow;
+        }
+
+        // Begin a database transaction to ensure atomicity (game + achievements insert together)
+        if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
+        {
+            ++skippedCount;
+            errors << tr("%1: couldn't start database transaction.").arg(errorPrefix);
+            continue;
+        }
+
+        // Construct game row with computed achievement statistics
+        const QVariantMap gameRow = {
+            {"id", appId},
+            {"game_name", gameName},
+            {"target_hidden", 0},
+            {"total_amount_achievements", achievementRows.size()},
+            {"total_unlocked_amount_achievements", unlockedCount},
+            {"total_seconds_played", totalSecondsPlayed},
+            {"last_played_date", lastPlayedDate},
+            {"date_updated", now},
+            {"date_added", now}
+        };
+
+        // Insert game row and then all associated achievement rows
+        bool imported = m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_GAMES, gameRow);
+        if (imported)
+        {
+            for (const QVariant &achievementValue : achievementRows)
+            {
+                if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_ACHIEVEMENTS, achievementValue.toMap()))
+                {
+                    imported = false;
+                    break;
+                }
+            }
+        }
+
+        // Commit transaction on success, otherwise rollback to maintain database integrity
+        if (imported && m_databaseManager.commitTransaction(m_databaseConnectionName))
+        {
+            ++importedCount;
+            importedAppIds << appId;
+        }
+        else
+        {
+            m_databaseManager.rollbackTransaction(m_databaseConnectionName);
+            ++skippedCount;
+            errors << tr("%1: couldn't write Steam import to database.").arg(errorPrefix);
+        }
+    }
+
+    // Finalize the result payload with operation statistics
+    payload["success"] = importedCount > 0;
+    payload["importedCount"] = importedCount;
+    payload["skippedCount"] = skippedCount;
+    payload["errors"] = errors;
+    payload["importedAppIds"] = importedAppIds;
+    m_lastOperationError = errors.isEmpty() ? QString() : errors.first().toString();
+    return payload;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::SetTargetHidden(int appId, bool hidden, const QString &targetType)
 {
     bool targetUpdated = false;
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString gameTable = GameTableForTargetType(normalizedTargetType);
 
     if (appId <= 0)
     {
@@ -247,7 +472,7 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden)
 
     targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
-        DATABASE_TABLE_EMU_GAMES,
+        gameTable,
         {{"target_hidden", hidden ? 1 : 0}},
         "id = ?",
         {appId}
@@ -460,9 +685,12 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::DeleteTarget(int appId)
+bool Lymalink::DeleteTarget(int appId, const QString &targetType)
 {
     bool targetDeleted = false;
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString gameTable = GameTableForTargetType(normalizedTargetType);
+    const QString assetFolder = AssetFolderForTargetType(normalizedTargetType);
 
     if (appId <= 0)
     {
@@ -477,7 +705,7 @@ bool Lymalink::DeleteTarget(int appId)
     }
 
     // Require target row before deleting assets/database data
-    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, gameTable, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink::DeleteTarget: target delete row not found:" << appId;
@@ -491,7 +719,7 @@ bool Lymalink::DeleteTarget(int appId)
         return targetDeleted;
     }
 
-    const QString targetPath = QDir(appDataPath).filePath("Emulator/" + QString::number(appId));
+    const QString targetPath = QDir(appDataPath).filePath(assetFolder + "/" + QString::number(appId));
 
     if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
     {
@@ -502,7 +730,7 @@ bool Lymalink::DeleteTarget(int appId)
     // Delete game row first; achievement rows cascade through foreign key
     const bool targetRemoved = m_databaseManager.remove(
         m_databaseConnectionName,
-        DATABASE_TABLE_EMU_GAMES,
+        gameTable,
         "id = ?",
         {appId}
     );
@@ -670,14 +898,79 @@ QVariantList Lymalink::FetchDashboardTargets()
         targets << target;
     }
 
+    const QVariantList steamRows = m_databaseManager.selectAll(m_databaseConnectionName, DATABASE_TABLE_GAMES);
+    for (const QVariant &rowValue : steamRows)
+    {
+        const QVariantMap row = rowValue.toMap();
+        const int appId = Utils::MapIntValue(row, "id");
+        const QString appIdText = QString::number(appId);
+        const QDir steamAppDir(QDir(appDataPath).filePath("Steam/" + appIdText));
+        const QString coversPath = steamAppDir.filePath("covers");
+        const QString iconsPath = steamAppDir.filePath("icons");
+        const QString coverSourceCard = CoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
+        const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath);
+
+        const QVariantList achievements = m_databaseManager.selectWhere(
+            m_databaseConnectionName,
+            DATABASE_TABLE_ACHIEVEMENTS,
+            "id = ?",
+            {appId},
+            {
+                "achievement_key",
+                "achievement_name",
+                "achievement_description",
+                "date_unlocked"
+            }
+        );
+        const QVariantMap latestAchievement = LatestUnlockedAchievement(achievements);
+        const qint64 latestUnlockTimestamp = latestAchievement.value("date_unlocked").toLongLong();
+        const int achievementCount = Utils::MapIntValue(row, "total_unlocked_amount_achievements");
+        const int achievementTotal = Utils::MapIntValue(row, "total_amount_achievements");
+
+        QVariantMap target = {
+            {"id", appId},
+            {"title", Utils::MapStringValue(row, "game_name")},
+            {"coverSource", coverSource},
+            {"coverSourceCard", coverSourceCard.isEmpty() ? coverSource : coverSourceCard},
+            {"coverSourceCardSmall", coverSourceCardSmall.isEmpty() ? coverSource : coverSourceCardSmall},
+            {"coverSourceRowDetailed", coverSourceRowDetailed.isEmpty() ? coverSource : coverSourceRowDetailed},
+            {"coverSourceTargetDetails", coverSourceTargetDetails.isEmpty() ? coverSource : coverSourceTargetDetails},
+            {"logoSource", CommunityIconFilePath(iconsPath)},
+            {"achievementCount", achievementCount},
+            {"achievementTotal", achievementTotal},
+            {"targetType", "Steam"},
+            {"status", tr("Installed")},
+            {"lastPlayed", Utils::LocalDate(row.value("last_played_date").toLongLong())},
+            {"recentUnlock", Utils::LocalDate(latestUnlockTimestamp)},
+            {"progressValue", achievementTotal > 0 ? static_cast<double>(achievementCount) / achievementTotal : 0.0},
+            {"targetHidden", row.value("target_hidden").toInt() == 1},
+            {"playtimeSeconds", Utils::MapIntValue(row, "total_seconds_played")},
+            {"lastPlayedTimestamp", row.value("last_played_date").toLongLong()},
+            {"recentUnlockTimestamp", latestUnlockTimestamp},
+            {"dateAddedTimestamp", row.value("date_added").toLongLong()},
+            {"lastAchievementIcon", AchievementIconFilePath(iconsPath, latestAchievement)},
+            {"lastAchievementName", Utils::MapStringValue(latestAchievement, "achievement_name")},
+            {"lastAchievementDesc", Utils::MapStringValue(latestAchievement, "achievement_description")}
+        };
+
+        targets << target;
+    }
+
     return targets;
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantMap Lymalink::FetchTargetDetails(int appId)
+QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
 {
     QVariantMap targetDetails = {};
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString gameTable = GameTableForTargetType(normalizedTargetType);
+    const QString achievementTable = AchievementTableForTargetType(normalizedTargetType);
+    const QString assetFolder = AssetFolderForTargetType(normalizedTargetType);
 
     if (appId <= 0)
     {
@@ -692,7 +985,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
     }
 
     // Fetch target row before building heavy details payload
-    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, gameTable, "id = ?", {appId});
     if (row.isEmpty())
     {
         qWarning() << "Lymalink::FetchTargetDetails: target details not found for appId:" << appId;
@@ -701,17 +994,17 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
 
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     const QString appIdText = QString::number(appId);
-    const QDir emulatorAppDir(QDir(appDataPath).filePath("Emulator/" + appIdText));
-    const QString coversPath = emulatorAppDir.filePath("covers");
-    const QString iconsPath = emulatorAppDir.filePath("icons");
+    const QDir targetAppDir(QDir(appDataPath).filePath(assetFolder + "/" + appIdText));
+    const QString coversPath = targetAppDir.filePath("covers");
+    const QString iconsPath = targetAppDir.filePath("icons");
 
     // Prefer detail-sized cover, then fallback to first image in covers folder
     const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
     const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath);
-    const QVariantList achievements = BuildAchievementDetails(appId, iconsPath);
+    const QVariantList achievements = BuildAchievementDetails(appId, iconsPath, normalizedTargetType);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
         m_databaseConnectionName,
-        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        achievementTable,
         "id = ?",
         {appId},
         {"achievement_key", "achievement_name", "achievement_description", "date_unlocked"}
@@ -724,16 +1017,100 @@ QVariantMap Lymalink::FetchTargetDetails(int appId)
         {"coverSourceTargetDetails", coverSource},
         {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
         {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
-        {"targetType", "Emulator"},
-        {"installationStatus", ExecutableInstallationStatus(row)},
+        {"targetType", normalizedTargetType},
+        {"installationStatus", IsSteamTargetType(normalizedTargetType) ? tr("") : ExecutableInstallationStatus(row)},
         {"lastPlayed", Utils::LocalDate(row.value("last_played_date").toLongLong())},
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
         {"playtime", PlaytimeText(Utils::MapIntValue(row, "total_seconds_played"))},
-        {"appIdDirFound", row.value("appid_dir_found").toInt() == 1},
+        {"appIdDirFound", IsSteamTargetType(normalizedTargetType) ? false : row.value("appid_dir_found").toInt() == 1},
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
     };
     return targetDetails;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantMap Lymalink::FetchSteamOwnedGames(const QString &steamId, const QString &apiKey)
+{
+    QVariantMap payload = {
+        {"success", false},
+        {"error", QString()},
+        {"games", QVariantList()}
+    };
+
+    SteamApi steamApi;
+    QList<SteamOwnedGameData> ownedGames;
+    const Error fetchError = steamApi.FetchOwnedGames(steamId, ownedGames, apiKey);
+    if (fetchError != Error::NoError && fetchError != Error::NoData)
+    {
+        QString errorText;
+        switch (fetchError)
+        {
+            case Error::InvalidParameter:
+                errorText = tr("Steam ID or Steam Web API key is invalid.");
+                break;
+            case Error::AccessDenied:
+                errorText = tr("Steam profile is private or Steam Web API key was rejected.");
+                break;
+            case Error::NotFound:
+                errorText = tr("Games could not be loaded. Check API credentials.");
+                break;
+            case Error::NoData:
+                errorText = tr("Steam library is empty.");
+                break;
+            case Error::ParseError:
+                errorText = tr("Games response could not be parsed.");
+                break;
+            default:
+                errorText = tr("Games could not be loaded. Check API credentials.");
+                break;
+        }
+
+        m_lastOperationError = errorText;
+        payload["error"] = errorText;
+        return payload;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        m_lastOperationError = tr("Failed to open database for Steam import state.");
+        payload["error"] = m_lastOperationError;
+        return payload;
+    }
+
+    const QVariantList importedRows = m_databaseManager.selectAll(m_databaseConnectionName, DATABASE_TABLE_GAMES, QStringList{"id"});
+    QSet<int> importedIds;
+    for (const QVariant &rowValue : importedRows)
+    {
+        const QVariantMap row = rowValue.toMap();
+        const int appId = row.value("id").toInt();
+        if (appId > 0)
+        {
+            importedIds.insert(appId);
+        }
+    }
+
+    QVariantList games;
+    games.reserve(ownedGames.size());
+    for (const SteamOwnedGameData &ownedGame : ownedGames)
+    {
+        const bool imported = importedIds.contains(ownedGame.appId);
+            QVariantMap game = {
+                {"appId", ownedGame.appId},
+                {"name", ownedGame.gameName},
+                {"imported", imported},
+                {"selected", imported},
+                {"playtimeSeconds", ownedGame.totalSecondsPlayed},
+            {"lastPlayedTimestamp", ownedGame.lastPlayedDate}
+        };
+        games.append(game);
+    }
+
+    payload["success"] = true;
+    payload["games"] = games;
+    m_lastOperationError.clear();
+    return payload;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -829,6 +1206,54 @@ Error Lymalink::DatabaseInit()
         return databaseResult;
     }
 
+    const bool steamGamesReady = m_databaseManager.createTable(
+        m_databaseConnectionName,
+        DATABASE_TABLE_GAMES,
+        {
+            "id INTEGER PRIMARY KEY NOT NULL",
+            "game_name TEXT NOT NULL",
+            "target_hidden INTEGER DEFAULT 0",
+            "total_amount_achievements INTEGER",
+            "total_unlocked_amount_achievements INTEGER",
+            "total_seconds_played INTEGER",
+            "last_played_date INTEGER",
+            "date_updated INTEGER",
+            "date_added INTEGER"
+        }
+    );
+
+    if (!steamGamesReady)
+    {
+        qCritical() << "Lymalink::DatabaseInit: failed to initialize" << DATABASE_TABLE_GAMES << "table:" << m_databaseManager.lastError();
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
+    }
+
+    const bool steamAchievementsReady = m_databaseManager.createTable(
+        m_databaseConnectionName,
+        DATABASE_TABLE_ACHIEVEMENTS,
+        {
+            "id INTEGER NOT NULL",
+            "achievement_key TEXT NOT NULL",
+            "achievement_name TEXT NOT NULL",
+            "achievement_description TEXT",
+            "achievement_hidden INTEGER DEFAULT 0",
+            "global_unlock_percentage REAL",
+            "date_unlocked INTEGER",
+            "date_updated INTEGER",
+            "date_added INTEGER",
+            "PRIMARY KEY (id, achievement_key)",
+            QString("FOREIGN KEY (id) REFERENCES %1(id) ON DELETE CASCADE").arg(DATABASE_TABLE_GAMES)
+        }
+    );
+
+    if (!steamAchievementsReady)
+    {
+        qCritical() << "Lymalink::DatabaseInit: failed to initialize" << DATABASE_TABLE_ACHIEVEMENTS << "table:" << m_databaseManager.lastError();
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
+    }
+
     qDebug() << "Lymalink::DatabaseInit: database initialized at" << m_databasePath;
     return databaseResult;
 }
@@ -868,8 +1293,13 @@ Error Lymalink::FileSystemInit()
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::ApplyNewAchievements(int appId, QVariantList achievements)
+void Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList achievements)
 {
+    if (IsSteamTargetType(targetType))
+    {
+        return;
+    }
+
     int inserted = 0;
 
     // Insert only new achievement keys from hydration payload
@@ -967,26 +1397,33 @@ QVariantMap Lymalink::LatestUnlockedAchievement(const QVariantList &achievements
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPath)
+QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPath, const QString &targetType)
 {
     QVariantList achievements;
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString achievementTable = AchievementTableForTargetType(normalizedTargetType);
+    const bool steamTarget = IsSteamTargetType(normalizedTargetType);
 
     // Fetch achievement rows needed by target details sections
+    QStringList columns = {
+        "achievement_key",
+        "achievement_name",
+        "achievement_description",
+        "achievement_hidden",
+        "global_unlock_percentage",
+        "date_unlocked"
+    };
+    if (!steamTarget)
+    {
+        columns << "cur_progress" << "max_progress";
+    }
+
     const QVariantList rows = m_databaseManager.selectWhere(
         m_databaseConnectionName,
-        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        achievementTable,
         "id = ?",
         {appId},
-        {
-            "achievement_key",
-            "achievement_name",
-            "achievement_description",
-            "achievement_hidden",
-            "global_unlock_percentage",
-            "cur_progress",
-            "max_progress",
-            "date_unlocked"
-        }
+        columns
     );
 
     QVariantList unlockedAchievements;
@@ -1008,8 +1445,8 @@ QVariantList Lymalink::BuildAchievementDetails(int appId, const QString &iconsPa
             {"achievementName", Utils::MapStringValue(row, "achievement_name")},
             {"achievementDescription", Utils::MapStringValue(row, "achievement_description")},
             {"globalUnlockPercentage", row.value("global_unlock_percentage").isNull() ? 0.0 : row.value("global_unlock_percentage").toDouble()},
-            {"curProgress", Utils::MapIntValue(row, "cur_progress")},
-            {"maxProgress", Utils::MapIntValue(row, "max_progress")},
+            {"curProgress", steamTarget ? 0 : Utils::MapIntValue(row, "cur_progress")},
+            {"maxProgress", steamTarget ? 0 : Utils::MapIntValue(row, "max_progress")},
             {"unlockDate", unlocked ? Utils::LocalDate(unlockTimestamp) : QString()},
             {"unlockTime", unlocked ? QLocale::system().toString(unlockDateTime.time(), "HH:mm") : QString()},
             {"unlockTimestamp", unlockTimestamp},
@@ -1088,7 +1525,7 @@ QString Lymalink::AchievementIconFilePath(const QString &iconsPath, const QVaria
     const QString achievementKey = Utils::MapStringValue(achievement, "achievement_key");
     if (achievementKey.isEmpty())
     {
-        qInfo() << "Lymalink::AchievementIconFilePath: achievement key missing" << achievementKey;
+        qDebug() << "Lymalink::AchievementIconFilePath: achievement key missing" << achievementKey;
         return iconSource;
     }
 
@@ -1150,4 +1587,39 @@ bool Lymalink::IsTargetExecutableLocationInUse(const QString &executablePath, in
         *querySucceeded = true;
     }
     return existingRows > 0;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::NormalizeTargetType(const QString &targetType) const
+{
+    return targetType.trimmed().compare("Steam", Qt::CaseInsensitive) == 0 ? "Steam" : "Emulator";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::GameTableForTargetType(const QString &targetType) const
+{
+    return IsSteamTargetType(targetType) ? DATABASE_TABLE_GAMES : DATABASE_TABLE_EMU_GAMES;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::AchievementTableForTargetType(const QString &targetType) const
+{
+    return IsSteamTargetType(targetType) ? DATABASE_TABLE_ACHIEVEMENTS : DATABASE_TABLE_EMU_ACHIEVEMENTS;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::AssetFolderForTargetType(const QString &targetType) const
+{
+    return IsSteamTargetType(targetType) ? "Steam" : "Emulator";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::IsSteamTargetType(const QString &targetType) const
+{
+    return targetType.trimmed().compare("Steam", Qt::CaseInsensitive) == 0;
 }

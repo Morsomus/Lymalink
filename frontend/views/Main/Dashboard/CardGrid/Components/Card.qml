@@ -39,7 +39,7 @@ Rectangle {
     property bool p_progressBarEnabled: true
     property int p_progressBarColorStyle: 1
 
-    signal openTargetDetails(int appId)
+    signal openTargetDetails(int appId, string targetType)
     
     // Internals _____________________________________________
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
@@ -634,7 +634,7 @@ Rectangle {
         hoverEnabled: true
 
         onClicked: {
-            id_root.openTargetDetails(id_root.p_appId)
+            id_root.openTargetDetails(id_root.p_appId, id_root.p_targetType)
         }
     }
 

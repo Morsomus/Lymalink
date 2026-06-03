@@ -62,6 +62,23 @@ struct SteamAchievementIconUrls
     QList<QString> iconGrayUrls;
 };
 
+struct SteamOwnedGameData
+{
+    int appId = 0;
+    QString gameName;
+    qint64 totalSecondsPlayed = 0;
+    qint64 lastPlayedDate = 0;
+};
+
+struct SteamPlayerAchievementData
+{
+    int appId = 0;
+    QString achievementKey;
+    QString achievementName;
+    QString achievementDescription;
+    qint64 dateUnlocked = 0;
+};
+
 class SteamApi : public QObject
 {
     Q_OBJECT
@@ -90,16 +107,22 @@ public:
     Error GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls);
     Error FetchAchievementDataPrimary(int appId, QList<SteamAchievementData> &achievements, Locale locale = English);
     Error FetchAchievementDataSecondary(int appId, QList<SteamAchievementData> &achievements, Locale locale, const QString &apiKey);
+    Error FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData> &games, const QString &apiKey);
+    Error FetchPlayerAchievements(int appId, const QString &steamId, QList<SteamPlayerAchievementData> &achievements, const QString &apiKey, Locale locale = English);
 
 private:
     QNetworkAccessManager *m_networkManager;
     QMap<Locale, QPair<QString, QString>> m_localeMap;
 
     void InitializeLocaleMap();
+    bool IsValidSteamId(const QString &steamId) const;
+    bool IsPrivateProfileResponse(const QByteArray &jsonResponse) const;
     bool IncludesExpectedExtension(const QString &value) const;
     QString NormalizeSteamImageFileName(const QString &value) const;
     QList<SteamSearchResult> ParseSearchResponse(const QByteArray &jsonResponse);
     SteamGameInfo ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage);
+    Error ParseOwnedGamesResponse(const QByteArray &jsonResponse, QList<SteamOwnedGameData> &games, QString *errorMessage) const;
+    Error ParsePlayerAchievementsResponse(const QByteArray &jsonResponse, int appId, QList<SteamPlayerAchievementData> &achievements, QString *errorMessage) const;
     QMap<QString, double> ParseGlobalAchievementPercentagesResponse(const QByteArray &jsonResponse, QString *errorMessage);
     QMap<QString, QString> ParseSteamHuntersAchievementDescriptionsResponse(const QByteArray &jsonResponse, QString *errorMessage);
     QByteArray BuildPrimaryAchievementDataResponseFromSecondary(const QByteArray &schemaResponse, const QByteArray &percentagesResponse, const QByteArray &descriptionsResponse, QString *errorMessage);

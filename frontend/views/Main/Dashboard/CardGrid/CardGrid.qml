@@ -22,7 +22,7 @@ Item {
     property var p_targetModel: null
     property real p_scrollLocation: 0
 
-    signal openTargetDetails(int appId)
+    signal openTargetDetails(int appId, string targetType)
 
     // Internals _____________________________________________
     readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 150

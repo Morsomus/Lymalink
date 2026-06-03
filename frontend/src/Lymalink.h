@@ -32,26 +32,28 @@ public:
     
     Q_INVOKABLE void SearchSteamAppIds(const QString &term);
     Q_INVOKABLE void CancelSteamAppIdSearch();
-    Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false);
+    Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false, const QString &targetType = "Emulator");
     Q_INVOKABLE void CancelSteamHydration();
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath);
-    Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden);
+    Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
+    Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
-    Q_INVOKABLE bool DeleteTarget(int appId);
+    Q_INVOKABLE bool DeleteTarget(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QString GetTargetTitle(int appId);
     Q_INVOKABLE QString GetTargetPrefixLocation(int appId);
     Q_INVOKABLE QString GetTargetExecutableLocation(int appId);
     Q_INVOKABLE QString GetLastOperationError() const;
     Q_INVOKABLE QVariantList FetchDashboardTargets();
-    Q_INVOKABLE QVariantMap FetchTargetDetails(int appId);
+    Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
+    Q_INVOKABLE QVariantMap FetchSteamOwnedGames(const QString &steamId, const QString &apiKey);
 
 signals:
     void signalSteamAppIdsSearchReady(bool success, bool cancelled, QVariantList results);
-    void signalSteamHydrationTaskStarted(int appId);
-    void signalSteamHydrationTaskProgress(int appId, QString stage, int current, int total);
-    void signalSteamHydrationTaskFinished(int appId, bool success, bool cancelled);
+    void signalSteamHydrationTaskStarted(int appId, QString targetType);
+    void signalSteamHydrationTaskProgress(int appId, QString targetType, QString stage, int current, int total);
+    void signalSteamHydrationTaskFinished(int appId, QString targetType, bool success, bool cancelled);
     void signalSteamHydrationQueueFinished();
     void signalErrorOccurred(QString title, QString message);
 
@@ -60,7 +62,7 @@ signals:
     void signalRequestCancelSearchSteamAppIds();
 
     // Internal - SteamApiHydrationWorker
-    void signalRequestEnqueueSteamHydrationTask(int appId, bool reloadAssets);
+    void signalRequestEnqueueSteamHydrationTask(int appId, bool reloadAssets, QString targetType);
     void signalRequestCancelSteamHydration();
     
 private:
@@ -77,13 +79,18 @@ private:
 
     Error DatabaseInit();
     Error FileSystemInit();
-    void ApplyNewAchievements(int appId, QVariantList achievements);
+    void ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);
     QString PlaytimeText(int hoursPlayed) const;
     QVariantMap LatestUnlockedAchievement(const QVariantList &achievements) const;
-    QVariantList BuildAchievementDetails(int appId, const QString &iconsPath);
+    QVariantList BuildAchievementDetails(int appId, const QString &iconsPath, const QString &targetType);
     QString CoverImageFilePath(const QString &coversPath, const QString &fileName) const;
     QString CommunityIconFilePath(const QString &iconsPath) const;
     QString AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const;
     QString ExecutableInstallationStatus(const QVariantMap &row) const;
     bool IsTargetExecutableLocationInUse(const QString &executablePath, int excludedAppId, bool *querySucceeded = nullptr);
+    QString NormalizeTargetType(const QString &targetType) const;
+    QString GameTableForTargetType(const QString &targetType) const;
+    QString AchievementTableForTargetType(const QString &targetType) const;
+    QString AssetFolderForTargetType(const QString &targetType) const;
+    bool IsSteamTargetType(const QString &targetType) const;
 };

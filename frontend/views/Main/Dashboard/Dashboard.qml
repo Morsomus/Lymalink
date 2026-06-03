@@ -83,7 +83,7 @@ Item {
         for (let i = 0; i < filteredTargets.length; ++i) {
             const target = filteredTargets[i]
             target.rowLayout = id_root.activeLayout === "detailedList" ? "detailedList" : "list"
-            target.isLoading = id_root.isTargetLoading(target.id)
+            target.isLoading = id_root.isTargetLoading(target.id, target.targetType)
             id_targetModel.append(target)
         }
 
@@ -287,14 +287,19 @@ Item {
         }
     }
 
-    function isTargetLoading(appId) {
-        return loadingTargetAppIds.indexOf(appId) !== -1
+    function targetKey(appId, targetType) {
+        return appId + ":" + (targetType ?? "Emulator")
     }
 
-    function setTargetLoading(appId, loading) {
-        const index = loadingTargetAppIds.indexOf(appId)
+    function isTargetLoading(appId, targetType) {
+        return loadingTargetAppIds.indexOf(id_root.targetKey(appId, targetType)) !== -1
+    }
+
+    function setTargetLoading(appId, targetType, loading) {
+        const key = id_root.targetKey(appId, targetType)
+        const index = loadingTargetAppIds.indexOf(key)
         if (loading && index === -1) {
-            loadingTargetAppIds = loadingTargetAppIds.concat([appId])
+            loadingTargetAppIds = loadingTargetAppIds.concat([key])
         } else if (!loading && index !== -1) {
             const nextIds = loadingTargetAppIds.slice()
             nextIds.splice(index, 1)
@@ -302,7 +307,8 @@ Item {
         }
 
         for (let i = 0; i < id_targetModel.count; ++i) {
-            if (id_targetModel.get(i).id === appId) {
+            const target = id_targetModel.get(i)
+            if (target.id === appId && target.targetType === targetType) {
                 id_targetModel.setProperty(i, "isLoading", loading)
                 break
             }
@@ -317,10 +323,10 @@ Item {
         }
     }
 
-    function onTargetSelected(appId) {
+    function onTargetSelected(appId, targetType) {
         id_root.saveDashboardScrollLocation()
 
-        const details = ctxLymalink.FetchTargetDetails(appId)
+        const details = ctxLymalink.FetchTargetDetails(appId, targetType)
 
         id_root.targetDetailsAchievements = details.achievements ?? []
         id_root.refreshTargetDetailsAchievements()
@@ -329,12 +335,12 @@ Item {
         id_root.showingTargetDetails = true
     }
 
-    function reloadTargetDetails(appId) {
-        if (!id_root.pendingTargetDetails || id_root.pendingTargetDetails.id !== appId) {
+    function reloadTargetDetails(appId, targetType) {
+        if (!id_root.pendingTargetDetails || id_root.pendingTargetDetails.id !== appId || id_root.pendingTargetDetails.targetType !== targetType) {
             return
         }
 
-        const details = ctxLymalink.FetchTargetDetails(appId)
+        const details = ctxLymalink.FetchTargetDetails(appId, targetType)
         id_root.targetDetailsAchievements = details.achievements ?? []
         id_root.refreshTargetDetailsAchievements()
         id_root.pendingTargetDetails = details
@@ -350,12 +356,16 @@ Item {
     Connections {
         target: ctxLymalink
 
-        function onSignalSteamHydrationTaskStarted(appId) {
-            id_root.setTargetLoading(appId, true)
+        function onSignalErrorOccurred(title, message) {
+            id_errorPopup.showError(title, message)
         }
 
-        function onSignalSteamHydrationTaskFinished(appId, success, cancelled) {
-            id_root.setTargetLoading(appId, false)
+        function onSignalSteamHydrationTaskStarted(appId, targetType) {
+            id_root.setTargetLoading(appId, targetType, true)
+        }
+
+        function onSignalSteamHydrationTaskFinished(appId, targetType, success, cancelled) {
+            id_root.setTargetLoading(appId, targetType, false)
             id_root.refreshTargets()
             if (success && !cancelled) {
                 id_root.reloadBackendTargets()
@@ -367,7 +377,9 @@ Item {
         target: typeof ctxDBusService !== "undefined" ? ctxDBusService : null
 
         function onSignalAchievementUnlocked(appId, achievementKey) {
-            id_root.reloadTargetDetails(appId)
+            if (id_root.pendingTargetDetails) {
+                id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
+            }
         }
     }
 
@@ -400,11 +412,11 @@ Item {
 
         TargetDetails {
             p_appId: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.id : 0
+            p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_title: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.title : ""
             p_coverSource: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetails : ""
             p_achievementCount: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementCount : 0
             p_achievementTotal: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementTotal : 0
-            p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_installationStatus: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.installationStatus : ""
             p_lastPlayed: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.lastPlayed : ""
             p_recentUnlock: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.recentUnlock : ""
@@ -414,7 +426,7 @@ Item {
             p_achievementModel: id_targetDetailsAchievementModel
 
             onAchievementStateChanged: function(appId) {
-                id_root.reloadTargetDetails(appId)
+                id_root.reloadTargetDetails(appId, "Emulator")
             }
         }
     }
@@ -423,13 +435,18 @@ Item {
         id: id_newTargetLayout
 
         NewTarget {
-            onTargetAdded: function(appId) {
+            onTargetAdded: function(appId, targetType) {
                 id_root.showingAddTarget = false
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
                 id_root.reloadBackendTargets()
-                id_root.setTargetLoading(appId, true)
-                ctxLymalink.EnqueueSteamHydrationTask(appId, true)
+                id_root.setTargetLoading(appId, targetType, true)
+                ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
+            }
+            onSteamImportsApplied: {
+                id_root.showingAddTarget = false
+                id_root.showingTargetDetails = false
+                id_root.refreshTargets()
             }
         }
     }
@@ -437,6 +454,10 @@ Item {
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
+
+    ErrorPopup {
+        id: id_errorPopup
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -455,6 +476,7 @@ Item {
             p_targetDetailsVisible: id_root.showingTargetDetails ? true : false
             p_addTargetVisible: id_root.showingAddTarget ? true : false
             p_appId: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.id : 0
+            p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_targetHidden: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.targetHidden) : false
             p_activeLayout: id_root.activeLayout
 
@@ -513,14 +535,14 @@ Item {
                 id_root.refreshTargetDetailsAchievements()
             }
 
-            onReloadAssetsRequested: function(appId) {
-                id_root.setTargetLoading(appId, true)
+            onReloadAssetsRequested: function(appId, targetType) {
+                id_root.setTargetLoading(appId, targetType, true)
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
             }
 
-            onTargetHiddenChanged: function(appId, hidden) {
-                if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
+            onTargetHiddenChanged: function(appId, targetType, hidden) {
+                if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId && id_root.pendingTargetDetails.targetType === targetType) {
                     let details = id_root.pendingTargetDetails
                     details.targetHidden = hidden
                     id_root.pendingTargetDetails = details
@@ -528,7 +550,7 @@ Item {
                 id_root.refreshTargets()
             }
 
-            onTargetDeleted: function(appId) {
+            onTargetDeleted: function(appId, targetType) {
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
                 id_root.pendingTargetDetails = null

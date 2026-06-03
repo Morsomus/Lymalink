@@ -25,6 +25,7 @@ Item {
     property bool p_addTargetVisible: false
     property bool p_targetHidden: false
     property int p_appId: 0
+    property string p_targetType: "Emulator"
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
 
@@ -32,9 +33,9 @@ Item {
     signal returnClicked()
     signal addTargetClicked()
     signal refreshClicked()
-    signal reloadAssetsRequested(int appId)
-    signal targetHiddenChanged(int appId, bool hidden)
-    signal targetDeleted(int appId)
+    signal reloadAssetsRequested(int appId, string targetType)
+    signal targetHiddenChanged(int appId, string targetType, bool hidden)
+    signal targetDeleted(int appId, string targetType)
     signal sortSelected(string sort)
     signal sortOrderSelected(bool descending)
     signal filtersSelected(var filters)
@@ -369,15 +370,16 @@ Item {
 
         parent: Overlay.overlay
         p_appId: id_root.p_appId
+        p_targetType: id_root.p_targetType
         p_targetHidden: id_root.p_targetHidden
-        onReloadAssetsRequested: function(appId) {
-            id_root.reloadAssetsRequested(appId)
+        onReloadAssetsRequested: function(appId, targetType) {
+            id_root.reloadAssetsRequested(appId, targetType)
         }
-        onTargetHiddenChanged: function(appId, hidden) {
-            id_root.targetHiddenChanged(appId, hidden)
+        onTargetHiddenChanged: function(appId, targetType, hidden) {
+            id_root.targetHiddenChanged(appId, targetType, hidden)
         }
-        onTargetDeleted: function(appId) {
-            id_root.targetDeleted(appId)
+        onTargetDeleted: function(appId, targetType) {
+            id_root.targetDeleted(appId, targetType)
         }
     }
 

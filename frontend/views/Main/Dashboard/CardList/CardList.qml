@@ -22,7 +22,7 @@ Item {
     property var p_targetModel: null
     property real p_scrollLocation: 0
 
-    signal openTargetDetails(int appId)
+    signal openTargetDetails(int appId, string targetType)
 
     // Internals _____________________________________________
     readonly property string rowLayout: p_listMode === "detailedList" ? "detailedList" : "list"
@@ -104,8 +104,8 @@ Item {
                     p_delegateIndex:    index
                     p_globalColorStyle: ctxSettings.globalColorStyle
 
-                    onOpenTargetDetails: function(appId) {
-                        id_root.openTargetDetails(appId)
+                    onOpenTargetDetails: function(appId, targetType) {
+                        id_root.openTargetDetails(appId, targetType)
                     }
                 }
             }
@@ -129,8 +129,8 @@ Item {
                     p_delegateIndex:    index
                     p_globalColorStyle: ctxSettings.globalColorStyle
 
-                    onOpenTargetDetails: function(appId) {
-                        id_root.openTargetDetails(appId)
+                    onOpenTargetDetails: function(appId, targetType) {
+                        id_root.openTargetDetails(appId, targetType)
                     }
                 }
             }

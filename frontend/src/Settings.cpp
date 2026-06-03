@@ -77,6 +77,25 @@ void Settings::SetTempEncryptionKey(const QString &encryptionKey)
 
 /////////////////////////////////////////////////////////////////////
 
+QString Settings::GetSteamWebApiKeyPlain() const
+{
+    if (m_tempEncryptionKey.isEmpty())
+    {
+        return "";
+    }
+
+    const QString encryptedWebApiKey = m_settings.value(QString("%1/WebApiKey").arg(GROUP_STEAM_WEB_API)).toString();
+    if (encryptedWebApiKey.isEmpty())
+    {
+        return "";
+    }
+
+    Encryption encryption;
+    return encryption.Decrypt(encryptedWebApiKey, m_tempEncryptionKey);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Settings::ResetDefaults()
 {
     qInfo() << "Settings::ResetDefaults - Resetting configuration to defaults...";

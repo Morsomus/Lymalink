@@ -31,25 +31,26 @@ public:
 
 public slots:
     void Init();
-    void EnqueueTask(int appId, bool reloadAssets = false);
+    void EnqueueTask(int appId, bool reloadAssets = false, QString targetType = "Emulator");
     void CancelAllEnqueueTasks();
 
 signals:
     // Progress reporting
-    void signalHydrationTaskStarted(int appId);
-    void signalHydrationTaskProgress(int appId, QString stage, int current, int total);
-    void signalHydrationTaskFinished(int appId, bool success, bool cancelled);
+    void signalHydrationTaskStarted(int appId, QString targetType);
+    void signalHydrationTaskProgress(int appId, QString targetType, QString stage, int current, int total);
+    void signalHydrationTaskFinished(int appId, QString targetType, bool success, bool cancelled);
     void signalHydrationQueueFinished();
     void signalHydrationTaskError(int appId, QString title, QString message);
 
     // Lymalink write signal
-    void signalAchievementsReady(int appId, QVariantList achievements);
+    void signalAchievementsReady(int appId, QString targetType, QVariantList achievements);
 
 private:
     struct HydrationTask
     {
         int appId = 0;
         bool reloadAssets = false;
+        QString targetType = "Emulator";
     };
 
     SteamApi *m_steamApi = nullptr;

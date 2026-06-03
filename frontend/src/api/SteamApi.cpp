@@ -637,6 +637,150 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
 }
 
 /////////////////////////////////////////////////////////////////////
+
+Error SteamApi::FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData> &games, const QString &apiKey)
+{
+    Error err = Error::NoError;
+
+    // Clear caller output before validation and network request
+    games.clear();
+
+    const QString trimmedSteamId = steamId.trimmed();
+    const QString trimmedApiKey = apiKey.trimmed();
+    if (trimmedApiKey.isEmpty() || !IsValidSteamId(trimmedSteamId))
+    {
+        qWarning() << "SteamApi::FetchOwnedGames: invalid credentials or Steam ID";
+        err = Error::InvalidParameter;
+        return err;
+    }
+
+    QUrl url("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/");
+    QUrlQuery query;
+    query.addQueryItem("key", trimmedApiKey);
+    query.addQueryItem("steamid", trimmedSteamId);
+    query.addQueryItem("include_appinfo", "1");
+    query.addQueryItem("include_played_free_games", "1");
+    query.addQueryItem("format", "json");
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "application/json");
+
+    // Execute request synchronously inside worker thread
+    QNetworkReply *reply = m_networkManager->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QByteArray data = reply->readAll();
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        qWarning() << "SteamApi::FetchOwnedGames: owned games fetch failed with status:" << statusCode << "network error:" << static_cast<int>(reply->error());
+        reply->deleteLater();
+        err = statusCode == 403 ? Error::AccessDenied : Error::NotFound;
+        return err;
+    }
+    reply->deleteLater();
+
+    QString errorMessage;
+    err = ParseOwnedGamesResponse(data, games, &errorMessage);
+    if (!errorMessage.isEmpty())
+    {
+        qCritical() << "SteamApi::FetchOwnedGames:" << errorMessage;
+    }
+
+    return err;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::FetchPlayerAchievements(int appId, const QString &steamId, QList<SteamPlayerAchievementData> &achievements, const QString &apiKey, Locale locale)
+{
+    Error err = Error::NoError;
+
+    // Clear caller output before validation and network request
+    achievements.clear();
+
+    const QString trimmedSteamId = steamId.trimmed();
+    const QString trimmedApiKey = apiKey.trimmed();
+    if (appId <= 0 || trimmedApiKey.isEmpty() || !IsValidSteamId(trimmedSteamId))
+    {
+        qWarning() << "SteamApi::FetchPlayerAchievements: invalid app ID, credentials or Steam ID";
+        err = Error::InvalidParameter;
+        return err;
+    }
+
+    const QPair<QString, QString> localeSettings = m_localeMap.value(locale, m_localeMap.value(English));
+
+    QUrl url("https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/");
+    QUrlQuery query;
+    query.addQueryItem("key", trimmedApiKey);
+    query.addQueryItem("steamid", trimmedSteamId);
+    query.addQueryItem("appid", QString::number(appId));
+    query.addQueryItem("l", localeSettings.second);
+    query.addQueryItem("format", "json");
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "application/json");
+
+    // Execute request synchronously inside worker thread
+    QNetworkReply *reply = m_networkManager->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    // Handle network errors and special-case private profile detection
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QByteArray data = reply->readAll();
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        if (IsPrivateProfileResponse(data))
+        {
+            err = Error::ProfileNotPublic;
+        }
+        else if (statusCode == 403)
+        {
+            err = Error::NoData;
+        }
+        else
+        {
+            err = Error::NotFound;
+        }
+        
+        if (err == Error::ProfileNotPublic)
+        {
+            qWarning() << "SteamApi::FetchPlayerAchievements: Steam profile is not public for appId:" << appId;
+        }
+        else if (err == Error::NoData)
+        {
+            qDebug() << "SteamApi::FetchPlayerAchievements: player achievements unavailable for appId:" << appId << "status:" << statusCode << "network error:" << static_cast<int>(reply->error());
+        }
+        else
+        {
+            qWarning() << "SteamApi::FetchPlayerAchievements: player achievements fetch failed for appId:" << appId << "status:" << statusCode << "network error:" << static_cast<int>(reply->error());
+        }
+        reply->deleteLater();
+        return err;
+    }
+    reply->deleteLater();
+
+    QString errorMessage;
+    err = ParsePlayerAchievementsResponse(data, appId, achievements, &errorMessage);
+    if (!errorMessage.isEmpty())
+    {
+        qCritical() << "SteamApi::FetchPlayerAchievements:" << errorMessage;
+    }
+
+    return err;
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -651,6 +795,47 @@ void SteamApi::InitializeLocaleMap()
     m_localeMap[SteamApi::Spanish]           = qMakePair(QString("es"), QString("spanish"));
     m_localeMap[SteamApi::SimplifiedChinese] = qMakePair(QString("cn"), QString("schinese"));
     m_localeMap[SteamApi::Japanese]          = qMakePair(QString("jp"), QString("japanese"));
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SteamApi::IsValidSteamId(const QString &steamId) const
+{
+    if (steamId.isEmpty())
+    {
+        return false;
+    }
+
+    // Ensure the string contains only numeric characters
+    for (const QChar &character : steamId)
+    {
+        if (!character.isDigit())
+        {
+            return false;
+        }
+    }
+
+    // Check for explicit success=false and exact error message indicating restricted access
+    bool ok = false;
+    const qulonglong steamIdValue = steamId.toULongLong(&ok);
+    return ok && steamIdValue > 0;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SteamApi::IsPrivateProfileResponse(const QByteArray &jsonResponse) const
+{
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+    {
+        return false;
+    }
+
+    const QJsonObject playerStats = doc.object()["playerstats"].toObject();
+    bool responseOk = playerStats.contains("success") && !playerStats["success"].toBool(true) && playerStats["error"].toString().compare("Profile is not public", Qt::CaseInsensitive) == 0;
+
+    return responseOk;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -859,6 +1044,152 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     }
 
     return gameInfo;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::ParseOwnedGamesResponse(const QByteArray &jsonResponse, QList<SteamOwnedGameData> &games, QString *errorMessage) const
+{
+    games.clear();
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        *errorMessage = "ParseOwnedGamesResponse: failed to parse owned games response";
+        return Error::ParseError;
+    }
+
+    if (!doc.isObject())
+    {
+        *errorMessage = "ParseOwnedGamesResponse: owned games response is not an object";
+        return Error::ParseError;
+    }
+
+    const QJsonValue responseValue = doc.object()["response"];
+    if (!responseValue.isObject())
+    {
+        *errorMessage = "ParseOwnedGamesResponse: missing response object";
+        return Error::ParseError;
+    }
+
+    const QJsonValue gamesValue = responseValue.toObject()["games"];
+    if (!gamesValue.isArray())
+    {
+        *errorMessage = "ParseOwnedGamesResponse: missing games array";
+        return Error::ParseError;
+    }
+
+    const QJsonArray gameItems = gamesValue.toArray();
+    if (gameItems.isEmpty())
+    {
+        return Error::NoData;
+    }
+
+    for (const QJsonValue &gameItem : gameItems)
+    {
+        if (!gameItem.isObject())
+        {
+            continue;
+        }
+
+        const QJsonObject gameObject = gameItem.toObject();
+        const int appId = gameObject["appid"].toInt(0);
+        const QString gameName = gameObject["name"].toString();
+        if (appId <= 0 || gameName.isEmpty())
+        {
+            continue;
+        }
+
+        SteamOwnedGameData game = {};
+        game.appId = appId;
+        game.gameName = gameName;
+        game.totalSecondsPlayed = static_cast<qint64>(gameObject["playtime_forever"].toInt(0)) * 60; // Convert minute-based playtime to seconds
+        game.lastPlayedDate = static_cast<qint64>(gameObject["rtime_last_played"].toDouble(0));
+
+        games.append(game);
+    }
+
+    Error success = games.isEmpty() ? Error::NoData : Error::NoError;
+
+    return success;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::ParsePlayerAchievementsResponse(const QByteArray &jsonResponse, int appId, QList<SteamPlayerAchievementData> &achievements, QString *errorMessage) const
+{
+    achievements.clear();
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        *errorMessage = "ParsePlayerAchievementsResponse: failed to parse player achievements response";
+        return Error::ParseError;
+    }
+
+    if (!doc.isObject())
+    {
+        *errorMessage = "ParsePlayerAchievementsResponse: player achievements response is not an object";
+        return Error::ParseError;
+    }
+
+    const QJsonValue playerStatsValue = doc.object()["playerstats"];
+    if (!playerStatsValue.isObject())
+    {
+        *errorMessage = "ParsePlayerAchievementsResponse: missing playerstats object";
+        return Error::ParseError;
+    }
+
+    const QJsonObject playerStats = playerStatsValue.toObject();
+    if (playerStats.contains("success") && !playerStats["success"].toBool(true))
+    {
+        if (playerStats["error"].toString().compare("Profile is not public", Qt::CaseInsensitive) == 0)
+        {
+            return Error::ProfileNotPublic;
+        }
+
+        return Error::NotFound;
+    }
+
+    const QJsonValue achievementsValue = playerStats["achievements"];
+    if (!achievementsValue.isArray())
+    {
+        return Error::NoData;
+    }
+
+    const QJsonArray achievementItems = achievementsValue.toArray();
+    if (achievementItems.isEmpty())
+    {
+        return Error::NoData;
+    }
+
+    for (const QJsonValue &achievementItem : achievementItems)
+    {
+        if (!achievementItem.isObject())
+        {
+            continue;
+        }
+
+        const QJsonObject achievementObject = achievementItem.toObject();
+        const QString achievementKey = achievementObject["apiname"].toString();
+        if (achievementKey.isEmpty())
+        {
+            continue;
+        }
+
+        SteamPlayerAchievementData achievement = {};
+        achievement.appId = appId;
+        achievement.achievementKey = achievementKey;
+        achievement.achievementName = achievementObject["name"].toString();
+        achievement.achievementDescription = achievementObject["description"].toString();
+        achievement.dateUnlocked = achievementObject["achieved"].toInt(0) != 0 ? static_cast<qint64>(achievementObject["unlocktime"].toDouble(0)) : 0;
+
+        achievements.append(achievement);
+    }
+
+    return achievements.isEmpty() ? Error::NoData : Error::NoError;
 }
 
 /////////////////////////////////////////////////////////////////////

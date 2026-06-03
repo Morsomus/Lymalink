@@ -677,4 +677,33 @@ QtObject {
             readonly property int confirmButton: 13
         }
     }
+
+    // SteamImport.qml
+    readonly property QtObject steamImportTarget: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color titleText: "#ffffff"
+            readonly property color labelText: "#ffffff"
+            readonly property color descriptionText: "#999999"
+            readonly property color descriptionMutedText: Qt.rgba(1, 1, 1, 0.3)
+            readonly property color errorText: "#d35f5f"
+            readonly property color divider: "#2a2a2a"
+            readonly property color infoBlockBackground: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color infoBlockBorder: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color resultBackground: Qt.rgba(1, 1, 1, 0.02)
+            readonly property color resultBackgroundHover: Qt.rgba(1, 1, 1, 0.04)
+            readonly property color resultBorder: Qt.rgba(1, 1, 1, 0.07)
+            readonly property color importedBadgeBackground: Qt.rgba(0.34, 0.72, 0.48, 0.12)
+            readonly property color importedBadgeBorder: Qt.rgba(0.34, 0.72, 0.48, 0.42)
+            readonly property color importedBadgeText: "#8dd8a6"
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 28
+            readonly property int label: 13
+            readonly property int description: 11
+            readonly property int descriptionSubtle: 10
+            readonly property int input: 15
+            readonly property int badge: 10
+        }
+    }
 }

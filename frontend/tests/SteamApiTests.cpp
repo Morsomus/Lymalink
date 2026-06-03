@@ -27,6 +27,11 @@ private slots:
     void getAchievementIconUrls_validSuffixes_returnsExpectedUrls();
     void fetchAchievementDataPrimary_witcher3_returnsExpectedAchievements();
     void fetchAchievementDataSecondary_witcher3_returnsExpectedAchievements();
+    void fetchOwnedGames_invalidInputs_returnsInvalidParameter();
+    void fetchPlayerAchievements_invalidInputs_returnsInvalidParameter();
+    void parsePlayerAchievements_privateProfile_returnsProfileNotPublic();
+    void fetchOwnedGames_liveCredentials_returnsExpectedGames();
+    void fetchPlayerAchievements_liveCredentials_returnsExpectedAchievementsOrNoData();
 
 private:
     bool hasImageExtension(const QString &value);
@@ -254,6 +259,133 @@ void SteamApiTests::fetchAchievementDataSecondary_witcher3_returnsExpectedAchiev
 
     debugPrintAchievementDataPrimary(achievements);
     QThread::msleep(1250);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::fetchOwnedGames_invalidInputs_returnsInvalidParameter()
+{
+    SteamApi steamApi;
+
+    QList<SteamOwnedGameData> games;
+
+    QCOMPARE(steamApi.FetchOwnedGames("", games, "test-key"), Error::InvalidParameter);
+    QVERIFY(games.isEmpty());
+
+    QCOMPARE(steamApi.FetchOwnedGames("not-numeric", games, "test-key"), Error::InvalidParameter);
+    QVERIFY(games.isEmpty());
+
+    QCOMPARE(steamApi.FetchOwnedGames("76561198122619890", games, ""), Error::InvalidParameter);
+    QVERIFY(games.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::fetchPlayerAchievements_invalidInputs_returnsInvalidParameter()
+{
+    SteamApi steamApi;
+
+    QList<SteamPlayerAchievementData> achievements;
+
+    QCOMPARE(steamApi.FetchPlayerAchievements(0, "76561198122619890", achievements, "test-key"), Error::InvalidParameter);
+    QVERIFY(achievements.isEmpty());
+
+    QCOMPARE(steamApi.FetchPlayerAchievements(292030, "", achievements, "test-key"), Error::InvalidParameter);
+    QVERIFY(achievements.isEmpty());
+
+    QCOMPARE(steamApi.FetchPlayerAchievements(292030, "not-numeric", achievements, "test-key"), Error::InvalidParameter);
+    QVERIFY(achievements.isEmpty());
+
+    QCOMPARE(steamApi.FetchPlayerAchievements(292030, "76561198122619890", achievements, ""), Error::InvalidParameter);
+    QVERIFY(achievements.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::parsePlayerAchievements_privateProfile_returnsProfileNotPublic()
+{
+    SteamApi steamApi;
+
+    const QByteArray response = R"json(
+{
+    "playerstats": {
+        "error": "Profile is not public",
+        "success": false
+    }
+}
+)json";
+
+    QString errorMessage;
+    QList<SteamPlayerAchievementData> achievements;
+    const Error error = steamApi.ParsePlayerAchievementsResponse(response, 292030, achievements, &errorMessage);
+
+    QCOMPARE(error, Error::ProfileNotPublic);
+    QVERIFY(errorMessage.isEmpty());
+    QVERIFY(achievements.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::fetchOwnedGames_liveCredentials_returnsExpectedGames()
+{
+    const QString steamId = qEnvironmentVariable("LYMALINK_STEAM_ID");
+    const QString apiKey = qEnvironmentVariable("LYMALINK_STEAM_WEB_API_KEY");
+    if (steamId.isEmpty() || apiKey.isEmpty())
+    {
+        QSKIP("Set LYMALINK_STEAM_ID and LYMALINK_STEAM_WEB_API_KEY to run live Steam owned-games test.");
+    }
+
+    SteamApi steamApi;
+
+    QList<SteamOwnedGameData> games;
+    const Error error = steamApi.FetchOwnedGames(steamId, games, apiKey);
+    QCOMPARE(error, Error::NoError);
+    QVERIFY(!games.isEmpty());
+
+    for (const SteamOwnedGameData &game : games)
+    {
+        QVERIFY(game.appId > 0);
+        QVERIFY(!game.gameName.isEmpty());
+        QVERIFY(game.totalSecondsPlayed >= 0);
+        QVERIFY(game.lastPlayedDate >= 0);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::fetchPlayerAchievements_liveCredentials_returnsExpectedAchievementsOrNoData()
+{
+    const QString steamId = qEnvironmentVariable("LYMALINK_STEAM_ID");
+    const QString apiKey = qEnvironmentVariable("LYMALINK_STEAM_WEB_API_KEY");
+    const QString appIdText = qEnvironmentVariable("LYMALINK_STEAM_TEST_APP_ID");
+    const int appId = appIdText.isEmpty() ? 292030 : appIdText.toInt();
+    if (steamId.isEmpty() || apiKey.isEmpty())
+    {
+        QSKIP("Set LYMALINK_STEAM_ID and LYMALINK_STEAM_WEB_API_KEY to run live Steam player-achievements test.");
+    }
+
+    SteamApi steamApi;
+
+    QList<SteamPlayerAchievementData> achievements;
+    const Error error = steamApi.FetchPlayerAchievements(appId, steamId, achievements, apiKey);
+    if (error == Error::NoData)
+    {
+        QSKIP("Configured Steam account has no player achievement data for selected app.");
+    }
+    if (error == Error::ProfileNotPublic)
+    {
+        QSKIP("Configured Steam profile is not public.");
+    }
+
+    QCOMPARE(error, Error::NoError);
+    QVERIFY(!achievements.isEmpty());
+
+    for (const SteamPlayerAchievementData &achievement : achievements)
+    {
+        QCOMPARE(achievement.appId, appId);
+        QVERIFY(!achievement.achievementKey.isEmpty());
+        QVERIFY(achievement.dateUnlocked >= 0);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////

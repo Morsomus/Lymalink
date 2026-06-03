@@ -251,7 +251,17 @@ bool SQLiteManager::insert(const QString &connectionName, const QString &tableNa
     const QString sql = QString("INSERT INTO %1 (%2) VALUES (%3)").arg(tableName, cols.join(", "), placeholders.join(", "));
 
     QSqlQuery q(db);
-    q.prepare(sql);
+    if (!q.prepare(sql))
+    {
+        QString errorText = q.lastError().text();
+        if (errorText.trimmed().isEmpty())
+        {
+            errorText = QString("driver='%1' database='%2'").arg(q.lastError().driverText(), q.lastError().databaseText());
+        }
+        setLastError(QString("prepare insert into %1 failed: %2 | SQL: %3").arg(tableName, errorText, sql));
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
     for (const QString &col : cols)
     {
         q.addBindValue(data[col]);

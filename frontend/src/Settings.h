@@ -105,6 +105,7 @@ public:
     void TrackWindowSizeSetting(QQmlApplicationEngine *engine);
 
     Q_INVOKABLE void SetTempEncryptionKey(const QString &encryptionKey);
+    Q_INVOKABLE QString GetSteamWebApiKeyPlain() const;
     Q_INVOKABLE bool ResetDefaults();
     Q_INVOKABLE bool SaveConfig();
     Q_INVOKABLE bool LoadConfig();

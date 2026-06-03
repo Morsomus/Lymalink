@@ -17,7 +17,8 @@ Item {
     id: id_root
 
     // Public ________________________________________________
-    signal targetAdded(int appId)
+    signal targetAdded(int appId, string targetType)
+    signal steamImportsApplied()
 
     // Internals _____________________________________________
     property string activeTarget: ""
@@ -31,10 +32,10 @@ Item {
         },
         {
             key: "steam",
-            label: qsTr("Steam Import"),
+            label: qsTr("Steam Import / Update"),
             iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00036_ED.png",
-            description: qsTr("Import official Steam achievements with Steam Web API."),
-            enabled: false
+            description: qsTr("Import Steam achievements with Steam Web API."),
+            enabled: true
         },
         {
             key: "custom",
@@ -56,8 +57,19 @@ Item {
         sourceComponent: Component {
             Emulator {
                 onTargetAdded: function(appId) {
-                    id_root.targetAdded(appId)
+                    id_root.targetAdded(appId, "Emulator")
                 }
+            }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: id_root.activeTarget === "steam"
+        visible: active
+        sourceComponent: Component {
+            SteamImport {
+                onImportsApplied: id_root.steamImportsApplied()
             }
         }
     }

@@ -23,6 +23,7 @@ Popup {
     property string p_confirmText: qsTr("Confirm")
     property int p_popupWidth: 340
     property bool p_verificationMode: false
+    property bool p_singleVerificationMode: false
     property bool p_pathSelectionMode: false
     property bool p_pathSelectionFolder: false
     property string p_pathDialogTitle: qsTr("Select Location")
@@ -31,8 +32,9 @@ Popup {
     property bool p_confirmDanger: false
 
     // Internals _____________________________________________
-    readonly property bool verificationValid: !p_verificationMode || (id_verificationInput.text.length >= 6
-        && id_verificationInput.text === id_verificationConfirmInput.text)
+    readonly property bool verificationRequired: p_verificationMode || p_singleVerificationMode
+    readonly property bool verificationValid: !verificationRequired || (id_verificationInput.text.length >= 6
+        && (!p_verificationMode || id_verificationInput.text === id_verificationConfirmInput.text))
     readonly property bool pathSelectionValid: !p_pathSelectionMode || id_pathInput.text.length > 0
     readonly property bool canConfirm: verificationValid && pathSelectionValid
 
@@ -50,7 +52,7 @@ Popup {
     y: parent ? Math.round((parent.height - height) / 2) : 0
 
     onOpened: {
-        if (p_verificationMode) {
+        if (verificationRequired) {
             id_verificationInput.forceActiveFocus()
         }
     }
@@ -90,7 +92,7 @@ Popup {
             return id_pathInput.text
         }
 
-        return id_root.p_verificationMode ? id_verificationInput.text : ""
+        return id_root.verificationRequired ? id_verificationInput.text : ""
     }
 
     function fileUrlToPath(fileUrl) {
@@ -204,7 +206,7 @@ Popup {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
-            visible: id_root.p_verificationMode
+            visible: id_root.verificationRequired
 
             TextField {
                 id: id_verificationInput
@@ -231,6 +233,7 @@ Popup {
                 id: id_verificationConfirmInput
 
                 Layout.fillWidth: true
+                visible: id_root.p_verificationMode
                 placeholderText: qsTr("Confirm passcode")
                 echoMode: TextInput.Password
                 selectByMouse: true
@@ -250,7 +253,9 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
-                text: qsTr("Minimum 6 characters. Both fields must match.")
+                text: id_root.p_verificationMode
+                    ? qsTr("Minimum 6 characters. Both fields must match.")
+                    : qsTr("Minimum 6 characters.")
                 color: Themes.confirmationPopup.colors.bodyText
                 font.pixelSize: Themes.confirmationPopup.fontSizes.body
                 wrapMode: Text.WordWrap
