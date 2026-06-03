@@ -29,6 +29,7 @@ Lymalink::Lymalink(QObject *parent) : QObject(parent)
     m_databasePath = "";
     m_steamApiSearchWorker = nullptr;
     m_steamApiHydrationWorker = nullptr;
+    m_steamHydrationBusy = false;
 }
 
 Lymalink::~Lymalink()
@@ -77,6 +78,22 @@ Error Lymalink::Initialize()
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskProgress,  this, &Lymalink::signalSteamHydrationTaskProgress);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskFinished,  this, &Lymalink::signalSteamHydrationTaskFinished);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this, &Lymalink::signalSteamHydrationQueueFinished);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskStarted, this,
+        [this](int, QString) {
+            if (!m_steamHydrationBusy)
+            {
+                m_steamHydrationBusy = true;
+                emit signalSteamHydrationBusyChanged();
+            }
+        });
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this,
+        [this]() {
+            if (m_steamHydrationBusy)
+            {
+                m_steamHydrationBusy = false;
+                emit signalSteamHydrationBusyChanged();
+            }
+        });
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskError, this,
         [this](int appId, const QString &title, const QString &message) {
             emit signalErrorOccurred(title, QString("%1\n\nApp ID: %2").arg(message).arg(appId));
@@ -86,6 +103,13 @@ Error Lymalink::Initialize()
 
     initResult = DatabaseInit();
     return initResult;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::GetSteamHydrationBusy() const
+{
+    return m_steamHydrationBusy;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -260,11 +284,17 @@ QVariantMap Lymalink::ImportSteamGames(QVariantList games, const QString &steamI
     int importedCount = 0;
     int skippedCount = 0;
     bool profilePrivacyErrorReported = false;
+    bool cancelRemainingFetches = false;
     const qint64 now = QDateTime::currentSecsSinceEpoch();
 
     // Iterate through each game in the provided list
     for (const QVariant &gameValue : games)
     {
+        if (cancelRemainingFetches)
+        {
+            break;
+        }
+
         // Extract game metadata from the input map
         const QVariantMap game = gameValue.toMap();
         const int appId = Utils::MapIntValue(game, "appId");
@@ -336,6 +366,7 @@ QVariantMap Lymalink::ImportSteamGames(QVariantList games, const QString &steamI
                         tr("Steam rejected player achievement data request because your profile is not public. Make your Steam profile and game details public, then retry.")
                     );
                 }
+                cancelRemainingFetches = true;
             }
             else
             {
@@ -481,10 +512,16 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
     int updatedCount = 0;
     int skippedCount = 0;
     bool profilePrivacyErrorReported = false;
+    bool cancelRemainingFetches = false;
 
     // Iterate through each game provided in the import list
     for (const QVariant &gameValue : games)
     {
+        if (cancelRemainingFetches)
+        {
+            break;
+        }
+
         // Extract and validate core game metadata
         const QVariantMap game = gameValue.toMap();
         const int appId = Utils::MapIntValue(game, "appId");
@@ -570,6 +607,7 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
                         tr("Steam rejected player achievement data request because your profile is not public. Make your Steam profile and game details public, then retry.")
                     );
                 }
+                cancelRemainingFetches = true;
             }
             else
             {

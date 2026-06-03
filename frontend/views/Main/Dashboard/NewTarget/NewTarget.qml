@@ -86,9 +86,12 @@ Item {
             delegate: Rectangle {
                 id: id_targetType
 
-                readonly property bool isEnabled: modelData.enabled
+                readonly property bool isEnabled: modelData.enabled && (modelData.key !== "steam" || !ctxLymalink.steamHydrationBusy)
                 readonly property bool isHovered: id_targetTypeMouseArea.containsMouse
                 readonly property bool isPressed: id_targetTypeMouseArea.pressed
+                readonly property string badgeText: modelData.key === "steam" && ctxLymalink.steamHydrationBusy
+                    ? qsTr("Importing...")
+                    : qsTr("Soon")
                 readonly property color defaultBackground: isPressed
                     ? Themes.newTarget.colors.cardBackgroundPressed
                     : isHovered
@@ -180,7 +183,7 @@ Item {
                             id: id_badgeText
 
                             anchors.centerIn: parent
-                            text: qsTr("Soon")
+                            text: id_targetType.badgeText
                             font.pixelSize: Themes.newTarget.fontSizes.badge
                             font.weight: Font.Medium
                             color: Themes.newTarget.colors.badgeText

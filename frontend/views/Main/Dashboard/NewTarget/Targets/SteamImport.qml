@@ -22,12 +22,16 @@ Item {
     property bool libraryLoaded: false
     property bool passcodeUnlocked: false
     property bool libraryLoading: false
+    property bool updateLoading: false
     property string pendingOperation: ""
     property string statusText: ""
     property bool statusIsError: false
+    property string updateStatusText: ""
+    property bool updateStatusIsError: false
     property string unlockedSteamWebApiKey: ""
     property bool awaitingUnlockAction: false
     property var libraryGames: []
+    property real resultsScrollY: 0
 
     // Derived properties for UI state and validation
     readonly property bool steamConfigured: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
@@ -41,12 +45,19 @@ Item {
     // Filters the loaded steam library based on search field text (name or appId)
     function filterLibraryGames() {
         const term = id_searchField.text.trim().toLocaleLowerCase()
-        if (term.length === 0) {
-            return id_root.libraryGames
-        }
+        const filteredGames = term.length === 0
+            ? id_root.libraryGames
+            : id_root.libraryGames.filter(function(game) {
+                return game.name.toLocaleLowerCase().includes(term) || game.appId.toString().includes(term)
+            })
 
-        return id_root.libraryGames.filter(function(game) {
-            return game.name.toLocaleLowerCase().includes(term) || game.appId.toString().includes(term)
+        return filteredGames.slice().sort(function(left, right) {
+            const nameCompare = left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
+            if (nameCompare !== 0) {
+                return nameCompare
+            }
+
+            return left.appId - right.appId
         })
     }
 
@@ -84,23 +95,23 @@ Item {
     // Refreshes assets and achievement data for already imported Steam games
     function updateSteamImports() {
         if (!id_root.steamConfigured || id_root.unlockedSteamWebApiKey.length === 0) {
-            id_root.statusText = qsTr("Please unlock your Steam Web API key to update Steam imports.")
-            id_root.statusIsError = true
+            id_root.updateStatusText = qsTr("Please unlock your Steam Web API key to update Steam imports.")
+            id_root.updateStatusIsError = true
             return
         }
 
-        id_root.libraryLoading = true
-        id_root.statusText = qsTr("Checking imported games...")
-        id_root.statusIsError = false
+        id_root.updateLoading = true
+        id_root.updateStatusText = qsTr("Checking imported games...")
+        id_root.updateStatusIsError = false
 
         const payload = ctxLymalink.FetchSteamOwnedGames(ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
-        id_root.libraryLoading = false
+        id_root.updateLoading = false
 
         if (!payload.success) {
-            id_root.statusText = payload.error.length > 0
+            id_root.updateStatusText = payload.error.length > 0
                 ? payload.error
                 : qsTr("Imported games could not be checked.")
-            id_root.statusIsError = true
+            id_root.updateStatusIsError = true
             return
         }
 
@@ -112,16 +123,17 @@ Item {
         })
 
         if (importedGames.length === 0) {
-            id_root.statusText = qsTr("No imported games found to update.")
-            id_root.statusIsError = false
+            id_root.updateStatusText = qsTr("No imported games found to update.")
+            id_root.updateStatusIsError = false
             return
         }
 
-        id_root.libraryLoading = true
-        id_root.statusText = qsTr("Updating progress...")
+        id_root.updateLoading = true
+        id_root.updateStatusText = qsTr("Updating progress...")
+        id_root.updateStatusIsError = false
 
         const updatePayload = ctxLymalink.UpdateSteamImports(importedGames, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
-        id_root.libraryLoading = false
+        id_root.updateLoading = false
 
         const assetRefreshAppIds = updatePayload.assetRefreshAppIds ?? []
         for (let i = 0; i < assetRefreshAppIds.length; ++i) {
@@ -147,8 +159,10 @@ Item {
             status += "\n" + errors.slice(0, 3).join("\n")
         }
 
+        id_root.updateStatusText = status
+        id_root.updateStatusIsError = updatedCount === 0 && errors.length > 0
         id_root.statusText = status
-        id_root.statusIsError = updatedCount === 0 && errors.length > 0
+        id_root.statusIsError = id_root.updateStatusIsError
         id_root.importsApplied()
     }
 
@@ -167,12 +181,23 @@ Item {
     }
 
     // Updates the selection state for a specific game by appId
-    function setGameSelected(appId, selected) {
+    function setGameSelected(appId, selected, preserveScroll) {
+        if (preserveScroll) {
+            id_root.resultsScrollY = id_resultsList.contentY
+        }
+
         id_root.libraryGames = id_root.libraryGames.map(function(game) {
             return game.appId === appId
                 ? Object.assign({}, game, { selected: selected })
                 : game
         })
+
+        if (preserveScroll) {
+            Qt.callLater(function() {
+                id_resultsList.contentY = id_root.resultsScrollY
+            })
+        }
+
         id_root.statusText = ""
         id_root.statusIsError = false
     }
@@ -297,9 +322,8 @@ Item {
             id_root.statusText = status
             id_root.statusIsError = (importedCount === 0 && errors.length > 0) || removalFailures > 0
 
-            // Signal that imports have been applied and refresh the library view
-            id_root.importsApplied()
             id_root.loadSteamLibrary()
+            id_root.importsApplied()
         }
     }
 
@@ -314,6 +338,7 @@ Item {
         p_title: qsTr("Unlock Steam Web API Key")
         p_description: qsTr("Enter passcode for saved Steam Web API key.")
         p_confirmText: qsTr("Continue")
+        p_shortcutEnabled: true
         p_singleVerificationMode: true
         onClosed: {
             if (id_root.awaitingUnlockAction) {
@@ -363,7 +388,7 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: 20
-                implicitHeight: id_introText.implicitHeight + 28
+                implicitHeight: id_introText.implicitHeight + id_publicProfileText.implicitHeight + 38
                 radius: 6
                 color: Themes.steamImportTarget.colors.infoBlockBackground
                 border.width: 1
@@ -372,11 +397,30 @@ Item {
                 Text {
                     id: id_introText
 
-                    anchors.fill: parent
-                    anchors.margins: 14
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    anchors.topMargin: 14
                     text: qsTr("Steam import requires your Steam ID and an encrypted Web API key configured under Settings.")
                     wrapMode: Text.WordWrap
                     color: Themes.steamImportTarget.colors.descriptionText
+                    font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                }
+
+                Text {
+                    id: id_publicProfileText
+
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: id_introText.bottom
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    anchors.topMargin: 8
+                    text: qsTr("Please ensure your Steam profile is set to Public for the import process to succeed.")
+                    wrapMode: Text.WordWrap
+                    color: Themes.steamImportTarget.colors.warningText
                     font.pixelSize: Themes.steamImportTarget.fontSizes.description
                 }
             }
@@ -413,8 +457,31 @@ Item {
 
                 Button {
                     text: qsTr("Update")
-                    enabled: id_root.steamConfigured && !id_root.libraryLoading
+                    enabled: id_root.steamConfigured && !id_root.libraryLoading && !id_root.updateLoading
                     onClicked: id_root.beginOperation("update")
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    visible: id_root.updateStatusText.length > 0 || id_root.updateLoading
+
+                    CustomBusyIndicator {
+                        Layout.alignment: Qt.AlignVCenter
+                        p_indicatorSize: 24
+                        p_speed: 900
+                        p_running: id_root.updateLoading
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: id_root.updateStatusText
+                        wrapMode: Text.WordWrap
+                        color: id_root.updateStatusIsError
+                            ? Themes.steamImportTarget.colors.errorText
+                            : id_root.themedCompletionColor
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                    }
                 }
             }
 
@@ -446,7 +513,7 @@ Item {
 
                 // Select buttons
                 RowLayout {
-                    visible: id_root.libraryLoaded
+                    visible: id_root.libraryLoaded && !id_root.updateLoading
                     spacing: 8
 
                     TextField {
@@ -474,7 +541,7 @@ Item {
                 // Changes information
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: id_root.libraryLoaded
+                    visible: id_root.libraryLoaded && !id_root.updateLoading
                     spacing: 12
 
                     Text {
@@ -502,8 +569,8 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 8
-                    visible: id_root.libraryLoaded
-                    Layout.preferredHeight: 300
+                    visible: id_root.libraryLoaded && !id_root.updateLoading
+                    Layout.preferredHeight: 270
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -551,6 +618,7 @@ Item {
                                         id: id_gameCheckBox
 
                                         checked: id_resultRow.modelData.selected
+                                        onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, checked, true)
                                     }
 
                                     ColumnLayout {
@@ -598,7 +666,7 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, !id_resultRow.modelData.selected)
+                                    onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, !id_resultRow.modelData.selected, true)
                                 }
                             }
                         }
@@ -620,7 +688,7 @@ Item {
 
                     Button {
                         text: id_root.libraryLoaded ? qsTr("Reload Steam Library") : qsTr("Load Steam Library")
-                        enabled: id_root.steamConfigured && !id_root.libraryLoading
+                        enabled: id_root.steamConfigured && !id_root.libraryLoading && !id_root.updateLoading
                         onClicked: id_root.beginOperation("load")
                     }
 
@@ -637,7 +705,7 @@ Item {
 
                     Button {
                         text: qsTr("Apply Selection")
-                        enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.libraryLoading && id_root.libraryLoaded
+                        enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.libraryLoading && !id_root.updateLoading && id_root.libraryLoaded
                         onClicked: id_root.requestApplySelection()
                     }
                 }

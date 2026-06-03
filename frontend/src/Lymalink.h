@@ -23,12 +23,15 @@
 class Lymalink : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool steamHydrationBusy READ GetSteamHydrationBusy NOTIFY signalSteamHydrationBusyChanged)
 
 public:
     explicit Lymalink(QObject *parent = nullptr);
     ~Lymalink();
 
     Error Initialize();
+
+    bool GetSteamHydrationBusy() const;
     
     Q_INVOKABLE void SearchSteamAppIds(const QString &term);
     Q_INVOKABLE void CancelSteamAppIdSearch();
@@ -56,6 +59,7 @@ signals:
     void signalSteamHydrationTaskProgress(int appId, QString targetType, QString stage, int current, int total);
     void signalSteamHydrationTaskFinished(int appId, QString targetType, bool success, bool cancelled);
     void signalSteamHydrationQueueFinished();
+    void signalSteamHydrationBusyChanged();
     void signalErrorOccurred(QString title, QString message);
 
     // Internal - SteamApiSearchWorker
@@ -77,6 +81,7 @@ private:
     SteamApiSearchWorker *m_steamApiSearchWorker;
     QThread m_hydrationWorkerThread;
     SteamApiHydrationWorker *m_steamApiHydrationWorker;
+    bool m_steamHydrationBusy;
 
     Error DatabaseInit();
     Error FileSystemInit();

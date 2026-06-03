@@ -40,16 +40,11 @@
 | **Hidden Achievement** | Click a hidden achievement row to reveal or conceal its details. |
 
 ###
-## Using Lymalink
+## 🎮 Managing Emulator Targets
 
-In Lymalink, a **Target** refers to any tracked item, such as a game, application, emulator title, or other imported content.
+In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam Emulator** targets and has been tested with achievement files like CODEX, RUNE, and GOLDBERG.
 
-Targets are displayed on the **Dashboard** as selectable cards or list entries, depending on the currently selected view. Opening a target provides access to its details, achievements, and configuration options.
-
-###
-### ➕ Add a Target
-
-The current version **v0.8.0-beta** focuses on **Steam Emulator** targets and has been tested with setups like CODEX, RUNE, and GOLDBERG. **Steam Import** and **Custom** targets are not available yet.
+### ➕ Add an Emulator Target
 
 1. Open **Dashboard** and click **Add Target**.
 2. Select **Emulator**.
@@ -58,10 +53,58 @@ The current version **v0.8.0-beta** focuses on **Steam Emulator** targets and ha
 5. Select **Prefix Location**. Choose `drive_c` or equivalent folder inside your Wine, Proton, or Bottle prefix which contains or will contain emulator's achievement file.
 6. Click **Confirm**.
 
-###
-### 👁️ Hide or Show a Target
+### 🗑️ Remove an Emulator Target
 
-Hide targets you do not want to see on Dashboard without deleting their data.
+**Warning:** Deleting a target will remove it from Lymalink, along with all downloaded assets and achievement data.
+
+1. Open target card from **Dashboard**.
+2. Click **Settings gear**.
+3. Click **Delete**.
+4. Type `delete`.
+5. Click **Confirm**.
+
+---
+
+## 🌐 Managing Steam Import Targets
+
+You can import your official Steam library and sync achievements directly. This feature requires configuring your Steam ID and API key.
+
+### 🔑 Before Use
+
+* Please configure both your **Steam ID** and **Web API key** in **Settings**.
+* Please ensure your **Steam profile privacy** is set to **Public**.
+
+### ➕ Add / Import Steam Games
+
+1. Open **Dashboard** and click **Add Target**.
+2. Select **Steam Import / Update**.
+3. Click **Load Steam Library**.
+4. Enter your passcode.
+5. Select games to import (or uncheck to remove).
+6. Click **Apply Selection**.
+
+### 🔄 Update Steam Library & Achievements
+
+1. Open **Dashboard** and click **Add Target**.
+2. Select **Steam Import / Update**.
+3. Press **Update**.
+
+### 🗑️ Remove Steam Import Games
+
+1. Open **Dashboard** and click **Add Target**.
+2. Select **Steam Import / Update**.
+3. Click **Load Steam Library**.
+4. Enter your passcode.
+5. Uncheck the games you want to remove.
+6. Click **Apply Selection**.
+
+*(Note: You can also delete an imported Steam game individually by using the Settings gear -> Delete -> type `delete` on its target card).*
+
+---
+
+## 👁️ General Target Options (Hide / Show)
+
+Hide targets you do not want to see on Dashboard without deleting their data. Works for both Emulator and Steam targets.
 
 1. Open target card from **Dashboard**.
 2. Click **Settings gear**.
@@ -74,16 +117,7 @@ Hidden targets disappear from normal Dashboard view. To show one again:
 3. Open hidden target card.
 4. Click **Settings gear**, then **Unhide**.
 
-###
-### 🗑️ Remove a Target
-
-**Warning:** Deleting a target will remove it from Lymalink, along with all downloaded assets and achievement data.
-
-1. Open target card from **Dashboard**.
-2. Click **Settings gear**.
-3. Click **Delete**.
-4. Type `delete`.
-5. Click **Confirm**.
+---
 
 ###
 ### 🔔 Achievement Notifications
@@ -127,6 +161,7 @@ If your progress does not update:
 - Check the service status displayed on the sidebar; it should show a solid or breathing green indicator. You can also try restarting the background service on the Settings page.
 - Ensure that your gaming session is detected by the service during gameplay by viewing the status on the sidebar. If it is not detected, verify that the executable path is set correctly by opening the target details and checking that the Status shows 'Installed'. You can change the executable installation path from the target details page by clicking the settings gear icon at the top and selecting "Edit Executable Location".
 - Open the target details and check that the 'Achievement file' status shows 'Found'. If it shows 'Missing', ensure your prefix path is correct. The subfolders of the prefix path must contain the achievement file created by the emulator.
+* **Note:** Some emulators do not create the achievement file until the very first achievement is unlocked in-game. If you are playing a brand-new game, the status may safely display 'Missing' until your first unlock.
 
 ###
 ### I can hear the notification sound, but I don't see the achievement overlay. What's wrong?
@@ -155,9 +190,9 @@ Lymalink currently supports Steam emulators that generate local achievement file
 
 ###
 ### Do I need a Steam API key?
-No, the current version (v0.8.0-beta) does not require a Steam API key in any way. Achievements, covers, and other data are downloaded from publicly accessible APIs. Future versions of Lymalink will allow you to import personal Steam achievements and game library data, which will then require an API key.
+* **For Steam Import:** **Yes.** If you want to use the Steam Import feature to fetch your library and official achievements, you must configure your Steam ID and Steam Web API key in the Settings menu.
+* **For Emulators:** No. Emulator tracking does not require a Steam API key, as covers and baseline achievement lists are downloaded from publicly accessible APIs.
 
 ###
 ### Support & Development
 Development updates, releases, and source code are available on our official GitHub repository. If you encounter any issues, please report them in the repository **Issues** section. You can access it by clicking the link on the sidebar.
-

@@ -30,6 +30,7 @@ Popup {
     property string p_pathPlaceholderText: qsTr("Select path")
     property var p_pathNameFilters: []
     property bool p_confirmDanger: false
+    property bool p_shortcutEnabled: false
 
     // Internals _____________________________________________
     readonly property bool verificationRequired: p_verificationMode || p_singleVerificationMode
@@ -67,6 +68,18 @@ Popup {
         sequence: "Backspace"
         enabled: id_root.opened
         onActivated: id_root.cancel()
+    }
+
+    Shortcut {
+        sequence: "Return"
+        enabled: id_root.opened && id_root.p_shortcutEnabled
+        onActivated: id_root.confirm()
+    }
+
+    Shortcut {
+        sequence: "Enter"
+        enabled: id_root.opened && id_root.p_shortcutEnabled
+        onActivated: id_root.confirm()
     }
 
     Overlay.modal: Rectangle {

@@ -685,6 +685,7 @@ QtObject {
             readonly property color labelText: "#ffffff"
             readonly property color descriptionText: "#999999"
             readonly property color descriptionMutedText: Qt.rgba(1, 1, 1, 0.3)
+            readonly property color warningText: "#e8a838"
             readonly property color errorText: "#d35f5f"
             readonly property color divider: "#2a2a2a"
             readonly property color infoBlockBackground: Qt.rgba(1, 1, 1, 0.02)
