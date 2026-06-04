@@ -23,13 +23,6 @@ Qt is used under the LGPL-3.0.
 
 ---
 
-### sdbus-c++
-**Version:** 2.1.0  
-**License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later)  
-**Source / Info:** https://github.com/Kistler-Group/sdbus-cpp
-
----
-
 ### libcanberra
 **Version:** 0.30  
 **License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later)  

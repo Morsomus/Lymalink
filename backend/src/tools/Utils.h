@@ -9,7 +9,9 @@
 #pragma once
 
 #include <cstdint>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 
 namespace Utils
 {
@@ -26,5 +28,6 @@ std::string ReadProcessCmdline();
 std::string ReadIniValue(const std::string& configPath, const std::string& section, const std::string& key);
 bool IsHexLeUint32(const std::string& val);
 uint32_t ParseHexLeUint32(const std::string& val);
+std::string BuildString(std::initializer_list<std::string_view> parts);
 
 }

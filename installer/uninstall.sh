@@ -18,6 +18,8 @@ DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 BIN_DIR="$HOME/.local/bin"
 LIB_DIR="$HOME/.local/lib"
+APP_LIB_DIR="$LIB_DIR/lymalink"
+FRONTEND_DIR="$APP_LIB_DIR/frontend"
 SERVICE_DIR="$CONFIG_HOME/systemd/user"
 VULKAN_DIR="$DATA_HOME/vulkan/implicit_layer.d"
 ICON_DIR="$DATA_HOME/icons/hicolor/256x256/apps"
@@ -66,7 +68,9 @@ rm -f \
     "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
 
 rm -rf "$SOUND_DIR"
+rm -rf "$FRONTEND_DIR"
 rm -f "$APP_DATA_DIR/.installer-sounds" "$APP_DATA_DIR/.backend-sounds"
+rmdir "$APP_LIB_DIR" >/dev/null 2>&1 || true
 rmdir "$APP_DATA_DIR" >/dev/null 2>&1 || true
 
 if command -v flatpak >/dev/null 2>&1 \

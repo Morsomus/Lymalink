@@ -93,10 +93,13 @@ int main(int argc, char *argv[]) {
 
     // Load QML from bundled module
     QObject::connect(
-        &engine, &QQmlApplicationEngine::objectCreationFailed,
-        &app, []() {
-            qCritical() << "Object creation failed!";
-            QCoreApplication::exit(-1);
+        &engine, &QQmlApplicationEngine::objectCreated,
+        &app, [](QObject *obj, const QUrl &objUrl) {
+            Q_UNUSED(objUrl)
+            if (!obj) {
+                qCritical() << "Object creation failed!";
+                QCoreApplication::exit(-1);
+            }
         },
         Qt::QueuedConnection
     );

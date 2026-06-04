@@ -1,19 +1,27 @@
-# Lymalinkd
+# Backend Build
 
-`lymalinkd` is the Linux backend daemon for Lymalink.
+Build information for the Linux backend daemon.
 
-## Build
+## Supported Build Host
 
-Requirements:
+- Ubuntu 22.04 `x86_64`
 
-- Linux
-- `g++` or another C++20 compiler
-- `make`
-- `systemd --user` for deploy/service commands
-- `sdbus-cpp-devel`
-- `sqlite-devel`
-- `catch2-devel`
-- `libcanberra-devel`
+## Ubuntu 22.04 Dependencies
+
+```bash
+sudo apt update
+sudo apt install \
+  build-essential \
+  catch2 \
+  libcanberra-dev \
+  libgdk-pixbuf-2.0-dev \
+  libsqlite3-dev \
+  libsystemd-dev \
+  make \
+  pkg-config
+```
+
+## Build Script
 
 From repository root:
 
@@ -31,15 +39,6 @@ make -C backend BUILD=debug
 make -C backend BUILD=release
 ```
 
-## Tests
-
-```bash
-backend/build.sh test
-backend/build.sh test --silent
-```
-
-The backend test command builds and runs the Catch2 test binary under `backend/build/debug/tests`.
-
 ## Run Locally
 
 ```bash
@@ -50,8 +49,16 @@ Logs:
 
 ```bash
 tail -f ~/.local/state/lymalink/lymalink-frontend.log
-tail -f ~/.local/state/lymalink/lymalink-backend.log
 ```
+
+## Tests
+
+```bash
+backend/build.sh test
+backend/build.sh test --silent
+```
+
+The backend test command builds and runs the Catch2 test binary under `backend/build/debug/tests`.
 
 ## User Service
 
@@ -124,6 +131,8 @@ backend
 │   │   ├── Logger.h
 │   │   ├── parsers
 │   │   │   ├── AchievementParser.h
+│   │   │   ├── GoldbergParser.cpp
+│   │   │   ├── GoldbergParser.h
 │   │   │   ├── RUNECodexParser.cpp
 │   │   │   └── RUNECodexParser.h
 │   │   ├── Utils.cpp

@@ -11,6 +11,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if [ "$EUID" -eq 0 ]; then
+    echo "==> ERROR: Do not run the Lymalink installer as root." >&2
+    echo "==> Lymalink installs into the current user's home directory and does not require sudo." >&2
+    exit 1
+fi
+
 if [ -z "${HOME:-}" ]; then
     echo "==> ERROR: HOME is not set." >&2
     exit 1
@@ -20,6 +26,8 @@ DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 BIN_DIR="$HOME/.local/bin"
 LIB_DIR="$HOME/.local/lib"
+APP_LIB_DIR="$LIB_DIR/lymalink"
+FRONTEND_DIR="$APP_LIB_DIR/frontend"
 SERVICE_DIR="$CONFIG_HOME/systemd/user"
 VULKAN_DIR="$DATA_HOME/vulkan/implicit_layer.d"
 ICON_DIR="$DATA_HOME/icons/hicolor/256x256/apps"
@@ -50,9 +58,19 @@ check_elf_dependencies() {
     local output
     local missing=0
 
+    if ! output="$(LD_LIBRARY_PATH="$SCRIPT_DIR/lib/lymalink/frontend/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        ldd "$SCRIPT_DIR/lib/lymalink/frontend/usr/bin/Lymalink" 2>&1)"; then
+        echo "==> ERROR: Unable to inspect runtime dependencies for bundled frontend." >&2
+        printf '%s\n' "$output" >&2
+        exit 1
+    fi
+    if printf '%s\n' "$output" | grep -q 'not found'; then
+        echo "==> ERROR: Missing runtime libraries required by bundled frontend:" >&2
+        printf '%s\n' "$output" | grep 'not found' >&2
+        missing=1
+    fi
+
     for artifact in \
-        "$SCRIPT_DIR/bin/Lymalink" \
-        "$SCRIPT_DIR/bin/lymalinkd" \
         "$SCRIPT_DIR/lib/lymalink-overlay.so" \
         "$SCRIPT_DIR/lib/lymalink-overlay-opengl.so" \
         "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so"; do
@@ -99,7 +117,7 @@ replace_home_placeholder() {
     sed -i "s#HOME_PLACEHOLDER#$escaped_home#g" "$destination"
 }
 
-for command_name in flatpak grep install ldd sed systemctl; do
+for command_name in cp flatpak grep install ldd sed systemctl; do
     require_command "$command_name"
 done
 
@@ -110,6 +128,7 @@ fi
 
 for payload_file in \
     "$SCRIPT_DIR/bin/Lymalink" \
+    "$SCRIPT_DIR/lib/lymalink/frontend/usr/bin/Lymalink" \
     "$SCRIPT_DIR/bin/lymalinkd" \
     "$SCRIPT_DIR/bin/lymalink-overlay" \
     "$SCRIPT_DIR/uninstall.sh" \
@@ -133,12 +152,14 @@ check_elf_dependencies
 
 echo "==> Installing Lymalink files..."
 rm -rf "$SOUND_DIR"
-mkdir -p "$BIN_DIR" "$LIB_DIR" "$SERVICE_DIR" "$VULKAN_DIR" "$ICON_DIR" "$APPLICATION_DIR" "$SOUND_DIR"
+rm -rf "$FRONTEND_DIR"
+mkdir -p "$BIN_DIR" "$LIB_DIR" "$APP_LIB_DIR" "$FRONTEND_DIR" "$SERVICE_DIR" "$VULKAN_DIR" "$ICON_DIR" "$APPLICATION_DIR" "$SOUND_DIR"
 rm -f "$APP_DATA_DIR/.installer-sounds" "$APP_DATA_DIR/.backend-sounds"
 install -m 755 "$SCRIPT_DIR/bin/Lymalink" "$BIN_DIR/Lymalink"
 install -m 755 "$SCRIPT_DIR/bin/lymalinkd" "$BIN_DIR/lymalinkd"
 install -m 755 "$SCRIPT_DIR/bin/lymalink-overlay" "$BIN_DIR/lymalink-overlay"
 install -m 755 "$SCRIPT_DIR/uninstall.sh" "$BIN_DIR/uninstall-lymalink"
+cp -a "$SCRIPT_DIR/lib/lymalink/frontend/." "$FRONTEND_DIR/"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay.so" "$LIB_DIR/lymalink-overlay.so"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay-opengl.so" "$LIB_DIR/lymalink-overlay-opengl.so"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so" "$LIB_DIR/lymalink-overlay-preloader.so"

@@ -1,8 +1,33 @@
-# Lymalink Overlay
+# Backend Overlay Build
 
-Standalone Vulkan and OpenGL overlay libraries for Lymalink.
+Build information for the Linux Vulkan and OpenGL overlay libraries.
 
-## Build
+## Supported Build Host
+
+- Ubuntu 22.04 `x86_64`
+- Flatpak extension branch `25.08`
+
+## Ubuntu 22.04 Dependencies
+
+```bash
+sudo apt update
+sudo apt install \
+  build-essential \
+  flatpak \
+  libegl1-mesa-dev \
+  libgdk-pixbuf-2.0-dev \
+  libgl1-mesa-dev \
+  libvulkan-dev \
+  make \
+  pkg-config \
+  unzip \
+  wget
+```
+
+`wget` and `unzip` are required when `backend-overlay/src/imgui/` has not been
+populated yet.
+
+## Build Script
 
 From repository root:
 
@@ -20,6 +45,7 @@ the Freedesktop runtime ABI. After compilation, runtime dependency checks run
 inside `org.freedesktop.Platform//25.08`. Install the SDK and runtime with:
 
 ```bash
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user flathub org.freedesktop.Sdk//25.08
 flatpak install --user flathub org.freedesktop.Platform//25.08
 ```

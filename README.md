@@ -81,56 +81,28 @@ Current progress towards the first working version, platform-wise
 
 ## Building for Linux
 
+- [Frontend build guide](frontend/README.md)
+- [Backend build guide](backend/README.md)
+- [Backend overlay build guide](backend-overlay/README.md)
+- [Installer build guide](installer/README.md)
+
 ### Frontend
 
-#### Requirements
-
-**Build dependencies:**
-
-- CMake >= 3.16
-- Qt 6 (Core, Gui, Qml, Quick, Widgets modules)
-- C++20-compatible compiler (GCC 10+, Clang 10+, or equivalent)
-- Qt6 qml module tools (`qt6-qml-module`/`qtcreator`)
-
-**Recommended (for running):**
-
-- Linux Desktop Environment
-- X11 or Wayland compositor
-- Plasma/XDG desktop integration for automatic app menu entry
-
-#### Build Script
-
-The `frontend/build.sh` script automates the full build workflow. Run it from the repository root or `frontend/` directory:
+The Qt frontend can be built with `frontend/build.sh` from the repository root:
 
 ```bash
-chmod +x frontend/build.sh
-frontend/build.sh clean       # Remove build/
-frontend/build.sh debug       # Debug build   -> frontend/build/debug/
-frontend/build.sh release     # Release build -> frontend/build/release/
-frontend/build.sh deploy      # Clean + release build, strip binary, install to XDG user dirs
-frontend/build.sh deploy --debug # Clean + debug build, install without stripping
-frontend/build.sh uninstall   # Remove Lymalink and resources from system
-frontend/build.sh dev         # Clean + debug build, launch
+frontend/build.sh clean
+frontend/build.sh debug
+frontend/build.sh release
+frontend/build.sh deploy
+frontend/build.sh deploy --debug
+frontend/build.sh uninstall
+frontend/build.sh dev
+frontend/build.sh test
+frontend/build.sh test --silent
 ```
 
-**Build modes:**
-
-| Command       | Build type | Output                        | Binary location                      |
-|---------------|-----------|-------------------------------|--------------------------------------|
-| `debug`       | Debug     | `frontend/build/debug/`       | `build/debug/bin/Lymalink`           |
-| `release`     | Release   | `frontend/build/release/`     | `build/release/bin/Lymalink`         |
-| `deploy`      | Release   | XDG user dirs (see below)     | `~/.local/bin/Lymalink`              |
-| `dev`         | Debug     | `frontend/build/debug/` + launch | `build/debug/bin/Lymalink`     |
-
-**Deploy installs to standard XDG directories:**
-
-| File | Location |
-|------|----------|
-| Binary | `~/.local/bin/Lymalink` |
-| Icon | `~/.local/share/icons/hicolor/256x256/apps/lymalink.png` |
-| Desktop entry | `~/.local/share/applications/lymalink.desktop` |
-
-<br>
+For frontend setup, direct CMake usage, tests, and deployment details, see [frontend/README.md](frontend/README.md).
 
 ### Backend
 
@@ -141,11 +113,7 @@ backend/build.sh clean
 backend/build.sh debug
 backend/build.sh release
 backend/build.sh test
-```
-
-To install and manage the user service:
-
-```bash
+backend/build.sh test --silent
 backend/build.sh deploy
 backend/build.sh deploy --debug
 backend/build.sh start
@@ -156,9 +124,7 @@ backend/build.sh logs
 backend/build.sh uninstall
 ```
 
-For backend requirements, direct `make` usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
-
-<br>
+For backend setup, direct `make` usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
 
 ### Backend Overlay
 
@@ -175,7 +141,7 @@ backend-overlay/build.sh deploy --debug
 backend-overlay/build.sh uninstall
 ```
 
-<br>
+For overlay setup, Flatpak SDK setup, direct `make` usage, and deployment details, see [backend-overlay/README.md](backend-overlay/README.md).
 
 ### Installer
 
@@ -185,37 +151,20 @@ The `installer/build.sh` script builds the frontend, backend, overlay libraries,
 installer/build.sh
 ```
 
-The build requires `makeself`, Flatpak tooling, `org.freedesktop.Sdk//25.08`,
-`org.freedesktop.Platform//25.08`, and the frontend and backend build
-dependencies. Flatpak overlay libraries compile inside the SDK and are checked
-against the Platform runtime before packaging. Output is written to:
+For installer host requirements, Ubuntu 22.04 setup, Flatpak SDK setup, `linuxdeployqt` notes, and packaging details, see [installer/README.md](installer/README.md).
+
+Installer output is written to:
 
 ```text
 installer/build/lymalink-release/
 installer/build/lymalink-installer-<VERSION>-x86_64.run
 ```
 
-Chmod +x and run the generated `.run` file to install Lymalink (no root required). It installs application binaries under `~/.local/bin`, overlay libraries under `~/.local/lib`, XDG data files, the systemd user unit, and the bundled Flatpak extension. Distro-specific runtime libraries, GPU drivers, systemd/D-Bus, and Flatpak itself remain host prerequisites; the installer checks required commands and ELF dependencies before copying files.
-
-Installed files:
-
-| Files | Destination |
-|-------|-------------|
-| `Lymalink`, `lymalinkd`, `lymalink-overlay`, `uninstall-lymalink` | `~/.local/bin/` |
-| `lymalink-overlay*.so` | `~/.local/lib/` |
-| `lymalink_overlay.json` | `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/` |
-| Icon and `lymalink.desktop` | `${XDG_DATA_HOME:-~/.local/share}/icons/`, `applications/` |
-| Sounds and test icon | `${XDG_DATA_HOME:-~/.local/share}/Lymalink/` |
-| `lymalinkd.service` | `${XDG_CONFIG_HOME:-~/.config}/systemd/user/` |
-| Flatpak VulkanLayer extension | User Flatpak installation |
-
-The installer reloads systemd user units but does not enable or start background `lymalinkd.service`. The desktop application controls backend service activation. To remove installer-managed files while preserving user configuration and database data, run:
+Chmod +x and run the generated `.run` file to install Lymalink without root. To remove installer-managed files while preserving user configuration and database data, run:
 
 ```bash
 ~/.local/bin/uninstall-lymalink
 ```
-
-The uninstaller removes the files listed above, disables the user service if needed, and preserves user configuration and database data.
 
 ---
 

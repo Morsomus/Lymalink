@@ -27,6 +27,8 @@ else
 fi
 
 RELEASE_DIR="$BUILD_DIR/lymalink-release"
+FRONTEND_APPDIR="$BUILD_DIR/lymalink-frontend.AppDir"
+FRONTEND_BUNDLE_DIR="$RELEASE_DIR/lib/lymalink/frontend"
 FLATPAK_WORK_DIR="$BUILD_DIR/flatpak-work"
 FLATPAK_EXTENSION_DIR="$FLATPAK_WORK_DIR/extension"
 FLATPAK_REPO_DIR="$FLATPAK_WORK_DIR/repo"
@@ -55,6 +57,21 @@ require_file() {
         echo "==> ERROR: Required build artifact not found: $1" >&2
         exit 1
     fi
+}
+
+resolve_qmake() {
+    local candidate
+
+    for candidate in qmake6 qmake; do
+        if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -query QT_INSTALL_PREFIX >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+
+    echo "==> ERROR: Could not find working Qt qmake for linuxdeployqt." >&2
+    echo "==> Install Qt6 qmake tools, e.g. qt6-base-dev-tools, and verify: qmake6 -v" >&2
+    exit 1
 }
 
 write_vulkan_manifest() {
@@ -87,7 +104,7 @@ write_vulkan_manifest() {
 EOF
 }
 
-for command_name in cmake flatpak g++ make makeself pkg-config sha256sum strip; do
+for command_name in cmake flatpak g++ linuxdeployqt make makeself pkg-config sha256sum strip; do
     require_command "$command_name"
 done
 
@@ -119,10 +136,13 @@ require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay-preloader.so"
 require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 
 echo "==> Staging release payload..."
-rm -rf "$RELEASE_DIR" "$FLATPAK_WORK_DIR" "$INSTALLER_PATH"
+rm -rf "$RELEASE_DIR" "$FRONTEND_APPDIR" "$FLATPAK_WORK_DIR" "$INSTALLER_PATH"
 mkdir -p \
     "$RELEASE_DIR/bin" \
     "$RELEASE_DIR/lib" \
+    "$FRONTEND_APPDIR/usr/bin" \
+    "$FRONTEND_APPDIR/usr/share/applications" \
+    "$FRONTEND_APPDIR/usr/share/icons/hicolor/256x256/apps" \
     "$RELEASE_DIR/share/vulkan/implicit_layer.d" \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps" \
     "$RELEASE_DIR/share/applications" \
@@ -132,7 +152,6 @@ mkdir -p \
 
 cp "$SCRIPT_DIR/install.sh" "$RELEASE_DIR/install.sh"
 cp "$SCRIPT_DIR/uninstall.sh" "$RELEASE_DIR/uninstall.sh"
-cp "$FRONTEND_BINARY" "$RELEASE_DIR/bin/Lymalink"
 cp "$BACKEND_BUILD_BIN_DIR/lymalinkd" "$RELEASE_DIR/bin/lymalinkd"
 cp "$ROOT_DIR/backend-overlay/lymalink-overlay.sh" "$RELEASE_DIR/bin/lymalink-overlay"
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay.so" "$RELEASE_DIR/lib/lymalink-overlay.so"
@@ -142,6 +161,53 @@ cp "$ROOT_DIR/backend/res/"*.ogg "$RELEASE_DIR/share/Lymalink/sounds/"
 cp "$ROOT_DIR/frontend/res/img/64x64-lymalink-test-icon.png" "$RELEASE_DIR/share/Lymalink/"
 cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
+
+cp "$FRONTEND_BINARY" "$FRONTEND_APPDIR/usr/bin/Lymalink"
+cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" \
+    "$FRONTEND_APPDIR/usr/share/icons/hicolor/256x256/apps/lymalink.png"
+cat > "$FRONTEND_APPDIR/usr/share/applications/lymalink.desktop" <<'EOF'
+[Desktop Entry]
+Name=Lymalink
+Exec=Lymalink
+Icon=lymalink
+StartupWMClass=Lymalink
+Type=Application
+Terminal=false
+Categories=Game;Utility;
+EOF
+
+echo "==> Bundling frontend Qt runtime with linuxdeployqt..."
+QMAKE_PATH="$(resolve_qmake)"
+linuxdeployqt \
+    "$FRONTEND_APPDIR/usr/share/applications/lymalink.desktop" \
+    -qmake="$QMAKE_PATH" \
+    -qmldir="$ROOT_DIR/frontend"
+mkdir -p "$FRONTEND_BUNDLE_DIR"
+cp -a "$FRONTEND_APPDIR/usr" "$FRONTEND_BUNDLE_DIR/"
+
+cat > "$RELEASE_DIR/bin/Lymalink" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -z "${HOME:-}" ]; then
+    echo "==> ERROR: HOME is not set." >&2
+    exit 1
+fi
+
+APPDIR="${LYMALINK_FRONTEND_ROOT:-$HOME/.local/lib/lymalink/frontend/usr}"
+
+if [ ! -x "$APPDIR/bin/Lymalink" ]; then
+    echo "==> ERROR: Bundled Lymalink frontend binary not found: $APPDIR/bin/Lymalink" >&2
+    exit 1
+fi
+
+export LD_LIBRARY_PATH="$APPDIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="$APPDIR/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+export QT_QPA_PLATFORM_PLUGIN_PATH="$APPDIR/plugins/platforms${QT_QPA_PLATFORM_PLUGIN_PATH:+:$QT_QPA_PLATFORM_PLUGIN_PATH}"
+export QML2_IMPORT_PATH="$APPDIR/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+
+exec "$APPDIR/bin/Lymalink" "$@"
+EOF
 
 chmod 755 \
     "$RELEASE_DIR/install.sh" \
@@ -156,7 +222,7 @@ chmod 644 \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
 
 strip \
-    "$RELEASE_DIR/bin/Lymalink" \
+    "$RELEASE_DIR/lib/lymalink/frontend/usr/bin/Lymalink" \
     "$RELEASE_DIR/bin/lymalinkd" \
     "$RELEASE_DIR/lib/lymalink-overlay.so" \
     "$RELEASE_DIR/lib/lymalink-overlay-opengl.so" \

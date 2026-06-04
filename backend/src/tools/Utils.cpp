@@ -195,4 +195,16 @@ uint32_t ParseHexLeUint32(const std::string& val)
     return result;
 }
 
+/////////////////////////////////////////////////////////////////////
+
+std::string BuildString(std::initializer_list<std::string_view> parts)
+{
+    std::ostringstream oss;
+    for (std::string_view part : parts)
+    {
+        oss << part;
+    }
+    return oss.str();
+}
+
 }
