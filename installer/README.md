@@ -125,7 +125,7 @@ The installer reloads user `systemd` units. It does not enable or start
 | Flatpak VulkanLayer extension | User Flatpak installation |
 
 If `~/.local/bin` is missing from `PATH`, installer adds a managed block to
-`~/.bash_profile` and `~/.profile`.
+`~/.bash_profile`, `~/.profile`, and `~/.bashrc`.
 
 ## Uninstall
 

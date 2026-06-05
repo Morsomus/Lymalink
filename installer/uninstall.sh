@@ -80,6 +80,7 @@ fi
 
 remove_path_block "$HOME/.bash_profile"
 remove_path_block "$HOME/.profile"
+remove_path_block "$HOME/.bashrc"
 
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload >/dev/null 2>&1 || true

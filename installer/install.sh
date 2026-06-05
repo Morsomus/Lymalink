@@ -883,6 +883,7 @@ case ":$PATH:" in
     *)
         install_path_block "$HOME/.bash_profile"
         install_path_block "$HOME/.profile"
+        install_path_block "$HOME/.bashrc"
         ;;
 esac
 
@@ -901,11 +902,12 @@ else
     echo "==> WARNING: update-desktop-database not found; desktop cache was not refreshed."
 fi
 
-echo "==> Lymalink install done."
+echo "==> LYMALINK INSTALL DONE."
 echo "    Frontend:      $BIN_DIR/Lymalink"
 echo "    Backend:       $BIN_DIR/lymalinkd"
 echo "    Service unit:  $SERVICE_DIR/lymalinkd.service"
 echo "    Flatpak layer: $FLATPAK_EXTENSION_ID//25.08"
 echo "    Uninstall:     $BIN_DIR/uninstall-lymalink"
 echo "    The desktop application controls backend service activation."
+echo "    Run: source ~/.bashrc or open new shell to refresh PATH."
 print_gnome_tray_note
