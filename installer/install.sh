@@ -460,19 +460,23 @@ fail_if_preflight_missing() {
     local failed=0
 
     if [ "${#MISSING_COMMANDS[@]}" -ne 0 ]; then
-        print_missing_command_help
         failed=1
     fi
 
     if [ "${#MISSING_PAYLOAD_FILES[@]}" -ne 0 ]; then
-        if [ "$failed" -ne 0 ]; then
-            echo "" >&2
-        fi
-        print_missing_payload_help
         failed=1
     fi
 
     if [ "$failed" -ne 0 ]; then
+        if [ "${#MISSING_COMMANDS[@]}" -ne 0 ]; then
+            print_missing_command_help
+        fi
+        if [ "${#MISSING_PAYLOAD_FILES[@]}" -ne 0 ]; then
+            if [ "${#MISSING_COMMANDS[@]}" -ne 0 ]; then
+                echo "" >&2
+            fi
+            print_missing_payload_help
+        fi
         exit 1
     fi
 }
@@ -575,15 +579,11 @@ check_ldd_output() {
     local missing=0
 
     if printf '%s\n' "$output" | grep -q 'version `.* not found'; then
-        echo "==> ERROR: Incompatible runtime libraries required by $artifact:" >&2
-        printf '%s\n' "$output" | grep 'version `.* not found' >&2
         add_incompatible_libraries_from_ldd "$output"
         missing=1
     fi
 
     if printf '%s\n' "$output" | grep -q '=>[[:space:]]*not found'; then
-        echo "==> ERROR: Missing runtime libraries required by $artifact:" >&2
-        printf '%s\n' "$output" | grep '=>[[:space:]]*not found' >&2
         add_missing_libraries_from_ldd "$output"
         missing=1
     fi
@@ -597,21 +597,15 @@ check_frontend_ldd_output() {
     local missing=0
 
     if printf '%s\n' "$output" | grep -q 'version `.* not found'; then
-        echo "==> ERROR: Incompatible runtime libraries required by frontend artifact $artifact:" >&2
-        printf '%s\n' "$output" | grep 'version `.* not found' >&2
         add_incompatible_libraries_from_ldd "$output"
         missing=1
     fi
 
     if printf '%s\n' "$output" | grep -q 'libQt6.*=>[[:space:]]*not found'; then
-        echo "==> ERROR: Bad frontend runtime payload: missing bundled Qt libraries for $artifact:" >&2
-        printf '%s\n' "$output" | grep 'libQt6.*=>[[:space:]]*not found' >&2
         missing=1
     fi
 
     if printf '%s\n' "$output" | grep -v 'libQt6' | grep -q '=>[[:space:]]*not found'; then
-        echo "==> ERROR: Missing frontend runtime libraries required by $artifact:" >&2
-        printf '%s\n' "$output" | grep -v 'libQt6' | grep '=>[[:space:]]*not found' >&2
         add_missing_libraries_from_ldd "$(printf '%s\n' "$output" | grep -v 'libQt6')"
         missing=1
     fi
@@ -639,14 +633,7 @@ check_frontend_elf_dependencies() {
     done < <(find "$SCRIPT_DIR/lib/lymalink/frontend" -type f \( -name 'Lymalink' -o -name '*.so' -o -name '*.so.*' \) | sort)
 
     if [ "$missing" -ne 0 ]; then
-        if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ]; then
-            print_incompatible_library_help
-        fi
-        if [ "${#MISSING_LIBRARIES[@]}" -ne 0 ]; then
-            print_missing_library_help
-        fi
-        echo "==> Fix the reported frontend runtime dependency issue and run the installer again." >&2
-        exit 1
+        return 1
     fi
 }
 
@@ -674,10 +661,29 @@ check_native_elf_dependencies() {
     done
 
     if [ "$missing" -ne 0 ]; then
+        return 1
+    fi
+}
+
+fail_if_runtime_missing() {
+    local failed=0
+
+    if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ]; then
+        failed=1
+    fi
+
+    if [ "${#MISSING_LIBRARIES[@]}" -ne 0 ]; then
+        failed=1
+    fi
+
+    if [ "$failed" -ne 0 ]; then
         if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ]; then
             print_incompatible_library_help
         fi
         if [ "${#MISSING_LIBRARIES[@]}" -ne 0 ]; then
+            if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ]; then
+                echo "" >&2
+            fi
             print_missing_library_help
         fi
         echo "==> Fix the reported runtime dependency issue and run the installer again." >&2
@@ -833,8 +839,13 @@ fail_if_preflight_missing
 check_frontend_qt_bundle
 check_frontend_qml_bundle
 check_frontend_plugin_bundle
-check_frontend_elf_dependencies
-check_native_elf_dependencies
+if ! check_frontend_elf_dependencies; then
+    :
+fi
+if ! check_native_elf_dependencies; then
+    :
+fi
+fail_if_runtime_missing
 
 echo "==> Installing Lymalink files..."
 rm -rf "$SOUND_DIR"

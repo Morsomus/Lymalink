@@ -38,17 +38,6 @@ Installer-only packages, using your distro package manager:
 binutils coreutils flatpak makeself
 ```
 
-Install Flatpak SDK/runtime used by the bundled VulkanLayer extension:
-
-```bash
-flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.freedesktop.Sdk//25.08
-flatpak install --user flathub org.freedesktop.Platform//25.08
-```
-
-`build.sh` also calls `cmake`, `g++`, `make`, `pkg-config`, `qmake6` or
-`qmake`, `strip`, and `sha256sum`, plus component build tools listed above.
-
 ## Build Installer
 
 Run from repository root:
