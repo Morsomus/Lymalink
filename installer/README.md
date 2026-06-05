@@ -1,71 +1,53 @@
 # Linux Installer Build
 
-Builds a self-extracting, user-level Linux installer for Lymalink. The generated
-installer contains the frontend, backend daemon, native overlay libraries,
-OpenGL launcher, Vulkan layer manifest, desktop files, systemd user unit, and
-Flatpak VulkanLayer extension.
+Builds a self-extracting, user-level Linux installer for Lymalink.
 
-Root access is not required to run the generated installer. The installer exits
-with an error when run as root because it installs only into the current user's
-home directory.
+The generated `.run` installs into the current user's home directory. Do not run
+it with `sudo`; the install script rejects root.
 
-## Supported Target
+## Target
 
-- Build host: Ubuntu 22.04 `x86_64`
-- Linux `x86_64`
-- User-level installation only
-- Flatpak VulkanLayer extension branch `25.08`
-- Flatpak extension libraries compiled inside `org.freedesktop.Sdk//25.08`
-- Flatpak extension dependencies checked inside `org.freedesktop.Platform//25.08`
+- Build hosts: Linux `x86_64` systems with the required build dependencies
+- Install targets: compatible Linux `x86_64` systems
+- Install scope: current user only
+- Frontend Qt runtime: bundled privately from the build host, never lower than
+  `6.8.0`
+- Flatpak VulkanLayer extension branch: `25.08`
 
-The installer bundles the frontend Qt runtime with `linuxdeployqt`. It does not
-bundle backend or overlay distro runtime libraries, GPU drivers, systemd, D-Bus,
-or Flatpak itself.
+The installer bundles the frontend Qt runtime manually from the build host
+`qmake` paths, plus the ICU runtime libraries detected on the build host so Qt
+can load the exact ICU SONAME it was built against. Frontend Qt libraries, Qt
+plugins, and QML imports are private to the frontend wrapper. It does not bundle
+system libraries such as OpenSSL, libstdc++, GL, D-Bus, or `systemd`.
 
-Installer creation currently requires Ubuntu 22.04. Build on Ubuntu 22.04
-because `linuxdeployqt` and Qt runtime bundling are host-sensitive; newer or
-older distributions can fail or produce incompatible bundles.
+Flatpak is required because the installer installs the Flatpak VulkanLayer
+extension used by Flatpak games. If Flatpak or extension installation fails, the
+installer fails.
 
 ## Build Requirements
 
-Install the normal frontend, backend, and overlay build dependencies first.
-See:
+Install component build requirements first:
 
-- [Frontend requirements](../frontend/README.md#ubuntu-2204-dependencies)
-- [Backend requirements](../backend/README.md#ubuntu-2204-dependencies)
-- [Overlay requirements](../backend-overlay/README.md#ubuntu-2204-dependencies)
+- [Frontend requirements](../frontend/README.md#dependencies)
+- [Backend requirements](../backend/README.md#dependencies)
+- [Overlay requirements](../backend-overlay/README.md#dependencies)
 
-Installer build also requires:
+Installer-only packages, using your distro package manager:
 
 ```bash
-sudo apt update
-sudo apt install \
-  binutils \
-  coreutils \
-  flatpak \
-  makeself
+binutils coreutils flatpak makeself
 ```
 
-Install `linuxdeployqt` separately and make sure it is available in `PATH`:
+Install Flatpak SDK/runtime used by the bundled VulkanLayer extension:
 
 ```bash
-linuxdeployqt --version
-```
-
-`installer/build.sh` also calls `cmake`, `g++`, `make`, `pkg-config`, `strip`,
-`sha256sum`, and the component build tools listed in the frontend, backend, and
-overlay READMEs.
-
-Install Flatpak SDK and runtime branch `25.08`:
-
-```bash
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user flathub org.freedesktop.Sdk//25.08
 flatpak install --user flathub org.freedesktop.Platform//25.08
 ```
 
-Overlay compilation requires Vulkan, OpenGL, EGL, and GDK Pixbuf development
-files. Frontend compilation and deployment require Qt 6 modules, Qt QML tooling,
-and OpenSSL development files.
+`build.sh` also calls `cmake`, `g++`, `make`, `pkg-config`, `qmake6` or
+`qmake`, `strip`, and `sha256sum`, plus component build tools listed above.
 
 ## Build Installer
 
@@ -75,18 +57,20 @@ Run from repository root:
 installer/build.sh
 ```
 
-The script:
+`build.sh` detects the build host from `/etc/os-release` and writes that tag
+into the generated installer filename. There is no distro whitelist.
 
-1. Builds release frontend, backend, and native overlay artifacts.
-2. Builds Flatpak overlay artifacts inside Freedesktop SDK `25.08` and checks
-   their dependencies inside Freedesktop Platform `25.08`.
-3. Bundles the frontend Qt runtime into a private AppDir with `linuxdeployqt`.
-4. Stages installer payload under `installer/build/lymalink-release/`.
-5. Strips native binaries and shared libraries.
-6. Builds bundled Flatpak VulkanLayer extension from SDK-built overlay libraries.
+Build flow:
+
+1. Builds frontend, backend, and native overlay release artifacts.
+2. Builds Flatpak overlay artifacts.
+3. Stages payload in `installer/build/lymalink-release/`.
+4. Bundles frontend Qt libraries, plugins, QML imports, and ICU runtime.
+5. Stores frontend build Qt version in payload metadata.
+6. Builds Flatpak VulkanLayer extension bundle.
 7. Creates self-extracting installer with `makeself`.
 
-Version comes from repository root `VERSION` file.
+Version comes from root [VERSION](../VERSION).
 
 ## Output
 
@@ -94,64 +78,77 @@ Version comes from repository root `VERSION` file.
 installer/build/
 ├── flatpak-work/
 ├── lymalink-release/
-└── lymalink-installer-<VERSION>-x86_64.run
+└── lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
 ```
 
-Distributable file:
+Distribute:
 
 ```text
-installer/build/lymalink-installer-<VERSION>-x86_64.run
+installer/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
 ```
 
-## Test Generated Installer
+## Target Runtime Requirements
 
-Run installer as normal desktop user:
+Target systems need:
+
+- Flatpak
+- Native runtime libraries needed by backend and overlay, such as Vulkan, GL,
+  D-Bus, `systemd`, GDK Pixbuf, and sdbus-c++
+- Frontend host libraries intentionally not bundled, such as OpenSSL,
+  libstdc++, desktop display libraries, and GPU driver stack
+
+Frontend Qt/QML must come from the bundled payload. When the payload is
+incomplete, the installer reports a bad build payload and exits. When host
+runtime libraries are missing, the installer prints missing `.so` names and a
+best-effort package command for the detected package manager.
+
+## Test Install
+
+Run as normal desktop user:
 
 ```bash
-chmod +x installer/build/lymalink-installer-<VERSION>-x86_64.run
-installer/build/lymalink-installer-<VERSION>-x86_64.run
+chmod +x installer/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
+installer/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
 ```
 
-Install script checks required commands and ELF runtime dependencies before
-copying files. It reloads systemd user units but does not enable or start
-`lymalinkd.service`; desktop application controls backend service activation.
+Install script checks before copying files:
 
-Installed files:
+- Required payload files
+- Frontend private Qt runtime and QML payload
+- ELF runtime dependencies with `ldd`, including frontend binary, Qt plugins,
+  QML plugins, and native overlay libraries
+- Flatpak extension bundle
 
-| Files | Destination |
-|-------|-------------|
-| `Lymalink`, `lymalinkd`, `lymalink-overlay`, `uninstall-lymalink` wrappers/tools | `~/.local/bin/` |
-| Bundled frontend binary, Qt libraries, plugins, and QML imports | `~/.local/lib/lymalink/frontend/` |
-| `lymalink-overlay*.so` | `~/.local/lib/` |
+The installer reloads user `systemd` units. It does not enable or start
+`lymalinkd.service`; desktop app controls backend activation.
+
+## Installed Files
+
+| Payload | Destination |
+|---------|-------------|
+| `Lymalink`, `lymalinkd`, `lymalink-overlay`, `uninstall-lymalink` | `~/.local/bin/` |
+| Frontend binary, Qt runtime, QML imports, plugins, ICU, and Qt build metadata | `~/.local/lib/lymalink/frontend/` |
+| Overlay `.so` files | `~/.local/lib/` |
 | Vulkan manifest | `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/` |
 | Icon and desktop entry | `${XDG_DATA_HOME:-~/.local/share}/icons/`, `applications/` |
 | Sounds and test icon | `${XDG_DATA_HOME:-~/.local/share}/Lymalink/` |
 | `lymalinkd.service` | `${XDG_CONFIG_HOME:-~/.config}/systemd/user/` |
 | Flatpak VulkanLayer extension | User Flatpak installation |
 
-When needed, installer adds `~/.local/bin` to `~/.bash_profile` and
-`~/.profile`.
+If `~/.local/bin` is missing from `PATH`, installer adds a managed block to
+`~/.bash_profile` and `~/.profile`.
 
-## Uninstall Test
+## Uninstall
 
 ```bash
 ~/.local/bin/uninstall-lymalink
 ```
 
-Uninstaller removes all installer-managed content, including files, PATH blocks, the notification sounds directory, 
-the Flatpak extension, and the systemd user unit. User configuration and database files remain intact.
-
-## Installer Layout
-
-```text
-installer/
-├── build.sh       # Builds and packages release installer
-├── install.sh     # Runs inside self-extracting installer
-├── README.md
-└── uninstall.sh   # Installed as ~/.local/bin/uninstall-lymalink
-```
+Uninstaller removes installer-managed files, PATH blocks, notification sounds,
+Flatpak extension, and user `systemd` unit. User config and database files stay.
 
 ## Notes
 
-- Re-running generated installer updates existing user-level installation.
-- Release payload embeds absolute home directory paths during installation.
+- Re-running generated installer updates existing user-level install.
+- Prefer an installer built on the same or a compatible distro release.
+- Release payload patches `HOME_PLACEHOLDER` to the installing user's home.

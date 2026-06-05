@@ -6,8 +6,6 @@
 // Description: Declares sending native desktop
 //              notifications over D-Bus
 //              NOTE: Not used in project currently, left for future use
-//              NOTE: Will not compile on Ubuntu 22.04
-//              NOTE: Compiled and tested on Fedora 43-44
 /////////////////////////////////////////////////////////
 
 #pragma once

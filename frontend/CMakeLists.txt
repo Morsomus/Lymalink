@@ -10,13 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network DBus)
 find_package(OpenSSL REQUIRED)
-if(COMMAND qt_standard_project_setup)
-    qt_standard_project_setup()
-else()
-    set(CMAKE_AUTOMOC ON)
-    set(CMAKE_AUTORCC ON)
-    set(CMAKE_AUTOUIC ON)
-endif()
+qt_standard_project_setup()
+qt_policy(SET QTP0004 NEW)
 
 qt_add_executable(Lymalink
     src/main.cpp
@@ -66,6 +61,7 @@ qt_add_qml_module(Lymalink
     URI Lymalink
     VERSION 1.0
     RESOURCE_PREFIX /qt/qml
+    NO_IMPORT_SCAN
     RESOURCES
         res/docs/CREDITS.md
         res/docs/THIRD-PARTY-LICENSES-LINUX.md

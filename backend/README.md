@@ -4,9 +4,11 @@ Build information for the Linux backend daemon.
 
 ## Supported Build Host
 
-- Ubuntu 22.04 `x86_64`
+- Linux `x86_64`
 
-## Ubuntu 22.04 Dependencies
+## Dependencies
+
+Install these packages, or your distro's equivalent:
 
 ```bash
 sudo apt update
@@ -15,6 +17,7 @@ sudo apt install \
   catch2 \
   libcanberra-dev \
   libgdk-pixbuf-2.0-dev \
+  libsdbus-c++-dev \
   libsqlite3-dev \
   libsystemd-dev \
   make \

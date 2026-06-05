@@ -7,7 +7,6 @@
 #########################################################
 
 CXX ?= g++
-PKG_CONFIG ?= pkg-config
 BUILD ?= debug
 BUILD_ROOT ?= build
 
@@ -25,13 +24,12 @@ CXXFLAGS_COMMON := -std=c++20 -Wall -Wextra -pedantic
 CXXFLAGS_debug := -O0 -g
 CXXFLAGS_release := -O2 -DNDEBUG
 CXXFLAGS := $(CXXFLAGS_COMMON) $(CXXFLAGS_$(BUILD))
-CATCH2_LIBS := $(shell $(PKG_CONFIG) --exists catch2-with-main 2>/dev/null && $(PKG_CONFIG) --libs catch2-with-main)
-CANBERRA_CFLAGS := $(shell $(PKG_CONFIG) --cflags libcanberra 2>/dev/null)
-CANBERRA_LIBS := $(shell $(PKG_CONFIG) --libs libcanberra 2>/dev/null || echo -lcanberra)
-GDK_PIXBUF_CFLAGS := $(shell $(PKG_CONFIG) --cflags gdk-pixbuf-2.0 2>/dev/null)
-GDK_PIXBUF_LIBS := $(shell $(PKG_CONFIG) --libs gdk-pixbuf-2.0 2>/dev/null || echo -lgdk_pixbuf-2.0)
-SYSTEMD_CFLAGS := $(shell $(PKG_CONFIG) --cflags libsystemd 2>/dev/null)
-SYSTEMD_LIBS := $(shell $(PKG_CONFIG) --libs libsystemd 2>/dev/null || echo -lsystemd)
+CATCH2_LIBS := $(shell pkg-config --exists catch2-with-main 2>/dev/null && pkg-config --libs catch2-with-main)
+CANBERRA_CFLAGS := $(shell pkg-config --cflags libcanberra 2>/dev/null)
+CANBERRA_LIBS := $(shell pkg-config --libs libcanberra 2>/dev/null || echo -lcanberra)
+GDK_PIXBUF_CFLAGS := $(shell pkg-config --cflags gdk-pixbuf-2.0 2>/dev/null)
+GDK_PIXBUF_LIBS := $(shell pkg-config --libs gdk-pixbuf-2.0 2>/dev/null || echo -lgdk_pixbuf-2.0)
+SDBUS_LIBS := $(shell pkg-config --libs sdbus-c++)
 
 SOURCES := \
     src/main.cpp \
@@ -61,11 +59,11 @@ TEST_SOURCES := \
 all: $(BIN_DIR)/$(TARGET)
 
 $(BIN_DIR)/$(TARGET): $(OBJECTS) | $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -Wl,--no-undefined -o $@ $^ $(SYSTEMD_LIBS) $(CANBERRA_LIBS) $(GDK_PIXBUF_LIBS) -lsqlite3 -lrt
+	$(CXX) $(CXXFLAGS) -Wl,--no-undefined -o $@ $^ $(SDBUS_LIBS) $(CANBERRA_LIBS) $(GDK_PIXBUF_LIBS) -lsqlite3 -lrt
 
 $(OBJ_DIR)/%.o: src/%.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(SYSTEMD_CFLAGS) $(CANBERRA_CFLAGS) $(GDK_PIXBUF_CFLAGS) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CANBERRA_CFLAGS) $(GDK_PIXBUF_CFLAGS) $(CXXFLAGS) -c $< -o $@
 
 $(TEST_BIN_DIR)/$(TEST_TARGET): $(TEST_SOURCES) | $(TEST_BIN_DIR)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $^ $(CATCH2_LIBS) -lsqlite3

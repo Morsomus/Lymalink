@@ -14,10 +14,13 @@
 class SysTray : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool available READ IsAvailable CONSTANT)
 
 public:
     explicit SysTray(QObject *parent = nullptr);
     ~SysTray();
+
+    bool IsAvailable() const;
 
     Q_INVOKABLE void ShowToastNotification(const QString &title, const QString &message);
     Q_INVOKABLE void SetTrayIconVisibility(bool state);

@@ -658,16 +658,32 @@ Item {
                         C_SettingRow {
                             label: qsTr("Close to tray")
                             tooltip: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
-                            Switch {
-                                checked: ctxSettings.closeToTray
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_trayHover }
-                                CustomTooltip {
-                                    p_active: id_trayHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("When closing the window, minimize the application to the system tray instead of exiting")
+                            ColumnLayout {
+                                spacing: 4
+
+                                Switch {
+                                    enabled: ctxSysTray.available
+                                    checked: ctxSettings.closeToTray && ctxSysTray.available
+                                    text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
+                                    HoverHandler { id: id_trayHover }
+                                    CustomTooltip {
+                                        p_active: id_trayHover.hovered
+                                        p_delay: 600
+                                        p_text: ctxSysTray.available
+                                            ? qsTr("When closing the window, minimize the application to the system tray instead of exiting")
+                                            : qsTr("System tray is not available in this desktop session")
+                                    }
+                                    onToggled: ctxSettings.SaveValue(Settings.CloseToTray, checked)
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.CloseToTray, checked)
+
+                                Label {
+                                    visible: !ctxSysTray.available
+                                    Layout.maximumWidth: 260
+                                    text: qsTr("System tray is unavailable. On GNOME, enable an AppIndicator/KStatusNotifier extension first.")
+                                    color: Themes.settings.colors.sectionInfo
+                                    font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                         }
 
@@ -691,7 +707,7 @@ Item {
                             label: qsTr("Close to tray notification")
                             tooltip: qsTr("Show system notification while closing to tray")
                             Switch {
-                                enabled: ctxSettings.closeToTray
+                                enabled: ctxSettings.closeToTray && ctxSysTray.available
                                 checked: ctxSettings.closeToTrayToast && enabled
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_trayToastHover }

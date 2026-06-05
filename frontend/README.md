@@ -4,11 +4,11 @@ Build information for the Linux Qt frontend.
 
 ## Supported Build Host
 
-- Ubuntu 22.04 `x86_64`
-- Other Linux distributions may work for local development, but installer
-  packaging is tested from Ubuntu 22.04 only.
+- Linux `x86_64`
 
-## Ubuntu 22.04 Dependencies
+## Dependencies
+
+Install these packages, or your distro's equivalent:
 
 ```bash
 sudo apt update
@@ -22,7 +22,14 @@ sudo apt install \
   qt6-base-dev-tools \
   qt6-declarative-dev \
   qt6-tools-dev \
-  qt6-tools-dev-tools
+  qt6-tools-dev-tools \
+  qml6-module-qtquick \
+  qml6-module-qtquick-controls \
+  qml6-module-qtquick-dialogs \
+  qml6-module-qtquick-effects \
+  qml6-module-qtquick-layouts \
+  qml6-module-qtquick-shapes \
+  qml6-module-qtquick-window
 ```
 
 ## Build Script

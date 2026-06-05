@@ -28,12 +28,10 @@
 #include "Error.h"
 
 #include <cstdint>
-#include <atomic>
 #include <functional>
-#include <mutex>
+#include <memory>
+#include <sdbus-c++/sdbus-c++.h>
 #include <string>
-#include <systemd/sd-bus.h>
-#include <thread>
 #include <vector>
 
 class DBusService
@@ -58,13 +56,8 @@ public:
     std::function<void()> onTestSound;
 
 private:
-    sd_bus* m_bus;
-    sd_bus_slot* m_objectSlot;
-    std::thread m_eventThread;
-    std::atomic<bool> m_running;
-    std::recursive_mutex m_busMutex;
-
-    void EventLoop();
+    std::unique_ptr<sdbus::IConnection> m_connection;
+    std::unique_ptr<sdbus::IObject> m_object;
 
     // Method handlers, registered as D-Bus method implementations
     std::string OnPing();
@@ -74,14 +67,4 @@ private:
     void OnRequestActiveTargets();
     void OnTestToast();
     void OnTestSound();
-
-    static const sd_bus_vtable m_vtable[];
-
-    static int HandlePing(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleReloadTarget(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleReloadAllTargets(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleReloadConfig(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleRequestActiveTargets(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleTestToast(sd_bus_message* message, void* userdata, sd_bus_error* error);
-    static int HandleTestSound(sd_bus_message* message, void* userdata, sd_bus_error* error);
 };

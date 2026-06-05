@@ -43,9 +43,9 @@ ApplicationWindow {
     }
 
     onClosing: function(close) {
-        if (ctxSettings.closeToTray) {
+        if (ctxSettings.closeToTray && ctxSysTray.available) {
+            close.accepted = false
             id_root.hide()          // Hide Window
-            close.accepted = true
             
             ctxSysTray.SetTrayIconVisibility(true)
 

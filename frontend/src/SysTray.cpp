@@ -28,6 +28,13 @@ SysTray::~SysTray()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
+bool SysTray::IsAvailable() const
+{
+    return QSystemTrayIcon::isSystemTrayAvailable();
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void SysTray::ShowToastNotification(const QString &title, const QString &message)
 {
     // QSystemTrayIcon::Information
@@ -43,6 +50,11 @@ void SysTray::ShowToastNotification(const QString &title, const QString &message
 
 void SysTray::SetTrayIconVisibility(bool state)
 {
+    if (state && !IsAvailable())
+    {
+        return;
+    }
+
     if (state)
     {
         m_trayIcon.show();

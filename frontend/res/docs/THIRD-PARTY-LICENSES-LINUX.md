@@ -7,7 +7,6 @@ This document lists third-party libraries, fonts, and assets used in Lymalink an
 ## Libraries
 
 ### Qt 6 - Frontend
-**Version:** 6.10.3  
 **Modules:** Core, GUI, QML, Quick, Widgets, SQL, Network, DBus  
 **License:** GNU Lesser General Public License v3.0 (LGPL-3.0)  
 **Source / Info:** https://www.qt.io/licensing
@@ -17,21 +16,24 @@ Qt is used under the LGPL-3.0.
 ---
 
 ### OpenSSL
-**Version:** 3.5.4  
 **License:** Apache License 2.0  
 **Source / Info:** https://www.openssl.org/source/license.html
 
 ---
 
+### sdbus-c++
+**License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later)  
+**Source / Info:** https://github.com/Kistler-Group/sdbus-cpp
+
+---
+
 ### libcanberra
-**Version:** 0.30  
 **License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later)  
 **Source / Info:** http://0pointer.de/lennart/projects/libcanberra
 
 ---
 
 ### SQLite
-**Version:** 3.50.2  
 **License:** Public Domain (blessing)  
 **Source / Info:** https://www.sqlite.org/copyright.html
 

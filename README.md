@@ -151,13 +151,13 @@ The `installer/build.sh` script builds the frontend, backend, overlay libraries,
 installer/build.sh
 ```
 
-For installer host requirements, Ubuntu 22.04 setup, Flatpak SDK setup, `linuxdeployqt` notes, and packaging details, see [installer/README.md](installer/README.md).
+For installer host requirements, Flatpak SDK setup, manual Qt runtime bundling, and packaging details, see [installer/README.md](installer/README.md).
 
 Installer output is written to:
 
 ```text
 installer/build/lymalink-release/
-installer/build/lymalink-installer-<VERSION>-x86_64.run
+installer/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
 ```
 
 Chmod +x and run the generated `.run` file to install Lymalink without root. To remove installer-managed files while preserving user configuration and database data, run:

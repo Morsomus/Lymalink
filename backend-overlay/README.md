@@ -4,10 +4,12 @@ Build information for the Linux Vulkan and OpenGL overlay libraries.
 
 ## Supported Build Host
 
-- Ubuntu 22.04 `x86_64`
+- Linux `x86_64`
 - Flatpak extension branch `25.08`
 
-## Ubuntu 22.04 Dependencies
+## Dependencies
+
+Install these packages, or your distro's equivalent:
 
 ```bash
 sudo apt update
@@ -24,6 +26,17 @@ sudo apt install \
   wget
 ```
 
+Release builds compile overlay logging out fully. Debug builds retain logging.
+Flatpak builds run inside `org.freedesktop.Sdk//25.08` so extension libraries match
+the Freedesktop runtime ABI. After compilation, runtime dependency checks run
+inside `org.freedesktop.Platform//25.08`. Install the SDK and runtime with:
+
+```bash
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user flathub org.freedesktop.Sdk//25.08
+flatpak install --user flathub org.freedesktop.Platform//25.08
+```
+
 `wget` and `unzip` are required when `backend-overlay/src/imgui/` has not been
 populated yet.
 
@@ -37,17 +50,6 @@ backend-overlay/build.sh debug
 backend-overlay/build.sh release
 backend-overlay/build.sh flatpak-debug
 backend-overlay/build.sh flatpak-release
-```
-
-Release builds compile overlay logging out fully. Debug builds retain logging.
-Flatpak builds run inside `org.freedesktop.Sdk//25.08` so extension libraries match
-the Freedesktop runtime ABI. After compilation, runtime dependency checks run
-inside `org.freedesktop.Platform//25.08`. Install the SDK and runtime with:
-
-```bash
-flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.freedesktop.Sdk//25.08
-flatpak install --user flathub org.freedesktop.Platform//25.08
 ```
 
 ## Deploy
