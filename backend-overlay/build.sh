@@ -152,6 +152,30 @@ _install_imgui() {
 
 ##############################################################################
 
+_make_jobs() {
+    local jobs=""
+
+    if command -v nproc >/dev/null 2>&1; then
+        jobs="$(nproc)"
+    elif command -v getconf >/dev/null 2>&1; then
+        jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    fi
+
+    case "$jobs" in
+        ''|*[!0-9]*)
+            jobs=1
+            ;;
+    esac
+
+    if [ "$jobs" -lt 1 ]; then
+        jobs=1
+    fi
+
+    printf '%s\n' "$jobs"
+}
+
+##############################################################################
+
 _write_vulkan_overlay_manifest() {
     local DEST="$1"
     local LIBRARY_PATH="$2"
@@ -326,10 +350,12 @@ build() {
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)"
     local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
+    local MAKE_JOBS
+    MAKE_JOBS="$(_make_jobs)"
 
     echo "==> Building overlay ($MODE_LOWER)..."
     _install_imgui
-    make -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
+    make -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
 
     local LIB
     for LIB in "$OVERLAY_LIB" "$OVERLAY_OPENGL_LIB" "$OVERLAY_PRELOADER_LIB"; do
@@ -351,6 +377,8 @@ build_flatpak() {
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)/flatpak"
     local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
+    local MAKE_JOBS
+    MAKE_JOBS="$(_make_jobs)"
 
     echo "==> Building Flatpak overlay ($MODE_LOWER, Freedesktop SDK $FLATPAK_EXTENSION_BRANCH)..."
     _install_imgui
@@ -359,7 +387,7 @@ build_flatpak() {
         --filesystem="$PROJECT_ROOT" \
         --command=make \
         "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" \
-        -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
+        -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
 
     local LIB
     for LIB in "$OVERLAY_LIB" "$OVERLAY_OPENGL_LIB" "$OVERLAY_PRELOADER_LIB"; do

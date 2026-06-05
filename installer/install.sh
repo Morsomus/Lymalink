@@ -44,6 +44,8 @@ PATH_BLOCK_START="# >>> Lymalink installer PATH >>>"
 PATH_BLOCK_END="# <<< Lymalink installer PATH <<<"
 MISSING_LIBRARIES=()
 INCOMPATIBLE_LIBRARIES=()
+MISSING_COMMANDS=()
+MISSING_PAYLOAD_FILES=()
 REQUIRED_FRONTEND_QML_MODULES=(
     Qt/labs/folderlistmodel
     QtQml/Models
@@ -68,16 +70,13 @@ REQUIRED_FRONTEND_QT_PLUGIN_FILES=(
 
 require_command() {
     if ! command -v "$1" >/dev/null 2>&1; then
-        echo "==> ERROR: Required command not found: $1" >&2
-        echo "==> Please install missing dependencies, and try again" >&2
-        exit 1
+        MISSING_COMMANDS+=("$1")
     fi
 }
 
 require_file() {
     if [ ! -f "$1" ]; then
-        echo "==> ERROR: Required installer payload file not found: $1" >&2
-        exit 1
+        MISSING_PAYLOAD_FILES+=("$1")
     fi
 }
 
@@ -344,6 +343,47 @@ package_for_library() {
     esac
 }
 
+package_for_command() {
+    local package_manager="$1"
+    local command_name="$2"
+
+    case "$package_manager:$command_name" in
+        apt:cp|apt:install|apt:readlink|apt:sort) echo "coreutils" ;;
+        apt:find) echo "findutils" ;;
+        apt:flatpak) echo "flatpak" ;;
+        apt:grep) echo "grep" ;;
+        apt:ldd) echo "libc-bin" ;;
+        apt:sed) echo "sed" ;;
+        apt:systemctl) echo "systemd" ;;
+
+        dnf:cp|dnf:install|dnf:readlink|dnf:sort) echo "coreutils" ;;
+        dnf:find) echo "findutils" ;;
+        dnf:flatpak) echo "flatpak" ;;
+        dnf:grep) echo "grep" ;;
+        dnf:ldd) echo "glibc" ;;
+        dnf:sed) echo "sed" ;;
+        dnf:systemctl) echo "systemd" ;;
+
+        zypper:cp|zypper:install|zypper:readlink|zypper:sort) echo "coreutils" ;;
+        zypper:find) echo "findutils" ;;
+        zypper:flatpak) echo "flatpak" ;;
+        zypper:grep) echo "grep" ;;
+        zypper:ldd) echo "glibc" ;;
+        zypper:sed) echo "sed" ;;
+        zypper:systemctl) echo "systemd" ;;
+
+        pacman:cp|pacman:install|pacman:readlink|pacman:sort) echo "coreutils" ;;
+        pacman:find) echo "findutils" ;;
+        pacman:flatpak) echo "flatpak" ;;
+        pacman:grep) echo "grep" ;;
+        pacman:ldd) echo "glibc" ;;
+        pacman:sed) echo "sed" ;;
+        pacman:systemctl) echo "systemd" ;;
+
+        *) echo "" ;;
+    esac
+}
+
 add_unique_package() {
     local package="$1"
     shift
@@ -356,6 +396,85 @@ add_unique_package() {
     done
 
     return 0
+}
+
+print_package_install_help() {
+    local package_manager="$1"
+    shift
+    local packages=("$@")
+
+    if [ -z "$package_manager" ] || [ "${#packages[@]}" -eq 0 ]; then
+        echo "==> Please install the missing dependencies with your system package manager, then run the installer again." >&2
+        return
+    fi
+
+    echo "==> Possible package install command:" >&2
+    case "$package_manager" in
+        apt)
+            echo "    sudo apt update" >&2
+            echo "    sudo apt install ${packages[*]}" >&2
+            ;;
+        dnf)
+            echo "    sudo dnf install ${packages[*]}" >&2
+            ;;
+        zypper)
+            echo "    sudo zypper install ${packages[*]}" >&2
+            ;;
+        pacman)
+            echo "    sudo pacman -S ${packages[*]}" >&2
+            ;;
+    esac
+}
+
+print_missing_command_help() {
+    local package_manager
+    local packages=()
+    local command_name
+    local package
+
+    package_manager="$(detect_package_manager)"
+
+    echo "==> Missing required commands:" >&2
+    for command_name in "${MISSING_COMMANDS[@]}"; do
+        echo "    $command_name" >&2
+        package="$(package_for_command "$package_manager" "$command_name")"
+        if [ -n "$package" ] && add_unique_package "$package" "${packages[@]}"; then
+            packages+=("$package")
+        fi
+    done
+
+    print_package_install_help "$package_manager" "${packages[@]}"
+}
+
+print_missing_payload_help() {
+    local payload_file
+
+    echo "==> Missing required installer payload files:" >&2
+    for payload_file in "${MISSING_PAYLOAD_FILES[@]}"; do
+        echo "    $payload_file" >&2
+    done
+    echo "==> The installer payload is incomplete. Rebuild or re-download the installer, then run it again." >&2
+}
+
+fail_if_preflight_missing() {
+    local failed=0
+
+    if [ "${#MISSING_COMMANDS[@]}" -ne 0 ]; then
+        print_missing_command_help
+        failed=1
+    fi
+
+    if [ "${#MISSING_PAYLOAD_FILES[@]}" -ne 0 ]; then
+        if [ "$failed" -ne 0 ]; then
+            echo "" >&2
+        fi
+        print_missing_payload_help
+        failed=1
+    fi
+
+    if [ "$failed" -ne 0 ]; then
+        exit 1
+    fi
 }
 
 print_missing_library_help() {
@@ -686,15 +805,11 @@ for command_name in cp find flatpak grep install ldd readlink sed sort systemctl
     require_command "$command_name"
 done
 
-if [ ! -f "$FLATPAK_BUNDLE" ]; then
-    echo "==> ERROR: Flatpak extension bundle not found: $FLATPAK_BUNDLE" >&2
-    exit 1
-fi
-
 for payload_file in \
     "$SCRIPT_DIR/bin/Lymalink" \
     "$FRONTEND_BINARY" \
     "$FRONTEND_QT_BUILD_VERSION_FILE" \
+    "$FLATPAK_BUNDLE" \
     "$SCRIPT_DIR/bin/lymalinkd" \
     "$SCRIPT_DIR/bin/lymalink-overlay" \
     "$SCRIPT_DIR/uninstall.sh" \
@@ -710,9 +825,10 @@ for payload_file in \
 done
 
 if ! compgen -G "$SCRIPT_DIR/share/Lymalink/sounds/*.ogg" >/dev/null; then
-    echo "==> ERROR: Required installer sound files not found." >&2
-    exit 1
+    MISSING_PAYLOAD_FILES+=("$SCRIPT_DIR/share/Lymalink/sounds/*.ogg")
 fi
+
+fail_if_preflight_missing
 
 check_frontend_qt_bundle
 check_frontend_qml_bundle

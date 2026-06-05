@@ -15,6 +15,7 @@
 #include "imgui_impl_vulkan.h"
 #include <array>
 #include <cstring>
+#include <string>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -22,6 +23,7 @@
 static PFN_vkVoidFunction ImGuiVulkanLoader(const char* functionName, void* userData)
 {
     auto* info = static_cast<VulkanOverlayRendererInitInfo*>(userData);
+    const std::string name = functionName ? functionName : "<null>";
 
     // Try loading via device function pointer first if device is valid
     if (info->getDeviceProcAddr && info->device != VK_NULL_HANDLE)
@@ -41,8 +43,14 @@ static PFN_vkVoidFunction ImGuiVulkanLoader(const char* functionName, void* user
         }
     }
 
-    // Final fallback for global Vulkan functions
-    if (info->getInstanceProcAddr)
+    const bool isGlobalFunction =
+        name == "vkCreateInstance" ||
+        name == "vkEnumerateInstanceExtensionProperties" ||
+        name == "vkEnumerateInstanceLayerProperties" ||
+        name == "vkGetInstanceProcAddr";
+
+    // Only true global functions may be queried with a null instance
+    if (isGlobalFunction && info->getInstanceProcAddr)
     {
         return info->getInstanceProcAddr(VK_NULL_HANDLE, functionName);
     }
@@ -530,6 +538,7 @@ bool VulkanOverlayRenderer::InitializeImGuiVulkanBackend()
     vkInfo.QueueFamily = m_info.graphicsFamily;
     vkInfo.Queue = m_graphicsQueue;
     vkInfo.DescriptorPool = m_descriptorPool;
+    vkInfo.ApiVersion = VK_API_VERSION_1_0;
     vkInfo.MinImageCount = 2;
     vkInfo.ImageCount = m_info.imageCount;
     vkInfo.PipelineInfoMain.RenderPass = m_renderPass;

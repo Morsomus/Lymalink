@@ -120,6 +120,30 @@ _install_nlohmann() {
 
 ##############################################################################
 
+_make_jobs() {
+    local jobs=""
+
+    if command -v nproc >/dev/null 2>&1; then
+        jobs="$(nproc)"
+    elif command -v getconf >/dev/null 2>&1; then
+        jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    fi
+
+    case "$jobs" in
+        ''|*[!0-9]*)
+            jobs=1
+            ;;
+    esac
+
+    if [ "$jobs" -lt 1 ]; then
+        jobs=1
+    fi
+
+    printf '%s\n' "$jobs"
+}
+
+##############################################################################
+
 build() {
     local MODE="$1"
     local MODE_LOWER
@@ -127,10 +151,12 @@ build() {
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)"
     local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
+    local MAKE_JOBS
+    MAKE_JOBS="$(_make_jobs)"
 
     echo "==> Building backend ($MODE_LOWER)..."
     _install_nlohmann
-    make -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
+    make -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT"
 
     local BINARY_PATH="$BUILD_DIR/bin/$SERVICE_NAME"
     if [ -f "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
@@ -322,10 +348,12 @@ run_tests() {
 
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)"
+    local MAKE_JOBS
+    MAKE_JOBS="$(_make_jobs)"
 
     clean
     echo "==> Building tests (debug)..."
-    make -C "$SCRIPT_DIR" BUILD="debug" BUILD_ROOT="$BUILD_ROOT" "$BUILD_ROOT/debug/tests/SQLiteManagerTests"
+    make -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="debug" BUILD_ROOT="$BUILD_ROOT" "$BUILD_ROOT/debug/tests/SQLiteManagerTests"
 
     echo "==> Running tests..."
     if [ "$TEST_OUTPUT_MODE" = "--silent" ]; then
