@@ -23,6 +23,7 @@ Popup {
     property bool deleteConfirmVisible: false
 
     signal reloadAssetsRequested(int appId, string targetType)
+    signal targetDataUpdated(int appId, string targetType)
     signal targetHiddenChanged(int appId, string targetType, bool hidden)
     signal targetDeleted(int appId, string targetType)
 
@@ -30,6 +31,14 @@ Popup {
     property bool targetHiddenState: p_targetHidden
     property string currentPrefixLocation: ""
     property string currentExecutableLocation: ""
+    property bool steamUpdateLoading: false
+    property bool passcodeUnlocked: false
+    property bool awaitingUnlockAction: false
+    property string unlockedSteamWebApiKey: ""
+    property string steamUpdateStatusText: ""
+    property bool steamUpdateStatusIsError: false
+
+    readonly property bool steamConfigured: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
 
     width: Math.min(340, parent ? parent.width - 48 : 340)
     height: id_content.implicitHeight + topPadding + bottomPadding
@@ -45,7 +54,11 @@ Popup {
         id_deleteConfirmInput.text = ""
     }
 
-    onOpened: id_root.refreshTargetLocations()
+    onOpened: {
+        id_root.refreshTargetLocations()
+        id_root.steamUpdateStatusText = ""
+        id_root.steamUpdateStatusIsError = false
+    }
     onP_targetHiddenChanged: targetHiddenState = p_targetHidden
 
     onDeleteConfirmVisibleChanged: {
@@ -120,6 +133,94 @@ Popup {
             id_root.targetDeleted(appId, id_root.p_targetType)
             id_root.close()
         }
+    }
+
+    function clearSteamPasscodeUnlock() {
+        id_root.passcodeUnlocked = false
+        id_root.awaitingUnlockAction = false
+        id_root.unlockedSteamWebApiKey = ""
+    }
+
+    function beginSteamUpdate() {
+        if (id_root.p_appId <= 0 || id_root.p_targetType !== "Steam" || id_root.steamUpdateLoading) {
+            return
+        }
+
+        if (!id_root.steamConfigured) {
+            id_root.steamUpdateStatusText = qsTr("Please configure both Steam ID and Web API key in Settings.")
+            id_root.steamUpdateStatusIsError = true
+            return
+        }
+
+        if (id_root.passcodeUnlocked) {
+            id_steamUpdateTimer.restart()
+        } else {
+            id_passcodePopup.open()
+        }
+    }
+
+    function updateSelectedSteamTarget() {
+        if (!id_root.steamConfigured || id_root.unlockedSteamWebApiKey.length === 0) {
+            id_root.steamUpdateStatusText = qsTr("Please unlock your Steam Web API key to update this target.")
+            id_root.steamUpdateStatusIsError = true
+            id_root.clearSteamPasscodeUnlock()
+            return
+        }
+
+        id_root.steamUpdateLoading = true
+        id_root.steamUpdateStatusText = qsTr("Updating from Steam...")
+        id_root.steamUpdateStatusIsError = false
+
+        const libraryPayload = ctxLymalink.FetchSteamOwnedGames(ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        if (!libraryPayload.success) {
+            id_root.steamUpdateLoading = false
+            id_root.steamUpdateStatusText = libraryPayload.error.length > 0
+                ? libraryPayload.error
+                : qsTr("Steam library could not be loaded.")
+            id_root.steamUpdateStatusIsError = true
+            id_root.clearSteamPasscodeUnlock()
+            return
+        }
+
+        const games = libraryPayload.games ?? []
+        const selectedGames = games.filter(function(game) {
+            return game.appId === id_root.p_appId
+        })
+
+        if (selectedGames.length === 0) {
+            id_root.steamUpdateLoading = false
+            id_root.steamUpdateStatusText = qsTr("Selected target was not found in your Steam library.")
+            id_root.steamUpdateStatusIsError = true
+            id_root.clearSteamPasscodeUnlock()
+            return
+        }
+
+        const updatePayload = ctxLymalink.UpdateSteamImports([selectedGames[0]], ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        id_root.steamUpdateLoading = false
+
+        const updatedCount = updatePayload.updatedCount ?? 0
+        const skippedCount = updatePayload.skippedCount ?? 0
+        const errors = updatePayload.errors ?? []
+
+        if (updatedCount > 0) {
+            id_root.steamUpdateStatusText = qsTr("Updated Steam achievement data.")
+            if (skippedCount > 0) {
+                id_root.steamUpdateStatusText += " " + qsTr("%1 update(s) skipped or failed.").arg(skippedCount)
+            }
+            if (errors.length > 0) {
+                id_root.steamUpdateStatusText += "\n" + errors.slice(0, 3).join("\n")
+            }
+            id_root.steamUpdateStatusIsError = errors.length > 0
+            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
+            id_root.clearSteamPasscodeUnlock()
+            return
+        }
+
+        id_root.steamUpdateStatusText = errors.length > 0
+            ? errors.slice(0, 3).join("\n")
+            : qsTr("Steam achievement data could not be updated.")
+        id_root.steamUpdateStatusIsError = true
+        id_root.clearSteamPasscodeUnlock()
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -228,6 +329,50 @@ Popup {
         id: id_errorPopup
     }
 
+    ConfirmationPopup {
+        id: id_passcodePopup
+
+        p_title: qsTr("Unlock Steam Web API Key")
+        p_description: qsTr("Enter passcode for saved Steam Web API key.")
+        p_confirmText: qsTr("Continue")
+        p_shortcutEnabled: true
+        p_singleVerificationMode: true
+        onClosed: {
+            if (id_root.awaitingUnlockAction) {
+                id_root.awaitingUnlockAction = false
+                Qt.callLater(id_steamUpdateTimer.restart)
+            } else {
+                id_root.clearSteamPasscodeUnlock()
+            }
+        }
+        onConfirmed: function(passcode) {
+            ctxSettings.SetTempEncryptionKey(passcode)
+            const unlockedKey = ctxSettings.GetSteamWebApiKeyPlain()
+            ctxSettings.SetTempEncryptionKey("")
+
+            if (unlockedKey.length === 0) {
+                id_root.passcodeUnlocked = false
+                id_root.unlockedSteamWebApiKey = ""
+                id_root.steamUpdateStatusText = qsTr("Incorrect passcode. API key unlock failed.")
+                id_root.steamUpdateStatusIsError = true
+                return
+            }
+
+            id_root.passcodeUnlocked = true
+            id_root.unlockedSteamWebApiKey = unlockedKey
+            id_root.awaitingUnlockAction = true
+            id_passcodePopup.close()
+        }
+    }
+
+    Timer {
+        id: id_steamUpdateTimer
+
+        interval: 50
+        repeat: false
+        onTriggered: id_root.updateSelectedSteamTarget()
+    }
+
     background: Rectangle {
         radius: 8
         color: Themes.targetSettings.colors.background
@@ -270,6 +415,40 @@ Popup {
                     id_root.reloadAssetsRequested(id_root.p_appId, id_root.p_targetType)
                     id_root.close()
                 }
+            }
+        }
+
+        C_ActionButton {
+            id: id_updateFromSteamButton
+
+            visible: id_root.p_targetType === "Steam"
+            text: qsTr("Reload Steam Progress")
+            tooltipText: qsTr("Reloads your progress on this target from Steam")
+            enabled: !id_root.steamUpdateLoading
+            opacity: enabled ? 1.0 : 0.55
+            onClicked: id_root.beginSteamUpdate()
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            visible: id_root.p_targetType === "Steam" && (id_root.steamUpdateLoading || id_root.steamUpdateStatusText.length > 0)
+
+            CustomBusyIndicator {
+                Layout.alignment: Qt.AlignTop
+                p_indicatorSize: 22
+                p_speed: 900
+                p_running: id_root.steamUpdateLoading
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: id_root.steamUpdateStatusText
+                color: id_root.steamUpdateStatusIsError
+                    ? Themes.targetSettings.colors.dangerText
+                    : Themes.targetSettings.colors.bodyText
+                font.pixelSize: Themes.targetSettings.fontSizes.body
+                wrapMode: Text.WordWrap
             }
         }
 

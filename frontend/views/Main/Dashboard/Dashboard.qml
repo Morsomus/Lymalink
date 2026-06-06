@@ -711,6 +711,11 @@ Item {
                 id_root.showingAddTarget = false
             }
 
+            onTargetDataUpdated: function(appId, targetType) {
+                id_root.reloadTargetDetails(appId, targetType)
+                id_root.reloadBackendTargets()
+            }
+
             onTargetHiddenChanged: function(appId, targetType, hidden) {
                 if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId && id_root.pendingTargetDetails.targetType === targetType) {
                     let details = id_root.pendingTargetDetails

@@ -35,6 +35,7 @@ Item {
     signal addTargetClicked()
     signal refreshClicked()
     signal reloadAssetsRequested(int appId, string targetType)
+    signal targetDataUpdated(int appId, string targetType)
     signal targetHiddenChanged(int appId, string targetType, bool hidden)
     signal targetDeleted(int appId, string targetType)
     signal sortSelected(string sort)
@@ -375,6 +376,9 @@ Item {
         p_targetHidden: id_root.p_targetHidden
         onReloadAssetsRequested: function(appId, targetType) {
             id_root.reloadAssetsRequested(appId, targetType)
+        }
+        onTargetDataUpdated: function(appId, targetType) {
+            id_root.targetDataUpdated(appId, targetType)
         }
         onTargetHiddenChanged: function(appId, targetType, hidden) {
             id_root.targetHiddenChanged(appId, targetType, hidden)
