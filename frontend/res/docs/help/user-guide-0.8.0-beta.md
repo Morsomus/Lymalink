@@ -34,7 +34,7 @@
 |  |  |
 | --- | --- |
 | **Back Arrow** | Return to Dashboard (or press `Backspace` / `Escape`). |
-| **Settings Gear** | Reload data, edit paths, hide, or delete the target entirely. |
+| **Settings Gear** | Reload data, update imported progress, edit paths, hide, or delete the target entirely. |
 | **Display Options** | Filter, sort, and order the displayed achievements. |
 | **Achievement Icon** | Click to manually lock/unlock an achievement. |
 | **Hidden Achievement** | Click a hidden achievement row to reveal or conceal its details. |
@@ -97,6 +97,11 @@ You can import your official Steam library and sync achievements directly. This 
 1. Open **Dashboard** and click **Add Target**.
 2. Select **Steam Import / Update**.
 3. Press **Update**.
+
+Or at Target Details
+1. Open target card from **Dashboard**.
+2. Click **Settings gear**.
+3. Click **Reload Steam Progress**.
 
 ### 🗑️ Remove Steam Import Games
 
