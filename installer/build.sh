@@ -259,17 +259,23 @@ copy_library_family() {
     local library_name
     local library_stem
     local candidate
+    local destination_path
 
     if [ -z "$library_path" ] || [ ! -f "$library_path" ]; then
         return
     fi
 
+    mkdir -p "$destination"
     library_dir="$(dirname "$library_path")"
     library_name="$(basename "$library_path")"
     library_stem="${library_name%%.so*}"
 
     for candidate in "$library_dir/$library_stem".so*; do
         if [ -e "$candidate" ]; then
+            destination_path="$destination/$(basename "$candidate")"
+            if [ -e "$destination_path" ] || [ -L "$destination_path" ]; then
+                continue
+            fi
             cp -a "$candidate" "$destination/"
         fi
     done
@@ -572,7 +578,24 @@ if [ -z "${HOME:-}" ]; then
     exit 1
 fi
 
-APPDIR="${LYMALINK_FRONTEND_ROOT:-$HOME/.local/lib/lymalink/frontend}"
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+APPDIR="${LYMALINK_FRONTEND_ROOT:-$LOGIN_HOME/.local/lib/lymalink/frontend}"
 
 if [ ! -x "$APPDIR/bin/Lymalink" ]; then
     echo "==> ERROR: Bundled Lymalink frontend binary not found: $APPDIR/bin/Lymalink" >&2

@@ -25,6 +25,56 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+path_inside_snap_home() {
+    local path="$1"
+    local login_home="$2"
+
+    case "$path" in
+        "$login_home"/snap/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+resolve_xdg_data_home() {
+    local login_home="$1"
+
+    if [ -n "${XDG_DATA_HOME:-}" ] && ! path_inside_snap_home "$XDG_DATA_HOME" "$login_home"; then
+        printf '%s\n' "$XDG_DATA_HOME"
+    else
+        printf '%s\n' "$login_home/.local/share"
+    fi
+}
+
+resolve_xdg_config_home() {
+    local login_home="$1"
+
+    if [ -n "${XDG_CONFIG_HOME:-}" ] && ! path_inside_snap_home "$XDG_CONFIG_HOME" "$login_home"; then
+        printf '%s\n' "$XDG_CONFIG_HOME"
+    else
+        printf '%s\n' "$login_home/.config"
+    fi
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+DATA_HOME="$(resolve_xdg_data_home "$LOGIN_HOME")"
+CONFIG_HOME="$(resolve_xdg_config_home "$LOGIN_HOME")"
+
 # When enabled, build output is diverted to /tmp (RAMfs)
 BUILD_TO_TMP=0
 
@@ -32,11 +82,11 @@ SERVICE_NAME="lymalinkd"
 
 NLOHMANN_VERSION="3.12.0"
 NLOHMANN_DIR="$SCRIPT_DIR/src/nlohmann"
-INSTALL_BIN_DIR="$HOME/.local/bin"
-INSTALL_SERVICE_DIR="$HOME/.config/systemd/user"
+INSTALL_BIN_DIR="$LOGIN_HOME/.local/bin"
+INSTALL_SERVICE_DIR="$CONFIG_HOME/systemd/user"
 SERVICE_FILE="$INSTALL_SERVICE_DIR/${SERVICE_NAME}.service"
-INSTALL_SOUND_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/Lymalink/sounds"
-INSTALL_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/Lymalink"
+INSTALL_SOUND_DIR="$DATA_HOME/Lymalink/sounds"
+INSTALL_DATA_DIR="$DATA_HOME/Lymalink"
 INSTALL_TEST_ICON_PATH="$INSTALL_DATA_DIR/64x64-lymalink-test-icon.png"
 TEST_ICON_SOURCE="$SCRIPT_DIR/../frontend/res/img/64x64-lymalink-test-icon.png"
 _get_build_root() {

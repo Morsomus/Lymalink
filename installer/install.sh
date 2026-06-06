@@ -22,10 +22,48 @@ if [ -z "${HOME:-}" ]; then
     exit 1
 fi
 
-DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-BIN_DIR="$HOME/.local/bin"
-LIB_DIR="$HOME/.local/lib"
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+path_inside_snap_home() {
+    local path="$1"
+    local login_home="$2"
+
+    case "$path" in
+        "$login_home"/snap/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+
+if [ -n "${XDG_DATA_HOME:-}" ] && ! path_inside_snap_home "$XDG_DATA_HOME" "$LOGIN_HOME"; then
+    DATA_HOME="$XDG_DATA_HOME"
+else
+    DATA_HOME="$LOGIN_HOME/.local/share"
+fi
+
+if [ -n "${XDG_CONFIG_HOME:-}" ] && ! path_inside_snap_home "$XDG_CONFIG_HOME" "$LOGIN_HOME"; then
+    CONFIG_HOME="$XDG_CONFIG_HOME"
+else
+    CONFIG_HOME="$LOGIN_HOME/.config"
+fi
+
+BIN_DIR="$LOGIN_HOME/.local/bin"
+LIB_DIR="$LOGIN_HOME/.local/lib"
 APP_LIB_DIR="$LIB_DIR/lymalink"
 FRONTEND_DIR="$APP_LIB_DIR/frontend"
 FRONTEND_BINARY="$SCRIPT_DIR/lib/lymalink/frontend/bin/Lymalink"
@@ -720,7 +758,7 @@ gnome_appindicator_installed() {
 
     for extension_id in appindicatorsupport@rgcjonas.gmail.com ubuntu-appindicators@ubuntu.com; do
         for extension_dir in \
-            "$HOME/.local/share/gnome-shell/extensions/$extension_id" \
+            "$LOGIN_HOME/.local/share/gnome-shell/extensions/$extension_id" \
             "/usr/share/gnome-shell/extensions/$extension_id"; do
             if [ -d "$extension_dir" ]; then
                 return 0
@@ -803,7 +841,7 @@ EOF
 replace_home_placeholder() {
     local destination="$1"
     local escaped_home
-    escaped_home="$(printf '%s' "$HOME" | sed 's/[\\&#]/\\&/g')"
+    escaped_home="$(printf '%s' "$LOGIN_HOME" | sed 's/[\\&#]/\\&/g')"
     sed -i "s#HOME_PLACEHOLDER#$escaped_home#g" "$destination"
 }
 
@@ -881,9 +919,9 @@ flatpak install --user --bundle --reinstall -y --noninteractive "$FLATPAK_BUNDLE
 case ":$PATH:" in
     *:"$BIN_DIR":*) ;;
     *)
-        install_path_block "$HOME/.bash_profile"
-        install_path_block "$HOME/.profile"
-        install_path_block "$HOME/.bashrc"
+        install_path_block "$LOGIN_HOME/.bash_profile"
+        install_path_block "$LOGIN_HOME/.profile"
+        install_path_block "$LOGIN_HOME/.bashrc"
         ;;
 esac
 

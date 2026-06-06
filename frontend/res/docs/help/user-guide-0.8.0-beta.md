@@ -124,19 +124,23 @@ Hidden targets disappear from normal Dashboard view. To show one again:
 
 Achievement notifications appear as an in-game overlay. Vulkan games should work automatically. OpenGL games need an extra launch setting:
 
-**Note: After modifying any launch options or environment variables or updating Lymalink, make sure to restart Steam, Heroic, Bottles and/or Wine (wineserver -k) for the changes to take effect properly.**
+**Note:** After modifying any launch options or environment variables or updating Lymalink, make sure to restart Steam, Heroic, Bottles and/or Wine (wineserver -k) for the changes to take effect properly.
+
+**Note:** Flatpak support is currently limited to launchers listed below.
+
+**Note:** Replace **\<user\>** with your home directory username.
 
 ###
 ###
 
-| Launcher | OpenGL setup |
-| --- | --- |
-| **Wine command line** | Run: `lymalink-overlay wine "/path/to/game.exe"` |
-| **Steam** | Add launch option: `lymalink-overlay %command%` |
-| **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
-| **Bottles** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
-
-**Current version has been tested with Flatpak versions of Heroic Launcher and Bottles on Fedora Linux 43 with KDE Plasma Desktop installed to user directories.**
+Type | Launcher | OpenGL setup |
+| --- | --- | --- |
+| **NATIVE** | **Wine command line** | Run: `lymalink-overlay wine "/path/to/game.exe"` |
+| **NATIVE** | **Steam** | Add launch option: `lymalink-overlay %command%` |
+| **FLATPAK** | **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
+| **NATIVE** | **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so` |
+| **FLATPAK** | **Bottles** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
+| **NATIVE** | **Lutris** | Add environment variable: `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so` |
 
 ###
 # Frequently Asked Questions & Troubleshooting
@@ -151,7 +155,7 @@ They update automatically when `lymalinkd` is running and the game executable pa
 ### How do I check if I have configured my target correctly?
 - Start the game and check the sidebar; the running game should be detected.
 - Open the target details and check that 'Status' shows the 'Installed' state.
-- Open the target details and check that 'Achievement file' shows the 'Found' state. Note that this may display 'Missing' until the game is launched for the first time and the emulator creates the achievement file.
+- Open the target details and check that 'Achievement file' shows the 'Found' state. Note that this may display 'Missing' until the game is launched for the first time and the emulator creates the achievement file. Also note that some emulators do not create the achievement file until the very first achievement is unlocked in-game. If you are playing a brand-new game, the status may safely display 'Missing' until your first unlock. Just make sure that you have set correct **Prefix Location** for your target.
 
 If all of the above conditions are met, you are good to go.
 
@@ -183,7 +187,7 @@ No worries. You can manually "unlock" achievements on the target details page. S
 
 ###
 ### Which emulators are currently supported?
-Lymalink currently supports Steam emulators that generate local achievement files. The version v0.8.0-beta has been tested with:
+Lymalink currently supports Steam emulators that generate local achievement files listed below. The version v0.8.0-beta has been tested with:
 - **CODEX**
 - **RUNE**
 - **GOLDBERG**

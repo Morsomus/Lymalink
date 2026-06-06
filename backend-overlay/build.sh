@@ -21,6 +21,45 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+path_inside_snap_home() {
+    local path="$1"
+    local login_home="$2"
+
+    case "$path" in
+        "$login_home"/snap/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+resolve_xdg_data_home() {
+    local login_home="$1"
+
+    if [ -n "${XDG_DATA_HOME:-}" ] && ! path_inside_snap_home "$XDG_DATA_HOME" "$login_home"; then
+        printf '%s\n' "$XDG_DATA_HOME"
+    else
+        printf '%s\n' "$login_home/.local/share"
+    fi
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+DATA_HOME="$(resolve_xdg_data_home "$LOGIN_HOME")"
+
 # When enabled, build output is diverted to /tmp (RAMfs)
 BUILD_TO_TMP=0
 
@@ -32,9 +71,9 @@ OVERLAY_MANIFEST="lymalink_overlay.json"
 IMGUI_VERSION="1.92.8"
 IMGUI_DIR="$SCRIPT_DIR/src/imgui"
 
-INSTALL_BIN_DIR="$HOME/.local/bin"
-INSTALL_LIB_DIR="$HOME/.local/lib"
-INSTALL_VULKAN_LAYER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/vulkan/implicit_layer.d"
+INSTALL_BIN_DIR="$LOGIN_HOME/.local/bin"
+INSTALL_LIB_DIR="$LOGIN_HOME/.local/lib"
+INSTALL_VULKAN_LAYER_DIR="$DATA_HOME/vulkan/implicit_layer.d"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
 FLATPAK_EXTENSION_BRANCH="25.08"
 FLATPAK_EXTENSION_MANIFEST="lymalink_overlay.x86_64.json"

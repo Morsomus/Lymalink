@@ -21,8 +21,45 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-DEPLOY_BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
-DEPLOY_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+path_inside_snap_home() {
+    local path="$1"
+    local login_home="$2"
+
+    case "$path" in
+        "$login_home"/snap/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+
+if [ -n "${XDG_BIN_HOME:-}" ] && ! path_inside_snap_home "$XDG_BIN_HOME" "$LOGIN_HOME"; then
+    DEPLOY_BIN_DIR="$XDG_BIN_HOME"
+else
+    DEPLOY_BIN_DIR="$LOGIN_HOME/.local/bin"
+fi
+
+if [ -n "${XDG_DATA_HOME:-}" ] && ! path_inside_snap_home "$XDG_DATA_HOME" "$LOGIN_HOME"; then
+    DEPLOY_DATA_DIR="$XDG_DATA_HOME"
+else
+    DEPLOY_DATA_DIR="$LOGIN_HOME/.local/share"
+fi
 ICON_DIR="$DEPLOY_DATA_DIR/icons/hicolor/256x256/apps"
 DESKTOP_FILE="$DEPLOY_DATA_DIR/applications/lymalink.desktop"
 

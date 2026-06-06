@@ -293,7 +293,7 @@ Item {
                         }
 
                         Text {
-                            text: qsTr("How detection works (hover to expand)")
+                            text: qsTr("How detection works & Prefix Location (hover to expand)")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
                             font.bold: true
                             color: id_infoBlock.hoverActive
@@ -345,93 +345,241 @@ Item {
                             color: Themes.emulatorTarget.colors.descriptionText
                             wrapMode: Text.Wrap
                         }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("\nTIP - Examples of prefix location paths:\n" + 
+                                "Wine: '/home/<user>/.wine/drive_c'\n" +
+                                "Flatpak Bottles: '/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c/'\n" +
+                                "Flatpak Heroic Launcher: '/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c'\n" +
+                                "You may also optionally set '/home/<user>/Games/Heroic/Prefixes' for scanning all the game prefixes."
+                                )
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
                     }
                 }
             }
 
             // Notification overlay note
             Rectangle {
+                id: id_notificationBlock
+
+                property bool hoverActive: false
                 Layout.fillWidth: true
                 radius: 6
-                color: Themes.emulatorTarget.colors.infoBlockBackground
+                color: id_notificationBlock.hoverActive
+                    ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                    : Themes.emulatorTarget.colors.infoBlockBackground
                 border.width: 1
-                border.color: Themes.emulatorTarget.colors.infoBlockBorder
+                border.color: id_notificationBlock.hoverActive
+                    ? Themes.emulatorTarget.colors.infoBlockBorderHover
+                    : Themes.emulatorTarget.colors.infoBlockBorder
 
-                implicitHeight: id_notificationInfoText.implicitHeight
-                    + id_notificationNoteText.implicitHeight
-                    + id_notificationSteamText.implicitHeight
-                    + id_notificationWineText.implicitHeight
-                    + id_notificationHeroicText.implicitHeight
-                    + id_notificationRestartText.implicitHeight
-                    + 50
+                implicitHeight: id_notificationBlock.hoverActive
+                    ? id_notificationHeaderRow.implicitHeight + id_notificationExpandable.implicitHeight + 32
+                    : id_notificationHeaderRow.implicitHeight + 28
+
+                Behavior on implicitHeight {
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.InOutQuad
+                    }
+                }
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Timer {
+                    id: id_notificationBlockHoverTimer
+                    interval: 200
+                    repeat: false
+                    onTriggered: id_notificationBlock.hoverActive = true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.ArrowCursor
+                    onEntered: id_notificationBlockHoverTimer.start()
+                    onExited: {
+                        id_notificationBlockHoverTimer.stop()
+                        id_notificationBlock.hoverActive = false
+                    }
+                }
 
                 ColumnLayout {
+                    id: id_notificationInfoColumn
+
                     anchors {
                         left: parent.left
                         right: parent.right
                         top: parent.top
                         margins: 14
                     }
-                    spacing: 6
+                    spacing: 0
 
-                    Text {
-                        id: id_notificationInfoText
-
+                    // Notification header row
+                    RowLayout {
+                        id: id_notificationHeaderRow
                         Layout.fillWidth: true
-                        text: qsTr("Achievement notifications use an in-game overlay.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.descriptionText
-                        wrapMode: Text.Wrap
+                        spacing: 8
+
+                        Rectangle {
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Themes.emulatorTarget.colors.infoIconBorder
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "i"
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
+                                font.italic: true
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.infoIconText
+                            }
+                        }
+
+                        Text {
+                            text: qsTr("IMPORTANT: Configure Achievement Notifications Overlay (hover to expand)")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            font.bold: true
+                            color: id_notificationBlock.hoverActive
+                                ? Themes.emulatorTarget.colors.labelText
+                                : Themes.emulatorTarget.colors.infoHeaderInactiveText
+
+                            Behavior on color {
+                                ColorAnimation { duration: 120 }
+                            }
+                        }
                     }
 
-                    Text {
-                        id: id_notificationNoteText
+                    // Expandable content
+                    ColumnLayout {
+                        id: id_notificationExpandable
 
                         Layout.fillWidth: true
-                        text: qsTr("Vulkan games should work automatically. OpenGL games need launcher-specific setup.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.prefixWarningText
-                        wrapMode: Text.Wrap
-                    }
+                        Layout.topMargin: 10
+                        spacing: 6
+                        opacity: id_notificationBlock.hoverActive ? 1.0 : 0.0
 
-                    Text {
-                        id: id_notificationSteamText
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 140
+                                easing.type: Easing.InOutQuad
+                            }
+                        }
 
-                        Layout.fillWidth: true
-                        text: qsTr("Steam: add launch option `lymalink-overlay %command%`.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.prefixWarningText
-                        wrapMode: Text.Wrap
-                    }
+                        Text {
+                            id: id_notificationInfoText
 
-                    Text {
-                        id: id_notificationWineText
+                            Layout.fillWidth: true
+                            text: qsTr("Achievement notifications use an in-game overlay. Configure your launcher/run with correct environment variables / settings listed below:")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
 
-                        Layout.fillWidth: true
-                        text: qsTr("Wine command line: run `lymalink-overlay wine \"/path/to/game.exe\"`.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.prefixWarningText
-                        wrapMode: Text.Wrap
-                    }
+                        Text {
+                            id: id_notificationUserNoteText
 
-                    Text {
-                        id: id_notificationHeroicText
+                            Layout.fillWidth: true
+                            text: qsTr("Replace `<user>` with your home directory username.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
 
-                        Layout.fillWidth: true
-                        text: qsTr("Heroic Launcher and Bottles: set `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so`.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.prefixWarningText
-                        wrapMode: Text.Wrap
-                    }
+                        Text {
+                            id: id_notificationWineText
 
-                    Text {
-                        id: id_notificationRestartText
+                            Layout.fillWidth: true
+                            text: qsTr("NATIVE - Wine command line: run `lymalink-overlay wine \"/path/to/game.exe\"`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
 
-                        Layout.fillWidth: true
-                        text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, or Wine (wineserver -k) so changes take effect.")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.descriptionText
-                        wrapMode: Text.Wrap
+                        Text {
+                            id: id_notificationSteamText
+
+                            Layout.fillWidth: true
+                            text: qsTr("NATIVE - Steam: add launch option `lymalink-overlay %command%`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationHeroicFlatpakText
+
+                            Layout.fillWidth: true
+                            text: qsTr("FLATPAK - Heroic Launcher: set `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationHeroicNativeText
+
+                            Layout.fillWidth: true
+                            text: qsTr("NATIVE - Heroic Launcher: set `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationBottlesFlatpakText
+
+                            Layout.fillWidth: true
+                            text: qsTr("FLATPAK - Bottles: set `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationLutrisNativeText
+
+                            Layout.fillWidth: true
+                            text: qsTr("NATIVE - Lutris: set `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so`.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationRestartText
+
+                            Layout.fillWidth: true
+                            text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, or Wine (wineserver -k) so changes take effect.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            id: id_notificationFlatpakNoteText
+
+                            Layout.fillWidth: true
+                            text: qsTr("NOTE: Flatpak support is currently limited to the launchers listed above.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            wrapMode: Text.Wrap
+                        }
                     }
                 }
             }

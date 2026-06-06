@@ -13,7 +13,24 @@
 
 set -e
 
-PRELOADER_LIB="${LYMALINK_OVERLAY_LIB_DIR:-$HOME/.local/lib}/lymalink-overlay-preloader.so"
+resolve_login_home() {
+    local login_home=""
+
+    if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
+        login_home="$(getent passwd "$USER" | cut -d: -f6)"
+    fi
+
+    if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
+        case "$HOME" in
+            "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
+        esac
+    fi
+
+    printf '%s\n' "$HOME"
+}
+
+LOGIN_HOME="$(resolve_login_home)"
+PRELOADER_LIB="${LYMALINK_OVERLAY_LIB_DIR:-$LOGIN_HOME/.local/lib}/lymalink-overlay-preloader.so"
 
 # log_error() {
 #     local timestamp
