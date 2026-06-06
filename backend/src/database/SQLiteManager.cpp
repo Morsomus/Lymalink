@@ -60,7 +60,8 @@ bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::s
         return false;
     }
 
-    // WAL mode + foreign keys
+    // WAL mode + busy timeout + foreign keys
+    sqlite3_busy_timeout(db, 5000);
     sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
     sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
 

@@ -18,7 +18,8 @@ Item {
 
     // Public ________________________________________________
     signal targetAdded(int appId, string targetType)
-    signal steamImportsApplied()
+    signal steamImportsApplied(var loadingAppIds)
+    signal busyChanged(bool busy)
 
     // Internals _____________________________________________
     property string activeTarget: ""
@@ -69,7 +70,10 @@ Item {
         visible: active
         sourceComponent: Component {
             SteamImport {
-                onImportsApplied: id_root.steamImportsApplied()
+                onOperationLoadingChanged: id_root.busyChanged(operationLoading)
+                onImportsApplied: function(loadingAppIds) {
+                    id_root.steamImportsApplied(loadingAppIds)
+                }
             }
         }
     }

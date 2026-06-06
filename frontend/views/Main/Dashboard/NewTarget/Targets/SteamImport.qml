@@ -16,13 +16,14 @@ import QtQuick.Layouts
 Item {
     id: id_root
 
-    signal importsApplied()
+    signal importsApplied(var loadingAppIds)
 
     // Internals _____________________________________________
     property bool libraryLoaded: false
     property bool passcodeUnlocked: false
     property bool libraryLoading: false
     property bool updateLoading: false
+    property bool applyLoading: false
     property string pendingOperation: ""
     property string statusText: ""
     property bool statusIsError: false
@@ -32,6 +33,15 @@ Item {
     property bool awaitingUnlockAction: false
     property var libraryGames: []
     property real resultsScrollY: 0
+    property var pendingUpdateGames: []
+    property int updateProgressCurrent: 0
+    property int updateProgressTotal: 0
+    property var updateAggregatePayload: ({ updatedCount: 0, skippedCount: 0, assetRefreshAppIds: [], errors: [] })
+    property var pendingImportGames: []
+    property int importProgressCurrent: 0
+    property int importProgressTotal: 0
+    property int applyRemovalFailures: 0
+    property var applyAggregatePayload: ({ importedCount: 0, skippedCount: 0, importedAppIds: [], errors: [] })
 
     // Derived properties for UI state and validation
     readonly property bool steamConfigured: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
@@ -40,6 +50,7 @@ Item {
     readonly property var removals: changedGames(true, false)
     readonly property int selectedCount: countSelectedGames()
     readonly property bool selectionDirty: newImports.length > 0 || removals.length > 0
+    readonly property bool operationLoading: libraryLoading || updateLoading || applyLoading
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
 
     // Filters the loaded steam library based on search field text (name or appId)
@@ -128,13 +139,53 @@ Item {
             return
         }
 
+        id_root.pendingUpdateGames = importedGames
+        id_root.updateProgressCurrent = 0
+        id_root.updateProgressTotal = importedGames.length
+        id_root.updateAggregatePayload = {
+            updatedCount: 0,
+            skippedCount: 0,
+            assetRefreshAppIds: [],
+            errors: []
+        }
         id_root.updateLoading = true
-        id_root.updateStatusText = qsTr("Updating progress...")
+        id_root.updateStatusText = qsTr("Updating progress %1/%2...").arg(0).arg(importedGames.length)
         id_root.updateStatusIsError = false
+        id_updateImportTimer.restart()
+    }
 
-        const updatePayload = ctxLymalink.UpdateSteamImports(importedGames, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+    // Update one imported game per timer tick so progress text can repaint between blocking backend calls
+    function executeNextUpdateImport() {
+        if (id_root.updateProgressCurrent >= id_root.updateProgressTotal) {
+            id_root.finishUpdateSteamImports()
+            return
+        }
+
+        const game = id_root.pendingUpdateGames[id_root.updateProgressCurrent]
+        const updatePayload = ctxLymalink.UpdateSteamImports([game], ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        const aggregate = id_root.updateAggregatePayload
+
+        aggregate.updatedCount += updatePayload.updatedCount ?? 0
+        aggregate.skippedCount += updatePayload.skippedCount ?? 0
+        aggregate.assetRefreshAppIds = aggregate.assetRefreshAppIds.concat(updatePayload.assetRefreshAppIds ?? [])
+        aggregate.errors = aggregate.errors.concat(updatePayload.errors ?? [])
+        id_root.updateAggregatePayload = aggregate
+
+        id_root.updateProgressCurrent += 1
+        id_root.updateStatusText = qsTr("Updating progress %1/%2...").arg(id_root.updateProgressCurrent).arg(id_root.updateProgressTotal)
+
+        if (id_root.shouldStopSteamBatch(updatePayload)) {
+            id_root.updateProgressTotal = id_root.updateProgressCurrent
+        }
+
+        id_updateImportTimer.restart()
+    }
+
+    // Finalize accumulated update results and mark targets that need a fresh asset/metadata pass
+    function finishUpdateSteamImports() {
         id_root.updateLoading = false
 
+        const updatePayload = id_root.updateAggregatePayload
         const assetRefreshAppIds = updatePayload.assetRefreshAppIds ?? []
         for (let i = 0; i < assetRefreshAppIds.length; ++i) {
             ctxLymalink.EnqueueSteamHydrationTask(assetRefreshAppIds[i], true, "Steam")
@@ -163,7 +214,19 @@ Item {
         id_root.updateStatusIsError = updatedCount === 0 && errors.length > 0
         id_root.statusText = status
         id_root.statusIsError = id_root.updateStatusIsError
-        id_root.importsApplied()
+        id_root.importsApplied(assetRefreshAppIds)
+    }
+
+    // Privacy failures apply to the whole Steam account, so remaining per-game calls would repeat the same error
+    function shouldStopSteamBatch(payload) {
+        const errors = payload.errors ?? []
+        for (let i = 0; i < errors.length; ++i) {
+            if (String(errors[i]).indexOf("Steam profile is not public") !== -1) {
+                return true
+            }
+        }
+
+        return false
     }
 
     // Returns a list of games that are either marked for import or removal
@@ -246,85 +309,162 @@ Item {
         } else if (operation === "update") {
             id_root.updateSteamImports()
         } else if (operation === "apply") {
-            // Extract pending import and removal lists from the UI state
-            const imports = id_root.newImports
-            const removals = id_root.removals
-            let removalFailures = 0
-
-            if (imports.length === 0 && removals.length === 0) {
-                id_root.statusText = qsTr("No Steam import changes to apply.")
-                id_root.statusIsError = false
-                return
-            }
-
-            // Process removals first (delete from backend/local state)
-            if (removals.length > 0) {
-                for (let i = 0; i < removals.length; ++i) {
-                    const removal = removals[i]
-                    if (!ctxLymalink.DeleteTarget(removal.appId, "Steam")) {
-                        ++removalFailures
-                    }
-                }
-            }
-            let payload = {
-                importedCount: 0,
-                skippedCount: 0,
-                importedAppIds: [],
-                errors: []
-            }
-
-            // Process imports (call backend API and handle results)
-            if (imports.length > 0) {
-                const importWord = imports.length === 1 ? "game" : "games"
-                id_root.statusText = qsTr("Importing %1 %2...").arg(imports.length).arg(importWord)
-                id_root.statusIsError = false
-
-                // Execute backend import operation
-                payload = ctxLymalink.ImportSteamGames(imports, ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
-                const importedAppIds = payload.importedAppIds ?? []
-
-                // Queue background tasks to fetch assets/metadata for newly imported games
-                for (let i = 0; i < importedAppIds.length; ++i) {
-                    ctxLymalink.EnqueueSteamHydrationTask(importedAppIds[i], true, "Steam")
-                }
-            }
-
-            const importedCount = payload.importedCount ?? 0
-            const importedWord = importedCount === 1 ? "game" : "games"
-            let status = ""
-
-            if (removals.length > 0) {
-                const removalWord = removals.length === 1 ? "game" : "games"
-                status = qsTr("Removed %1 Steam %2.").arg(removals.length - removalFailures).arg(removalWord)
-                if (removalFailures > 0) {
-                    status += " " + qsTr("%1 removal(s) failed.").arg(removalFailures)
-                }
-            }
-
-            if (imports.length > 0) {
-                status += (status.length > 0 ? " " : "") + qsTr("Imported %1 Steam %2.").arg(importedCount).arg(importedWord)
-            }
-
-            if ((payload.skippedCount ?? 0) > 0) {
-                const skippedCount = payload.skippedCount ?? 0
-                const skippedWord = skippedCount === 1 ? "game" : "games"
-                status += " " + qsTr("%1 %2 skipped or failed.").arg(skippedCount).arg(skippedWord)
-            }
-            
-            const errors = payload.errors ?? []
-            if (removalFailures > 0) {
-                errors.push(qsTr("%1 removal(s) failed.").arg(removalFailures))
-            }
-            if (errors.length > 0) {
-                status += "\n" + errors.slice(0, 3).join("\n") // Limit to first 3 errors for readability
-            }
-
-            id_root.statusText = status
-            id_root.statusIsError = (importedCount === 0 && errors.length > 0) || removalFailures > 0
-
-            id_root.loadSteamLibrary()
-            id_root.importsApplied()
+            id_root.prepareApplySelection()
         }
+    }
+
+    // Start apply flow on the next event-loop pass so the loading state is visible before work begins
+    function prepareApplySelection() {
+        const imports = id_root.newImports
+        const removals = id_root.removals
+
+        if (imports.length === 0 && removals.length === 0) {
+            id_root.statusText = qsTr("No Steam import changes to apply.")
+            id_root.statusIsError = false
+            return
+        }
+
+        const importWord = imports.length === 1 ? "game" : "games"
+        id_root.applyLoading = true
+        id_root.statusText = imports.length > 0
+            ? qsTr("Importing %1 %2 %3/%4...").arg(imports.length).arg(importWord).arg(0).arg(imports.length)
+            : qsTr("Applying Steam import changes...")
+        id_root.statusIsError = false
+        id_applySelectionTimer.restart()
+    }
+
+    // Apply removals synchronously first; imports are chunked afterward because they perform Steam API calls
+    function executeApplySelection() {
+        const imports = id_root.newImports
+        const removals = id_root.removals
+        id_root.applyRemovalFailures = 0
+
+        // Process removals first (delete from backend/local state)
+        if (removals.length > 0) {
+            for (let i = 0; i < removals.length; ++i) {
+                const removal = removals[i]
+                if (!ctxLymalink.DeleteTarget(removal.appId, "Steam")) {
+                    ++id_root.applyRemovalFailures
+                }
+            }
+        }
+
+        id_root.pendingImportGames = imports
+        id_root.importProgressCurrent = 0
+        id_root.importProgressTotal = imports.length
+        id_root.applyAggregatePayload = {
+            importedCount: 0,
+            skippedCount: 0,
+            importedAppIds: [],
+            errors: []
+        }
+
+        if (imports.length === 0) {
+            id_root.finishApplySelection()
+            return
+        }
+
+        id_root.statusText = qsTr("Importing %1/%2...").arg(0).arg(imports.length)
+        id_importSelectionTimer.restart()
+    }
+
+    // Import one selected game per tick to keep the UI responsive and status counter current
+    function executeNextImportSelection() {
+        if (id_root.importProgressCurrent >= id_root.importProgressTotal) {
+            id_root.finishApplySelection()
+            return
+        }
+
+        const game = id_root.pendingImportGames[id_root.importProgressCurrent]
+        const payload = ctxLymalink.ImportSteamGames([game], ctxSettings.steamId, id_root.unlockedSteamWebApiKey)
+        const aggregate = id_root.applyAggregatePayload
+
+        aggregate.importedCount += payload.importedCount ?? 0
+        aggregate.skippedCount += payload.skippedCount ?? 0
+        aggregate.importedAppIds = aggregate.importedAppIds.concat(payload.importedAppIds ?? [])
+        aggregate.errors = aggregate.errors.concat(payload.errors ?? [])
+        id_root.applyAggregatePayload = aggregate
+
+        id_root.importProgressCurrent += 1
+        id_root.statusText = qsTr("Importing %1/%2...").arg(id_root.importProgressCurrent).arg(id_root.importProgressTotal)
+
+        if (id_root.shouldStopSteamBatch(payload)) {
+            id_root.importProgressTotal = id_root.importProgressCurrent
+        }
+
+        id_importSelectionTimer.restart()
+    }
+
+    function finishApplySelection() {
+        const imports = id_root.pendingImportGames
+        const removals = id_root.removals
+        const payload = id_root.applyAggregatePayload
+        const importedAppIds = payload.importedAppIds ?? []
+
+        // Queue background tasks to fetch assets/metadata for newly imported games
+        for (let i = 0; i < importedAppIds.length; ++i) {
+            ctxLymalink.EnqueueSteamHydrationTask(importedAppIds[i], true, "Steam")
+        }
+
+        const importedCount = payload.importedCount ?? 0
+        const importedWord = importedCount === 1 ? "game" : "games"
+        let status = ""
+
+        if (removals.length > 0) {
+            const removalWord = removals.length === 1 ? "game" : "games"
+            status = qsTr("Removed %1 Steam %2.").arg(removals.length - id_root.applyRemovalFailures).arg(removalWord)
+            if (id_root.applyRemovalFailures > 0) {
+                status += " " + qsTr("%1 removal(s) failed.").arg(id_root.applyRemovalFailures)
+            }
+        }
+
+        if (imports.length > 0) {
+            status += (status.length > 0 ? " " : "") + qsTr("Imported %1 Steam %2.").arg(importedCount).arg(importedWord)
+        }
+
+        if ((payload.skippedCount ?? 0) > 0) {
+            const skippedCount = payload.skippedCount ?? 0
+            const skippedWord = skippedCount === 1 ? "game" : "games"
+            status += " " + qsTr("%1 %2 skipped or failed.").arg(skippedCount).arg(skippedWord)
+        }
+
+        const errors = payload.errors ?? []
+        if (id_root.applyRemovalFailures > 0) {
+            errors.push(qsTr("%1 removal(s) failed.").arg(id_root.applyRemovalFailures))
+        }
+        if (errors.length > 0) {
+            status += "\n" + errors.slice(0, 3).join("\n") // Limit to first 3 errors for readability
+        }
+
+        id_root.loadSteamLibrary()
+        id_root.statusText = status
+        id_root.statusIsError = (importedCount === 0 && errors.length > 0) || id_root.applyRemovalFailures > 0
+        id_root.applyLoading = false
+        id_root.importsApplied(payload.importedAppIds ?? [])
+    }
+
+    Timer {
+        id: id_updateImportTimer
+
+        interval: 50
+        repeat: false
+        onTriggered: id_root.executeNextUpdateImport()
+    }
+
+    Timer {
+        id: id_applySelectionTimer
+
+        interval: 50
+        repeat: false
+        onTriggered: id_root.executeApplySelection()
+    }
+
+    Timer {
+        id: id_importSelectionTimer
+
+        interval: 50
+        repeat: false
+        onTriggered: id_root.executeNextImportSelection()
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -457,7 +597,7 @@ Item {
 
                 Button {
                     text: qsTr("Update")
-                    enabled: id_root.steamConfigured && !id_root.libraryLoading && !id_root.updateLoading
+                    enabled: id_root.steamConfigured && !id_root.operationLoading
                     onClicked: id_root.beginOperation("update")
                 }
 
@@ -521,19 +661,20 @@ Item {
 
                         Layout.fillWidth: true
                         visible: id_root.libraryLoaded
+                        enabled: !id_root.applyLoading
                         placeholderText: qsTr("Search game name or App ID")
                         font.pixelSize: Themes.steamImportTarget.fontSizes.input
                     }
 
                     Button {
                         text: qsTr("Select All")
-                        enabled: id_root.selectedCount < id_root.libraryGames.length
+                        enabled: !id_root.applyLoading && id_root.selectedCount < id_root.libraryGames.length
                         onClicked: id_root.setAllGamesSelected(true)
                     }
 
                     Button {
                         text: qsTr("Deselect All")
-                        enabled: id_root.selectedCount > 0
+                        enabled: !id_root.applyLoading && id_root.selectedCount > 0
                         onClicked: id_root.setAllGamesSelected(false)
                     }
                 }
@@ -563,6 +704,15 @@ Item {
                         color: Themes.steamImportTarget.colors.descriptionText
                         font.pixelSize: Themes.steamImportTarget.fontSizes.description
                     }
+                }
+
+                Text {
+                    visible: id_root.newImports.length > 10
+                    Layout.fillWidth: true
+                    text: qsTr("Large Steam import selected. We recommend smaller batches because asset loading may take a long time.")
+                    wrapMode: Text.WordWrap
+                    color: Themes.steamImportTarget.colors.errorText
+                    font.pixelSize: Themes.steamImportTarget.fontSizes.description
                 }
 
                 // Game results
@@ -618,6 +768,7 @@ Item {
                                         id: id_gameCheckBox
 
                                         checked: id_resultRow.modelData.selected
+                                        enabled: !id_root.applyLoading
                                         onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, checked, true)
                                     }
 
@@ -665,7 +816,8 @@ Item {
 
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: !id_root.applyLoading
+                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, !id_resultRow.modelData.selected, true)
                                 }
                             }
@@ -688,7 +840,7 @@ Item {
 
                     Button {
                         text: id_root.libraryLoaded ? qsTr("Reload Steam Library") : qsTr("Load Steam Library")
-                        enabled: id_root.steamConfigured && !id_root.libraryLoading && !id_root.updateLoading
+                        enabled: id_root.steamConfigured && !id_root.operationLoading
                         onClicked: id_root.beginOperation("load")
                     }
 
@@ -696,7 +848,7 @@ Item {
                         Layout.alignment: Qt.AlignVCenter
                         p_indicatorSize: 28
                         p_speed: 900
-                        p_running: id_root.libraryLoading
+                        p_running: id_root.libraryLoading || id_root.applyLoading
                     }
 
                     Item {
@@ -705,7 +857,7 @@ Item {
 
                     Button {
                         text: qsTr("Apply Selection")
-                        enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.libraryLoading && !id_root.updateLoading && id_root.libraryLoaded
+                        enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.operationLoading && id_root.libraryLoaded
                         onClicked: id_root.requestApplySelection()
                     }
                 }

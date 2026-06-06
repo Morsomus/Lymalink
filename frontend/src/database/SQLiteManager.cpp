@@ -59,6 +59,7 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
     // Enable WAL mode + foreign keys
     QSqlQuery q(db);
     q.exec("PRAGMA journal_mode=WAL");
+    q.exec("PRAGMA busy_timeout=5000");
     q.exec("PRAGMA foreign_keys=ON");
 
     m_dbConnections[conn] = db;

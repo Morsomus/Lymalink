@@ -2,16 +2,23 @@
 
 **Achievement tracker for Steam emulators, Steam/Cloud APIs, and fully custom targets.**
 
-> **Note:** Lymalink is currently in early development and is not yet functional. Features and documentation are subject to change.
+> **Note:** The **v0.8.0-beta** release is now available for Linux. See the [Installation](#installation) section below to get started.
+
+> **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
 ## Overview
 
-Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified solution for tracking milestones across Steam emulators and official environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources. At its core runs a lightweight background daemon (`lymalinkd`) responsible for file monitoring and delivering desktop notifications when achievements are detected.
+Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified solution for tracking milestones across local achievement files and official environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources. At its core runs a lightweight background daemon (`lymalinkd`) responsible for file monitoring and delivering in-game overlay notifications when achievements are detected.
 
 The frontend provides a clean interface for viewing progress and managing settings, but is entirely optional. Once configured through the frontend, the daemon can run independently in the background without it. For users who prefer tighter control, Lymalink can also be configured to require the frontend to be open before the daemon is permitted to run.
 
 ## Table of Contents
 
+- [Visual Showcase](#visual-showcase)
+- [Features](#features)
+- [Installation](#installation)
+  - [Option 1: Pre-built Release (Recommended for Supported Distros)](#option-1-pre-built-release-recommended-for-supported-distros)
+  - [Option 2: Building from Source](#option-2-building-from-source)
 - [Project Status](#project-status)
 - [Planned Features](#planned-features)
 - [Building for Linux](#building-for-linux)
@@ -22,13 +29,98 @@ The frontend provides a clean interface for viewing progress and managing settin
 - [Credits](#credits)
 - [Disclaimer](#disclaimer)
   - [General](#general)
-  - [Steam Emulator Support](#steam-emulator-support)
+  - [Steam Based Achievement File Support](#steam-based-achievement-file-support)
   - [Official Steam API / User Data](#official-steam-api--user-data)
   - [No Warranty](#no-warranty)
 
+## Visual Showcase
+
+| |
+|:---:|
+| <img src="showcase/0.8.0/InAction.gif" width="150%" alt="In Action GIF"/> |
+| *My Summer Car by Amistech Games. Lymalink is not affiliated with Amistech Games. Please support the developers by buying their products.* |
+
+### Dashboard Layouts
+| Default Card View | Small Card View |
+|:---:|:---:|
+| <img src="showcase/0.8.0/1DefaultCard.jpg" width="100%" alt="Default Card View"/> | <img src="showcase/0.8.0/2SmallCard.jpg" width="100%" alt="Small Card View"/> |
+
+| Details View | List View |
+|:---:|:---:|
+| <img src="showcase/0.8.0/3DetailsView.jpg" width="100%" alt="Details View"/> | <img src="showcase/0.8.0/4ListView.jpg" width="100%" alt="List View"/> |
+
+### Target Management
+| Target Details |
+|:---:|
+| <img src="showcase/0.8.0/TargetDetails.jpg" width="100%" alt="Target Details"/> |
+
+| Add Target | Achievement Progress |
+|:---:|:---:|
+| <img src="showcase/0.8.0/AddTarget.jpg" width="100%" alt="Add Target"/> | <img src="showcase/0.8.0/TargetDetailsProgress.jpg" width="100%" alt="Target Progress"/> |
+
+### Settings
+|  |  |
+|:---:|:---:|
+| <img src="showcase/0.8.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.8.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
+
+
+## Features
+
+> **v0.8.0-beta** release.
+
+- **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
+- **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions.
+- **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
+- **Playtime tracking** - Track playtime for your targets.
+- **Multiple dashboard layouts** - View tracked targets using several dashboard layout options.
+- **Target organization** - Sort, filter, and search tracked targets.
+- **Manual achievement control** - Manually unlock or lock achievements when needed.
+- **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
+- **System tray support** - Keep Lymalink accessible from the system tray.
+- **Steam achievement import** - Import your personal Steam achievements to the dashboard.
+
+## Installation
+
+Lymalink can be installed either by using the pre-built installer or by compiling the binaries manually from source if your Linux distribution has compatibility issues with the pre-made packages.
+
+> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
+
+### Option 1: Pre-built Release (Recommended for Supported Distros)
+
+Download the latest `lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run` from the [Releases](https://github.com/Morsomus/Lymalink/releases) page.
+
+```bash
+chmod +x lymalink-installer-*.run
+./lymalink-installer-*.run
+```
+
+**Please follow the instructions provided by the installer. If prompted, install any missing system dependencies required by the installer to ensure the installation can be successfully completed.**
+
+> **Note:** To uninstall while keeping your configuration and achievement data files, run `~/.local/bin/uninstall-lymalink`.
+
+### Option 2: Building from Source
+
+```bash
+git clone https://github.com/Morsomus/Lymalink.git
+cd Lymalink
+```
+
+Install the required dependencies for your specific Linux distribution (the documentation outlines Ubuntu equivalents):
+
+* **Frontend:** [frontend/README.md#dependencies](frontend/README.md#dependencies)
+* **Backend:** [backend/README.md#dependencies](backend/README.md#dependencies)
+* **Backend Overlay:** [backend-overlay/README.md#dependencies](backend-overlay/README.md#dependencies)
+* **Installer Requirements:** [installer/README.md#build-requirements](installer/README.md#build-requirements)
+
+```bash
+installer/build.sh
+./installer/build/lymalink-installer-0.8.0-*-x86_64.run
+```
+
+
 ## Project Status
 
-Current progress towards the first working version, platform-wise
+Current progress towards different versions, platform-wise
 
 ### Linux
 | Component | Status<br>v0.8.0-beta | Milestone |
@@ -47,7 +139,7 @@ Current progress towards the first working version, platform-wise
 | &nbsp;&nbsp;&nbsp;&nbsp;Localisation | 🔴 To Be Started | |
 | **Backend Service** | 🚧 In Development | v1.0.0 |
 | &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Emulator Support | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Local Achievement File Support | 🚧 In Development | v1.0.0 |
 | &nbsp;&nbsp;&nbsp;&nbsp;Notification Sound System | ✅ Ready to Deploy | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | v0.8.0-beta |
 | **Compatibility & Testing** | 🚧 In Development | v1.0.0 |
@@ -59,12 +151,6 @@ Current progress towards the first working version, platform-wise
 | Frontend | 🔴 To Be Started |
 | Backend Service | 🔴 To Be Started |
 
-### macOS
-| Component | Status |
-|-----------|--------|
-| Frontend | ❓ To Be Decided |
-| Backend Service | ❓ To Be Decided |
-
 ---
 
 ## Planned Features
@@ -72,10 +158,9 @@ Current progress towards the first working version, platform-wise
 > The following features are planned and subject to change. Core tracking functionality is not listed here.
 
 - **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
-- **Customizable UI** - Toggle interface elements on or off, adjust tooltips, languages to choose from, switch between dark, light, and system themes to suit your preference and much more.
+- **Customizable UI** - Languages to choose from, switch between dark, light, and system themes to suit your preference and much more.
 - **Export & Import** - Move your achievement data between devices or back it up in open formats such as JSON or CSV.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
-- **Desktop Notifications** - Get notified when achievements are detected or a sync completes. User decides if tracker can run at system startup in the background, or only while the app is open.
 
 ---
 
@@ -179,9 +264,9 @@ Lymalink is an independent, open-source project and is **not affiliated with, au
 
 All trademarks, service marks, trade names, logos, and brand assets mentioned or displayed in this project are the property of their respective owners. Their use here is solely for identification and reference purposes and does not imply any association with or endorsement by those owners.
 
-### Steam Emulator Support
+### Steam Based Achievement File Support
 
-Lymalink is capable of reading local achievement data files generated by Steam emulators. This functionality is provided **strictly for personal, informational use**.
+Lymalink is capable of reading local achievement data files generated by third-party tools, Steam emulators, or the users themselves. This functionality is provided **strictly for personal, informational use**.
 
 This software:
 - Does **not** provide, distribute, or assist in obtaining Steam emulators

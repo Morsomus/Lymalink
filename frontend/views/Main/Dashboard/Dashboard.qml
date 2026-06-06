@@ -23,6 +23,7 @@ Item {
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
     property bool showingAddTarget: false
+    property bool addTargetBusy: false
     property real dashboardScrollLocation: 0
     property var loadingTargetAppIds: []
     property string activeSort: ctxSettings.dashboardToolbarSort
@@ -443,10 +444,17 @@ Item {
                 id_root.setTargetLoading(appId, targetType, true)
                 ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
             }
-            onSteamImportsApplied: {
+            onSteamImportsApplied: function(loadingAppIds) {
+                id_root.addTargetBusy = false
                 id_root.showingAddTarget = false
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
+                for (let i = 0; i < loadingAppIds.length; ++i) {
+                    id_root.setTargetLoading(loadingAppIds[i], "Steam", true)
+                }
+            }
+            onBusyChanged: function(busy) {
+                id_root.addTargetBusy = busy
             }
         }
     }
@@ -479,6 +487,7 @@ Item {
             p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_targetHidden: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.targetHidden) : false
             p_activeLayout: id_root.activeLayout
+            p_returnLocked: id_root.addTargetBusy
 
             // Layout selection
             onLayoutSelected: function(size) {
@@ -488,14 +497,19 @@ Item {
 
             // Close Target Details
             onReturnClicked: {
+                if (id_root.addTargetBusy) {
+                    return
+                }
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
+                id_root.addTargetBusy = false
             }
 
             // Add target
             onAddTargetClicked: {
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = true
+                id_root.addTargetBusy = false
             }
 
             onRefreshClicked: id_root.refreshTargets()

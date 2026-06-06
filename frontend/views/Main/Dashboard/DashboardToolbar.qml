@@ -28,6 +28,7 @@ Item {
     property string p_targetType: "Emulator"
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
+    property bool p_returnLocked: false
 
     signal layoutSelected(string size)
     signal returnClicked()
@@ -76,7 +77,7 @@ Item {
 
     Shortcut {
         sequence: "Esc"
-        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened
+        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened && !id_root.p_returnLocked
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -85,7 +86,7 @@ Item {
 
     Shortcut {
         sequence: "Backspace"
-        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened
+        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened && !id_root.p_returnLocked
         onActivated: {
             id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
@@ -405,9 +406,9 @@ Item {
                     id: id_addTargetBackArrowMouseArea
 
                     anchors.fill: parent
-                    enabled: p_addTargetVisible
+                    enabled: p_addTargetVisible && !id_root.p_returnLocked
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: {
                         id_root.returnClicked()
                     }
