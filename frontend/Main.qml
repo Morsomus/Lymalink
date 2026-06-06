@@ -38,15 +38,14 @@ ApplicationWindow {
         }
     }
 
-    background: Rectangle {
-        color: "#181818"
-    }
+    Timer {
+        id: id_closeToTrayTimer
 
-    onClosing: function(close) {
-        if (ctxSettings.closeToTray && ctxSysTray.available) {
-            close.accepted = false
-            id_root.hide()          // Hide Window
-            
+        interval: 100
+        repeat: false
+        onTriggered: {
+            id_root.hide()
+
             ctxSysTray.SetTrayIconVisibility(true)
 
             if (ctxSettings.closeToTrayToast) {
@@ -58,12 +57,25 @@ ApplicationWindow {
         }
     }
 
+    background: Rectangle {
+        color: "#181818"
+    }
+
+    onClosing: function(close) {
+        if (ctxSettings.closeToTray && ctxSysTray.available) {
+            close.accepted = false
+            id_dashboard.releaseVisibleTargetsForTray()
+            id_closeToTrayTimer.restart()
+        }
+    }
+
     Connections {
         target: ctxSysTray
 
         function onSignalOpenWindow() {
             if (ctxSettings.closeToTray) {
                 ctxSysTray.SetTrayIconVisibility(false)
+                id_dashboard.restoreVisibleTargetsFromTray()
                 id_root.show()
                 id_root.raise()
                 id_root.requestActivate()

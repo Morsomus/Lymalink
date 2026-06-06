@@ -26,6 +26,12 @@ Item {
     property bool addTargetBusy: false
     property real dashboardScrollLocation: 0
     property var loadingTargetAppIds: []
+    property var filteredTargets: []
+    property int currentPage: 1
+    readonly property int pageSize: calculatePageSize()
+    property int totalPages: 1
+    property int totalTargetCount: 0
+    property bool targetsReleasedToTray: false
     property string activeSort: ctxSettings.dashboardToolbarSort
     property bool activeSortDescending: ctxSettings.dashboardToolbarSortDescending
     property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
@@ -52,6 +58,14 @@ Item {
         onTriggered: id_root.refreshTargets()
     }
 
+    Timer {
+        id: id_layoutRefreshTimer
+
+        interval: 250
+        repeat: false
+        onTriggered: id_root.recalculatePaging(false)
+    }
+
     Component.onCompleted: refreshTargets()
 
     Connections {
@@ -70,25 +84,158 @@ Item {
         }
     }
 
-    onActiveLayoutChanged: {
-        dashboardScrollLocation = 0
-        syncTargetRowLayout()
+    function calculatePageSize() {
+        switch (id_root.activeLayout) {
+            case "smallCardGrid":
+                return id_root.calculateGridPageSize(150, 16, 6)
+            case "defaultCardGrid":
+                return id_root.calculateGridPageSize(200, 16, 4)
+            case "detailedList":
+                return 25
+            case "list":
+                return 50
+            default:
+                return 50
+        }
+    }
+
+    function calculateGridPageSize(cardWidth, spacing, rows) {
+        const availableWidth = id_cardLayoutLoader ? id_cardLayoutLoader.width : 0
+        const columns = Math.max(1, Math.floor((availableWidth + spacing) / (cardWidth + spacing)))
+        return Math.max(1, columns * rows)
+    }
+
+    function recalculatePaging(resetScroll) {
+        id_root.totalPages = Math.max(1, Math.ceil(id_root.totalTargetCount / id_root.pageSize))
+        id_root.currentPage = Math.max(1, Math.min(id_root.currentPage, id_root.totalPages))
+        id_root.rebuildTargetPage()
+
+        if (resetScroll) {
+            id_root.resetDashboardScroll()
+        }
     }
 
     function refreshTargets() {
-        id_targetModel.clear()
+        id_root.targetsReleasedToTray = false
 
         const targets = ctxLymalink.FetchDashboardTargets()
         const filteredTargets = id_root.filterTargets(targets)
         id_root.sortTargets(filteredTargets)
+
         for (let i = 0; i < filteredTargets.length; ++i) {
-            const target = filteredTargets[i]
+            filteredTargets[i].isLoading = id_root.isTargetLoading(filteredTargets[i].id, filteredTargets[i].targetType)
+        }
+
+        id_root.filteredTargets = filteredTargets
+        id_root.totalTargetCount = filteredTargets.length
+        id_root.recalculatePaging(false)
+        id_root.noTargetsAvailable = id_root.totalTargetCount === 0
+    }
+
+    function rebuildTargetPage() {
+        id_targetModel.clear()
+
+        const startIndex = (id_root.currentPage - 1) * id_root.pageSize
+        const endIndex = Math.min(startIndex + id_root.pageSize, id_root.totalTargetCount)
+        for (let i = startIndex; i < endIndex; ++i) {
+            const target = id_root.filteredTargets[i]
             target.rowLayout = id_root.activeLayout === "detailedList" ? "detailedList" : "list"
             target.isLoading = id_root.isTargetLoading(target.id, target.targetType)
             id_targetModel.append(target)
         }
+    }
 
-        id_root.noTargetsAvailable = id_targetModel.count === 0
+    function resetDashboardScroll() {
+        id_root.dashboardScrollLocation = 0
+        if (id_cardLayoutLoader.status === Loader.Ready
+            && id_cardLayoutLoader.item
+            && typeof id_cardLayoutLoader.item.restoreScrollLocation === "function") {
+            id_cardLayoutLoader.item.restoreScrollLocation(0)
+        }
+    }
+
+    function goToPage(page) {
+        const nextPage = Math.max(1, Math.min(page, id_root.totalPages))
+        if (nextPage === id_root.currentPage) {
+            return
+        }
+
+        id_root.currentPage = nextPage
+        id_root.resetDashboardScroll()
+        id_root.rebuildTargetPage()
+    }
+
+    function pagerItems() {
+        const pages = []
+        if (id_root.totalPages <= 7) {
+            for (let page = 1; page <= id_root.totalPages; ++page) {
+                pages.push({ label: page.toString(), page: page, isEllipsis: false })
+            }
+            return pages
+        }
+
+        function appendPage(page) {
+            pages.push({ label: page.toString(), page: page, isEllipsis: false })
+        }
+
+        function appendEllipsis() {
+            pages.push({ label: "...", page: -1, isEllipsis: true })
+        }
+
+        appendPage(1)
+
+        const middleStart = Math.max(2, id_root.currentPage - 1)
+        const middleEnd = Math.min(id_root.totalPages - 1, id_root.currentPage + 1)
+
+        if (middleStart > 2) {
+            appendEllipsis()
+        }
+
+        for (let page = middleStart; page <= middleEnd; ++page) {
+            appendPage(page)
+        }
+
+        if (middleEnd < id_root.totalPages - 1) {
+            appendEllipsis()
+        }
+
+        appendPage(id_root.totalPages)
+        return pages
+    }
+
+    function pageRangeLabel() {
+        if (id_root.totalTargetCount === 0) {
+            return qsTr("Page 0 of 0 - 0 of 0")
+        }
+
+        const start = ((id_root.currentPage - 1) * id_root.pageSize) + 1
+        const end = Math.min(id_root.currentPage * id_root.pageSize, id_root.totalTargetCount)
+        return qsTr("Page %1 of %2 - %3-%4 of %5")
+            .arg(id_root.currentPage)
+            .arg(id_root.totalPages)
+            .arg(start)
+            .arg(end)
+            .arg(id_root.totalTargetCount)
+    }
+
+    function showingDashboardTargets() {
+        return !id_root.targetsReleasedToTray
+            && !id_root.showingTargetDetails
+            && !id_root.showingAddTarget
+            && !id_root.noTargetsAvailable
+    }
+
+    function releaseVisibleTargetsForTray() {
+        id_layoutRefreshTimer.stop()
+        id_searchRefreshTimer.stop()
+        id_targetModel.clear()
+        id_root.targetsReleasedToTray = true
+    }
+
+    function restoreVisibleTargetsFromTray() {
+        if (id_root.targetsReleasedToTray) {
+            id_root.refreshTargets()
+        }
     }
 
     function matchesFilter(target, filter) {
@@ -307,9 +454,17 @@ Item {
             loadingTargetAppIds = nextIds
         }
 
+        for (let i = 0; i < id_root.filteredTargets.length; ++i) {
+            const target = id_root.filteredTargets[i]
+            if (id_root.targetKey(target.id, target.targetType) === key) {
+                target.isLoading = loading
+                break
+            }
+        }
+
         for (let i = 0; i < id_targetModel.count; ++i) {
             const target = id_targetModel.get(i)
-            if (target.id === appId && target.targetType === targetType) {
+            if (id_root.targetKey(target.id, target.targetType) === key) {
                 id_targetModel.setProperty(i, "isLoading", loading)
                 break
             }
@@ -493,6 +648,7 @@ Item {
             onLayoutSelected: function(size) {
                 id_root.activeLayout = size
                 ctxSettings.SaveValue(Settings.DashboardToolbarLayout, size)
+                id_root.refreshTargets()
             }
 
             // Close Target Details
@@ -636,6 +792,143 @@ Item {
             onLoaded: {
                 if (typeof item.openTargetDetails !== "undefined") {
                     item.openTargetDetails.connect(id_root.onTargetSelected)
+                }
+            }
+
+            onWidthChanged: {
+                if (id_root.activeLayout === "smallCardGrid" || id_root.activeLayout === "defaultCardGrid") {
+                    id_layoutRefreshTimer.restart()
+                }
+            }
+        }
+
+        // Dashboard pager
+        Item {
+            id: id_pager
+
+            Layout.fillWidth: true
+            implicitHeight: id_pager.visible ? 36 : 0
+            visible: id_root.showingDashboardTargets() && id_root.totalPages > 1
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Rectangle {
+                    id: id_previousPage
+
+                    implicitWidth: 34
+                    implicitHeight: 32
+                    radius: 16
+                    enabled: id_root.currentPage > 1
+                    opacity: enabled ? 1.0 : 0.38
+                    color: id_previousPageMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillPressed
+                        : id_previousPageMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillHover
+                            : Themes.dashboardToolbar.colors.pillBackground
+                    border.width: 1
+                    border.color: Themes.dashboardToolbar.colors.pillBorder
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "<"
+                        color: Themes.dashboardToolbar.colors.pillValueActive
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
+                    }
+
+                    MouseArea {
+                        id: id_previousPageMouseArea
+
+                        anchors.fill: parent
+                        enabled: id_previousPage.enabled
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: id_root.goToPage(id_root.currentPage - 1)
+                    }
+                }
+
+                Repeater {
+                    model: id_root.pagerItems()
+
+                    Rectangle {
+                        required property var modelData
+
+                        implicitWidth: modelData.isEllipsis ? 24 : 34
+                        implicitHeight: 32
+                        radius: 16
+                        enabled: !modelData.isEllipsis
+                        color: modelData.page === id_root.currentPage
+                            ? Themes.dashboardToolbar.colors.segmentActive
+                            : id_pageMouseArea.pressed
+                                ? Themes.dashboardToolbar.colors.pillPressed
+                                : id_pageMouseArea.containsMouse
+                                    ? Themes.dashboardToolbar.colors.pillHover
+                                    : Themes.dashboardToolbar.colors.pillBackground
+                        border.width: modelData.isEllipsis ? 0 : 1
+                        border.color: modelData.page === id_root.currentPage
+                            ? Themes.dashboardToolbar.colors.pillBorderOpen
+                            : Themes.dashboardToolbar.colors.pillBorder
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.label
+                            color: modelData.page === id_root.currentPage
+                                ? Themes.dashboardToolbar.colors.segmentLabelActive
+                                : Themes.dashboardToolbar.colors.pillLabel
+                            font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
+                        }
+
+                        MouseArea {
+                            id: id_pageMouseArea
+
+                            anchors.fill: parent
+                            enabled: !modelData.isEllipsis
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: id_root.goToPage(modelData.page)
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: id_nextPage
+
+                    implicitWidth: 34
+                    implicitHeight: 32
+                    radius: 16
+                    enabled: id_root.currentPage < id_root.totalPages
+                    opacity: enabled ? 1.0 : 0.38
+                    color: id_nextPageMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillPressed
+                        : id_nextPageMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillHover
+                            : Themes.dashboardToolbar.colors.pillBackground
+                    border.width: 1
+                    border.color: Themes.dashboardToolbar.colors.pillBorder
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: ">"
+                        color: Themes.dashboardToolbar.colors.pillValueActive
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
+                    }
+
+                    MouseArea {
+                        id: id_nextPageMouseArea
+
+                        anchors.fill: parent
+                        enabled: id_nextPage.enabled
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: id_root.goToPage(id_root.currentPage + 1)
+                    }
+                }
+
+                Label {
+                    text: id_root.pageRangeLabel()
+                    color: Themes.dashboardToolbar.colors.pillLabel
+                    font.pixelSize: Themes.dashboardToolbar.fontSizes.pillValue
                 }
             }
         }

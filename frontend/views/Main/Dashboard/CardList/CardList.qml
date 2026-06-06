@@ -36,7 +36,9 @@ Item {
     }
 
     function syncRowLayout() {
-        if (!id_root.p_targetModel || typeof id_root.p_targetModel.setProperty !== "function") {
+        if (!id_root.p_targetModel
+            || typeof id_root.p_targetModel.setProperty !== "function"
+            || typeof id_root.p_targetModel.count !== "number") {
             return
         }
 
