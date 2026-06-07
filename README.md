@@ -2,7 +2,7 @@
 
 **Achievement tracker for Steam emulators, Steam/Cloud APIs, and fully custom targets.**
 
-> **Note:** The **v0.8.0-beta** release is now available for Linux. See the [Installation](#installation) section below to get started.
+> The **v0.8.0-beta** release is now available for Linux. See the [Installation](#installation) section to get started, explore the [Features](#features) to see what's included, and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md) for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
