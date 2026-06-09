@@ -41,7 +41,7 @@ void PathScanner::SetTargets(const std::vector<AppIdDirPathScanTarget>& targets)
 {
     // Replace scan targets with latest database state from daemon
     m_targets = targets;
-    LOG_BE(Urgency::Info, "Targets set: %zu", m_targets.size());
+    LOG_BE(Urgency::Debug, "Targets set: %zu", m_targets.size());
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -51,6 +51,7 @@ struct DeviceData
     PFN_vkQueuePresentKHR queuePresent;
     PFN_vkGetSwapchainImagesKHR getSwapchainImages;
     PFN_vkCreateImageView createImageView;
+    PFN_vkDestroyImageView destroyImageView;
 
     uint32_t graphicsFamily = 0;
     VkQueue graphicsQueue = VK_NULL_HANDLE;
@@ -70,6 +71,26 @@ static std::unordered_map<void*, InstanceData> s_instances;
 
 static std::mutex s_deviceMtx;
 static std::unordered_map<void*, DeviceData> s_devices;
+
+/////////////////////////////////////////////////////////////////////
+
+static void DestroySwapchainImageViews(DeviceData& dev)
+{
+    if (!dev.destroyImageView)
+    {
+        dev.swapchainViews.clear();
+        return;
+    }
+
+    for (VkImageView view : dev.swapchainViews)
+    {
+        if (view != VK_NULL_HANDLE)
+        {
+            dev.destroyImageView(dev.device, view, nullptr);
+        }
+    }
+    dev.swapchainViews.clear();
+}
 
 /////////////////////////////////////////////////////////////////////
 
@@ -286,6 +307,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateDevice(VkPhysicalDevice physi
         data.queuePresent = reinterpret_cast<PFN_vkQueuePresentKHR>(nextGDPA(*pDevice, "vkQueuePresentKHR"));
         data.getSwapchainImages = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(nextGDPA(*pDevice, "vkGetSwapchainImagesKHR"));
         data.createImageView = reinterpret_cast<PFN_vkCreateImageView>(nextGDPA(*pDevice, "vkCreateImageView"));
+        data.destroyImageView = reinterpret_cast<PFN_vkDestroyImageView>(nextGDPA(*pDevice, "vkDestroyImageView"));
         s_devices.insert_or_assign(DispatchKey(*pDevice), std::move(data));
     }
 
@@ -318,8 +340,10 @@ static VKAPI_ATTR void VKAPI_CALL Hook_vkDestroyDevice(VkDevice device, const Vk
             // Tear down ImGui/Vulkan backend before the device is gone
             if (it->second.backend)
             {
+                s_overlay.InvalidateVulkanResources();
                 it->second.backend->Shutdown();
             }
+            DestroySwapchainImageViews(it->second);
             fn = it->second.destroyDevice;
             s_devices.erase(it);
         }
@@ -404,6 +428,14 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
             dev.swapchainImages.clear();
             return result;
         }
+
+        s_overlay.InvalidateVulkanResources();
+        if (backend)
+        {
+            backend->Shutdown();
+        }
+        DestroySwapchainImageViews(dev);
+
         // Cache format and dimensions for the present hook and ImGui DisplaySize
         dev.swapchainFormat = pCreateInfo->imageFormat;
         dev.swapchainWidth = pCreateInfo->imageExtent.width;
@@ -436,6 +468,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
         }
         if (!imageViewsReady)
         {
+            DestroySwapchainImageViews(dev);
             return result;
         }
 
@@ -472,12 +505,6 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateSwapchainKHR(VkDevice device,
         backendInfo.swapchainViews = dev.swapchainViews;
     }
 
-    // Tear down any previous backend (e.g. on resize) before re-initialising
-    if (backend)
-    {
-        backend->Shutdown();
-    }
-    
     // Initialize backend first: command pool and descriptor pool are created here
     const bool backendReady = backend && backend->Initialize(backendInfo);
     if (!backendReady)
@@ -546,9 +573,17 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
         else if (s_devices.size() == 1)
         {
             // Single-device fallback: queue key wasn't indexed but there's only one device
-            nextPresent = s_devices.begin()->second.queuePresent;
+            DeviceData& dev = s_devices.begin()->second;
+            nextPresent = dev.queuePresent;
+            backend = dev.backend.get();
+            w = dev.swapchainWidth;
+            h = dev.swapchainHeight;
         }
     }
+
+    const VkPresentInfoKHR* presentInfoToSubmit = pPresentInfo;
+    VkPresentInfoKHR overlayPresentInfo{};
+    VkSemaphore overlayWaitSemaphore = VK_NULL_HANDLE;
 
     // Render overlay into the swapchain image before forwarding the present call
     if (backend && backend->IsReady())
@@ -565,12 +600,19 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
 
         // Finalise ImGui draw lists, then submit them to the swapchain image
         ImGui::Render();
-        backend->RenderDrawData(queue, pPresentInfo, ImGui::GetDrawData());
+        overlayWaitSemaphore = backend->RenderDrawData(queue, pPresentInfo, ImGui::GetDrawData());
+        if (overlayWaitSemaphore != VK_NULL_HANDLE)
+        {
+            overlayPresentInfo = *pPresentInfo;
+            overlayPresentInfo.waitSemaphoreCount = 1;
+            overlayPresentInfo.pWaitSemaphores = &overlayWaitSemaphore;
+            presentInfoToSubmit = &overlayPresentInfo;
+        }
     }
 
     if (nextPresent)
     {
-        return nextPresent(queue, pPresentInfo);
+        return nextPresent(queue, presentInfoToSubmit);
     }
 
     LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkQueuePresentKHR] next vkQueuePresentKHR missing.");

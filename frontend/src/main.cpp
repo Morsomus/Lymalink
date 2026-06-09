@@ -87,14 +87,8 @@ int main(int argc, char *argv[]) {
         qputenv("QT_LOGGING_RULES", "*.debug=true; qt.*.debug=false");
     #endif
 
-    QApplication app(argc, argv);
     QCoreApplication::setApplicationName("Lymalink");
     QGuiApplication::setDesktopFileName("lymalink");
-    ApplyDarkApplicationTheme(app);
-
-    Logger &logger = Logger::Instance();
-    logger.SetLogFile(Logger::DefaultLinuxLogPath(QCoreApplication::applicationName().toLower()));
-    logger.Install();
 
     // Single instance guard
     const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");
@@ -106,6 +100,13 @@ int main(int argc, char *argv[]) {
         SendActivationRequest();
         return 0;
     }
+
+    QApplication app(argc, argv);
+    ApplyDarkApplicationTheme(app);
+
+    Logger &logger = Logger::Instance();
+    logger.SetLogFile(Logger::DefaultLinuxLogPath(QCoreApplication::applicationName().toLower()));
+    logger.Install();
 
     QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf");
     QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf");

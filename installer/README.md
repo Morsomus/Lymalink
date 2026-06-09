@@ -13,6 +13,8 @@ it with `sudo`; the install script rejects root.
 - Frontend Qt runtime: bundled privately from the build host, never lower than
   `6.8.0`
 - Flatpak VulkanLayer extension branch: `25.08`
+- Overlay architecture support: native x86_64, native i386, Flatpak
+  x86_64, and Flatpak i386
 
 The installer bundles the frontend Qt runtime manually from the build host
 `qmake` paths, plus the ICU runtime libraries detected on the build host so Qt
@@ -20,9 +22,12 @@ can load the exact ICU SONAME it was built against. Frontend Qt libraries, Qt
 plugins, and QML imports are private to the frontend wrapper. It does not bundle
 system libraries such as OpenSSL, libstdc++, GL, D-Bus, or `systemd`.
 
-Flatpak is required because the installer installs the Flatpak VulkanLayer
-extension used by Flatpak games. If Flatpak or extension installation fails, the
-installer fails.
+Flatpak is required because the installer builds and installs the Flatpak
+VulkanLayer extension used by Flatpak games. The Freedesktop i386 SDK extension
+is required for Flatpak i386 overlay libraries. Native i386 overlay libraries
+are built separately against the build host's multilib toolchain and i386
+development libraries. If Flatpak or extension installation fails, the installer
+fails.
 
 ## Build Requirements
 
@@ -51,12 +56,12 @@ into the generated installer filename. There is no distro whitelist.
 
 Build flow:
 
-1. Builds frontend, backend, and native overlay release artifacts.
-2. Builds Flatpak overlay artifacts.
+1. Builds frontend, backend, and native x86_64/i386 overlay release artifacts.
+2. Builds Flatpak x86_64/i386 overlay artifacts.
 3. Stages payload in `installer/build/lymalink-release/`.
 4. Bundles frontend Qt libraries, plugins, QML imports, and ICU runtime.
 5. Stores frontend build Qt version in payload metadata.
-6. Builds Flatpak VulkanLayer extension bundle.
+6. Builds Flatpak VulkanLayer extension bundle with x86_64 and i386 libraries.
 7. Creates self-extracting installer with `makeself`.
 
 Version comes from root [VERSION](../VERSION).
@@ -83,6 +88,8 @@ Target systems need:
 - Flatpak
 - Native runtime libraries needed by backend and overlay, such as Vulkan, GL,
   D-Bus, `systemd`, GDK Pixbuf, and sdbus-c++
+- 32-bit Vulkan/GL/GDK Pixbuf/libstdc++ runtime libraries for native 32-bit
+  overlay support
 - Frontend host libraries intentionally not bundled, such as OpenSSL,
   libstdc++, desktop display libraries, and GPU driver stack
 
@@ -117,12 +124,13 @@ The installer reloads user `systemd` units. It does not enable or start
 |---------|-------------|
 | `Lymalink`, `lymalinkd`, `lymalink-overlay`, `uninstall-lymalink` | `~/.local/bin/` |
 | Frontend binary, Qt runtime, QML imports, plugins, ICU, and Qt build metadata | `~/.local/lib/lymalink/frontend/` |
-| Overlay `.so` files | `~/.local/lib/` |
-| Vulkan manifest | `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/` |
+| Native x86_64 and launcher overlay `.so` files | `~/.local/lib/` |
+| Native i386 overlay `.so` files | `~/.local/lib/i386-linux-gnu/` |
+| Vulkan manifests | `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json`, `lymalink_overlay.x86.json` |
 | Icon and desktop entry | `${XDG_DATA_HOME:-~/.local/share}/icons/`, `applications/` |
 | Sounds and test icon | `${XDG_DATA_HOME:-~/.local/share}/Lymalink/` |
 | `lymalinkd.service` | `${XDG_CONFIG_HOME:-~/.config}/systemd/user/` |
-| Flatpak VulkanLayer extension | User Flatpak installation |
+| Flatpak VulkanLayer extension with x86_64 and i386 libraries | User Flatpak installation |
 
 If `~/.local/bin` is missing from `PATH`, installer adds a managed block to
 `~/.bash_profile`, `~/.profile`, and `~/.bashrc`.

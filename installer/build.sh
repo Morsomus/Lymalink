@@ -38,7 +38,9 @@ ARCH="x86_64"
 FRONTEND_BINARY="$ROOT_DIR/frontend/build/release/bin/Lymalink"
 BACKEND_BUILD_BIN_DIR="$ROOT_DIR/backend/build/release/bin"
 OVERLAY_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/release/bin"
+OVERLAY_BUILD_BIN_DIR_I386="$ROOT_DIR/backend-overlay/build/release-i386/bin"
 OVERLAY_FLATPAK_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/flatpak/release/bin"
+OVERLAY_FLATPAK_BUILD_BIN_DIR_I386="$ROOT_DIR/backend-overlay/build/flatpak/release-i386/bin"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
 FLATPAK_EXTENSION_BRANCH="25.08"
 FLATPAK_BUNDLE="$RELEASE_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
@@ -114,6 +116,33 @@ require_file() {
     fi
 }
 
+validate_elf_class() {
+    local artifact="$1"
+    local expected_class="$2"
+    local description="$3"
+    local file_output
+
+    file_output="$(file -b "$artifact")"
+    if ! printf '%s\n' "$file_output" | grep -q "ELF ${expected_class}-bit"; then
+        echo "==> ERROR: $description has wrong ELF class: $artifact" >&2
+        echo "==> Expected: ELF ${expected_class}-bit" >&2
+        echo "==> Actual:   $file_output" >&2
+        exit 1
+    fi
+}
+
+validate_overlay_artifact_set() {
+    local directory="$1"
+    local expected_class="$2"
+    local description="$3"
+    local library
+
+    for library in lymalink-overlay.so lymalink-overlay-opengl.so lymalink-overlay-preloader.so; do
+        require_file "$directory/$library"
+        validate_elf_class "$directory/$library" "$expected_class" "$description $library"
+    done
+}
+
 detect_build_host_tag() {
     local distro_id=""
     local distro_version=""
@@ -178,12 +207,13 @@ resolve_qmake() {
 write_vulkan_manifest() {
     local destination="$1"
     local library_path="$2"
+    local layer_name="${3:-VK_LAYER_LYMALINK_overlay}"
 
     cat > "$destination" <<EOF
 {
     "file_format_version": "1.0.0",
     "layer": {
-        "name": "VK_LAYER_LYMALINK_overlay",
+        "name": "${layer_name}",
         "type": "GLOBAL",
         "library_path": "${library_path}",
         "api_version": "1.4.312",
@@ -497,7 +527,7 @@ validate_frontend_elf_dependencies() {
     fi
 }
 
-for command_name in cmake cp find flatpak g++ grep ldd make makeself pkg-config readlink sed sha256sum sort strip wc; do
+for command_name in cmake cp file find flatpak g++ grep ldd make makeself pkg-config readlink sed sha256sum sort strip wc; do
     require_command "$command_name"
 done
 
@@ -526,12 +556,10 @@ echo "==> Building Flatpak overlay release..."
 
 require_file "$FRONTEND_BINARY"
 require_file "$BACKEND_BUILD_BIN_DIR/lymalinkd"
-require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay.so"
-require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-opengl.so"
-require_file "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-preloader.so"
-require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay.so"
-require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay-opengl.so"
-require_file "$OVERLAY_FLATPAK_BUILD_BIN_DIR/lymalink-overlay-preloader.so"
+validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR" 64 "native x86_64"
+validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR_I386" 32 "native i386"
+validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR" 64 "Flatpak x86_64"
+validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386" 32 "Flatpak i386"
 require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 
 echo "==> Staging release payload..."
@@ -539,6 +567,7 @@ rm -rf "$RELEASE_DIR" "$FLATPAK_WORK_DIR" "$INSTALLER_PATH"
 mkdir -p \
     "$RELEASE_DIR/bin" \
     "$RELEASE_DIR/lib" \
+    "$RELEASE_DIR/lib/i386-linux-gnu" \
     "$FRONTEND_BUNDLE_DIR/bin" \
     "$RELEASE_DIR/share/vulkan/implicit_layer.d" \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps" \
@@ -554,6 +583,9 @@ cp "$ROOT_DIR/backend-overlay/lymalink-overlay.sh" "$RELEASE_DIR/bin/lymalink-ov
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay.so" "$RELEASE_DIR/lib/lymalink-overlay.so"
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-opengl.so" "$RELEASE_DIR/lib/lymalink-overlay-opengl.so"
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-preloader.so" "$RELEASE_DIR/lib/lymalink-overlay-preloader.so"
+cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay.so"
+cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay-opengl.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so"
+cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay-preloader.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
 cp "$ROOT_DIR/backend/res/"*.ogg "$RELEASE_DIR/share/Lymalink/sounds/"
 cp "$ROOT_DIR/frontend/res/img/64x64-lymalink-test-icon.png" "$RELEASE_DIR/share/Lymalink/"
 cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" \
@@ -632,7 +664,8 @@ chmod 755 \
     "$RELEASE_DIR/lib/lymalink/frontend/bin/Lymalink" \
     "$RELEASE_DIR/bin/lymalinkd" \
     "$RELEASE_DIR/bin/lymalink-overlay" \
-    "$RELEASE_DIR/lib/"*.so
+    "$RELEASE_DIR/lib/"*.so \
+    "$RELEASE_DIR/lib/i386-linux-gnu/"*.so
 chmod 644 \
     "$RELEASE_DIR/share/Lymalink/"*.png \
     "$RELEASE_DIR/share/Lymalink/sounds/"*.ogg \
@@ -643,11 +676,20 @@ strip \
     "$RELEASE_DIR/bin/lymalinkd" \
     "$RELEASE_DIR/lib/lymalink-overlay.so" \
     "$RELEASE_DIR/lib/lymalink-overlay-opengl.so" \
-    "$RELEASE_DIR/lib/lymalink-overlay-preloader.so"
+    "$RELEASE_DIR/lib/lymalink-overlay-preloader.so" \
+    "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay.so" \
+    "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so" \
+    "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
 
 write_vulkan_manifest \
-    "$RELEASE_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.json" \
-    "HOME_PLACEHOLDER/.local/lib/lymalink-overlay.so"
+    "$RELEASE_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
+    "HOME_PLACEHOLDER/.local/lib/lymalink-overlay.so" \
+    "VK_LAYER_LYMALINK_overlay_x86_64"
+
+write_vulkan_manifest \
+    "$RELEASE_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" \
+    "HOME_PLACEHOLDER/.local/lib/i386-linux-gnu/lymalink-overlay.so" \
+    "VK_LAYER_LYMALINK_overlay_x86"
 
 cat > "$RELEASE_DIR/share/applications/lymalink.desktop" <<'EOF'
 [Desktop Entry]
@@ -680,13 +722,22 @@ EOF
 echo "==> Building Flatpak VulkanLayer extension bundle..."
 mkdir -p \
     "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu" \
+    "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu" \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d" \
     "$FLATPAK_REPO_DIR"
 cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"
+cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"
 chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"*.so
+chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"*.so
 write_vulkan_manifest \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
-    "/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay.so"
+    "/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay.so" \
+    "VK_LAYER_LYMALINK_overlay_x86_64"
+
+write_vulkan_manifest \
+    "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" \
+    "/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay.so" \
+    "VK_LAYER_LYMALINK_overlay_x86"
 
 cat > "$FLATPAK_EXTENSION_DIR/metadata" <<EOF
 [Runtime]

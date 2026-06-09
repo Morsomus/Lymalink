@@ -33,6 +33,7 @@ public:
     bool InitConnection();
 
     void Shutdown();
+    void InvalidateVulkanResources();
 
     // Called every frame from the Vulkan / OpenGL hook before the swap
     // Reads shared state or socket, drives fade animation and emits ImGui notification UI

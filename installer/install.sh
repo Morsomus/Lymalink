@@ -81,6 +81,8 @@ FLATPAK_BUNDLE="$SCRIPT_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
 PATH_BLOCK_START="# >>> Lymalink installer PATH >>>"
 PATH_BLOCK_END="# <<< Lymalink installer PATH <<<"
 MISSING_LIBRARIES=()
+MISSING_I386_LIBRARIES=()
+MISSING_I386_RUNTIME=0
 INCOMPATIBLE_LIBRARIES=()
 MISSING_COMMANDS=()
 MISSING_PAYLOAD_FILES=()
@@ -174,6 +176,19 @@ add_unique_missing_library() {
     MISSING_LIBRARIES+=("$library")
 }
 
+add_unique_missing_i386_library() {
+    local library="$1"
+    local existing
+
+    for existing in "${MISSING_I386_LIBRARIES[@]}"; do
+        if [ "$existing" = "$library" ]; then
+            return
+        fi
+    done
+
+    MISSING_I386_LIBRARIES+=("$library")
+}
+
 add_missing_libraries_from_ldd() {
     local output="$1"
     local line
@@ -185,6 +200,23 @@ add_missing_libraries_from_ldd() {
                 library="$(printf '%s\n' "$line" | sed -E 's/^[[:space:]]*([^[:space:]]+)[[:space:]]+=>[[:space:]]+not found.*$/\1/')"
                 if [ -n "$library" ] && [ "$library" != "$line" ]; then
                     add_unique_missing_library "$library"
+                fi
+                ;;
+        esac
+    done <<< "$output"
+}
+
+add_missing_i386_libraries_from_ldd() {
+    local output="$1"
+    local line
+    local library
+
+    while IFS= read -r line; do
+        case "$line" in
+            *"not found"*)
+                library="$(printf '%s\n' "$line" | sed -E 's/^[[:space:]]*([^[:space:]]+)[[:space:]]+=>[[:space:]]+not found.*$/\1/')"
+                if [ -n "$library" ] && [ "$library" != "$line" ]; then
+                    add_unique_missing_i386_library "$library"
                 fi
                 ;;
         esac
@@ -422,6 +454,42 @@ package_for_command() {
     esac
 }
 
+package_for_i386_library() {
+    local package_manager="$1"
+    local library="$2"
+
+    case "$package_manager:$library" in
+        apt:libvulkan.so.*) echo "libvulkan1:i386" ;;
+        apt:libgdk_pixbuf-2.0.so.*) echo "libgdk-pixbuf-2.0-0:i386" ;;
+        apt:libglib-2.0.so.*|apt:libgobject-2.0.so.*|apt:libgio-2.0.so.*) echo "libglib2.0-0:i386" ;;
+        apt:libGL.so.*) echo "libgl1:i386" ;;
+        apt:libEGL.so.*) echo "libegl1:i386" ;;
+        apt:libstdc++.so.*) echo "libstdc++6:i386" ;;
+
+        dnf:libvulkan.so.*) echo "vulkan-loader.i686" ;;
+        dnf:libgdk_pixbuf-2.0.so.*) echo "gdk-pixbuf2.i686" ;;
+        dnf:libglib-2.0.so.*|dnf:libgobject-2.0.so.*|dnf:libgio-2.0.so.*) echo "glib2.i686" ;;
+        dnf:libGL.so.*) echo "libglvnd-glx.i686" ;;
+        dnf:libEGL.so.*) echo "libglvnd-egl.i686" ;;
+        dnf:libstdc++.so.*) echo "libstdc++.i686" ;;
+
+        zypper:libvulkan.so.*) echo "libvulkan1-32bit" ;;
+        zypper:libgdk_pixbuf-2.0.so.*) echo "libgdk_pixbuf-2_0-0-32bit" ;;
+        zypper:libglib-2.0.so.*|zypper:libgobject-2.0.so.*|zypper:libgio-2.0.so.*) echo "libglib-2_0-0-32bit" ;;
+        zypper:libGL.so.*) echo "Mesa-libGL1-32bit" ;;
+        zypper:libEGL.so.*) echo "Mesa-libEGL1-32bit" ;;
+        zypper:libstdc++.so.*) echo "libstdc++6-32bit" ;;
+
+        pacman:libvulkan.so.*) echo "lib32-vulkan-icd-loader" ;;
+        pacman:libgdk_pixbuf-2.0.so.*) echo "lib32-gdk-pixbuf2" ;;
+        pacman:libglib-2.0.so.*|pacman:libgobject-2.0.so.*|pacman:libgio-2.0.so.*) echo "lib32-glib2" ;;
+        pacman:libGL.so.*|pacman:libEGL.so.*) echo "lib32-libglvnd" ;;
+        pacman:libstdc++.so.*) echo "lib32-gcc-libs" ;;
+
+        *) echo "" ;;
+    esac
+}
+
 add_unique_package() {
     local package="$1"
     shift
@@ -559,6 +627,79 @@ print_missing_library_help() {
     esac
 }
 
+print_missing_i386_library_help() {
+    local package_manager
+    local packages=()
+    local library
+    local package
+
+    package_manager="$(detect_package_manager)"
+
+    echo "==> Missing i386 libraries detected:" >&2
+    for library in "${MISSING_I386_LIBRARIES[@]}"; do
+        echo "    $library" >&2
+        package="$(package_for_i386_library "$package_manager" "$library")"
+        if [ -n "$package" ] && add_unique_package "$package" "${packages[@]}"; then
+            packages+=("$package")
+        fi
+    done
+
+    if [ -z "$package_manager" ] || [ "${#packages[@]}" -eq 0 ]; then
+        echo "==> Please install 32-bit/i386 packages that provide the missing libraries listed above, then run the installer again." >&2
+        return
+    fi
+
+    echo "==> Possible package install command:" >&2
+    case "$package_manager" in
+        apt)
+            echo "    sudo dpkg --add-architecture i386" >&2
+            echo "    sudo apt update" >&2
+            echo "    sudo apt install ${packages[*]}" >&2
+            ;;
+        dnf)
+            echo "    sudo dnf install ${packages[*]}" >&2
+            ;;
+        zypper)
+            echo "    sudo zypper install ${packages[*]}" >&2
+            ;;
+        pacman)
+            echo "    sudo pacman -S ${packages[*]}" >&2
+            ;;
+    esac
+}
+
+print_missing_i386_runtime_help() {
+    local package_manager
+
+    package_manager="$(detect_package_manager)"
+
+    echo "==> Missing 32-bit runtime loader support." >&2
+    echo "==> Installer cannot inspect i386 overlay dependencies until 32-bit libc/loader is installed." >&2
+    case "$package_manager" in
+        apt)
+            echo "==> Run these commands in order:" >&2
+            echo "    sudo dpkg --add-architecture i386" >&2
+            echo "    sudo apt update" >&2
+            echo "    sudo apt install libc6:i386" >&2
+            ;;
+        dnf)
+            echo "==> Possible package install command:" >&2
+            echo "    sudo dnf install glibc.i686" >&2
+            ;;
+        zypper)
+            echo "==> Possible package install command:" >&2
+            echo "    sudo zypper install glibc-32bit" >&2
+            ;;
+        pacman)
+            echo "==> Enable the pacman multilib repository if it is disabled, then run:" >&2
+            echo "    sudo pacman -S lib32-glibc" >&2
+            ;;
+        *)
+            echo "==> Install your distro's 32-bit libc/loader package, then run the installer again." >&2
+            ;;
+    esac
+}
+
 print_incompatible_library_help() {
     local library
 
@@ -629,6 +770,12 @@ check_ldd_output() {
     return "$missing"
 }
 
+ldd_output_has_runtime_issue() {
+    local output="$1"
+
+    printf '%s\n' "$output" | grep -Eq 'version `.* not found|=>[[:space:]]*not found'
+}
+
 check_frontend_ldd_output() {
     local artifact="$1"
     local output="$2"
@@ -649,6 +796,13 @@ check_frontend_ldd_output() {
     fi
 
     return "$missing"
+}
+
+is_i386_overlay_payload() {
+    case "$1" in
+        "$SCRIPT_DIR/lib/i386-linux-gnu/"*.so) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 check_frontend_elf_dependencies() {
@@ -684,17 +838,36 @@ check_native_elf_dependencies() {
         "$SCRIPT_DIR/bin/lymalinkd" \
         "$SCRIPT_DIR/lib/lymalink-overlay.so" \
         "$SCRIPT_DIR/lib/lymalink-overlay-opengl.so" \
-        "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so"; do
+        "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so" \
+        "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay.so" \
+        "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so" \
+        "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so"; do
         if ! output="$(ldd "$artifact" 2>&1)"; then
-            if ! printf '%s\n' "$output" | grep -Eq 'version `.* not found|=>[[:space:]]*not found'; then
+            if is_i386_overlay_payload "$artifact" && ! ldd_output_has_runtime_issue "$output"; then
+                MISSING_I386_RUNTIME=1
+                missing=1
+                continue
+            fi
+            if ! ldd_output_has_runtime_issue "$output"; then
                 echo "==> ERROR: Unable to inspect runtime dependencies for $artifact" >&2
                 printf '%s\n' "$output" >&2
                 exit 1
             fi
         fi
 
-        if ! check_ldd_output "$artifact" "$output"; then
-            missing=1
+        if is_i386_overlay_payload "$artifact"; then
+            if printf '%s\n' "$output" | grep -q 'version `.* not found'; then
+                add_incompatible_libraries_from_ldd "$output"
+                missing=1
+            fi
+            if printf '%s\n' "$output" | grep -q '=>[[:space:]]*not found'; then
+                add_missing_i386_libraries_from_ldd "$output"
+                missing=1
+            fi
+        else
+            if ! check_ldd_output "$artifact" "$output"; then
+                missing=1
+            fi
         fi
     done
 
@@ -714,6 +887,14 @@ fail_if_runtime_missing() {
         failed=1
     fi
 
+    if [ "${#MISSING_I386_LIBRARIES[@]}" -ne 0 ]; then
+        failed=1
+    fi
+
+    if [ "$MISSING_I386_RUNTIME" -ne 0 ]; then
+        failed=1
+    fi
+
     if [ "$failed" -ne 0 ]; then
         if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ]; then
             print_incompatible_library_help
@@ -723,6 +904,18 @@ fail_if_runtime_missing() {
                 echo "" >&2
             fi
             print_missing_library_help
+        fi
+        if [ "${#MISSING_I386_LIBRARIES[@]}" -ne 0 ]; then
+            if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ] || [ "${#MISSING_LIBRARIES[@]}" -ne 0 ]; then
+                echo "" >&2
+            fi
+            print_missing_i386_library_help
+        fi
+        if [ "$MISSING_I386_RUNTIME" -ne 0 ]; then
+            if [ "${#INCOMPATIBLE_LIBRARIES[@]}" -ne 0 ] || [ "${#MISSING_LIBRARIES[@]}" -ne 0 ] || [ "${#MISSING_I386_LIBRARIES[@]}" -ne 0 ]; then
+                echo "" >&2
+            fi
+            print_missing_i386_runtime_help
         fi
         echo "==> Fix the reported runtime dependency issue and run the installer again." >&2
         exit 1
@@ -860,7 +1053,11 @@ for payload_file in \
     "$SCRIPT_DIR/lib/lymalink-overlay.so" \
     "$SCRIPT_DIR/lib/lymalink-overlay-opengl.so" \
     "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so" \
-    "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.json" \
+    "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay.so" \
+    "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so" \
+    "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so" \
+    "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
+    "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" \
     "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/lymalink.png" \
     "$SCRIPT_DIR/share/applications/lymalink.desktop" \
     "$SCRIPT_DIR/share/Lymalink/64x64-lymalink-test-icon.png" \
@@ -888,7 +1085,7 @@ fail_if_runtime_missing
 echo "==> Installing Lymalink files..."
 rm -rf "$SOUND_DIR"
 rm -rf "$FRONTEND_DIR"
-mkdir -p "$BIN_DIR" "$LIB_DIR" "$APP_LIB_DIR" "$FRONTEND_DIR" "$SERVICE_DIR" "$VULKAN_DIR" "$ICON_DIR" "$APPLICATION_DIR" "$SOUND_DIR"
+mkdir -p "$BIN_DIR" "$LIB_DIR" "$LIB_DIR/i386-linux-gnu" "$APP_LIB_DIR" "$FRONTEND_DIR" "$SERVICE_DIR" "$VULKAN_DIR" "$ICON_DIR" "$APPLICATION_DIR" "$SOUND_DIR"
 rm -f "$APP_DATA_DIR/.installer-sounds" "$APP_DATA_DIR/.backend-sounds"
 install -m 755 "$SCRIPT_DIR/bin/Lymalink" "$BIN_DIR/Lymalink"
 install -m 755 "$SCRIPT_DIR/bin/lymalinkd" "$BIN_DIR/lymalinkd"
@@ -898,7 +1095,12 @@ cp -a "$SCRIPT_DIR/lib/lymalink/frontend/." "$FRONTEND_DIR/"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay.so" "$LIB_DIR/lymalink-overlay.so"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay-opengl.so" "$LIB_DIR/lymalink-overlay-opengl.so"
 install -m 755 "$SCRIPT_DIR/lib/lymalink-overlay-preloader.so" "$LIB_DIR/lymalink-overlay-preloader.so"
-install -m 644 "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.json" "$VULKAN_DIR/lymalink_overlay.json"
+install -m 755 "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay.so" "$LIB_DIR/i386-linux-gnu/lymalink-overlay.so"
+install -m 755 "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so" "$LIB_DIR/i386-linux-gnu/lymalink-overlay-opengl.so"
+install -m 755 "$SCRIPT_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so" "$LIB_DIR/i386-linux-gnu/lymalink-overlay-preloader.so"
+rm -f "$VULKAN_DIR/lymalink_overlay.json"
+install -m 644 "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" "$VULKAN_DIR/lymalink_overlay.x86_64.json"
+install -m 644 "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" "$VULKAN_DIR/lymalink_overlay.x86.json"
 install -m 644 "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/lymalink.png" "$ICON_DIR/lymalink.png"
 install -m 644 "$SCRIPT_DIR/share/applications/lymalink.desktop" "$APPLICATION_DIR/lymalink.desktop"
 install -m 644 "$SCRIPT_DIR/share/Lymalink/64x64-lymalink-test-icon.png" "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
@@ -909,7 +1111,8 @@ for sound_file in "$SCRIPT_DIR/share/Lymalink/sounds/"*.ogg; do
     install -m 644 "$sound_file" "$SOUND_DIR/$sound_name"
 done
 
-replace_home_placeholder "$VULKAN_DIR/lymalink_overlay.json"
+replace_home_placeholder "$VULKAN_DIR/lymalink_overlay.x86_64.json"
+replace_home_placeholder "$VULKAN_DIR/lymalink_overlay.x86.json"
 replace_home_placeholder "$APPLICATION_DIR/lymalink.desktop"
 replace_home_placeholder "$SERVICE_DIR/lymalinkd.service"
 

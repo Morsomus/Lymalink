@@ -47,7 +47,7 @@ public:
 
     // Called from VulkanOverlayLayer before vkQueuePresentKHR
     // Records and submits a command buffer that renders ImGui draw data on top of the swapchain image at pPresentInfo->pImageIndices[0]
-    void RenderDrawData(VkQueue presentQueue, const VkPresentInfoKHR* pPresentInfo, ImDrawData* drawData);
+    VkSemaphore RenderDrawData(VkQueue presentQueue, const VkPresentInfoKHR* pPresentInfo, ImDrawData* drawData);
     inline bool IsReady() const { return m_ready; }
     inline VkCommandPool GetCommandPool() const { return m_commandPool; }
     inline VkDescriptorPool GetDescriptorPool() const { return m_descriptorPool; }

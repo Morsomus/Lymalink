@@ -195,18 +195,18 @@ void VulkanOverlayRenderer::Shutdown()
 /////////////////////////////////////////////////////////////////////
 
 // Primary render loop method hooked into the host application's present framework
-void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresentInfoKHR* pPresentInfo, ImDrawData* drawData)
+VkSemaphore VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresentInfoKHR* pPresentInfo, ImDrawData* drawData)
 {
     if (!m_ready || !drawData)
     {
-        return;
+        return VK_NULL_HANDLE;
     }
 
     // Use the first swapchain image index from the present info
     if (!pPresentInfo || pPresentInfo->swapchainCount == 0 || !pPresentInfo->pImageIndices)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] invalid present info.");
-        return;
+        return VK_NULL_HANDLE;
     }
 
     // Retrieve active swapchain backbuffer index being prepared for screen presentation
@@ -218,17 +218,17 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
         imgIdx >= static_cast<uint32_t>(m_info.swapchainImages.size()))
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] image index out of range index=" + std::to_string(imgIdx));
-        return;
+        return VK_NULL_HANDLE;
     }
     if (presentQueue == VK_NULL_HANDLE)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] present queue is null.");
-        return;
+        return VK_NULL_HANDLE;
     }
     if (pPresentInfo->waitSemaphoreCount > 0 && !pPresentInfo->pWaitSemaphores)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] waitSemaphoreCount is non-zero but pWaitSemaphores is null.");
-        return;
+        return VK_NULL_HANDLE;
     }
 
     VkCommandBuffer cmd = m_commandBuffers[imgIdx];
@@ -239,19 +239,19 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkWaitForFences failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
     result = vkResetFences(m_device, 1, &fence);
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkResetFences failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
     result = vkResetCommandBuffer(cmd, 0);
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkResetCommandBuffer failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
 
     // Record
@@ -262,7 +262,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkBeginCommandBuffer failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
 
     // Transition image layout: PRESENT_SRC -> COLOR_ATTACHMENT_OPTIMAL
@@ -317,7 +317,7 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkEndCommandBuffer failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
 
     // Submit - wait on the game's own semaphores, signal ours
@@ -338,14 +338,12 @@ void VulkanOverlayRenderer::RenderDrawData(VkQueue presentQueue, const VkPresent
     if (result != VK_SUCCESS)
     {
         LYMALINK_LOG("[VulkanOverlayRenderer][RenderDrawData] vkQueueSubmit failed result=" + std::to_string(result));
-        return;
+        return VK_NULL_HANDLE;
     }
 
-    // Patch the present info so the compositor waits on our semaphore, not the game's - ensures overlay is visible before the flip
-    // We cast away const here deliberately, the present call happens immediately after RenderDrawData returns in the hook
-    auto* mutablePresent = const_cast<VkPresentInfoKHR*>(pPresentInfo);
-    mutablePresent->waitSemaphoreCount = 1;
-    mutablePresent->pWaitSemaphores = &m_renderFinished[imgIdx];
+    // The caller forwards a local copy of VkPresentInfoKHR that waits on this
+    // semaphore, keeping the game's original present struct untouched.
+    return m_renderFinished[imgIdx];
 }
 
 /////////////////////////////////////////////////////////////////////

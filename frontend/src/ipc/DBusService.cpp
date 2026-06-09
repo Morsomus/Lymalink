@@ -19,6 +19,8 @@
 #include <QTimer>
 #include <QVariant>
 
+#define STARTUP_PING_DELAY_MS 6000
+
 /////////////////////////////////////////////////////////////////////
 
 DBusService::DBusService(QObject *parent) : QObject(parent)
@@ -40,7 +42,6 @@ DBusService::DBusService(QObject *parent) : QObject(parent)
     m_pingTimer = new QTimer(this);
     m_pingTimer->setInterval(m_pingIntervalMs);
     connect(m_pingTimer, &QTimer::timeout, this, &DBusService::PingBackend);
-    m_pingTimer->start();
 
     // Delay active target refresh until daemon has finished state transitions
     m_activeTargetsRequestTimer = new QTimer(this);
@@ -50,7 +51,6 @@ DBusService::DBusService(QObject *parent) : QObject(parent)
 
     // Subscribe and bootstrap daemon state immediately for first UI paint
     ConnectDaemonSignals();
-    PingBackend();
     if (!m_serviceActive)
     {
         StartService();
@@ -97,6 +97,7 @@ void DBusService::PingBackend()
     {
         return;
     }
+    m_pingTimer->setInterval(m_pingIntervalMs);
 
     // Ping session bus to detect daemon availability without blocking UI
     QDBusConnection sessionBus = QDBusConnection::sessionBus();
@@ -128,14 +129,15 @@ bool DBusService::StartService()
     bool serviceStarted = false;
 
     // Show starting state while systemd processes StartUnit
-    ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(true);
+    m_pingTimer->start(STARTUP_PING_DELAY_MS);
     serviceStarted = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
     if (!serviceStarted)
     {
         qWarning() << "DBusService::StartService: failed to call StartUnit";
         SetServiceStarting(false);
+        ResetPingTimer();
     }
     return serviceStarted;
 }
@@ -298,8 +300,12 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
 
     if (reply.isError())
     {
-        qWarning() << "DBusService::OnPingFinished: ping failed:" << reply.error().message();
-        SetLastError(reply.error().message());
+        const QDBusError error = reply.error();
+        if (!m_serviceStarting || error.type() != QDBusError::ServiceUnknown)
+        {
+            qWarning() << "DBusService::OnPingFinished: ping failed:" << error.message();
+            SetLastError(error.message());
+        }
         SetServiceAvailable(false);
         return;
     }

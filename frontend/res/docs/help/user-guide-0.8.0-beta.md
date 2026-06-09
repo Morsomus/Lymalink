@@ -136,9 +136,12 @@ Hidden targets disappear from normal Dashboard view. To show one again:
 ###
 ### 🔔 Achievement Notifications
 
-Achievement notifications appear as an in-game overlay. Vulkan games should work automatically. OpenGL games need an extra launch setting:
-
-**Note:** After modifying any launch options or environment variables or updating Lymalink, make sure to restart Steam, Heroic, Bottles and/or Wine (wineserver -k) for the changes to take effect properly.
+For new games, it is highly recommended to verify that achievement overlay notifications are working correctly. First, configure any required launcher-specific environment variables as described below. After adding or modifying environment variables, or after updating Lymalink, restart the game launcher. If you are using Wine, you may alternatively restart the Wine environment with 'wineserver -k'
+###
+To test notifications, start the game in windowed mode and use the **Send Test** button on the Settings page. A notification popup should appear inside the game. It is recommended to send several test notifications to verify stability and correct positioning.
+###
+If notification popups cause crashes or other issues, please open an issue.
+###
 
 **Note:** Flatpak support is currently limited to launchers listed below.
 

@@ -94,7 +94,6 @@ private:
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
     std::string ResolveDatabasePath() const;
-    std::string ResolveInstalledVulkanOverlayManifestPath() const;
     std::vector<std::string> ResolveInstalledVulkanOverlayManifestPaths() const;
     std::vector<std::string> ResolveInstalledFlatpakVulkanOverlayManifestPaths() const;
     void SetVulkanOverlayManifestEnableEnvironment(bool enabled);

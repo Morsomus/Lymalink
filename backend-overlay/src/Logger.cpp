@@ -11,6 +11,7 @@
 #ifndef LYMALINK_OVERLAY_DISABLE_LOGGING
 
 #include <cstdio>
+#include <cstdint>
 #include <ctime>
 #include <cstring>
 #include <fcntl.h>
@@ -19,6 +20,15 @@
 namespace
 {
 constexpr const char* LOG_PATH = "/tmp/lymalink-overlay.log";
+
+constexpr const char* OverlayArch()
+{
+#if INTPTR_MAX == INT64_MAX
+    return "x86_64";
+#else
+    return "i386";
+#endif
+}
 }
 
 void Logger::Log(const std::string& msg)
@@ -56,7 +66,7 @@ void Logger::Log(const std::string& msg)
 __attribute__((constructor))
 static void OnOverlayLibraryLoaded()
 {
-    LYMALINK_LOG("[OverlayLibrary] Loaded");
+    LYMALINK_LOG(std::string("[OverlayLibrary] Loaded arch=") + OverlayArch());
 }
 
 __attribute__((destructor))

@@ -92,6 +92,19 @@ void OverlayReceiver::Shutdown()
 
 /////////////////////////////////////////////////////////////////////
 
+void OverlayReceiver::InvalidateVulkanResources()
+{
+    DestroyVulkanIconTexture();
+    m_vkDevice = VK_NULL_HANDLE;
+    m_vkPhysicalDevice = VK_NULL_HANDLE;
+    m_vkQueue = VK_NULL_HANDLE;
+    m_vkCommandPool = VK_NULL_HANDLE;
+    m_vkGetPhysicalDeviceMemoryProperties = nullptr;
+    m_vulkanReady = false;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeight)
 {
     m_fbWidth = fbWidth;
@@ -740,9 +753,14 @@ void OverlayReceiver::DrawNotificationWindow()
         // Render graphics API native texture descriptor if valid
         if (hasIconTexture)
         {
+#if UINTPTR_MAX == UINT64_MAX
+            const ImTextureID vulkanTexId = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(m_vkIconDescSet));
+#else
+            const ImTextureID vulkanTexId = static_cast<ImTextureID>(m_vkIconDescSet);
+#endif
             const ImTextureID texId = m_openGLReady
                 ? static_cast<ImTextureID>(static_cast<uintptr_t>(m_iconTextureId))
-                : static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(m_vkIconDescSet));
+                : vulkanTexId;
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, m_iconAlpha));
             ImGui::Image(texId, targetSize, ImVec2(0,0), ImVec2(1,1));
             ImGui::PopStyleColor();
@@ -1155,6 +1173,12 @@ void OverlayReceiver::DestroyVulkanIconTexture()
 #ifndef LYMALINK_OVERLAY_OPENGL_TEXTURES
     if (m_vkDevice == VK_NULL_HANDLE)
     {
+        m_vkIconDescSet = VK_NULL_HANDLE;
+        m_vkIconSampler = VK_NULL_HANDLE;
+        m_vkIconImageView = VK_NULL_HANDLE;
+        m_vkIconImage = VK_NULL_HANDLE;
+        m_vkIconMemory = VK_NULL_HANDLE;
+        m_loadedIconPath.clear();
         return;
     }
 

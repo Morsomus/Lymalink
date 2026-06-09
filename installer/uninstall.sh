@@ -101,13 +101,25 @@ rm -f \
     "$LIB_DIR/lymalink-overlay-preloader.so" \
     "$SERVICE_DIR/lymalinkd.service" \
     "$VULKAN_DIR/lymalink_overlay.json" \
+    "$VULKAN_DIR/lymalink_overlay.x86_64.json" \
+    "$VULKAN_DIR/lymalink_overlay.x86.json" \
     "$ICON_DIR/lymalink.png" \
     "$APPLICATION_DIR/lymalink.desktop" \
     "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
 
+rm -f \
+    "$LIB_DIR/x86_64-linux-gnu/lymalink-overlay.so" \
+    "$LIB_DIR/x86_64-linux-gnu/lymalink-overlay-opengl.so" \
+    "$LIB_DIR/x86_64-linux-gnu/lymalink-overlay-preloader.so" \
+    "$LIB_DIR/i386-linux-gnu/lymalink-overlay.so" \
+    "$LIB_DIR/i386-linux-gnu/lymalink-overlay-opengl.so" \
+    "$LIB_DIR/i386-linux-gnu/lymalink-overlay-preloader.so"
+
 rm -rf "$SOUND_DIR"
 rm -rf "$FRONTEND_DIR"
 rm -f "$APP_DATA_DIR/.installer-sounds" "$APP_DATA_DIR/.backend-sounds"
+rmdir "$LIB_DIR/x86_64-linux-gnu" >/dev/null 2>&1 || true
+rmdir "$LIB_DIR/i386-linux-gnu" >/dev/null 2>&1 || true
 rmdir "$APP_LIB_DIR" >/dev/null 2>&1 || true
 rmdir "$APP_DATA_DIR" >/dev/null 2>&1 || true
 

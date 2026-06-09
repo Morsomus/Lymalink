@@ -2,7 +2,7 @@
 
 **Achievement tracker for Steam emulators, Steam/Cloud APIs, and fully custom targets.**
 
-> The **v0.8.0-beta** release is now available for Linux. See the [Installation](#installation) section to get started, explore the [Features](#features) to see what's included, and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md) for configuration, usage instructions, and FAQ.
+> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started, explore the [Features](#features) to see what's included, and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md) for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
@@ -66,7 +66,7 @@ The frontend provides a clean interface for viewing progress and managing settin
 
 ## Features
 
-> **v0.8.0-beta** release.
+> **v0.8.*-beta** release.
 
 - **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
 - **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions.
@@ -94,14 +94,16 @@ chmod +x lymalink-installer-*.run
 ./lymalink-installer-*.run
 ```
 
-**Please follow the instructions provided by the installer. If prompted, install any missing system dependencies required by the installer to ensure the installation can be successfully completed.**
+**Please follow the instructions provided by the installer. If additional dependencies are required, install them and re-run the installer until installation completes successfully.**
 
 > **Note:** To uninstall while keeping your configuration and achievement data files, run `~/.local/bin/uninstall-lymalink`.
+
+> **Note:** To update an existing installation, run the latest installer. User data and configuration will be preserved.
 
 ### Option 2: Building from Source
 
 ```bash
-git clone https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.8.1-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -114,7 +116,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/build.sh
-./installer/build/lymalink-installer-0.8.0-*-x86_64.run
+./installer/build/lymalink-installer-0.8.1-*-x86_64.run
 ```
 
 

@@ -965,25 +965,6 @@ std::string Lymalinkd::ResolveDatabasePath() const
 
 /////////////////////////////////////////////////////////////////////
 
-std::string Lymalinkd::ResolveInstalledVulkanOverlayManifestPath() const
-{
-    // Check for an environment variable override
-    if (const char* overridePath = std::getenv("LYMALINK_OVERLAY_MANIFEST_PATH"))
-    {
-        if (*overridePath != '\0')
-        {
-            LOG_BE(Urgency::Info, "Vulkan overlay manifest path overridden via environment variable: %s", overridePath);
-            return std::string(overridePath);
-        }
-    }
-
-    std::string defaultPath = ResolveDataPath("vulkan/implicit_layer.d/lymalink_overlay.json");
-    LOG_BE(Urgency::Debug, "Vulkan overlay manifest path resolved to: %s", defaultPath.c_str());
-    return defaultPath;
-}
-
-/////////////////////////////////////////////////////////////////////
-
 std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifestPaths() const
 {
     std::vector<std::string> manifestPaths;
@@ -1025,8 +1006,9 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
             continue;
         }
 
-        // Collect paths matching the specific filename
-        if (entry.path().filename() == "lymalink_overlay.x86_64.json")
+        // Collect paths matching the Flatpak VulkanLayer architecture manifests.
+        const std::string filename = entry.path().filename().string();
+        if (filename == "lymalink_overlay.x86_64.json" || filename == "lymalink_overlay.x86.json")
         {
             manifestPaths.push_back(entry.path().string());
             LOG_BE(Urgency::Info, "Found Flatpak Vulkan overlay manifest: %s", entry.path().string().c_str());
@@ -1049,11 +1031,15 @@ std::vector<std::string> Lymalinkd::ResolveInstalledVulkanOverlayManifestPaths()
 {
     std::vector<std::string> manifestPaths;
 
-    // Collect the primary host manifest path
-    const std::string hostManifestPath = ResolveInstalledVulkanOverlayManifestPath();
-    if (!hostManifestPath.empty())
+    const std::filesystem::path hostManifestDir = ResolveDataPath("vulkan/implicit_layer.d");
+    for (const char* filename : {"lymalink_overlay.x86_64.json", "lymalink_overlay.x86.json"})
     {
-        manifestPaths.push_back(hostManifestPath);
+        const std::filesystem::path manifestPath = hostManifestDir / filename;
+        if (std::filesystem::exists(manifestPath))
+        {
+            manifestPaths.push_back(manifestPath.string());
+            LOG_BE(Urgency::Info, "Found host Vulkan overlay manifest: %s", manifestPath.string().c_str());
+        }
     }
 
     // Append all discovered Flatpak manifest paths
