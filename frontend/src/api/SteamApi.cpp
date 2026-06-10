@@ -318,8 +318,8 @@ Error SteamApi::GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<Q
 
     // Build CDN fallback list for community icon
     const QString appIdString = QString::number(appId);
-    urls.append(QString("https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2").arg(appIdString, normalizedFileName));
     urls.append(QString("https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/%1/%2").arg(appIdString, normalizedFileName));
+    urls.append(QString("https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2").arg(appIdString, normalizedFileName));
     urls.append(QString("https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/%1/%2").arg(appIdString, normalizedFileName));
     urls.append(QString("https://shared.cloudflare.steamstatic.com/community_assets/images/apps/%1/%2").arg(appIdString, normalizedFileName));
     urls.append(QString("https://shared.fastly.steamstatic.com/community_assets/images/apps/%1/%2").arg(appIdString, normalizedFileName));
@@ -355,8 +355,8 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
     // Use all known Steam community CDN hostnames as fallback sources
     const QString appIdString = QString::number(appId);
     const QStringList urlFormats = {
-        "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
         "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
+        "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
         "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
         "https://shared.cloudflare.steamstatic.com/community_assets/images/apps/%1/%2",
         "https://shared.fastly.steamstatic.com/community_assets/images/apps/%1/%2",

@@ -8,9 +8,9 @@
 
 ## Overview
 
-Lymalink is a cross-platform application designed to monitor local game achievement files and synchronize data through cloud APIs. It provides a unified solution for tracking milestones across local achievement files and official environments alike. Beyond gaming, the platform offers the flexibility to create custom achievements which can be tracked from various sources. At its core runs a lightweight background daemon (`lymalinkd`) responsible for file monitoring and delivering in-game overlay notifications when achievements are detected.
+Lymalink is an open-source achievement tracker for Linux that brings together local achievement files, Steam-based data, cloud/API imports, and custom targets in one dashboard. It is built for users who want to track progress across different game setups, including emulator-based environments, official Steam achievement data, and personal achievement lists.
 
-The frontend provides a clean interface for viewing progress and managing settings, but is entirely optional. Once configured through the frontend, the daemon can run independently in the background without it. For users who prefer tighter control, Lymalink can also be configured to require the frontend to be open before the daemon is permitted to run.
+The application is split into Qt based frontend and a lightweight background daemon, lymalinkd. The frontend is used to manage targets, view progress, customize the interface, and configure behavior, while the daemon handles background tracking, playtime monitoring, notification sounds, and in-game overlay popups for Vulkan and OpenGL games. Once configured, the daemon can continue running without the frontend, or be kept tied to the frontend depending on the user’s preferred setup.
 
 ## Table of Contents
 
@@ -103,7 +103,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.8.1-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.8.2-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -116,7 +116,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/build.sh
-./installer/build/lymalink-installer-0.8.1-*-x86_64.run
+./installer/build/lymalink-installer-0.8.2-*-x86_64.run
 ```
 
 
@@ -146,6 +146,7 @@ Current progress towards different versions, platform-wise
 | &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | v0.8.0-beta |
 | **Compatibility & Testing** | 🚧 In Development | v1.0.0 |
 | &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | v1.0.0 |
 
 ### Windows
 | Component | Status |
@@ -159,10 +160,14 @@ Current progress towards different versions, platform-wise
 
 > The following features are planned and subject to change. Core tracking functionality is not listed here.
 
+- **Custom Targets** - Create and track achievements outside predefined game or platform integrations. Useful for personal milestones, challenge runs, custom game setups, and other progress-tracking workflows.
+- **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
+- **Steam Import Auto-Update** - Selectively refresh imported Steam achievement data to keep tracked progress up to date without user intervention.
 - **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
 - **Customizable UI** - Languages to choose from, switch between dark, light, and system themes to suit your preference and much more.
 - **Export & Import** - Move your achievement data between devices or back it up in open formats such as JSON or CSV.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
+- **Windows Support** - Bring Lymalink to Windows.
 
 ---
 

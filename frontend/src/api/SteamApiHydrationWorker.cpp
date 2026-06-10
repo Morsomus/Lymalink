@@ -391,7 +391,7 @@ QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &u
         if (err == Error::NoError && !cachedPath.isEmpty())
         {
             downloadedPath = cachedPath;
-            qDebug() << "SteamApiHydrationWorker::TryDownloadFirstWorking: downloaded" << newName << "from URL" << i + 1 << "/" << urlCount << "to" << downloadedPath;
+            qDebug() << "SteamApiHydrationWorker::TryDownloadFirstWorking: downloaded" << newName << "from URL (" << i + 1 << "/" << urlCount << ")" << url << "to" << downloadedPath;
             return downloadedPath;
         }
     }

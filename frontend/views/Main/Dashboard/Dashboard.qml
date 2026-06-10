@@ -718,9 +718,7 @@ Item {
 
             onTargetHiddenChanged: function(appId, targetType, hidden) {
                 if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId && id_root.pendingTargetDetails.targetType === targetType) {
-                    let details = id_root.pendingTargetDetails
-                    details.targetHidden = hidden
-                    id_root.pendingTargetDetails = details
+                    id_root.pendingTargetDetails = Object.assign({}, id_root.pendingTargetDetails, { targetHidden: hidden })
                 }
                 id_root.refreshTargets()
             }
