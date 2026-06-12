@@ -586,6 +586,7 @@ std::string OverlayReceiver::SocketDetectFlatpakPath() const
     }
 
     // Check if this specific Flatpak process/launcher should be ignored/blocked
+    // Prevent bleeding notifications from 'child processes'
     if (SocketIsBlockedFlatpakLauncherProcess(appId))
     {
         LYMALINK_LOG("[OverlayReceiver] Flatpak process ignored for app-id: " + appId);

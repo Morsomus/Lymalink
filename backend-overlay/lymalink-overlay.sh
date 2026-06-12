@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 #########################################################
-
+# File: lymalink-overlay.sh
+# Date: 2026-05-28
+# Author: Morsomus
+# Copyright: see /LICENSE
+# Description: Launcher script for OpenGL overlay preloading
+#              for Steam and Wine
+#
+#   Steam launch option: lymalink-overlay %command%
+#   Wine launching: lymalink-overlay wine executable.exe
 #########################################################
 
 set -e
 
-#########################################################
+##############################################################################
 
 # Resolve the correct home directory, handling special cases like Snap packages
 resolve_login_home() {
@@ -27,7 +35,7 @@ resolve_login_home() {
     printf '%s\n' "$HOME"
 }
 
-#########################################################
+##############################################################################
 
 add_preload() {
     local lib="$1"
@@ -44,7 +52,7 @@ add_preload() {
     esac
 }
 
-#########################################################
+##############################################################################
 
 LOGIN_HOME="$(resolve_login_home)"
 LIB_DIR="${LYMALINK_OVERLAY_LIB_DIR:-$LOGIN_HOME/.local/lib}"

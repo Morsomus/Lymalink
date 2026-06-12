@@ -109,6 +109,11 @@ Error Lymalinkd::Init()
     {
         LOG_BE(Urgency::Warning, "Overlay notifications unavailable.");
     }
+    else
+    {
+        // Start in paused, until running executable is detected
+        m_overlayNotifications.SetSocketPaused(true);
+    }
 
     err = m_notificationSound.Init(ResolveInstalledNotificationSoundPath());
     m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));

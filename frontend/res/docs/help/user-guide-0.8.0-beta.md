@@ -143,7 +143,7 @@ To test notifications, start the game in windowed mode and use the **Send Test**
 If notification popups cause crashes or other issues, please open an issue.
 ###
 
-**Note:** Flatpak support is currently limited to launchers listed below.
+**Note:** Based on current testing, the best overall compatibility is achieved using the **Flatpak version of Heroic Launcher**.
 
 **Note:** Replace **\<user\>** with your home directory username.
 
@@ -154,10 +154,8 @@ Type | Launcher | OpenGL setup |
 | --- | --- | --- |
 | **NATIVE** | **Wine command line** | Run: `lymalink-overlay wine "/path/to/game.exe"` |
 | **NATIVE** | **Steam** | Add launch option: `lymalink-overlay %command%` |
-| **FLATPAK** | **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
-| **NATIVE** | **Heroic Launcher** | Add environment variable: `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so` |
-| **FLATPAK** | **Bottles** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so` |
-| **NATIVE** | **Lutris** | Add environment variable (wine): `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so` |
+| **FLATPAK** | **Heroic Launcher** - **Bottles** - **Any other Flatpak** | Add environment variable: `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so:/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay-preloader.so` |
+| **NATIVE** | **Heroic Launcher** - **Lutris** - **Any other native** | Add environment variable - replace **\<user\>**: `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so:/home/<user>/.local/lib/i386-linux-gnu/lymalink-overlay-preloader.so` |
 
 ###
 # Frequently Asked Questions & Troubleshooting

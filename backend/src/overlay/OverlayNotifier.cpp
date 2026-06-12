@@ -13,10 +13,10 @@
 #include "tools/Utils.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cerrno>
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
@@ -61,7 +61,6 @@ bool OverlayNotifier::Init()
     const bool sharedMemoryReady = CreateSharedMemory();
     const bool socketReady = StartSocketServer();
     return sharedMemoryReady && socketReady;
-    return socketReady;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -78,6 +77,12 @@ void OverlayNotifier::SetSocketPaused(bool paused)
 {
     m_socketPaused.store(paused);
     m_socketWakeCv.notify_one();
+
+    if (paused)
+    {
+        LOG_BE(Urgency::Debug, "Pausing Flatpak socket transport, closing active sockets.");
+        CloseAllSocketEndpoints();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -295,19 +300,7 @@ void OverlayNotifier::StopSocketServer()
         m_socketThread.join();
     }
 
-    std::lock_guard<std::mutex> lock(m_socketMutex);
-    for (SocketServer& server : m_socketServers)
-    {
-        CloseSocketServer(server);
-    }
-    m_socketServers.clear();
-
-    // Close remaining client file descriptors
-    for (int clientFd : m_socketClients)
-    {
-        close(clientFd);
-    }
-    m_socketClients.clear();
+    CloseAllSocketEndpoints();
     
     LOG_BE(Urgency::Debug, "Flatpak socket server stopped.");
 }
@@ -357,6 +350,12 @@ void OverlayNotifier::SocketThread()
 
         const int pollResult = poll(pollFds.data(), pollFds.size(), 500);
         if (pollResult <= 0)
+        {
+            continue;
+        }
+
+        // Return to prevent accidentally reopening closed sockets
+        if (m_socketPaused.load())
         {
             continue;
         }
@@ -411,20 +410,42 @@ void OverlayNotifier::SocketThread()
 
 /////////////////////////////////////////////////////////////////////
 
+void OverlayNotifier::CloseAllSocketEndpoints()
+{
+    std::lock_guard<std::mutex> lock(m_socketMutex);
+
+    for (SocketServer& server : m_socketServers)
+    {
+        CloseSocketServer(server);
+    }
+    m_socketServers.clear();
+
+    // Close remaining client file descriptors
+    for (int clientFd : m_socketClients)
+    {
+        close(clientFd);
+    }
+    m_socketClients.clear();
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void OverlayNotifier::RefreshSocketServers()
 {
-    static constexpr std::array<const char*, 2> FLATPAK_APP_IDS = {
-        "com.heroicgameslauncher.hgl",
-        "com.usebottles.bottles"
-    };
+    const fs::path flatpakRuntimeDir = fs::path(ResolveRuntimeDir()) / "app";
+    const std::unordered_set<std::string> activeAppIds = ResolveActiveFlatpakAppIds();
 
-    // Remove servers whose Flatpak runtime directories no longer exist
     std::lock_guard<std::mutex> lock(m_socketMutex);
+
+    // Clean up stale socket servers
     for (auto it = m_socketServers.begin(); it != m_socketServers.end();)
     {
-        if (!fs::exists(fs::path(it->path).parent_path()))
+        const bool runtimeDirExists = fs::exists(fs::path(it->path).parent_path());
+        const bool appIsActive = activeAppIds.contains(it->appId);
+        // If either the runtime directory is gone or the app isn't active anymore, close it
+        if (!runtimeDirExists || !appIsActive)
         {
-            LOG_BE(Urgency::Debug, "Flatpak runtime directory removed, closing socket server for appId: %s", it->appId.c_str());
+            LOG_BE(Urgency::Debug, "Flatpak target inactive or runtime directory removed, closing socket server for appId: %s", it->appId.c_str());
             CloseSocketServer(*it);
             it = m_socketServers.erase(it);
         }
@@ -434,15 +455,41 @@ void OverlayNotifier::RefreshSocketServers()
         }
     }
 
-    // Bind new servers for any apps just detected
-    for (const char* appId : FLATPAK_APP_IDS)
+    // Exit if there are no active Flatpaks to process
+    if (activeAppIds.empty())
     {
-        const auto existing = std::find_if(m_socketServers.begin(), m_socketServers.end(), [appId](const SocketServer& server) {
+        static bool s_loggedNoFlatpaks = false;
+        if (!s_loggedNoFlatpaks)
+        {
+            LOG_BE(Urgency::Debug, "No active Flatpak applications reported by flatpak ps.");
+            s_loggedNoFlatpaks = true;
+        }
+        return;
+    }
+
+    if (m_socketPaused.load())
+    {
+        return;
+    }
+
+    // Look for new Flatpaks and spin up socket servers for them - requires: active app-id and visible per-app runtime dir
+    for (const std::string& appId : activeAppIds)
+    {
+        const fs::path appRuntimeDir = flatpakRuntimeDir / appId;
+        if (!fs::exists(appRuntimeDir))
+        {
+            continue;
+        }
+
+        // Check if we are already managing a socket for this appId
+        const auto existing = std::find_if(m_socketServers.begin(), m_socketServers.end(), [&appId](const SocketServer& server) {
             return server.appId == appId;
         });
+
+        // For new active target, create a new socket server
         if (existing == m_socketServers.end())
         {
-            LOG_BE(Urgency::Debug, "New Flatpak target detected, attempting to bind socket for appId: %s", appId);
+            LOG_BE(Urgency::Debug, "New active Flatpak target detected, attempting to bind socket for appId: %s", appId.c_str());
             BindSocketForApp(appId);
 
             // TODO: Remove
@@ -452,6 +499,56 @@ void OverlayNotifier::RefreshSocketServers()
             }
         }
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::unordered_set<std::string> OverlayNotifier::ResolveActiveFlatpakAppIds() const
+{
+    std::unordered_set<std::string> appIds;
+
+    // One app-id per line; duplicates can occur when an app has multiple running sandboxes
+    FILE* pipe = popen("flatpak ps --columns=application 2>/dev/null", "r");
+    if (!pipe)
+    {
+        // Log the failure only once to prevent log spamming
+        static bool s_loggedFlatpakPsFailed = false;
+        if (!s_loggedFlatpakPsFailed)
+        {
+            LOG_BE(Urgency::Debug, "Failed to run flatpak ps for active Flatpak discovery.");
+            s_loggedFlatpakPsFailed = true;
+        }
+        return appIds;
+    }
+
+    char buffer[512];
+    while (fgets(buffer, sizeof(buffer), pipe))
+    {
+        const std::string appId = Utils::TrimWhitespace(buffer);
+
+        if (appId.empty())
+        {
+            continue;
+        }
+
+        appIds.insert(appId);
+    }
+
+    // Close the pipe and get the command's exit status
+    const int exitCode = pclose(pipe);
+    if (exitCode != 0)
+    {
+        // Log the bad exit status once and clear results to ensure data validity
+        static bool s_loggedFlatpakPsExit = false;
+        if (!s_loggedFlatpakPsExit)
+        {
+            LOG_BE(Urgency::Debug, "flatpak ps exited with status %d during active Flatpak discovery.", exitCode);
+            s_loggedFlatpakPsExit = true;
+        }
+        appIds.clear();
+    }
+
+    return appIds;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -790,7 +887,7 @@ std::string OverlayNotifier::ResolveRuntimeDir() const
     {
         if (runtimeDir[0] != '\0')
         {
-            LOG_BE(Urgency::Debug, "XDG_RUNTIME_DIR detected: %s", runtimeDir);
+            // LOG_BE(Urgency::Debug, "XDG_RUNTIME_DIR detected: %s", runtimeDir);
             return runtimeDir;
         }
     }

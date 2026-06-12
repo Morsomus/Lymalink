@@ -9,6 +9,7 @@
 
 set -euo pipefail
 
+# Ensure the HOME environment variable
 if [ -z "${HOME:-}" ]; then
     echo "==> ERROR: HOME is not set." >&2
     exit 1
@@ -17,10 +18,12 @@ fi
 resolve_login_home() {
     local login_home=""
 
+    # Determine actual login home via getent if available
     if command -v getent >/dev/null 2>&1 && [ -n "${USER:-}" ]; then
         login_home="$(getent passwd "$USER" | cut -d: -f6)"
     fi
 
+    # Handle Snap-specific home path redirections
     if [ -n "$login_home" ] && [ "$HOME" != "$login_home" ]; then
         case "$HOME" in
             "$login_home"/snap/*) printf '%s\n' "$login_home"; return ;;
@@ -34,6 +37,7 @@ path_inside_snap_home() {
     local path="$1"
     local login_home="$2"
 
+    # Check if the provided path is contained within a Snap home directory
     case "$path" in
         "$login_home"/snap/*) return 0 ;;
         *) return 1 ;;
@@ -42,12 +46,14 @@ path_inside_snap_home() {
 
 LOGIN_HOME="$(resolve_login_home)"
 
+# Resolve XDG data home, avoiding Snap paths
 if [ -n "${XDG_DATA_HOME:-}" ] && ! path_inside_snap_home "$XDG_DATA_HOME" "$LOGIN_HOME"; then
     DATA_HOME="$XDG_DATA_HOME"
 else
     DATA_HOME="$LOGIN_HOME/.local/share"
 fi
 
+# Resolve XDG config home, avoiding Snap paths
 if [ -n "${XDG_CONFIG_HOME:-}" ] && ! path_inside_snap_home "$XDG_CONFIG_HOME" "$LOGIN_HOME"; then
     CONFIG_HOME="$XDG_CONFIG_HOME"
 else
@@ -68,14 +74,18 @@ FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
 PATH_BLOCK_START="# >>> Lymalink installer PATH >>>"
 PATH_BLOCK_END="# <<< Lymalink installer PATH <<<"
 
+##############################################################################
+
 remove_path_block() {
     local profile="$1"
     local temporary
 
+    # Skip if the file doesn't exist or doesn't contain the start marker
     if [ ! -f "$profile" ] || ! grep -Fq "$PATH_BLOCK_START" "$profile"; then
         return
     fi
 
+    # Use awk to filter out everything between the start and end markers
     temporary="${profile}.lymalink-tmp"
     awk -v start="$PATH_BLOCK_START" -v end="$PATH_BLOCK_END" '
         $0 == start { skip = 1; next }
@@ -85,13 +95,17 @@ remove_path_block() {
     mv "$temporary" "$profile"
 }
 
+##############################################################################
+
 echo "==> Removing Lymalink..."
 
+# Stop and disable the user-level systemd service if systemctl is available
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user stop lymalinkd.service >/dev/null 2>&1 || true
     systemctl --user disable lymalinkd.service >/dev/null 2>&1 || true
 fi
 
+# Remove binaries, shared libraries, service files, Vulkan layers, and desktop entries
 rm -f \
     "$BIN_DIR/Lymalink" \
     "$BIN_DIR/lymalinkd" \
@@ -107,6 +121,7 @@ rm -f \
     "$APPLICATION_DIR/lymalink.desktop" \
     "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
 
+# Remove overlay library files
 rm -f \
     "$LIB_DIR/x86_64-linux-gnu/lymalink-overlay.so" \
     "$LIB_DIR/x86_64-linux-gnu/lymalink-overlay-opengl.so" \
@@ -115,6 +130,7 @@ rm -f \
     "$LIB_DIR/i386-linux-gnu/lymalink-overlay-opengl.so" \
     "$LIB_DIR/i386-linux-gnu/lymalink-overlay-preloader.so"
 
+# Remove data directories and cleanup empty folders
 rm -rf "$SOUND_DIR"
 rm -rf "$FRONTEND_DIR"
 rm -f "$APP_DATA_DIR/.installer-sounds" "$APP_DATA_DIR/.backend-sounds"
@@ -123,27 +139,33 @@ rmdir "$LIB_DIR/i386-linux-gnu" >/dev/null 2>&1 || true
 rmdir "$APP_LIB_DIR" >/dev/null 2>&1 || true
 rmdir "$APP_DATA_DIR" >/dev/null 2>&1 || true
 
+# Uninstall the Lymalink Vulkan layer extension from Flatpak if installed
 if command -v flatpak >/dev/null 2>&1 \
     && flatpak info --user "$FLATPAK_EXTENSION_ID" >/dev/null 2>&1; then
     flatpak uninstall --user -y --noninteractive "$FLATPAK_EXTENSION_ID" || true
 fi
 
+# Clean up PATH additions from common shell profile files
 remove_path_block "$LOGIN_HOME/.bash_profile"
 remove_path_block "$LOGIN_HOME/.profile"
 remove_path_block "$LOGIN_HOME/.bashrc"
 
+# Refresh systemd user unit configurations if available
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
 
+# Refresh GTK icon cache if the utility is available
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$DATA_HOME/icons/hicolor" >/dev/null 2>&1 || true
 fi
 
+# Refresh desktop entry database if the utility is available
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPLICATION_DIR" >/dev/null 2>&1 || true
 fi
 
+# Self-destruct: remove the uninstaller binary itself
 rm -f "$BIN_DIR/uninstall-lymalink"
 
 echo "==> Lymalink uninstall done."

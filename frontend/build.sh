@@ -65,6 +65,7 @@ DESKTOP_FILE="$DEPLOY_DATA_DIR/applications/lymalink.desktop"
 
 APP_NAME="lymalink"
 ICON_NAME="$APP_NAME"
+MIN_QT_VERSION="6.8.0"
 
 # When enabled, build output is diverted to /tmp (RAMfs)
 BUILD_TO_TMP=0
@@ -79,6 +80,108 @@ _require_no_extra_args() {
         echo "==> ERROR: Too many options for $COMMAND."
         echo "==> Usage: $0 $COMMAND"
         exit 1
+    fi
+}
+
+##############################################################################
+
+check_qt_version() {
+    local qmake_path="$1"
+    local qt_version
+    local qt_major qt_minor qt_patch
+    local min_major min_minor min_patch
+
+    qt_version="$("$qmake_path" -query QT_VERSION)"
+    IFS=. read -r qt_major qt_minor qt_patch <<< "$qt_version"
+    IFS=. read -r min_major min_minor min_patch <<< "$MIN_QT_VERSION"
+    qt_patch="${qt_patch:-0}"
+    min_patch="${min_patch:-0}"
+
+    if (( qt_major > min_major ||
+        (qt_major == min_major && qt_minor > min_minor) ||
+        (qt_major == min_major && qt_minor == min_minor && qt_patch >= min_patch) )); then
+        return
+    fi
+
+    echo "==> ERROR: Qt $qt_version is too old for the frontend QML runtime." >&2
+    echo "==> Build the frontend with Qt >= $MIN_QT_VERSION." >&2
+    exit 1
+}
+
+##############################################################################
+
+resolve_qmake() {
+    local candidate
+
+    for candidate in qmake6 qmake; do
+        if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -query QT_INSTALL_PREFIX >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+
+    echo "==> ERROR: Could not find working Qt qmake." >&2
+    echo "==> Install Qt6 qmake tools, e.g. qt6-base-dev-tools, and verify: qmake6 -v" >&2
+    exit 1
+}
+
+##############################################################################
+
+validate_qt_version() {
+    local qmake_path
+
+    qmake_path="$(resolve_qmake)"
+    check_qt_version "$qmake_path"
+}
+
+##############################################################################
+
+terminate_process_by_name() {
+    local process_name="$1"
+    local pid_list=()
+    local pid
+
+    if command -v pgrep >/dev/null 2>&1; then
+        while IFS= read -r pid; do
+            pid_list+=("$pid")
+        done < <(pgrep -x "$process_name" 2>/dev/null || true)
+    elif command -v ps >/dev/null 2>&1; then
+        while IFS= read -r pid; do
+            pid_list+=("$pid")
+        done < <(ps -eo pid=,comm= | awk -v name="$process_name" '$2 == name { print $1 }')
+    fi
+
+    if [ "${#pid_list[@]}" -eq 0 ]; then
+        return
+    fi
+
+    echo "==> Stopping running $process_name processes: ${pid_list[*]}"
+    kill -TERM "${pid_list[@]}" >/dev/null 2>&1 || true
+
+    if command -v pgrep >/dev/null 2>&1; then
+        for _ in {1..10}; do
+            if ! pgrep -x "$process_name" >/dev/null 2>&1; then
+                return
+            fi
+            sleep 1
+        done
+
+        echo "==> Forcing $process_name shutdown."
+        pkill -KILL -x "$process_name" >/dev/null 2>&1 || true
+        return
+    fi
+
+    sleep 1
+    pid_list=()
+    if command -v ps >/dev/null 2>&1; then
+        while IFS= read -r pid; do
+            pid_list+=("$pid")
+        done < <(ps -eo pid=,comm= | awk -v name="$process_name" '$2 == name { print $1 }')
+    fi
+
+    if [ "${#pid_list[@]}" -ne 0 ]; then
+        echo "==> Forcing $process_name shutdown."
+        kill -KILL "${pid_list[@]}" >/dev/null 2>&1 || true
     fi
 }
 
@@ -103,6 +206,8 @@ build() {
     local MODE="$1"
     local MODE_LOWER
     MODE_LOWER="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
+
+    validate_qt_version
 
     if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
         local BUILD_DIR="/tmp/lymalink-build/${MODE_LOWER}"
@@ -159,6 +264,8 @@ deploy() {
     fi
 
     local BINARY_PATH="$BUILD_DIR/bin/Lymalink"
+
+    terminate_process_by_name "Lymalink"
 
     # Copy and strip release binary
     mkdir -p "$DEPLOY_BIN_DIR"

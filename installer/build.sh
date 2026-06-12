@@ -9,12 +9,6 @@
 
 set -euo pipefail
 
-if [ "$#" -gt 0 ]; then
-    echo "==> ERROR: Installer build does not accept options." >&2
-    echo "==> Usage: $0" >&2
-    exit 1
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -102,6 +96,21 @@ REQUIRED_FRONTEND_QT_PLUGIN_FILES=(
     xcbglintegrations/libqxcb-glx-integration.so
 )
 
+##############################################################################
+
+_require_no_extra_args() {
+    local COMMAND="$1"
+    shift
+
+    if [ "$#" -gt 0 ]; then
+        echo "==> ERROR: Too many options for $COMMAND."
+        echo "==> Usage: $0 $COMMAND"
+        exit 1
+    fi
+}
+
+##############################################################################
+
 require_command() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "==> ERROR: Required command not found: $1" >&2
@@ -109,12 +118,16 @@ require_command() {
     fi
 }
 
+##############################################################################
+
 require_file() {
     if [ ! -f "$1" ]; then
         echo "==> ERROR: Required build artifact not found: $1" >&2
         exit 1
     fi
 }
+
+##############################################################################
 
 validate_elf_class() {
     local artifact="$1"
@@ -131,6 +144,8 @@ validate_elf_class() {
     fi
 }
 
+##############################################################################
+
 validate_overlay_artifact_set() {
     local directory="$1"
     local expected_class="$2"
@@ -143,11 +158,14 @@ validate_overlay_artifact_set() {
     done
 }
 
+##############################################################################
+
 detect_build_host_tag() {
     local distro_id=""
     local distro_version=""
     local host_tag=""
 
+    # Read distribution metadata from os-release when available
     if [ -r /etc/os-release ]; then
         # shellcheck disable=SC1091
         . /etc/os-release
@@ -155,6 +173,7 @@ detect_build_host_tag() {
         distro_version="${VERSION_ID:-}"
     fi
 
+    # Build a host identifier from distro name and version
     if [ -n "$distro_id" ] && [ -n "$distro_version" ]; then
         host_tag="${distro_id}${distro_version}"
     elif [ -n "$distro_id" ]; then
@@ -163,8 +182,11 @@ detect_build_host_tag() {
         host_tag="linux"
     fi
 
+    # Remove characters that are unsafe for file or directory names
     printf '%s\n' "$host_tag" | sed 's/[^A-Za-z0-9._-]//g'
 }
+
+##############################################################################
 
 check_qt_version() {
     local qmake_path="$1"
@@ -189,6 +211,8 @@ check_qt_version() {
     exit 1
 }
 
+##############################################################################
+
 resolve_qmake() {
     local candidate
 
@@ -203,6 +227,8 @@ resolve_qmake() {
     echo "==> Install Qt6 qmake tools, e.g. qt6-base-dev-tools, and verify: qmake6 -v" >&2
     exit 1
 }
+
+##############################################################################
 
 write_vulkan_manifest() {
     local destination="$1"
@@ -235,6 +261,8 @@ write_vulkan_manifest() {
 EOF
 }
 
+##############################################################################
+
 copy_frontend_icu_runtime() {
     local destination="$1"
     local artifact
@@ -243,17 +271,23 @@ copy_frontend_icu_runtime() {
     local library_path
     local copied=0
 
+    # Create ICU runtime output dir
     mkdir -p "$destination"
 
+    # Check app and Qt libs for ICU deps
     while IFS= read -r artifact; do
         if ! output="$(ldd "$artifact" 2>/dev/null)"; then
             continue
         fi
 
+        # Read each ldd dependency line
         while IFS= read -r line; do
             case "$line" in
                 *"libicu"*.so.*"=>"*)
+                    # Extract resolved ICU library path
                     library_path="$(printf '%s\n' "$line" | sed -E 's/^.*=>[[:space:]]*([^[:space:]]+)[[:space:]]+\(.*$/\1/')"
+
+                    # Copy this ICU library and its symlink family
                     if [ -n "$library_path" ] && [ "$library_path" != "$line" ] && [ -f "$library_path" ]; then
                         copy_library_family "$library_path" "$destination"
                         copied=1
@@ -263,24 +297,14 @@ copy_frontend_icu_runtime() {
         done <<< "$output"
     done < <(find "$FRONTEND_BUNDLE_DIR" -type f \( -name 'Lymalink' -o -name 'libQt6*.so*' \) | sort)
 
+    # Remove dir if no ICU libs were found
     if [ "$copied" -eq 0 ]; then
         rmdir "$destination" 2>/dev/null || true
         echo "==> WARNING: No frontend ICU runtime libraries were detected to bundle." >&2
     fi
 }
 
-copy_qml_module_files_only() {
-    local source_dir="$1"
-    local destination_dir="$2"
-    local source_file
-
-    mkdir -p "$destination_dir"
-    for source_file in "$source_dir"/*; do
-        if [ -f "$source_file" ] || [ -L "$source_file" ]; then
-            cp -a "$source_file" "$destination_dir/"
-        fi
-    done
-}
+##############################################################################
 
 copy_library_family() {
     local library_path="$1"
@@ -291,18 +315,23 @@ copy_library_family() {
     local candidate
     local destination_path
 
+    # Ignore empty or missing library paths
     if [ -z "$library_path" ] || [ ! -f "$library_path" ]; then
         return
     fi
 
+    # Split library path into dir/name/stem
     mkdir -p "$destination"
     library_dir="$(dirname "$library_path")"
     library_name="$(basename "$library_path")"
     library_stem="${library_name%%.so*}"
 
+    # Copy all versions/symlinks for this library
     for candidate in "$library_dir/$library_stem".so*; do
         if [ -e "$candidate" ]; then
             destination_path="$destination/$(basename "$candidate")"
+
+            # Do not overwrite existing files or symlinks.
             if [ -e "$destination_path" ] || [ -L "$destination_path" ]; then
                 continue
             fi
@@ -310,6 +339,8 @@ copy_library_family() {
         fi
     done
 }
+
+##############################################################################
 
 copy_frontend_qt_library_closure() {
     local qt_lib_dir="$1"
@@ -324,21 +355,28 @@ copy_frontend_qt_library_closure() {
     local after_count
     local pass=0
 
+    # Ensure bundled Qt lib dir exists
     mkdir -p "$FRONTEND_BUNDLE_DIR/lib"
 
+    # Repeat until no new Qt libs are added
     while :; do
         pass=$((pass + 1))
         before_count="$(find "$FRONTEND_BUNDLE_DIR/lib" -maxdepth 1 -type f -o -type l | wc -l)"
 
+        # Scan executable and bundled libs for Qt deps
         while IFS= read -r artifact; do
             if ! output="$(LD_LIBRARY_PATH="$qt_lib_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ldd "$artifact" 2>/dev/null)"; then
                 continue
             fi
 
+            # Read each ldd dependency line
             while IFS= read -r line; do
                 case "$line" in
                     *"libQt6"*.so.*"=>"*)
+                        # Extract resolved Qt library path
                         library_path="$(printf '%s\n' "$line" | sed -E 's/^.*=>[[:space:]]*([^[:space:]]+)[[:space:]]+\(.*$/\1/')"
+
+                        # Copy matching Qt library family from Qt lib dir
                         library_name="$(basename "$library_path")"
                         library_stem="${library_name%%.so*}"
                         for candidate in "$qt_lib_dir/$library_stem".so*; do
@@ -351,17 +389,37 @@ copy_frontend_qt_library_closure() {
             done <<< "$output"
         done < <(find "$FRONTEND_BUNDLE_DIR" -type f \( -name 'Lymalink' -o -name '*.so' -o -name '*.so.*' \) | sort)
 
+        # Stop when closure stops growing or pass limit (8) is hit
         after_count="$(find "$FRONTEND_BUNDLE_DIR/lib" -maxdepth 1 -type f -o -type l | wc -l)"
         if [ "$after_count" -eq "$before_count" ] || [ "$pass" -ge 8 ]; then
             break
         fi
     done
 
+    # Require QtCore as a basic sanity check
     if [ ! -e "$FRONTEND_BUNDLE_DIR/lib/libQt6Core.so.6" ]; then
         echo "==> ERROR: Bundled frontend Qt closure is missing libQt6Core.so.6." >&2
         exit 1
     fi
 }
+
+##############################################################################
+
+copy_qml_module_files_only() {
+    local source_dir="$1"
+    local destination_dir="$2"
+    local source_file
+
+    # Copy only top-level files/symlinks
+    mkdir -p "$destination_dir"
+    for source_file in "$source_dir"/*; do
+        if [ -f "$source_file" ] || [ -L "$source_file" ]; then
+            cp -a "$source_file" "$destination_dir/"
+        fi
+    done
+}
+
+##############################################################################
 
 copy_frontend_qt_runtime() {
     local qmake_path="$1"
@@ -374,17 +432,20 @@ copy_frontend_qt_runtime() {
     local source_file
     local parent_module
 
-    echo "==> Bundling frontend Qt runtime manually..."
+    echo "==> Bundling frontend Qt runtime..."
 
+    # Query Qt install paths from qmake
     qt_lib_dir="$("$qmake_path" -query QT_INSTALL_LIBS)"
     qt_plugin_dir="$("$qmake_path" -query QT_INSTALL_PLUGINS)"
     qt_qml_dir="$("$qmake_path" -query QT_INSTALL_QML)"
 
+    # Require Qt shared libraries
     if [ ! -d "$qt_lib_dir" ] || ! compgen -G "$qt_lib_dir/libQt6*.so*" >/dev/null; then
         echo "==> ERROR: Could not find Qt runtime libraries in: $qt_lib_dir" >&2
         exit 1
     fi
 
+    # Copy selected Qt plugins
     if [ -d "$qt_plugin_dir" ]; then
         for plugin_file in "${FRONTEND_QT_PLUGIN_FILES[@]}"; do
             source_file="$qt_plugin_dir/$plugin_file"
@@ -392,10 +453,15 @@ copy_frontend_qt_runtime() {
                 echo "==> Copying Qt plugin: $plugin_file"
                 mkdir -p "$FRONTEND_BUNDLE_DIR/plugins/$(dirname "$plugin_file")"
                 cp -a "$source_file" "$FRONTEND_BUNDLE_DIR/plugins/$plugin_file"
+            else
+                echo "==> WARNING: Qt plugin not found: $source_file"
             fi
         done
+    else
+        echo "==> WARNING: Qt plugin directory not found: $qt_plugin_dir"
     fi
 
+    # Copy selected QML modules
     if [ -d "$qt_qml_dir" ]; then
         mkdir -p "$FRONTEND_BUNDLE_DIR/qml"
         for module in "${FRONTEND_QML_MODULES[@]}"; do
@@ -403,6 +469,8 @@ copy_frontend_qt_runtime() {
             if [ -d "$source_dir" ]; then
                 echo "==> Copying Qt QML module: $module"
                 mkdir -p "$FRONTEND_BUNDLE_DIR/qml/$module"
+
+                # Avoid recursively copying large base QML modules
                 case "$module" in
                     QtQuick|QtQuick/Controls|QtQuick/Dialogs)
                         copy_qml_module_files_only "$source_dir" "$FRONTEND_BUNDLE_DIR/qml/$module"
@@ -411,6 +479,8 @@ copy_frontend_qt_runtime() {
                         cp -a "$source_dir/." "$FRONTEND_BUNDLE_DIR/qml/$module/"
                         ;;
                 esac
+
+                # Copy parent qmldir files for nested modules
                 parent_module="$module"
                 while [[ "$parent_module" == */* ]]; do
                     parent_module="${parent_module%/*}"
@@ -427,14 +497,18 @@ copy_frontend_qt_runtime() {
         echo "==> WARNING: Qt QML import directory not found: $qt_qml_dir" >&2
     fi
 
+    # Copy Qt libraries needed by the frontend
     echo "==> Copying frontend Qt library closure..."
     copy_frontend_qt_library_closure "$qt_lib_dir"
 }
+
+##############################################################################
 
 validate_frontend_qml_bundle() {
     local module
     local missing=0
 
+    # Check each required QML module exists
     for module in "${REQUIRED_FRONTEND_QML_MODULES[@]}"; do
         if [ -d "$FRONTEND_BUNDLE_DIR/qml/$module" ]; then
             continue
@@ -443,16 +517,20 @@ validate_frontend_qml_bundle() {
         missing=1
     done
 
+    # Fail if any required QML module is missing
     if [ "$missing" -ne 0 ]; then
         echo "==> Install the missing Qt QML package for this build host and rebuild." >&2
         exit 1
     fi
 }
 
+##############################################################################
+
 validate_frontend_plugin_bundle() {
     local plugin_file
     local missing=0
 
+    # Check each required Qt plugin exists
     for plugin_file in "${REQUIRED_FRONTEND_QT_PLUGIN_FILES[@]}"; do
         if [ -f "$FRONTEND_BUNDLE_DIR/plugins/$plugin_file" ]; then
             continue
@@ -461,11 +539,13 @@ validate_frontend_plugin_bundle() {
         missing=1
     done
 
+    # Fail if any required Qt plugin is missing
     if [ "$missing" -ne 0 ]; then
         echo "==> Install the missing Qt plugin package for this build host and rebuild." >&2
         exit 1
     fi
 
+    # Require at least one native platform theme plugin
     if [ ! -f "$FRONTEND_BUNDLE_DIR/plugins/platformthemes/libqxdgdesktopportal.so" ] &&
         [ ! -f "$FRONTEND_BUNDLE_DIR/plugins/platformthemes/libqgtk3.so" ]; then
         echo "==> ERROR: Frontend bundle is missing a native Qt platform theme plugin." >&2
@@ -474,17 +554,21 @@ validate_frontend_plugin_bundle() {
     fi
 }
 
+##############################################################################
+
 validate_frontend_qt_bundle() {
     local build_version="$1"
     local qt_core_path
     local bundled_version
 
+    # Require bundled QtCore
     qt_core_path="$FRONTEND_BUNDLE_DIR/lib/libQt6Core.so.6"
     if [ ! -e "$qt_core_path" ]; then
         echo "==> ERROR: Frontend bundle is missing libQt6Core.so.6." >&2
         exit 1
     fi
 
+    # Resolve QtCore symlink and parse version
     qt_core_path="$(readlink -f "$qt_core_path")"
     bundled_version="$(printf '%s\n' "${qt_core_path##*/}" | sed -nE 's/^libQt6Core\.so\.([0-9]+(\.[0-9]+){1,2}).*$/\1/p')"
     if [ -z "$bundled_version" ]; then
@@ -492,6 +576,7 @@ validate_frontend_qt_bundle() {
         exit 1
     fi
 
+    # Ensure bundled Qt matches build metadata
     if [ "$bundled_version" != "$build_version" ]; then
         echo "==> ERROR: Frontend bundle Qt version does not match build metadata." >&2
         echo "==> Build Qt:  $build_version" >&2
@@ -500,12 +585,16 @@ validate_frontend_qt_bundle() {
     fi
 }
 
+##############################################################################
+
 validate_frontend_elf_dependencies() {
     local artifact
     local output
     local missing=0
 
+    # Check every bundled ELF dependency
     while IFS= read -r artifact; do
+        # Inspect dependencies using bundled libs first
         if ! output="$(LD_LIBRARY_PATH="$FRONTEND_BUNDLE_DIR/lib" ldd "$artifact" 2>&1)"; then
             if ! printf '%s\n' "$output" | grep -Eq 'version `.* not found|=>[[:space:]]*not found'; then
                 echo "==> ERROR: Unable to inspect frontend dependency closure for $artifact" >&2
@@ -514,6 +603,7 @@ validate_frontend_elf_dependencies() {
             fi
         fi
 
+        # Report unresolved libraries or symbol versions
         if printf '%s\n' "$output" | grep -Eq 'version `.* not found|=>[[:space:]]*not found'; then
             echo "==> ERROR: Unresolved frontend dependency in bundle artifact $artifact:" >&2
             printf '%s\n' "$output" | grep -E 'version `.* not found|=>[[:space:]]*not found' >&2
@@ -521,27 +611,57 @@ validate_frontend_elf_dependencies() {
         fi
     done < <(find "$FRONTEND_BUNDLE_DIR" -type f \( -name 'Lymalink' -o -name '*.so' -o -name '*.so.*' \) | sort)
 
+    # Fail if any bundled artifact has unresolved deps
     if [ "$missing" -ne 0 ]; then
         echo "==> Fix the frontend dependency closure before creating the installer." >&2
         exit 1
     fi
 }
 
+##############################################################################
+##############################################################################
+##############################################################################
+
+# Handle optional clean command
+case "${1:-}" in
+    "clean")
+        _require_no_extra_args clean "${@:2}"
+        echo "==> Cleaning project..."
+        "$ROOT_DIR/frontend/build.sh" clean
+        "$ROOT_DIR/backend/build.sh" clean
+        "$ROOT_DIR/backend-overlay/build.sh" clean
+        rm -rf "$BUILD_DIR"
+        exit 0
+        ;;
+    "")
+        ;;
+    *)
+        echo "==> ERROR: Invalid option '$1'." >&2
+        echo "==> Usage: $0 [clean]" >&2
+        exit 1
+        ;;
+esac
+
+# Require all build tools
 for command_name in cmake cp file find flatpak g++ grep ldd make makeself pkg-config readlink sed sha256sum sort strip wc; do
     require_command "$command_name"
 done
 
+# Only build installers on x86_64
 if [ "$(uname -m)" != "$ARCH" ]; then
     echo "==> ERROR: Installer builds currently support x86_64 only." >&2
     exit 1
 fi
 
+# Resolve installer output path
 BUILD_HOST_TAG="$(detect_build_host_tag)"
 INSTALLER_PATH="$BUILD_DIR/lymalink-installer-${VERSION}-${BUILD_HOST_TAG}-${ARCH}.run"
 
+# Resolve and validate Qt
 QMAKE_PATH="$(resolve_qmake)"
 check_qt_version "$QMAKE_PATH"
 
+# Build release binaries
 echo "==> Building frontend release..."
 "$ROOT_DIR/frontend/build.sh" release
 
@@ -554,14 +674,16 @@ echo "==> Building overlay release..."
 echo "==> Building Flatpak overlay release..."
 "$ROOT_DIR/backend-overlay/build.sh" flatpak-release
 
+# Validate required build outputs
 require_file "$FRONTEND_BINARY"
 require_file "$BACKEND_BUILD_BIN_DIR/lymalinkd"
+require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR" 64 "native x86_64"
 validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR_I386" 32 "native i386"
 validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR" 64 "Flatpak x86_64"
 validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386" 32 "Flatpak i386"
-require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 
+# Create release staging tree
 echo "==> Staging release payload..."
 rm -rf "$RELEASE_DIR" "$FLATPAK_WORK_DIR" "$INSTALLER_PATH"
 mkdir -p \
@@ -576,21 +698,29 @@ mkdir -p \
     "$RELEASE_DIR/systemd" \
     "$RELEASE_DIR/flatpak"
 
+# Copy installer scripts and backend files
 cp "$SCRIPT_DIR/install.sh" "$RELEASE_DIR/install.sh"
 cp "$SCRIPT_DIR/uninstall.sh" "$RELEASE_DIR/uninstall.sh"
 cp "$BACKEND_BUILD_BIN_DIR/lymalinkd" "$RELEASE_DIR/bin/lymalinkd"
 cp "$ROOT_DIR/backend-overlay/lymalink-overlay.sh" "$RELEASE_DIR/bin/lymalink-overlay"
+
+# Copy native overlay libraries
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay.so" "$RELEASE_DIR/lib/lymalink-overlay.so"
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-opengl.so" "$RELEASE_DIR/lib/lymalink-overlay-opengl.so"
 cp "$OVERLAY_BUILD_BIN_DIR/lymalink-overlay-preloader.so" "$RELEASE_DIR/lib/lymalink-overlay-preloader.so"
+
+# Copy 32-bit overlay libraries
 cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay.so"
 cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay-opengl.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so"
 cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay-preloader.so" "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
+
+# Copy assets
 cp "$ROOT_DIR/backend/res/"*.ogg "$RELEASE_DIR/share/Lymalink/sounds/"
 cp "$ROOT_DIR/frontend/res/img/64x64-lymalink-test-icon.png" "$RELEASE_DIR/share/Lymalink/"
 cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
 
+# Bundle frontend runtime
 cp "$FRONTEND_BINARY" "$FRONTEND_BUNDLE_DIR/bin/Lymalink"
 QT_BUILD_VERSION="$("$QMAKE_PATH" -query QT_VERSION)"
 printf '%s\n' "$QT_BUILD_VERSION" > "$FRONTEND_BUNDLE_DIR/qt-build-version"
@@ -601,6 +731,7 @@ validate_frontend_qml_bundle
 validate_frontend_plugin_bundle
 validate_frontend_elf_dependencies
 
+# Write frontend launcher
 cat > "$RELEASE_DIR/bin/Lymalink" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -610,6 +741,7 @@ if [ -z "${HOME:-}" ]; then
     exit 1
 fi
 
+# Resolve real login home for Snap environments
 resolve_login_home() {
     local login_home=""
 
@@ -626,6 +758,7 @@ resolve_login_home() {
     printf '%s\n' "$HOME"
 }
 
+# Locate bundled frontend
 LOGIN_HOME="$(resolve_login_home)"
 APPDIR="${LYMALINK_FRONTEND_ROOT:-$LOGIN_HOME/.local/lib/lymalink/frontend}"
 
@@ -634,13 +767,15 @@ if [ ! -x "$APPDIR/bin/Lymalink" ]; then
     exit 1
 fi
 
-export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-Fusion}"
+# Configure bundled Qt runtime
 if [ -d "$APPDIR/lib" ]; then
     export LD_LIBRARY_PATH="$APPDIR/lib"
 fi
 if [ -d "$APPDIR/plugins" ]; then
     export QT_PLUGIN_PATH="$APPDIR/plugins"
     export QT_QPA_PLATFORM_PLUGIN_PATH="$APPDIR/plugins/platforms"
+
+    # Prefer native platform theme if present
     if [ -z "${QT_QPA_PLATFORMTHEME:-}" ]; then
         if [ -f "$APPDIR/plugins/platformthemes/libqxdgdesktopportal.so" ]; then
             export QT_QPA_PLATFORMTHEME=xdgdesktopportal
@@ -654,9 +789,11 @@ if [ -d "$APPDIR/qml" ]; then
     export QML_IMPORT_PATH="$APPDIR/qml"
 fi
 
+# Launch bundled frontend
 exec "$APPDIR/bin/Lymalink" "$@"
 EOF
 
+# Set executable permissions
 chmod 755 \
     "$RELEASE_DIR/install.sh" \
     "$RELEASE_DIR/uninstall.sh" \
@@ -666,11 +803,14 @@ chmod 755 \
     "$RELEASE_DIR/bin/lymalink-overlay" \
     "$RELEASE_DIR/lib/"*.so \
     "$RELEASE_DIR/lib/i386-linux-gnu/"*.so
+
+# Set asset permissions
 chmod 644 \
     "$RELEASE_DIR/share/Lymalink/"*.png \
     "$RELEASE_DIR/share/Lymalink/sounds/"*.ogg \
     "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
 
+# Strip release binaries
 strip \
     "$RELEASE_DIR/lib/lymalink/frontend/bin/Lymalink" \
     "$RELEASE_DIR/bin/lymalinkd" \
@@ -681,6 +821,7 @@ strip \
     "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-opengl.so" \
     "$RELEASE_DIR/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
 
+# Write native Vulkan layer manifests
 write_vulkan_manifest \
     "$RELEASE_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
     "HOME_PLACEHOLDER/.local/lib/lymalink-overlay.so" \
@@ -691,6 +832,7 @@ write_vulkan_manifest \
     "HOME_PLACEHOLDER/.local/lib/i386-linux-gnu/lymalink-overlay.so" \
     "VK_LAYER_LYMALINK_overlay_x86"
 
+# Write desktop launcher
 cat > "$RELEASE_DIR/share/applications/lymalink.desktop" <<'EOF'
 [Desktop Entry]
 Name=Lymalink
@@ -702,6 +844,7 @@ Terminal=false
 Categories=Game;Utility;
 EOF
 
+# Write user systemd service
 cat > "$RELEASE_DIR/systemd/lymalinkd.service" <<'EOF'
 [Unit]
 Description=Lymalink Backend Daemon
@@ -719,16 +862,21 @@ StandardError=journal
 WantedBy=default.target
 EOF
 
+# Stage Flatpak VulkanLayer extension
 echo "==> Building Flatpak VulkanLayer extension bundle..."
 mkdir -p \
     "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu" \
     "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu" \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d" \
     "$FLATPAK_REPO_DIR"
+
+# Copy Flatpak overlay libraries
 cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"
 cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"
 chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"*.so
 chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"*.so
+
+# Write Flatpak Vulkan layer manifests
 write_vulkan_manifest \
     "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
     "/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay.so" \
@@ -739,6 +887,7 @@ write_vulkan_manifest \
     "/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay.so" \
     "VK_LAYER_LYMALINK_overlay_x86"
 
+# Write Flatpak extension metadata
 cat > "$FLATPAK_EXTENSION_DIR/metadata" <<EOF
 [Runtime]
 name=${FLATPAK_EXTENSION_ID}
@@ -750,16 +899,14 @@ ref=runtime/org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
 runtime=org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
 EOF
 
-flatpak build-export --runtime --arch="$ARCH" \
-    "$FLATPAK_REPO_DIR" "$FLATPAK_EXTENSION_DIR" "$FLATPAK_EXTENSION_BRANCH"
-flatpak build-bundle --runtime --arch="$ARCH" \
-    "$FLATPAK_REPO_DIR" "$FLATPAK_BUNDLE" \
-    "$FLATPAK_EXTENSION_ID" "$FLATPAK_EXTENSION_BRANCH"
+# Export and bundle Flatpak extension
+flatpak build-export --runtime --arch="$ARCH" "$FLATPAK_REPO_DIR" "$FLATPAK_EXTENSION_DIR" "$FLATPAK_EXTENSION_BRANCH"
+flatpak build-bundle --runtime --arch="$ARCH" "$FLATPAK_REPO_DIR" "$FLATPAK_BUNDLE" "$FLATPAK_EXTENSION_ID" "$FLATPAK_EXTENSION_BRANCH"
 require_file "$FLATPAK_BUNDLE"
 
+# Build self-extracting installer
 echo "==> Creating self-extracting installer..."
-makeself --sha256 --tar-format pax --tar-quietly \
-    "$RELEASE_DIR" "$INSTALLER_PATH" "Lymalink Installer" ./install.sh
+makeself --sha256 --tar-format pax --tar-quietly "$RELEASE_DIR" "$INSTALLER_PATH" "Lymalink Installer" ./install.sh
 require_file "$INSTALLER_PATH"
 
 echo "==> Installer build done."

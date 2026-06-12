@@ -18,6 +18,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 class OverlayNotifier : public IDesktopNotificationService
@@ -62,7 +63,9 @@ private:
     void SocketThread(); // Socket Thread
     bool StartSocketServer();
     void StopSocketServer();
+    void CloseAllSocketEndpoints();
     void RefreshSocketServers();
+    std::unordered_set<std::string> ResolveActiveFlatpakAppIds() const;
     bool BindSocketForApp(const std::string& appId);
     void CloseSocketServer(SocketServer& server);
     bool BroadcastSocketNotification(const AchievementNotification& notification, uint32_t durationMs = 6000);

@@ -13,6 +13,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtCore
 
 Item {
     id: id_root
@@ -35,6 +36,16 @@ Item {
     property bool manualGameEntry: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+    readonly property string notificationFlatpakLdPreload: "LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so:/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
+    readonly property string notificationNativeLdPreloadTemplate: "LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so:/home/<user>/.local/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
+    readonly property string notificationHomePath: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+    readonly property string notificationHomeUsername: id_root.usernameFromHomePath(notificationHomePath)
+    readonly property bool notificationHasHomeUsername: notificationHomeUsername.length > 0
+    readonly property string notificationNativeLdPreload: notificationHasHomeUsername
+        ? notificationNativeLdPreloadTemplate.split("<user>").join(notificationHomeUsername)
+        : notificationNativeLdPreloadTemplate
+    readonly property string notificationWineCommand: "lymalink-overlay wine \"game.exe\""
+    readonly property string notificationSteamLaunchOption: "lymalink-overlay %command%"
     readonly property bool prefixWarning: {
         const t = id_prefixLocationField.text.trim()
         return t.length > 0 && !t.split("/").pop().startsWith("drive_")
@@ -78,6 +89,18 @@ Item {
 
     function fileUrlToPath(fileUrl) {
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
+    }
+
+    function copyNotificationValue(value) {
+        id_clipboardProxy.text = value
+        id_clipboardProxy.forceActiveFocus()
+        id_clipboardProxy.selectAll()
+        id_clipboardProxy.copy()
+    }
+
+    function usernameFromHomePath(homePath) {
+        const match = homePath.match(/\/home\/([^\/]+)/)
+        return match ? match[1] : ""
     }
 
     function searchGames() {
@@ -187,6 +210,14 @@ Item {
             id_root.targetStatusText = ""
             id_root.targetStatusIsError = false
         }
+    }
+
+    TextEdit {
+        id: id_clipboardProxy
+
+        width: 1
+        height: 1
+        opacity: 0
     }
 
     ScrollView {
@@ -322,41 +353,103 @@ Item {
                             }
                         }
 
-                        Text {
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            text: qsTr("Detection is designed to run only when needed. The backend scans for achievement data only while the selected game is active, avoiding unnecessary background activity.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
+                            spacing: 4
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Game detection")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.labelText
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Lymalink monitors the selected game executable. Features like playtime tracking, achievement scanning, and the in-game overlay are only active while the game process is running.")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 4
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Prefix location")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.labelText
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("The prefix is where the emulator writes achievement data. After Lymalink finds data for the selected game ID, it saves the exact achievement file path and monitors it for changes to detect achievement unlocks.")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                            }
                         }
 
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("The backend monitors the game executable to detect when the game is running. Playtime tracking, ingame notification overlay and achievement scanning are tied to the process. None runs unless the game is active.")
+                            Layout.topMargin: 4
+                            text: qsTr("Prefix examples")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.bold: true
+                            color: Themes.emulatorTarget.colors.labelText
                             wrapMode: Text.Wrap
                         }
 
-                        Text {
-                            Layout.fillWidth: true
-                            text: qsTr("The prefix location is used to locate achievement data written by the emulator. Once the backend finds achievement data matching the selected game ID inside the prefix, the path is saved. Future scans access that location directly without searching the prefix again.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                        }
+                        Repeater {
+                            model: [
+                                {
+                                    label: qsTr("Wine"),
+                                    value: "/home/<user>/.wine/drive_c"
+                                },
+                                {
+                                    label: qsTr("Flatpak Bottles"),
+                                    value: "/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c"
+                                },
+                                {
+                                    label: qsTr("Heroic"),
+                                    value: "/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c"
+                                },
+                                {
+                                    label: qsTr("Heroic all prefixes"),
+                                    value: "/home/<user>/Games/Heroic/Prefixes"
+                                }
+                            ]
 
-                        Text {
-                            Layout.fillWidth: true
-                            text: qsTr("\nTIP - Examples of prefix location paths:\n" + 
-                                "Wine: '/home/<user>/.wine/drive_c'\n" +
-                                "Flatpak Bottles: '/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c/'\n" +
-                                "Flatpak Heroic Launcher: '/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c'\n" +
-                                "You may also optionally set '/home/<user>/Games/Heroic/Prefixes' for scanning all the game prefixes."
-                                )
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
+                            delegate: RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                Text {
+                                    Layout.preferredWidth: 112
+                                    text: modelData.label
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.descriptionText
+                                    wrapMode: Text.Wrap
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.value
+                                    font.family: "monospace"
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                    color: Themes.emulatorTarget.colors.prefixWarningText
+                                    wrapMode: Text.WrapAnywhere
+                                }
+                            }
                         }
                     }
                 }
@@ -405,12 +498,13 @@ Item {
                     onTriggered: id_notificationBlock.hoverActive = true
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.ArrowCursor
-                    onEntered: id_notificationBlockHoverTimer.start()
-                    onExited: {
+                HoverHandler {
+                    onHoveredChanged: {
+                        if (hovered) {
+                            id_notificationBlockHoverTimer.start()
+                            return
+                        }
+
                         id_notificationBlockHoverTimer.stop()
                         id_notificationBlock.hoverActive = false
                     }
@@ -485,97 +579,134 @@ Item {
                             id: id_notificationInfoText
 
                             Layout.fillWidth: true
-                            text: qsTr("Achievement notifications use an in-game overlay. Configure your launcher/run with correct environment variables / settings listed below:")
+                            text: qsTr("Achievement notifications use an in-game overlay. To make sure notifications appear, configure your launcher/run with correct environment variables / settings listed below:")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.description
                             color: Themes.emulatorTarget.colors.descriptionText
                             wrapMode: Text.Wrap
                         }
 
                         Text {
-                            id: id_notificationUserNoteText
+                            id: id_notificationBestNoteText
 
                             Layout.fillWidth: true
-                            text: qsTr("Replace `<user>` with your home directory username.")
+                            text: id_root.notificationHasHomeUsername
+                                ? qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nClicking a value copies it to the clipboard.")
+                                : qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nReplace `<user>` with your home directory username. Clicking a value copies it to the clipboard.")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.description
                             color: Themes.emulatorTarget.colors.descriptionText
                             wrapMode: Text.Wrap
                         }
 
-                        Text {
-                            id: id_notificationWineText
+                        Repeater {
+                            model: [
+                                {
+                                    type: qsTr("NATIVE"),
+                                    launcher: qsTr("Wine command line"),
+                                    action: qsTr("Run"),
+                                    value: id_root.notificationWineCommand
+                                },
+                                {
+                                    type: qsTr("NATIVE"),
+                                    launcher: qsTr("Steam"),
+                                    action: qsTr("Add launch option"),
+                                    value: id_root.notificationSteamLaunchOption
+                                },
+                                {
+                                    type: qsTr("FLATPAK"),
+                                    launcher: qsTr("Heroic / Bottles / Any other Flatpak"),
+                                    action: qsTr("Add environment variable"),
+                                    value: id_root.notificationFlatpakLdPreload
+                                },
+                                {
+                                    type: qsTr("NATIVE"),
+                                    launcher: qsTr("Heroic / Lutris / Any other native"),
+                                    action: qsTr("Add environment variable"),
+                                    value: id_root.notificationNativeLdPreload
+                                }
+                            ]
 
-                            Layout.fillWidth: true
-                            text: qsTr("NATIVE - Wine command line: run `lymalink-overlay wine \"/path/to/game.exe\"`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
+                            delegate: ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: index === 0 ? 4 : 2
+                                spacing: 4
 
-                        Text {
-                            id: id_notificationSteamText
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
 
-                            Layout.fillWidth: true
-                            text: qsTr("NATIVE - Steam: add launch option `lymalink-overlay %command%`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
+                                    Rectangle {
+                                        Layout.preferredWidth: 58
+                                        Layout.preferredHeight: 18
+                                        radius: 4
+                                        color: Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                                        border.width: 1
+                                        border.color: Themes.emulatorTarget.colors.infoBlockBorderHover
 
-                        Text {
-                            id: id_notificationHeroicFlatpakText
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.type
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                            font.bold: true
+                                            color: Themes.emulatorTarget.colors.prefixWarningText
+                                        }
+                                    }
 
-                            Layout.fillWidth: true
-                            text: qsTr("FLATPAK - Heroic Launcher: set `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.launcher + " - " + modelData.action
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        color: Themes.emulatorTarget.colors.labelText
+                                        wrapMode: Text.Wrap
+                                    }
+                                }
 
-                        Text {
-                            id: id_notificationHeroicNativeText
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: id_notificationValueText.implicitHeight + 12
+                                    radius: 5
+                                    color: id_notificationValueMouseArea.pressed
+                                        ? Themes.emulatorTarget.colors.resultBackgroundPressed
+                                        : (id_notificationValueMouseArea.containsMouse
+                                            ? Themes.emulatorTarget.colors.resultBackgroundHover
+                                            : Themes.emulatorTarget.colors.resultBackground)
+                                    border.width: 1
+                                    border.color: id_notificationValueMouseArea.containsMouse
+                                        ? Themes.emulatorTarget.colors.resultBorderSelected
+                                        : Themes.emulatorTarget.colors.resultBorder
 
-                            Layout.fillWidth: true
-                            text: qsTr("NATIVE - Heroic Launcher: set `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
+                                    Text {
+                                        id: id_notificationValueText
 
-                        Text {
-                            id: id_notificationBottlesFlatpakText
+                                        anchors {
+                                            left: parent.left
+                                            right: parent.right
+                                            verticalCenter: parent.verticalCenter
+                                            margins: 8
+                                        }
+                                        text: modelData.value
+                                        font.family: "monospace"
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                        color: Themes.emulatorTarget.colors.prefixWarningText
+                                        wrapMode: Text.WrapAnywhere
+                                    }
 
-                            Layout.fillWidth: true
-                            text: qsTr("FLATPAK - Bottles: set `LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
+                                    MouseArea {
+                                        id: id_notificationValueMouseArea
 
-                        Text {
-                            id: id_notificationLutrisNativeText
-
-                            Layout.fillWidth: true
-                            text: qsTr("NATIVE - Lutris: set `LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so`.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: id_root.copyNotificationValue(modelData.value)
+                                    }
+                                }
+                            }
                         }
 
                         Text {
                             id: id_notificationRestartText
 
                             Layout.fillWidth: true
-                            text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, or Wine (wineserver -k) so changes take effect.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            id: id_notificationFlatpakNoteText
-
-                            Layout.fillWidth: true
-                            text: qsTr("NOTE: Flatpak support is currently limited to the launchers listed above.")
+                            text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, Wine (wineserver -k), or any other launcher so the changes take effect.")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.description
                             color: Themes.emulatorTarget.colors.descriptionText
                             wrapMode: Text.Wrap
