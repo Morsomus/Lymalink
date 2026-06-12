@@ -1067,6 +1067,27 @@ Item {
                         }
 
                         C_SettingRow {
+                            label: qsTr("Startup Notification")
+                            tooltip: qsTr("Show an overlay notification shortly after a tracked game starts")
+
+                            Switch {
+                                checked: ctxSettings.startupNotification
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_startupNotificationHover }
+                                CustomTooltip {
+                                    p_active: id_startupNotificationHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show an overlay notification shortly after a tracked game starts")
+                                }
+                                onToggled: {
+                                    if (ctxSettings.SaveValue(Settings.StartupNotification, checked) && id_root.dbusServiceReady) {
+                                        ctxDBusService.ReloadConfig()
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Overlay notification")
                             tooltip: id_root.hasActiveTarget
                                 ? qsTr("Send a test overlay notification to a running tracked target")
@@ -1122,6 +1143,8 @@ Item {
                                 }
                             }
                         }
+
+                        C_SettingRow {}
 
                         C_SettingRow {
                             label: qsTr("Notification sound")

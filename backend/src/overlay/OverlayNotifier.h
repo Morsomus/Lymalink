@@ -34,6 +34,9 @@ public:
     void SetSocketPaused(bool paused);
 
     bool ShowAchievementToast(const AchievementNotification& notification) override;
+    bool ShowAchievementToastSharedMemory(const AchievementNotification& notification);
+    bool ShowAchievementToastSocket(const AchievementNotification& notification);
+    bool HasSocketClient();
 
 private:
     struct SocketServer

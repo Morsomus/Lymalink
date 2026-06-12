@@ -32,6 +32,7 @@ Lymalinkd::Lymalinkd() :
     m_activeCount.store(0);
     m_sleepTimerGeneration.store(0);
     m_running.store(true);
+    m_startupNotificationEnabled.store(true);
     m_activeTargetsIds = {};
     m_targetIdsRequiringDirScan = {};
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
@@ -121,6 +122,7 @@ Error Lymalinkd::Init()
     {
         LOG_BE(Urgency::Warning, "Achievement sounds unavailable.");
     }
+    m_startupNotificationEnabled.store(LoadStartupNotificationConfig());
 
     // Cache targets still requiring AppId dir scan
     std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
@@ -366,6 +368,18 @@ void Lymalinkd::Shutdown()
     m_notificationSound.Stop();
     m_dbus.Stop();
 
+    {
+        std::lock_guard<std::mutex> lock(m_startupNotificationThreadsMutex);
+        for (std::thread& thread : m_startupNotificationThreads)
+        {
+            if (thread.joinable())
+            {
+                thread.join();
+            }
+        }
+        m_startupNotificationThreads.clear();
+    }
+
     // Cancel pending sleep timer and wait for thread exit
     m_sleepTimerGeneration.fetch_add(1);
     if (m_sleepTimerThread.joinable())
@@ -419,10 +433,13 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
 
     const std::string appIdDirPath = SQLiteManager::RowString(target, "appid_dir_location");
     const std::string emulatorType = SQLiteManager::RowString(target, "emulator_type");
+    const std::string gameName = SQLiteManager::RowString(target, "game_name");
     if (!appIdDirPath.empty() && !emulatorType.empty())
     {
         m_achievementHandler.AddTarget(targetId, appIdDirPath, emulatorType);
     }
+
+    ScheduleStartupNotification(targetId, gameName);
 
     m_dbus.EmitGameStateChanged(targetId, "Active");
     m_cv.notify_one();
@@ -538,6 +555,7 @@ void Lymalinkd::OnReloadConfig()
     // Refresh notification sound without restarting daemon
     m_notificationSound.SetSoundPath(ResolveInstalledNotificationSoundPath());
     m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));
+    m_startupNotificationEnabled.store(LoadStartupNotificationConfig());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -936,6 +954,92 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     }
 
     return achievementStateUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
+{
+    if (!m_startupNotificationEnabled.load())
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(m_startupNotificationThreadsMutex);
+    m_startupNotificationThreads.emplace_back([this, targetId, gameName]() {
+        constexpr int STARTUP_NOTIFICATION_DELAY_MS = 5000;
+        constexpr int SOCKET_NOTIFICATION_TIMEOUT_MS = 30000;
+        constexpr int POLL_INTERVAL_MS = 100;
+
+        auto shouldAbort = [this, targetId]() {
+            return !m_running.load() || !m_startupNotificationEnabled.load() || !IsTargetActive(targetId);
+        };
+
+        // Wait before first startup notification so short process probes do not show a toast
+        for (int elapsedMs = 0; elapsedMs < STARTUP_NOTIFICATION_DELAY_MS; elapsedMs += POLL_INTERVAL_MS)
+        {
+            if (shouldAbort())
+            {
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+        }
+
+        if (shouldAbort())
+        {
+            return;
+        }
+
+        // Use installed test icon when available so startup toast has same app identity as test toast
+        std::string appIconPath = "";
+        const std::filesystem::path iconPath = ResolveDataPath(LYMALINK_TEST_ICON_PATH);
+        if (std::filesystem::exists(iconPath))
+        {
+            appIconPath = iconPath.string();
+        }
+
+        AchievementNotification notification;
+        notification.targetId = targetId;
+        notification.achievementName = "Lymalink";
+        notification.achievementDescription = "Notifications activated for " + gameName;
+        notification.iconPath = appIconPath;
+        notification.appIconPath = appIconPath;
+
+        // SHM is written even if game overlay is not ready yet; native overlay reads latest SHM state when it starts
+        const bool sharedMemorySent = m_overlayNotifications.ShowAchievementToastSharedMemory(notification);
+        LOG_BE(Urgency::Debug, "Startup SHM notification completed. Sent successfully: %s targetId=%d exe=%s", sharedMemorySent ? "true" : "false", targetId, gameName.c_str());
+
+        // Socket transport needs a live overlay client. Poll only until 30s total from process detection.
+        for (int elapsedMs = STARTUP_NOTIFICATION_DELAY_MS; elapsedMs < SOCKET_NOTIFICATION_TIMEOUT_MS; elapsedMs += POLL_INTERVAL_MS)
+        {
+            if (shouldAbort())
+            {
+                return;
+            }
+
+            if (m_overlayNotifications.HasSocketClient())
+            {
+                const bool socketSent = m_overlayNotifications.ShowAchievementToastSocket(notification);
+                LOG_BE(Urgency::Debug, "Startup socket notification completed. Sent successfully: %s targetId=%d exe=%s", socketSent ? "true" : "false", targetId, gameName.c_str());
+                return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+        }
+
+        LOG_BE(Urgency::Debug, "Startup socket notification timed out: targetId=%d exe=%s", targetId, gameName.c_str());
+    });
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::IsTargetActive(int targetId)
+{
+    std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+    const auto it = std::find_if(m_activeTargetsIds.begin(), m_activeTargetsIds.end(), [targetId](const auto& activeTarget) {
+        return activeTarget.first == targetId;
+    });
+    return it != m_activeTargetsIds.end();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1421,6 +1525,27 @@ void Lymalinkd::LoadNotificationSoundConfig(bool& outUseCustomSound, std::string
 
     LOG_BE(Urgency::Debug, "Sound config loaded. Bundled: %s, Use custom: %d, Custom path: %s", 
         outBundledSound.empty() ? "none" : outBundledSound.c_str(), outUseCustomSound, outCustomSoundPath.empty() ? "none" : outCustomSoundPath.c_str());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::LoadStartupNotificationConfig() const
+{
+    const std::string configPath = ResolveConfigPath();
+    if (configPath.empty())
+    {
+        LOG_BE(Urgency::Warning, "Cannot load startup notification config because config path is empty.");
+        return true;
+    }
+
+    std::string value = Utils::TrimWhitespace(Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "StartupNotification"));
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    const bool enabled = value != "false" && value != "0" && value != "no" && value != "off";
+    LOG_BE(Urgency::Debug, "Startup notification config loaded. Enabled: %s", enabled ? "true" : "false");
+    return enabled;
 }
 
 /////////////////////////////////////////////////////////////////////

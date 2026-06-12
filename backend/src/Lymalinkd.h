@@ -54,9 +54,11 @@ private:
     std::mutex m_activeTargetsMutex;
     std::mutex m_targetIdsRequiringDirScanMutex;
     std::mutex m_databaseMutex;
+    std::mutex m_startupNotificationThreadsMutex;
 
     std::thread m_sleepTimerThread;
     std::thread m_signalThread;
+    std::vector<std::thread> m_startupNotificationThreads;
 
     std::condition_variable m_cv;
 
@@ -64,6 +66,7 @@ private:
     std::atomic_int m_activeCount;
     std::atomic_uint64_t m_sleepTimerGeneration;
     std::atomic_bool m_running;
+    std::atomic_bool m_startupNotificationEnabled;
 
     std::vector<std::pair<int, int>> m_activeTargetsIds; // id, notification (sent to frontend)
     std::unordered_map<int, std::string> m_targetIdsRequiringDirScan;
@@ -93,6 +96,8 @@ private:
     void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
+    void ScheduleStartupNotification(int targetId, std::string gameName);
+    bool IsTargetActive(int targetId);
     std::string ResolveDatabasePath() const;
     std::vector<std::string> ResolveInstalledVulkanOverlayManifestPaths() const;
     std::vector<std::string> ResolveInstalledFlatpakVulkanOverlayManifestPaths() const;
@@ -102,6 +107,7 @@ private:
     std::string ResolveConfigPath() const;
     std::string ResolveDataPath(const std::string& relativePath) const;
     void LoadNotificationSoundConfig(bool& outUseCustomSound, std::string& outCustomSoundPath, std::string& outBundledSound) const;
+    bool LoadStartupNotificationConfig() const;
     bool ParseConfigBool(const std::string& value) const;
     bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
 };

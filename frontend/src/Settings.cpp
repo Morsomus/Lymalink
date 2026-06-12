@@ -186,6 +186,7 @@ bool Settings::LoadConfig()
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
     m_notificationSound = m_settings.value("NotificationSound", m_notificationSound).toString();
     m_overlayNotificationPosition = m_settings.value("OverlayNotificationPosition", m_overlayNotificationPosition).toString();
+    m_startupNotification = m_settings.value("StartupNotification", m_startupNotification).toBool();
     m_customNotificationSound = m_settings.value("CustomNotificationSound", m_customNotificationSound).toBool();
     m_customNotificationSoundPath = m_settings.value("CustomNotificationSoundPath", m_customNotificationSoundPath).toString();
     m_settings.endGroup();
@@ -418,6 +419,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_overlayNotificationPosition;
             break;
         }
+        case StartupNotification:
+        {
+            m_startupNotification = value.toBool();
+            group = GROUP_BACKGROUND_SERVICE;
+            settingsKey = "StartupNotification";
+            settingsValue = m_startupNotification;
+            break;
+        }
         case CustomNotificationSound:
         {
             m_customNotificationSound = value.toBool();
@@ -550,6 +559,7 @@ void Settings::SetDefaults()
     m_steamWebApiKey = "";
     m_notificationSound = ResolveDefaultNotificationSound();
     m_overlayNotificationPosition = "bottom-right";
+    m_startupNotification = true;
     m_customNotificationSound = false;
     m_customNotificationSoundPath = "";
     m_dashboardToolbarSort = "title";
@@ -641,6 +651,7 @@ void Settings::SavePlainValues()
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
     m_settings.setValue("NotificationSound", m_notificationSound);
     m_settings.setValue("OverlayNotificationPosition", m_overlayNotificationPosition);
+    m_settings.setValue("StartupNotification", m_startupNotification);
     m_settings.setValue("CustomNotificationSound", m_customNotificationSound);
     m_settings.setValue("CustomNotificationSoundPath", m_customNotificationSoundPath);
     m_settings.endGroup();
