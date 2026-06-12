@@ -118,7 +118,10 @@ void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeigh
             SocketConnect();
         }
         SocketDrain();
-        SocketClaimPendingNotification();
+        if (IsRenderApiReady())
+        {
+            SocketClaimPendingNotification();
+        }
     }
     else                // Using Shared Memory method
     {
@@ -140,11 +143,19 @@ void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeigh
             return;
         }
 
-        SharedMemoryClaimPendingNotification();
+        if (IsRenderApiReady())
+        {
+            SharedMemoryClaimPendingNotification();
+        }
     }
 
     // Early exit if no active notification
     if (!m_currentActiveNotification.visible && !m_fadingOut)
+    {
+        return;
+    }
+
+    if (!IsRenderApiReady())
     {
         return;
     }
@@ -646,8 +657,8 @@ OverlayReceiver::ActiveNotification OverlayReceiver::SocketPacketToNotification(
 {
     // Parse raw packet data into a populated UI notification object
     ActiveNotification notification;
-    notification.visible = true;
-    notification.shownAtMs = Utils::NowMs();
+    notification.visible = false;
+    notification.shownAtMs = 0;
     notification.durationMs = packet.durationMs > 0 ? packet.durationMs : 4000;
     notification.title = packet.title;
     notification.description = packet.description;
@@ -661,6 +672,13 @@ OverlayReceiver::ActiveNotification OverlayReceiver::SocketPacketToNotification(
     }
 
     return notification;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool OverlayReceiver::IsRenderApiReady() const
+{
+    return m_imguiReady && (m_openGLReady || m_vulkanReady);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -859,17 +877,26 @@ void OverlayReceiver::UpdateNotificationAnimation(float delta)
 bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
 {
 #ifndef LYMALINK_OVERLAY_OPENGL_TEXTURES
+    const bool hasEmbeddedPixels = !m_currentActiveNotification.iconPixels.empty();
+
     // Validate state and device handles
-    if (iconPath.empty() || !m_vulkanReady || m_vkDevice == VK_NULL_HANDLE
+    if ((!hasEmbeddedPixels && iconPath.empty()) || !m_vulkanReady || m_vkDevice == VK_NULL_HANDLE
         || m_vkPhysicalDevice == VK_NULL_HANDLE || m_vkQueue == VK_NULL_HANDLE
-        || m_vkCommandPool == VK_NULL_HANDLE)
+        || m_vkCommandPool == VK_NULL_HANDLE || !m_vkGetPhysicalDeviceMemoryProperties)
     {
-        LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] invalid Vulkan state, skipping icon upload.");
-        DestroyVulkanIconTexture();
+        if (!m_loggedInvalidVulkanIconState)
+        {
+            LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] invalid Vulkan state, skipping icon upload.");
+            m_loggedInvalidVulkanIconState = true;
+        }
         return false;
     }
 
-    if (m_vkIconDescSet != VK_NULL_HANDLE && m_loadedIconPath == iconPath)
+    m_loggedInvalidVulkanIconState = false;
+
+    const std::string iconCacheKey = hasEmbeddedPixels ? "__embedded_icon_pixels__" : iconPath;
+
+    if (m_vkIconDescSet != VK_NULL_HANDLE && m_loadedIconPath == iconCacheKey)
     {
         return true;
     }
@@ -881,7 +908,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     std::vector<uint8_t> pixels;
     int w = 0, h = 0;
 
-    if (!m_currentActiveNotification.iconPixels.empty())
+    if (hasEmbeddedPixels)
     {
         // Use RGBA pixels embedded in the socket packet
         pixels = m_currentActiveNotification.iconPixels;
@@ -1157,8 +1184,8 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
     }
 
     // Cache texture metadata
-    m_loadedIconPath = iconPath;
-    LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] loaded: " + iconPath);
+    m_loadedIconPath = iconCacheKey;
+    LYMALINK_LOG("[OverlayReceiver][EnsureVulkanIconTexture] loaded: " + iconCacheKey);
     return true;
 #else
     // Handle disabled Vulkan feature fallback
@@ -1260,15 +1287,19 @@ uint32_t OverlayReceiver::VulkanFindMemoryType(uint32_t typeFilter, VkMemoryProp
 bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
 {
 #ifdef LYMALINK_OVERLAY_OPENGL_TEXTURES
+    const bool hasEmbeddedPixels = !m_currentActiveNotification.iconPixels.empty();
+
     // Validate path and state
-    if (iconPath.empty() || !m_openGLReady)
+    if ((!hasEmbeddedPixels && iconPath.empty()) || !m_openGLReady)
     {
         DestroyOpenGLIconTexture();
         return false;
     }
 
+    const std::string iconCacheKey = hasEmbeddedPixels ? "__embedded_icon_pixels__" : iconPath;
+
     // Reuse existing matching texture
-    if (m_iconTextureId != 0 && m_loadedIconPath == iconPath)
+    if (m_iconTextureId != 0 && m_loadedIconPath == iconCacheKey)
     {
         return true;
     }
@@ -1280,7 +1311,7 @@ bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
     int width = 0, height = 0;
 
     // Load raw pixel data from received notification payload if available
-    if (!m_currentActiveNotification.iconPixels.empty())
+    if (hasEmbeddedPixels)
     {
         contiguous.assign(m_currentActiveNotification.iconPixels.begin(), m_currentActiveNotification.iconPixels.end());
         width = static_cast<int>(OVERLAY_ICON_SIZE);
@@ -1348,7 +1379,7 @@ bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
 
     // Cache texture metadata
     m_iconTextureId = textureId;
-    m_loadedIconPath = iconPath;
+    m_loadedIconPath = iconCacheKey;
     return m_iconTextureId != 0;
 #else
     // Handle disabled texture feature fallback

@@ -10,6 +10,7 @@
 /////////////////////////////////////////////////////////
 
 #include "Logger.h"
+#include "DlsymResolver.h"
 
 #include <EGL/egl.h>
 #include <GL/glx.h>
@@ -30,7 +31,6 @@ using PFN_glXSwapBuffers = void (*)(Display*, GLXDrawable);
 using PFN_eglSwapBuffers = EGLBoolean (*)(EGLDisplay, EGLSurface);
 using PFN_glXGetProcAddress = __GLXextFuncPtr (*)(const GLubyte*);
 using PFN_eglGetProcAddress = __eglMustCastToProperFunctionPointerType (*)(const char*);
-using PFN_dlsym = void* (*)(void*, const char*);
 
 // Exported symbols must stay visible even though the library is built with hidden visibility
 extern "C"
@@ -62,11 +62,9 @@ static void LogMissingSymbol(const char* symbol)
 
 /////////////////////////////////////////////////////////////////////
 
-static PFN_dlsym RealDlsym()
+static LymalinkOverlay::DlsymFn RealDlsym()
 {
-    // Use the versioned libc symbol so our own dlsym hook cannot recurse
-    static auto* realDlsym = reinterpret_cast<PFN_dlsym>(dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5"));
-    return realDlsym;
+    return LymalinkOverlay::ResolveRealDlsym();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -198,21 +196,33 @@ static void* ResolveRealSymbol(const char* name)
 
 /////////////////////////////////////////////////////////////////////
 
+static bool IsNullSymbolName(const char* name)
+{
+    return name == nullptr;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 extern "C" LYMALINK_EXPORT void* dlsym(void* handle, const char* name)
 {
-    // Some engines fetch swap functions with dlsym instead of glX/eglGetProcAddress
-    if (std::strcmp(name, "glXSwapBuffers") == 0)       return reinterpret_cast<void*>(&glXSwapBuffers);
-    if (std::strcmp(name, "eglSwapBuffers") == 0)       return reinterpret_cast<void*>(&eglSwapBuffers);
-    if (std::strcmp(name, "glXGetProcAddress") == 0)    return reinterpret_cast<void*>(&glXGetProcAddress);
-    if (std::strcmp(name, "glXGetProcAddressARB") == 0) return reinterpret_cast<void*>(&glXGetProcAddressARB);
-    if (std::strcmp(name, "eglGetProcAddress") == 0)    return reinterpret_cast<void*>(&eglGetProcAddress);
-
     auto* realDlsym = RealDlsym();
     if (!realDlsym)
     {
         LYMALINK_LOG("[GLOverlayPreloader] failed to resolve real dlsym inside dlsym hook");
         return nullptr;
     }
+
+    if (IsNullSymbolName(name))
+    {
+        return realDlsym(handle, name);
+    }
+
+    // Some engines fetch swap functions with dlsym instead of glX/eglGetProcAddress
+    if (std::strcmp(name, "glXSwapBuffers") == 0)       return reinterpret_cast<void*>(&glXSwapBuffers);
+    if (std::strcmp(name, "eglSwapBuffers") == 0)       return reinterpret_cast<void*>(&eglSwapBuffers);
+    if (std::strcmp(name, "glXGetProcAddress") == 0)    return reinterpret_cast<void*>(&glXGetProcAddress);
+    if (std::strcmp(name, "glXGetProcAddressARB") == 0) return reinterpret_cast<void*>(&glXGetProcAddressARB);
+    if (std::strcmp(name, "eglGetProcAddress") == 0)    return reinterpret_cast<void*>(&eglGetProcAddress);
 
     // Forward all unrelated symbol requests to the standard system dlsym handler
     return realDlsym(handle, name);

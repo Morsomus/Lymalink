@@ -172,7 +172,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkCreateInstance(const VkInstanceCrea
         if (enumPhys)
         {
             VkResult enumResult = enumPhys(*pInstance, &devCount, &physDev);
-            if (enumResult != VK_SUCCESS)
+            if (enumResult != VK_SUCCESS && !(enumResult == VK_INCOMPLETE && physDev != VK_NULL_HANDLE))
             {
                 LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkCreateInstance] vkEnumeratePhysicalDevices failed result=" + std::to_string(enumResult));
             }

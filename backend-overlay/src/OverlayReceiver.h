@@ -94,6 +94,7 @@ private:
     bool m_socketConnecting = false;
     bool m_hasSocketPending = false;
     bool m_loggedSocketFailed = false;
+    bool m_loggedInvalidVulkanIconState = false;
     int m_socketFd = -1;
     uint64_t m_nextSocketConnectAttemptMs = 0;
     std::string m_socketPath;
@@ -132,6 +133,7 @@ private:
     ActiveNotification SocketPacketToNotification(const OverlaySocketPacket& packet) const;
 
     // Rendering
+    bool IsRenderApiReady() const;
     void DrawNotificationWindow();
     void UpdateNotificationAnimation(float deltaSeconds);
     bool EnsureVulkanIconTexture(const std::string& iconPath);

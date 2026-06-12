@@ -13,6 +13,7 @@
 #include "OverlayReceiver.h"
 #include "Logger.h"
 #include "FontEmbedded.h"
+#include "DlsymResolver.h"
 
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
@@ -30,7 +31,6 @@ using PFN_eglSwapBuffers = EGLBoolean (*)(EGLDisplay, EGLSurface);
 using PFN_glXGetProcAddress = __GLXextFuncPtr (*)(const GLubyte*);
 using PFN_eglGetProcAddress = __eglMustCastToProperFunctionPointerType (*)(const char*);
 using PFN_glBindFramebuffer = void (*)(GLenum, GLuint);
-using PFN_dlsym = void* (*)(void*, const char*);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -47,11 +47,9 @@ static std::mutex s_renderMtx;
 
 /////////////////////////////////////////////////////////////////////
 
-static PFN_dlsym RealDlsym()
+static LymalinkOverlay::DlsymFn RealDlsym()
 {
-    // Use the versioned libc symbol so calls from this renderer bypass the preloader hook
-    static auto* realDlsym = reinterpret_cast<PFN_dlsym>(dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.2.5"));
-    return realDlsym;
+    return LymalinkOverlay::ResolveRealDlsym();
 }
 
 /////////////////////////////////////////////////////////////////////
