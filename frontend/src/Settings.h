@@ -195,4 +195,5 @@ private:
     void SavePlainValues();
     bool SaveEncryptedWebApiKey(const QString &webApiKey);
     void LoadEncryptedValueState();
+    QString NormalizeTheme(const QString &theme);
 };

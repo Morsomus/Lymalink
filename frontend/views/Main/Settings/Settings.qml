@@ -578,7 +578,6 @@ Item {
                                             case "light": return qsTr("Light")
                                         }
                                     }
-                                    enabled: modelData === "dark"
                                 }
                                 WheelHandler {
                                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad

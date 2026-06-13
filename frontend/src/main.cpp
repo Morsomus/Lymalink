@@ -27,40 +27,10 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFontDatabase>
-#include <QPalette>
-#include <QStyleFactory>
-#include <QStyleHints>
 
 namespace {
 
 constexpr const char *ACTIVATION_SERVER_NAME = "org.lymalink.Lymalink";
-
-void ApplyDarkApplicationTheme(QApplication &app)
-{
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-    // Use Qt 6.5+ native color scheme hint to enable system-level dark mode support for QML controls and platform themes
-    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
-#endif
-
-    // Fallback/override: Apply a custom dark palette for consistent cross-platform rendering
-    // Manually sets colors for window, text, buttons, highlights, and placeholder elements
-    QPalette palette;
-    palette.setColor(QPalette::Window, QColor(32, 32, 32));
-    palette.setColor(QPalette::WindowText, QColor(230, 230, 230));
-    palette.setColor(QPalette::Base, QColor(24, 24, 24));
-    palette.setColor(QPalette::AlternateBase, QColor(37, 37, 37));
-    palette.setColor(QPalette::ToolTipBase, QColor(34, 34, 34));
-    palette.setColor(QPalette::ToolTipText, QColor(230, 230, 230));
-    palette.setColor(QPalette::Text, QColor(230, 230, 230));
-    palette.setColor(QPalette::Button, QColor(42, 42, 42));
-    palette.setColor(QPalette::ButtonText, QColor(230, 230, 230));
-    palette.setColor(QPalette::BrightText, QColor(255, 255, 255));
-    palette.setColor(QPalette::Link, QColor(220, 220, 220));
-    palette.setColor(QPalette::Highlight, QColor(71, 209, 124));
-    palette.setColor(QPalette::HighlightedText, QColor(20, 20, 20));
-    palette.setColor(QPalette::PlaceholderText, QColor(120, 120, 120));
-    app.setPalette(palette);
-}
 
 void SendActivationRequest()
 {
@@ -102,7 +72,6 @@ int main(int argc, char *argv[]) {
     }
 
     QApplication app(argc, argv);
-    ApplyDarkApplicationTheme(app);
 
     Logger &logger = Logger::Instance();
     logger.SetLogFile(Logger::DefaultLinuxLogPath(QCoreApplication::applicationName().toLower()));

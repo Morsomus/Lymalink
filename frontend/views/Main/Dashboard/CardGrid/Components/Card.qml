@@ -581,7 +581,7 @@ Rectangle {
                 id_root.edgeProgressFrameCompletion >= 1.0
                     ? Themes.globalStyle.completionColor(id_root.p_progressBarColorStyle)
                     : Themes.globalStyle.progressColor(id_root.p_progressBarColorStyle),
-                0.55
+                Themes.isLight ? 0.80 : 0.55
             )
             z: 2
         }
@@ -613,7 +613,12 @@ Rectangle {
                     topRightRadius: index === id_progressBar.segmentCount - 1 ? 2 : 0
                     bottomRightRadius: index === id_progressBar.segmentCount - 1 ? 2 : 0
                     color: lit
-                        ? Qt.rgba(litColor.r, litColor.g, litColor.b, 0.55)
+                        ? Qt.rgba(
+                            litColor.r,
+                            litColor.g,
+                            litColor.b,
+                            Themes.isLight ? 0.78 : 0.55
+                        )
                         : Qt.rgba(0.15, 0.15, 0.15, 0.40)
 
                     Behavior on color {

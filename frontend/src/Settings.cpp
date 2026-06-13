@@ -152,7 +152,7 @@ bool Settings::LoadConfig()
     }
 
     m_settings.beginGroup(GROUP_APPEARANCE);
-    m_theme = m_settings.value("Theme", m_theme).toString();
+    m_theme = NormalizeTheme(m_settings.value("Theme", m_theme).toString());
     m_showLymalinkLogo = m_settings.value("ShowLymalinkLogo", m_showLymalinkLogo).toBool();
     m_language = m_settings.value("Language", m_language).toString();
     m_settings.endGroup();
@@ -228,7 +228,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
     {
         case Theme:
         {
-            m_theme = value.toString();
+            m_theme = NormalizeTheme(value.toString());
             group = GROUP_APPEARANCE;
             settingsKey = "Theme";
             settingsValue = m_theme;
@@ -536,7 +536,7 @@ QStringList Settings::GetNotificationSounds() const
 void Settings::SetDefaults()
 {
     m_tempEncryptionKey.clear();
-    m_theme = "dark";
+    m_theme = "system";
     m_showLymalinkLogo = true;
     m_language = "English";
     m_closeToTray = true;
@@ -712,4 +712,21 @@ void Settings::LoadEncryptedValueState()
     }
 
     m_steamWebApiKey = "api_key_set";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Settings::NormalizeTheme(const QString &theme)
+{
+    if (theme == QStringLiteral("system"))
+    {
+        return QStringLiteral("system");
+    }
+
+    if (theme == QStringLiteral("light"))
+    {
+        return QStringLiteral("light");
+    }
+
+    return QStringLiteral("system");
 }

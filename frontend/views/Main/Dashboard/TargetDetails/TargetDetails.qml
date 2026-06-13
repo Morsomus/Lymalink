@@ -132,10 +132,10 @@ Item {
                 : section === "locked"
                     ? qsTr("Locked")
                     : qsTr("Hidden")
-            color: Themes.targetDetails.colors.text
+            color: Themes.targetDetails.colors.sectionHeaderText
             font.pixelSize: Themes.targetDetails.fontSizes.sectionTitle
             font.bold: true
-            opacity: 0.65
+            opacity: Themes.isLight ? 1.0 : 0.65
         }
     }
 

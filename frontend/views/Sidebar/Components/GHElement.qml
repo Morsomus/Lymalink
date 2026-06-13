@@ -19,7 +19,16 @@ Button {
     
     // Public ________________________________________________
     property bool p_collapsed: false
-    property url p_iconSource: "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_White_Clearspace.png"
+    readonly property string effectiveTheme: {
+        if (ctxSettings.theme === "system") {
+            return Qt.styleHints.colorScheme === Qt.ColorScheme.Light ? "light" : "dark"
+        }
+
+        return ctxSettings.theme === "light" ? "light" : "dark"
+    }
+    property url p_iconSource: effectiveTheme === "light"
+        ? "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_Black_Clearspace.png"
+        : "qrc:/qt/qml/Lymalink/res/img-external/GitHub_Invertocat_White_Clearspace.png"
     property string p_linkUrl: ""
 
     Layout.fillWidth: true

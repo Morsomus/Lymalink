@@ -1173,17 +1173,17 @@ Item {
                             radius: 16
 
                             color: id_addTargetMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
                                 : id_addTargetMouseArea.containsMouse
-                                ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                                : "transparent"
+                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                                    : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
 
                             border.width: 1
                             border.color: id_addTargetMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
                                 : id_addTargetMouseArea.containsMouse
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                                : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
 
                             Behavior on color {
                                 ColorAnimation {
@@ -1223,17 +1223,17 @@ Item {
                             property real refreshRotation: 0
 
                             color: id_refreshMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
                                 : id_refreshMouseArea.containsMouse
-                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                                    : "transparent"
+                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                                    : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
 
                             border.width: 1
                             border.color: id_refreshMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
                                 : id_refreshMouseArea.containsMouse
-                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
 
                             Behavior on color {
                                 ColorAnimation {

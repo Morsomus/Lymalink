@@ -8,6 +8,7 @@
 /////////////////////////////////////////////////////////
 
 import app.settings 1.0 as AppSettings
+import app.themes 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -18,6 +19,13 @@ ApplicationWindow {
     id: id_root
 
     readonly property int defaultMinimumWidth: 900
+    readonly property string effectiveTheme: {
+        if (ctxSettings.theme === "system") {
+            return Qt.styleHints.colorScheme === Qt.ColorScheme.Light ? "light" : "dark"
+        }
+
+        return ctxSettings.theme === "light" ? "light" : "dark"
+    }
 
     visible: true
     width: ctxSettings.windowSizeX
@@ -36,6 +44,12 @@ ApplicationWindow {
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_0_8_0_BETA_MD_TEXT)
         }
+    }
+
+    Binding {
+        target: Themes
+        property: "activeMode"
+        value: id_root.effectiveTheme
     }
 
     Timer {
@@ -58,7 +72,7 @@ ApplicationWindow {
     }
 
     background: Rectangle {
-        color: "#181818"
+        color: Themes.appShell.colors.windowBackground
     }
 
     onClosing: function(close) {
@@ -116,14 +130,14 @@ ApplicationWindow {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#1f1f1f"
+            color: Themes.appShell.colors.contentBackground
 
             // Subtle left divider from sidebar
             Rectangle {
                 width: 1
                 height: parent.height
                 anchors.left: parent.left
-                color: "#2a2a2a"
+                color: Themes.appShell.colors.contentDivider
             }
 
             StackLayout {

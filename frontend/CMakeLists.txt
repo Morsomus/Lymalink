@@ -71,6 +71,7 @@ qt_add_qml_module(Lymalink
         res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf
         res/fonts/Inter/OFL.txt
         res/img-external/GitHub_Invertocat_White_Clearspace.png
+        res/img-external/GitHub_Invertocat_Black_Clearspace.png
         res/img/BlankBackground_MFC_Glow_00002_E.png
         res/img/BlankBackground_MFC_00002_E.png
         res/img/BlankBackground_MFC_Glow_00005_ED.png
