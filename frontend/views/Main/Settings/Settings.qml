@@ -420,7 +420,7 @@ Item {
             }
         }
 
-        Button {
+        CustomButton {
             text: qsTr("Apply")
             onClicked: {
                 const submittedText = id_input.text
@@ -558,32 +558,17 @@ Item {
                         C_SettingRow {
                             label: qsTr("Theme")
                             tooltip: qsTr("Controls the application's color theme")
-                            ComboBox {
+                            CustomComboBox {
                                 model: ["system", "dark", "light"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.theme))
                                 implicitWidth: 140
-                                displayText: {
-                                    switch (model[currentIndex]) {
+                                p_textFromValue: function(value, index) {
+                                    switch (value) {
                                         case "system": return qsTr("System")
                                         case "dark": return qsTr("Dark")
                                         case "light": return qsTr("Light")
                                     }
-                                }
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: {
-                                        switch (modelData) {
-                                            case "system": return qsTr("System")
-                                            case "dark": return qsTr("Dark")
-                                            case "light": return qsTr("Light")
-                                        }
-                                    }
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
+                                    return qsTr("System")
                                 }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.Theme, model[index])
                             }
@@ -592,7 +577,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Lymalink Logo")
                             tooltip: qsTr("Show or hide the Lymalink logo in the sidebar")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.showLymalinkLogo
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_logoSwitchHover }
@@ -608,22 +593,10 @@ Item {
                         C_SettingRow {
                             label: qsTr("Language")
                             tooltip: qsTr("Sets the application's display language")
-                            ComboBox {
+                            CustomComboBox {
                                 model: ["English"] //, "Finnish", "Svenska"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.language))
                                 implicitWidth: 140
-                                displayText: model[currentIndex]
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: modelData
-                                    enabled: modelData === "English"
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
-                                }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.Language, model[index])
                             }
                         }
@@ -634,7 +607,7 @@ Item {
                             label: qsTr("Window size")
                             tooltip: qsTr("Reset the main window size to its default dimensions")
 
-                            Button {
+                            CustomButton {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset to default")
                                 onClicked: {
@@ -660,7 +633,7 @@ Item {
                             ColumnLayout {
                                 spacing: 4
 
-                                Switch {
+                                CustomSwitch {
                                     enabled: ctxSysTray.available
                                     checked: ctxSettings.closeToTray && ctxSysTray.available
                                     text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
@@ -689,7 +662,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Collapse button")
                             tooltip: qsTr("Show a button for collapsing the sidebar")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.showCollapseButton
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_collapseButtonHover }
@@ -705,7 +678,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Close to tray notification")
                             tooltip: qsTr("Show system notification while closing to tray")
-                            Switch {
+                            CustomSwitch {
                                 enabled: ctxSettings.closeToTray && ctxSysTray.available
                                 checked: ctxSettings.closeToTrayToast && enabled
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
@@ -722,7 +695,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Collapse border button")
                             tooltip: qsTr("Enable a hidden hover button on the edge of the sidebar for collapsing it")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.enableCollapseBorderButton
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_collapseBorderHover }
@@ -738,7 +711,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Tooltips")
                             tooltip: qsTr("Show tooltips")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.showTooltips
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_tooltipsHover }
@@ -759,12 +732,12 @@ Item {
                         C_SettingRow {
                             label: qsTr("Color theme")
                             tooltip: qsTr("Select color theme for the application")
-                            ComboBox {
+                            CustomComboBox {
                                 model: [0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
                                 implicitWidth: 150
-                                displayText: {
-                                    switch (model[currentIndex]) {
+                                p_textFromValue: function(value, index) {
+                                    switch (value) {
                                         case 0: return qsTr("Gold")
                                         case 1: return qsTr("Blue")
                                         case 2: return qsTr("Purple")
@@ -772,25 +745,7 @@ Item {
                                         case 4: return qsTr("Ember")
                                         case 5: return qsTr("Frost")
                                     }
-                                }
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: {
-                                        switch (modelData) {
-                                            case 0: return qsTr("Gold")
-                                            case 1: return qsTr("Blue")
-                                            case 2: return qsTr("Purple")
-                                            case 3: return qsTr("Emerald")
-                                            case 4: return qsTr("Ember")
-                                            case 5: return qsTr("Frost")
-                                        }
-                                    }
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
+                                    return qsTr("Gold")
                                 }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.GlobalColorStyle, model[index])
                             }
@@ -801,7 +756,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Dynamic achievement rows")
                             tooltip: qsTr("Achievement rows resize automatically to use available window space")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.enableDynamicAchievementRows
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_dynamicAchievementRows }
@@ -817,7 +772,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Total achievements badge")
                             tooltip: qsTr("Show a badge in the top-right corner of a card displaying the total number of achievements")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.showTotalAchievementsBadge
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_achieveBadgeHover }
@@ -833,7 +788,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Installation status badge")
                             tooltip: qsTr("Show a warning badge in the top-left corner of a card if the installation cannot be found")
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.showInstallationStatusBadge
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_installIconHover }
@@ -849,21 +804,11 @@ Item {
                         C_SettingRow {
                             label: qsTr("Target type badge")
                             tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
-                            ComboBox {
+                            CustomComboBox {
                                 model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.targetTypeBadgeColorStyle))
                                 implicitWidth: 150
-                                displayText: id_root.colorStyleLabel(model[currentIndex])
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: id_root.colorStyleLabel(modelData)
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
-                                }
+                                p_textFromValue: function(value, index) { return id_root.colorStyleLabel(value) }
                                 onActivated: (index) => id_root.saveTargetTypeBadgeSelection(model[index])
                             }
                         }
@@ -873,21 +818,11 @@ Item {
                         C_SettingRow {
                             label: qsTr("Progress bar")
                             tooltip: qsTr("Select color theme for the card progress bar, or disable it")
-                            ComboBox {
+                            CustomComboBox {
                                 model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
                                 implicitWidth: 150
-                                displayText: id_root.colorStyleLabel(model[currentIndex])
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: id_root.colorStyleLabel(modelData)
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
-                                }
+                                p_textFromValue: function(value, index) { return id_root.colorStyleLabel(value) }
                                 onActivated: (index) => id_root.saveProgressBarSelection(model[index])
                             }
                         }
@@ -897,21 +832,11 @@ Item {
                         C_SettingRow {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Select color theme for the card progress frame, grayscale mode, or disable it")
-                            ComboBox {
+                            CustomComboBox {
                                 model: [-1, -2, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressFrameColorStyle))
                                 implicitWidth: 150
-                                displayText: id_root.colorStyleLabel(model[currentIndex])
-                                delegate: ItemDelegate {
-                                    width: parent.width
-                                    text: id_root.colorStyleLabel(modelData)
-                                }
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
-                                }
+                                p_textFromValue: function(value, index) { return id_root.colorStyleLabel(value) }
                                 onActivated: (index) => id_root.saveProgressFrameSelection(model[index])
                             }
                         }
@@ -919,7 +844,7 @@ Item {
                         C_SettingRow {
                             label: qsTr("Progress frame completion animation")
                             tooltip: qsTr("Play a subtle breath animation on completed card progress frame - not available in grayscale mode")
-                            Switch {
+                            CustomSwitch {
                                 enabled: ctxSettings.progressFrameColorStyle >= 0
                                 checked: ctxSettings.enableProgressFrameCompletionAnimation && enabled
                                 text: checked && enabled ? qsTr("Enabled") : qsTr("Disabled")
@@ -960,7 +885,7 @@ Item {
                             label: qsTr("Track in Background")
                             tooltip: qsTr("Keep tracking active even when the application is closed")
 
-                            Switch {
+                            CustomSwitch {
                                 id: id_backendServiceSwitch
 
                                 enabled: id_root.dbusServiceReady
@@ -1031,7 +956,7 @@ Item {
                                     font.pixelSize: Themes.settings.fontSizes.labelText
                                 }
 
-                                Button {
+                                CustomButton {
                                     text: id_root.backendServiceStarting ? qsTr("Starting...") : qsTr("Restart")
                                     enabled: id_root.dbusServiceReady && !id_root.backendServiceStarting
                                     onClicked: ctxDBusService.RestartService()
@@ -1043,19 +968,13 @@ Item {
                             label: qsTr("Overlay position")
                             tooltip: qsTr("Select where achievement overlay notifications appear")
 
-                            ComboBox {
+                            CustomComboBox {
                                 id: id_overlayPositionCombo
 
                                 model: id_root.overlayPositionLabels
                                 currentIndex: id_root.overlayPositionIndex(ctxSettings.overlayNotificationPosition)
                                 implicitWidth: 140
 
-                                WheelHandler {
-                                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                    onWheel: function(event) {
-                                        event.accepted = true
-                                    }
-                                }
                                 onActivated: (index) => {
                                     const position = id_root.overlayPositionValues[index]
                                     if (ctxSettings.SaveValue(Settings.OverlayNotificationPosition, position) && id_root.dbusServiceReady) {
@@ -1069,7 +988,7 @@ Item {
                             label: qsTr("Startup Notification")
                             tooltip: qsTr("Show an overlay notification shortly after a tracked game starts")
 
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.startupNotification
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_startupNotificationHover }
@@ -1134,7 +1053,7 @@ Item {
                                 }
 
                                 // Send overlay notification test button
-                                Button {
+                                CustomButton {
                                     Layout.preferredWidth: 140
                                     text: qsTr("Send test")
                                     enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy && id_root.hasActiveTarget
@@ -1152,54 +1071,24 @@ Item {
                             RowLayout {
                                 spacing: 8
 
-                                Button {
+                                CustomButton {
                                     text: qsTr("Test")
                                     enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
                                         && (id_notificationSoundCombo.count > 0 || ctxSettings.customNotificationSound)
                                     onClicked: ctxDBusService.TestSound()
                                 }
 
-                                ComboBox {
+                                CustomComboBox {
                                     id: id_notificationSoundCombo
-
-                                    readonly property int visibleSoundRows: 7
-                                    readonly property int soundRowHeight: 32
 
                                     model: ctxSettings.notificationSounds
                                     enabled: count > 0 && !ctxSettings.customNotificationSound
                                     currentIndex: Math.max(0, model.indexOf(ctxSettings.notificationSound))
                                     implicitWidth: 140
+                                    p_visibleRows: 7
+                                    p_rowHeight: 32
+                                    p_textFromValue: function(value, index) { return qsTr("Sound %1").arg(index + 1) }
                                     displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
-                                    delegate: ItemDelegate {
-                                        width: id_notificationSoundCombo.width
-                                        text: qsTr("Sound %1").arg(index + 1)
-                                    }
-                                    popup: Popup {
-                                        y: id_notificationSoundCombo.height
-                                        width: id_notificationSoundCombo.width
-                                        implicitHeight: Math.min(
-                                            id_notificationSoundCombo.visibleSoundRows * id_notificationSoundCombo.soundRowHeight,
-                                            id_notificationSoundList.contentHeight
-                                        )
-                                        padding: 0
-
-                                        contentItem: ListView {
-                                            id: id_notificationSoundList
-
-                                            clip: true
-                                            implicitHeight: contentHeight
-                                            model: id_notificationSoundCombo.popup.visible ? id_notificationSoundCombo.delegateModel : null
-                                            currentIndex: id_notificationSoundCombo.highlightedIndex
-
-                                            ScrollIndicator.vertical: ScrollIndicator {}
-                                        }
-                                    }
-                                    WheelHandler {
-                                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                        onWheel: function(event) {
-                                            event.accepted = true
-                                        }
-                                    }
                                     onActivated: (index) => {
                                         if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.dbusServiceReady) {
                                             ctxDBusService.ReloadConfig()
@@ -1213,7 +1102,7 @@ Item {
                             label: qsTr("Custom notification sound (.ogg, .wav)")
                             tooltip: qsTr("Use a custom .ogg or .wav sound file instead of the bundled notification sound")
 
-                            Switch {
+                            CustomSwitch {
                                 checked: ctxSettings.customNotificationSound
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 onToggled: {
@@ -1233,7 +1122,7 @@ Item {
                                 enabled: ctxSettings.customNotificationSound
                                 spacing: 8
 
-                                TextField {
+                                CustomTextField {
                                     id: id_customNotificationSoundPathField
 
                                     Layout.fillWidth: true
@@ -1244,7 +1133,7 @@ Item {
                                     placeholderText: qsTr("Select .ogg or .wav file")
                                 }
 
-                                Button {
+                                CustomButton {
                                     text: qsTr("Browse")
                                     onClicked: id_customNotificationSoundDialog.open()
                                 }
@@ -1312,17 +1201,17 @@ Item {
                             RowLayout {
                                 spacing: 8
 
-                                Button {
+                                CustomButton {
                                     text: qsTr("License")
                                     onClicked: id_markdownDocumentPopup.openDocument(qsTr("Lymalink License"), LICENSE_MD_TEXT)
                                 }
 
-                                Button {
+                                CustomButton {
                                     text: qsTr("Third-Party Licenses")
                                     onClicked: id_markdownDocumentPopup.openDocument(qsTr("Third-Party Licenses"), THIRD_PARTY_LICENSES_LINUX_MD_TEXT)
                                 }
 
-                                Button {
+                                CustomButton {
                                     text: qsTr("Credits")
                                     onClicked: id_markdownDocumentPopup.openDocument(qsTr("Credits"), CREDITS_MD_TEXT)
                                 }
@@ -1332,12 +1221,12 @@ Item {
                                 Layout.fillWidth: true
                             }
 
-                            Button {
+                            CustomButton {
                                 text: qsTr("User Guide")
                                 onClicked: id_markdownDocumentPopup.openDocument(qsTr("User Guide"), USER_GUIDE_0_8_0_BETA_MD_TEXT)
                             }
 
-                            Button {
+                            CustomButton {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset Defaults")
 

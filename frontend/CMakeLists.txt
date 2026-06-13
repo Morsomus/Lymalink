@@ -92,6 +92,11 @@ qt_add_qml_module(Lymalink
         Main.qml 
         Themes.qml
         common/CustomBusyIndicator.qml
+        common/CustomButton.qml
+        common/CustomCheckBox.qml
+        common/CustomComboBox.qml
+        common/CustomSwitch.qml
+        common/CustomTextField.qml
         common/CustomTooltip.qml
         common/ConfirmationPopup.qml
         common/ErrorImage.qml

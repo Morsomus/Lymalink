@@ -733,7 +733,7 @@ Item {
                     spacing: 10
                     visible: !id_root.manualGameEntry
 
-                    TextField {
+                    CustomTextField {
                         id: id_searchField
 
                         Layout.fillWidth: true
@@ -745,7 +745,7 @@ Item {
                         }
                     }
 
-                    Button {
+                    CustomButton {
                         text: qsTr("Search")
                         enabled: !id_root.isSearching
                         onClicked: {
@@ -775,7 +775,7 @@ Item {
                         color: Themes.emulatorTarget.colors.descriptionText
                     }
 
-                    CheckBox {
+                    CustomCheckBox {
                         checked: id_root.manualGameEntry
                         onToggled: id_root.setManualGameEntry(checked)
                     }
@@ -885,7 +885,7 @@ Item {
                         wrapMode: Text.Wrap
                     }
 
-                    TextField {
+                    CustomTextField {
                         id: id_appIdField
 
                         Layout.fillWidth: true
@@ -910,7 +910,7 @@ Item {
                         wrapMode: Text.Wrap
                     }
 
-                    TextField {
+                    CustomTextField {
                         Layout.fillWidth: true
                         readOnly: !id_root.manualGameEntry
                         selectByMouse: id_root.manualGameEntry
@@ -944,7 +944,7 @@ Item {
                         }
                     }
 
-                    TextField {
+                    CustomTextField {
                         id: id_installLocationField
 
                         Layout.fillWidth: true
@@ -984,7 +984,7 @@ Item {
                         Layout.fillWidth: true
                         spacing: 4
 
-                        TextField {
+                        CustomTextField {
                             id: id_prefixLocationField
 
                             Layout.fillWidth: true

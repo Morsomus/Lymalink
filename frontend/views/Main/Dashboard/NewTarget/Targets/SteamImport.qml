@@ -595,7 +595,7 @@ Item {
                     font.pixelSize: Themes.steamImportTarget.fontSizes.label
                 }
 
-                Button {
+                CustomButton {
                     text: qsTr("Update")
                     enabled: id_root.steamConfigured && !id_root.operationLoading
                     onClicked: id_root.beginOperation("update")
@@ -656,7 +656,7 @@ Item {
                     visible: id_root.libraryLoaded && !id_root.updateLoading
                     spacing: 8
 
-                    TextField {
+                    CustomTextField {
                         id: id_searchField
 
                         Layout.fillWidth: true
@@ -666,13 +666,13 @@ Item {
                         font.pixelSize: Themes.steamImportTarget.fontSizes.input
                     }
 
-                    Button {
+                    CustomButton {
                         text: qsTr("Select All")
                         enabled: !id_root.applyLoading && id_root.selectedCount < id_root.libraryGames.length
                         onClicked: id_root.setAllGamesSelected(true)
                     }
 
-                    Button {
+                    CustomButton {
                         text: qsTr("Deselect All")
                         enabled: !id_root.applyLoading && id_root.selectedCount > 0
                         onClicked: id_root.setAllGamesSelected(false)
@@ -764,7 +764,7 @@ Item {
                                     anchors.rightMargin: 12
                                     spacing: 10
 
-                                    CheckBox {
+                                    CustomCheckBox {
                                         id: id_gameCheckBox
 
                                         checked: id_resultRow.modelData.selected
@@ -838,7 +838,7 @@ Item {
                     Layout.fillWidth: true
                     spacing: 12
 
-                    Button {
+                    CustomButton {
                         text: id_root.libraryLoaded ? qsTr("Reload Steam Library") : qsTr("Load Steam Library")
                         enabled: id_root.steamConfigured && !id_root.operationLoading
                         onClicked: id_root.beginOperation("load")
@@ -855,7 +855,7 @@ Item {
                         Layout.fillWidth: true
                     }
 
-                    Button {
+                    CustomButton {
                         text: qsTr("Apply Selection")
                         enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.operationLoading && id_root.libraryLoaded
                         onClicked: id_root.requestApplySelection()

@@ -23,6 +23,7 @@ sudo apt install \
   qt6-declarative-dev \
   qt6-tools-dev \
   qt6-tools-dev-tools \
+  qml6-module-qt5compat-graphicaleffects \
   qml6-module-qtquick \
   qml6-module-qtquick-controls \
   qml6-module-qtquick-dialogs \

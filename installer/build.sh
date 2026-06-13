@@ -42,13 +42,12 @@ MIN_QT_VERSION="6.8.0"
 FRONTEND_QML_MODULES=(
     QtCore
     Qt/labs/folderlistmodel
+    Qt5Compat/GraphicalEffects
     QtQml/Models
     QtQuick
     QtQuick/Controls
     QtQuick/Controls/Basic
     QtQuick/Controls/Basic/impl
-    QtQuick/Controls/Fusion
-    QtQuick/Controls/Fusion/impl
     QtQuick/Controls/impl
     QtQuick/Dialogs
     QtQuick/Dialogs/quickimpl
@@ -60,13 +59,12 @@ FRONTEND_QML_MODULES=(
 )
 REQUIRED_FRONTEND_QML_MODULES=(
     Qt/labs/folderlistmodel
+    Qt5Compat/GraphicalEffects
     QtQml/Models
     QtQuick
     QtQuick/Controls
     QtQuick/Dialogs
     QtQuick/Effects
-    QtQuick/Controls/Fusion
-    QtQuick/Controls/Fusion/impl
     QtQuick/Layouts
     QtQuick/Shapes
     QtQuick/Templates

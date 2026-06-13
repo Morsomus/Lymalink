@@ -13,7 +13,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Button {
+CustomButton {
     id: id_root
 
     // Public ________________________________________________
@@ -30,7 +30,8 @@ Button {
     property real pulseScale: 0.85
 
     Layout.preferredHeight: 42
-    leftPadding: p_collapsed ? 0 : 10
+    leftPadding: p_collapsed ? 2 : 10
+    rightPadding: 2
     flat: true
     focusPolicy: Qt.NoFocus
 

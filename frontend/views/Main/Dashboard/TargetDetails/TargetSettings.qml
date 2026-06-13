@@ -227,7 +227,7 @@ Popup {
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////  
 
-    component C_ActionButton: Button {
+    component C_ActionButton: CustomButton {
         id: id_button
 
         property string tooltipText: ""
@@ -533,7 +533,7 @@ Popup {
                 wrapMode: Text.WordWrap
             }
 
-            TextField {
+            CustomTextField {
                 id: id_deleteConfirmInput
 
                 Layout.fillWidth: true

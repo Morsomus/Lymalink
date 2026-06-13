@@ -116,7 +116,7 @@ Popup {
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
-    component C_ActionButton: Button {
+    component C_ActionButton: CustomButton {
         id: id_button
 
         property bool danger: false
@@ -221,7 +221,7 @@ Popup {
             spacing: 8
             visible: id_root.verificationRequired
 
-            TextField {
+            CustomTextField {
                 id: id_verificationInput
 
                 Layout.fillWidth: true
@@ -242,7 +242,7 @@ Popup {
                 }
             }
 
-            TextField {
+            CustomTextField {
                 id: id_verificationConfirmInput
 
                 Layout.fillWidth: true
@@ -284,7 +284,7 @@ Popup {
                 Layout.fillWidth: true
                 spacing: 8
 
-                TextField {
+                CustomTextField {
                     id: id_pathInput
 
                     Layout.fillWidth: true

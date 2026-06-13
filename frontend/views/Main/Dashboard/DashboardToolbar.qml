@@ -920,14 +920,14 @@ Item {
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.searchIcon
                         }
 
-                        TextField {
+                        CustomTextField {
                             id: id_searchInput
 
                             Layout.fillWidth: true
                             placeholderText: qsTr("Search...")
                             color: Themes.dashboardToolbar.colors.searchText
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.searchInput
-                            verticalAlignment: TextField.AlignVCenter
+                            verticalAlignment: TextInput.AlignVCenter
                             background: Item {}
                             onTextChanged: id_root.searchTextChanged(text)
                             Keys.onEscapePressed: {

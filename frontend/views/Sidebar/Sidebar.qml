@@ -336,14 +336,14 @@ Item {
         }
     }
 
-    Button {
+    CustomButton {
         id: id_collapseButton
         
         visible: !id_root.disableCollapseButton
-        width: 34
+        width: 24
         height: 48
         anchors.right: parent.right
-        anchors.rightMargin: -17
+        anchors.rightMargin: -6
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -6
         z: 10
@@ -359,7 +359,7 @@ Item {
 
         contentItem: Label {
             anchors.left: parent.left
-            anchors.leftMargin: -8
+            anchors.leftMargin: 9
             text: id_collapseButton.text
             color: Themes.sidebar.colors.collapseText
             font.pixelSize: Themes.sidebar.fontSizes.collapseButton

@@ -95,13 +95,12 @@ MISSING_COMMANDS=()
 MISSING_PAYLOAD_FILES=()
 REQUIRED_FRONTEND_QML_MODULES=(
     Qt/labs/folderlistmodel
+    Qt5Compat/GraphicalEffects
     QtQml/Models
     QtQuick
     QtQuick/Controls
     QtQuick/Dialogs
     QtQuick/Effects
-    QtQuick/Controls/Fusion
-    QtQuick/Controls/Fusion/impl
     QtQuick/Layouts
     QtQuick/Shapes
     QtQuick/Templates

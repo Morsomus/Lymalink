@@ -14,7 +14,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Button {
+CustomButton {
     id: id_root
     
     // Public ________________________________________________
@@ -35,6 +35,8 @@ Button {
     Layout.preferredHeight: 42
 
     flat: true
+    leftPadding: 2
+    rightPadding: 2
     text: id_root.p_collapsed ? "GH" : qsTr("GitHub")
 
     CustomTooltip {

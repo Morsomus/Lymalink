@@ -15,6 +15,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
 import QtQuick.Shapes
+import Qt5Compat.GraphicalEffects
 
 Rectangle {
     id: id_root
@@ -83,12 +84,7 @@ Rectangle {
             source: id_root.p_coverSource
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: id_coverMask
-            }
+            visible: false
 
             Rectangle {
                 anchors.fill: parent
@@ -120,6 +116,12 @@ Rectangle {
                     visible: id_coverImage.status === Image.Error
                 }
             }
+        }
+
+        OpacityMask {
+            anchors.fill: id_coverImage
+            source: id_coverImage
+            maskSource: id_coverMask
         }
 
         // Clipping mask for rounded corners
@@ -195,10 +197,15 @@ Rectangle {
                 : incompleteColor
 
         // Geometry
-        readonly property int edgeProgressFrameStroke: id_root.edgeProgressFrameCompletion >= 1.0 ? 4 : 3
-        readonly property real r: id_root.radius
-        readonly property real w: id_root.width
-        readonly property real h: id_root.height
+        readonly property int edgeProgressFrameStroke: id_root.edgeProgressFrameCompletion >= 1.0 ? 3 : 2
+        readonly property real halfBackingStroke: (edgeProgressFrameStroke + 2) / 2
+        readonly property real frameLeft: halfBackingStroke
+        readonly property real frameTop: halfBackingStroke
+        readonly property real frameRight: id_root.width - halfBackingStroke
+        readonly property real frameBottom: id_root.height - halfBackingStroke
+        readonly property real r: Math.max(0, id_root.radius - halfBackingStroke)
+        readonly property real w: frameRight - frameLeft
+        readonly property real h: frameBottom - frameTop
 
         // Perimeter = two straight pairs + corner circles (2πr)
         readonly property real perimeter: 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r
@@ -206,15 +213,15 @@ Rectangle {
         readonly property real gapLength: perimeter * (1.0 - id_root.edgeProgressFrameCompletion)
 
         // Rounded rect path starting at top-left, traced clockwise
-        readonly property string roundedRectPath: `M ${r},0
-            L ${w - r},0
-            A ${r},${r} 0 0 1 ${w},${r}
-            L ${w},${h - r}
-            A ${r},${r} 0 0 1 ${w - r},${h}
-            L ${r},${h}
-            A ${r},${r} 0 0 1 0,${h - r}
-            L 0,${r}
-            A ${r},${r} 0 0 1 ${r},0
+        readonly property string roundedRectPath: `M ${frameLeft + r},${frameTop}
+            L ${frameRight - r},${frameTop}
+            A ${r},${r} 0 0 1 ${frameRight},${frameTop + r}
+            L ${frameRight},${frameBottom - r}
+            A ${r},${r} 0 0 1 ${frameRight - r},${frameBottom}
+            L ${frameLeft + r},${frameBottom}
+            A ${r},${r} 0 0 1 ${frameLeft},${frameBottom - r}
+            L ${frameLeft},${frameTop + r}
+            A ${r},${r} 0 0 1 ${frameLeft + r},${frameTop}
             Z`
 
         Shape {
@@ -383,7 +390,7 @@ Rectangle {
                 right: parent.right
                 bottomMargin: 5
             }
-            width: id_achievementsBadge.width + 20
+            width: id_achievementsBadge.width + 21
             gradient: Gradient {
                 orientation: Gradient.Horizontal
 
@@ -423,7 +430,7 @@ Rectangle {
                 top: parent.top
                 right: parent.right
                 topMargin: id_root.p_edgeProgressFrameEnabled ? 6 : 5
-                rightMargin: 6
+                rightMargin: 7
             }
             text: id_root.p_achievementCount + "/" + id_root.p_achievementTotal
             color: Themes.cardSmall.colors.achievementsBadgeText
@@ -440,8 +447,8 @@ Rectangle {
         anchors {
             left: parent.left
             top: parent.top
-            leftMargin: 4
-            topMargin: 4
+            leftMargin: 5
+            topMargin: 5
         }
         width: 21
         height: 21

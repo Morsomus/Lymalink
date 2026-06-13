@@ -120,7 +120,7 @@ Popup {
     //////////////////////////// COMPONENTS /////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
-    component C_DateInput: TextField {
+    component C_DateInput: CustomTextField {
         id: id_input
 
         property int digits: 2
@@ -150,7 +150,7 @@ Popup {
         }
     }
 
-    component C_ActionButton: Button {
+    component C_ActionButton: CustomButton {
         id: id_button
 
         property bool danger: false

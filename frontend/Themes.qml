@@ -56,6 +56,113 @@ QtObject {
         }
     }
 
+    // CustomComboBox.qml
+    readonly property QtObject customComboBox: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: id_themes.themeColor("#1f2326", "#ffffff")
+            readonly property color backgroundHover: id_themes.themeColor("#252b2f", "#f3f6f8")
+            readonly property color backgroundPressed: id_themes.themeColor("#1a1e21", "#e8edf2")
+            readonly property color border: id_themes.themeColor("#3b454e", "#9aa9b7")
+            readonly property color borderActive: id_themes.themeColor("#2e99d6", "#0f78b7")
+            readonly property color popupBackground: id_themes.themeColor("#1f2326", "#ffffff")
+            readonly property color rowHover: id_themes.themeColor("#26333b", "#e7f1f8")
+            readonly property color rowSelected: id_themes.themeColor("#113d55", "#d6ecf8")
+            readonly property color text: id_themes.themeColor("#d8d8d8", "#1f2933")
+            readonly property color textDisabled: id_themes.themeColor("#666677", "#667085")
+            readonly property color indicator: id_themes.themeColor("#d8d8d8", "#1f2933")
+            readonly property color indicatorDisabled: id_themes.themeColor("#666677", "#667085")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+            readonly property int rowText: 13
+        }
+    }
+
+    // CustomSwitch.qml
+    readonly property QtObject customSwitch: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color trackOn: id_themes.themeColor("#3281bf", "#2f7ebc")
+            readonly property color trackOff: id_themes.themeColor("#3d444c", "#d2d8de")
+            readonly property color trackDisabled: id_themes.themeColor("#2f343a", "#c2c8ce")
+            readonly property color trackBorder: id_themes.themeColor("#57616c", "#a8b2bd")
+            readonly property color handleOn: id_themes.themeColor("#25292d", "#ffffff")
+            readonly property color handleOff: id_themes.themeColor("#25292d", "#f7f9fb")
+            readonly property color handleDisabled: id_themes.themeColor("#505860", "#e2e6ea")
+            readonly property color handleBorder: id_themes.themeColor("#5b6570", "#8c98a4")
+            readonly property color handleShadow: id_themes.themeColor("#000000", "#65707a")
+            readonly property color text: id_themes.themeColor("#d8d8d8", "#1f2933")
+            readonly property color textDisabled: id_themes.themeColor("#666677", "#667085")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+        }
+    }
+
+    // CustomCheckBox.qml
+    readonly property QtObject customCheckBox: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: id_themes.themeColor("#25292d", "#ffffff")
+            readonly property color backgroundHover: id_themes.themeColor("#2d3338", "#f3f6f8")
+            readonly property color backgroundPressed: id_themes.themeColor("#1f2327", "#e8edf2")
+            readonly property color backgroundChecked: id_themes.themeColor("#2d3338", "#2f7ebc")
+            readonly property color backgroundDisabled: id_themes.themeColor("#202428", "#eef1f4")
+            readonly property color border: id_themes.themeColor("#4d5964", "#a8b4bf")
+            readonly property color borderHover: id_themes.themeColor("#5e6b77", "#8797a6")
+            readonly property color borderChecked: id_themes.themeColor("#4d5964", "#2f7ebc")
+            readonly property color borderFocus: id_themes.themeColor("#2e99d6", "#0f78b7")
+            readonly property color mark: "#ffffff"
+            readonly property color markDisabled: id_themes.themeColor("#9aa3ad", "#ffffff")
+            readonly property color text: id_themes.themeColor("#d8d8d8", "#1f2933")
+            readonly property color textDisabled: id_themes.themeColor("#666677", "#667085")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+        }
+    }
+
+    // CustomButton.qml
+    readonly property QtObject customButton: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: id_themes.themeColor("#25292d", "#ffffff")
+            readonly property color backgroundHover: id_themes.themeColor("#2d3338", "#f3f6f8")
+            readonly property color backgroundPressed: id_themes.themeColor("#1f2327", "#e8edf2")
+            readonly property color backgroundDisabled: id_themes.themeColor("#202428", "#eef1f4")
+            readonly property color border: id_themes.themeColor("#4d5964", "#a8b4bf")
+            readonly property color borderHover: id_themes.themeColor("#5e6b77", "#8797a6")
+            readonly property color borderFocus: id_themes.themeColor("#2e99d6", "#0f78b7")
+            readonly property color text: id_themes.themeColor("#f0f2f4", "#1f2933")
+            readonly property color textDisabled: id_themes.themeColor("#777f88", "#8a96a3")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+        }
+    }
+
+    // CustomTextField.qml
+    readonly property QtObject customTextField: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: id_themes.themeColor("#101214", "#ffffff")
+            readonly property color backgroundHover: id_themes.themeColor("#16191c", "#f3f6f8")
+            readonly property color backgroundDisabled: id_themes.themeColor("#151719", "#eef1f4")
+            readonly property color border: id_themes.themeColor("#3b4249", "#a8b4bf")
+            readonly property color borderHover: id_themes.themeColor("#4d5660", "#8797a6")
+            readonly property color borderFocus: id_themes.themeColor("#2e99d6", "#0f78b7")
+            readonly property color text: id_themes.themeColor("#e7eaed", "#1f2933")
+            readonly property color textDisabled: id_themes.themeColor("#747c84", "#8a96a3")
+            readonly property color placeholderText: id_themes.themeColor("#8a929a", "#667085")
+            readonly property color selectedText: id_themes.themeColor("#f8fafc", "#ffffff")
+            readonly property color selection: id_themes.themeColor("#1f6f9f", "#0f78b7")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+        }
+    }
+
     // Shared backend service status indicator
     readonly property QtObject serviceIndicator: QtObject {
         readonly property QtObject colors: QtObject {

@@ -77,7 +77,7 @@ Popup {
                 elide: Text.ElideRight
             }
 
-            Button {
+            CustomButton {
                 text: qsTr("Close")
                 onClicked: id_root.close()
             }
