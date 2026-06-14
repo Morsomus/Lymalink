@@ -37,6 +37,7 @@ public:
     bool ShowAchievementToastSharedMemory(const AchievementNotification& notification);
     bool ShowAchievementToastSocket(const AchievementNotification& notification);
     bool HasSocketClient();
+    void ClearSharedMemoryNotification();
 
 private:
     struct SocketServer
@@ -48,6 +49,7 @@ private:
 
     int m_shmFd = -1;
     OverlaySharedMemoryState* m_shm;
+    std::mutex m_shmMutex;
     std::atomic_bool m_socketRunning;
     std::atomic_bool m_socketPaused;
     std::thread m_socketThread;

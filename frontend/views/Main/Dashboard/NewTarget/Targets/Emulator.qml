@@ -467,28 +467,14 @@ Item {
                             }
                         }
 
-
-                        ColumnLayout {
+                        Text {
                             Layout.fillWidth: true
                             Layout.topMargin: 4
-                            spacing: 4
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("Supported Emulators")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                font.bold: true
-                                color: Themes.emulatorTarget.colors.labelText
-                                wrapMode: Text.Wrap
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                color: Themes.emulatorTarget.colors.descriptionText
-                                wrapMode: Text.Wrap
-                            }
+                            text: qsTr("Supported Emulators")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            font.bold: true
+                            color: Themes.emulatorTarget.colors.labelText
+                            wrapMode: Text.Wrap
                         }
 
                         Repeater {

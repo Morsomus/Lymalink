@@ -479,6 +479,8 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 
     if (m_activeCount.fetch_sub(1) - 1 <= 0)
     {
+        m_overlayNotifications.ClearSharedMemoryNotification();
+
         // Start delayed sleep timer after last active process exits
         const uint64_t generation = m_sleepTimerGeneration.fetch_add(1) + 1;
         if (m_sleepTimerThread.joinable())
@@ -1132,6 +1134,10 @@ void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
             {
                 const bool socketSent = m_overlayNotifications.ShowAchievementToastSocket(notification);
                 LOG_BE(Urgency::Debug, "Startup socket notification completed. Sent successfully: %s targetId=%d exe=%s", socketSent ? "true" : "false", targetId, gameName.c_str());
+                if (socketSent)
+                {
+                    m_overlayNotifications.ClearSharedMemoryNotification();
+                }
                 return;
             }
 

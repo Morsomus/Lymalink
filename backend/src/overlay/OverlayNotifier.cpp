@@ -119,12 +119,37 @@ bool OverlayNotifier::HasSocketClient()
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void OverlayNotifier::ClearSharedMemoryNotification()
+{
+    std::lock_guard<std::mutex> lock(m_shmMutex);
+    if (!m_shm)
+    {
+        return;
+    }
+
+    m_shm->active.store(false);
+    m_shm->timestamp = 0;
+    m_shm->durationMs = 0;
+    m_shm->notificationPosition = static_cast<uint32_t>(OverlayNotificationPosition::BottomRight);
+    m_shm->hasIconPixels = 0;
+    std::memset(m_shm->title, 0, sizeof(m_shm->title));
+    std::memset(m_shm->description, 0, sizeof(m_shm->description));
+    std::memset(m_shm->iconPath, 0, sizeof(m_shm->iconPath));
+    std::memset(m_shm->appIconPath, 0, sizeof(m_shm->appIconPath));
+    std::memset(m_shm->iconPixels, 0, sizeof(m_shm->iconPixels));
+
+    LOG_BE(Urgency::Debug, "Shared memory notification cleared.");
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
 bool OverlayNotifier::WriteNotification(const AchievementNotification& notification, uint32_t durationMs)
 {
     constexpr uint64_t ACTIVE_TIMEOUT_MS = 10000;
+    std::lock_guard<std::mutex> lock(m_shmMutex);
 
     if (!m_shm)
     {

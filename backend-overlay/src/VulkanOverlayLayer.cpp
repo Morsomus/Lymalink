@@ -598,6 +598,59 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
         // Poll shared memory / socket for new notifications and emit draw commands
         s_overlay.RenderNotificationFrame(w, h);
 
+        // Fix path for swapchain/backend churn
+        if (!s_overlay.IsRenderApiReady())
+        {
+            VkDevice device = VK_NULL_HANDLE;
+            VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+            VkQueue graphicsQueue = VK_NULL_HANDLE;
+            uint32_t graphicsFamily = 0;
+            {
+                std::lock_guard<std::mutex> lock(s_deviceMtx);
+                auto it = s_devices.find(key);
+                if (it != s_devices.end())
+                {
+                    device = it->second.device;
+                    physicalDevice = it->second.physicalDevice;
+                    graphicsQueue = it->second.graphicsQueue;
+                    graphicsFamily = it->second.graphicsFamily;
+                }
+                else if (s_devices.size() == 1)
+                {
+                    DeviceData& dev = s_devices.begin()->second;
+                    device = dev.device;
+                    physicalDevice = dev.physicalDevice;
+                    graphicsQueue = dev.graphicsQueue;
+                    graphicsFamily = dev.graphicsFamily;
+                }
+            }
+
+            PFN_vkGetPhysicalDeviceMemoryProperties getMemProps = nullptr;
+            {
+                std::lock_guard<std::mutex> ilock(s_instanceMtx);
+                for (auto& [k, inst] : s_instances)
+                {
+                    if (inst.physicalDevice == physicalDevice)
+                    {
+                        getMemProps = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(
+                            inst.getProcAddr(inst.instance, "vkGetPhysicalDeviceMemoryProperties"));
+                        break;
+                    }
+                }
+            }
+
+            // If another overlay caused swapchain/backend churn, repair the context only when a real notification is waiting
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkQueuePresentKHR] repairing Vulkan context for pending notification.");
+            s_overlay.EnsureVulkanImGuiContext(
+                device,
+                physicalDevice,
+                graphicsQueue,
+                graphicsFamily,
+                backend->GetCommandPool(),
+                getMemProps);
+            s_overlay.RenderNotificationFrame(w, h);
+        }
+
         // Finalise ImGui draw lists, then submit them to the swapchain image
         ImGui::Render();
         overlayWaitSemaphore = backend->RenderDrawData(queue, pPresentInfo, ImGui::GetDrawData());

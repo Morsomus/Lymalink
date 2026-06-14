@@ -38,6 +38,7 @@ public:
     // Called every frame from the Vulkan / OpenGL hook before the swap
     // Reads shared state or socket, drives fade animation and emits ImGui notification UI
     void RenderNotificationFrame(uint32_t framebufferWidth, uint32_t framebufferHeight);
+    bool IsRenderApiReady() const;
 
     // Called once after vkCreateDevice is known
     // Stores Vulkan handles required for icon texture upload
@@ -133,7 +134,6 @@ private:
     ActiveNotification SocketPacketToNotification(const OverlaySocketPacket& packet) const;
 
     // Rendering
-    bool IsRenderApiReady() const;
     void DrawNotificationWindow();
     void UpdateNotificationAnimation(float deltaSeconds);
     bool EnsureVulkanIconTexture(const std::string& iconPath);

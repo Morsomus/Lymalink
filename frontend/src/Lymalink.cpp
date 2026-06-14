@@ -1425,6 +1425,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
         {appId},
         {"achievement_key", "achievement_name", "achievement_description", "date_unlocked"}
     ));
+    const QString emulatorType = Utils::MapStringValue(row, "emulator_type");
 
     targetDetails = {
         {"id", appId},
@@ -1439,6 +1440,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
         {"playtime", PlaytimeText(Utils::MapIntValue(row, "total_seconds_played"))},
         {"appIdDirFound", IsSteamTargetType(normalizedTargetType) ? false : row.value("appid_dir_found").toInt() == 1},
+        {"emulatorType", emulatorType},
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
     };

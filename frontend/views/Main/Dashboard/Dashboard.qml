@@ -578,6 +578,7 @@ Item {
             p_recentUnlock: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.recentUnlock : ""
             p_playtime: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.playtime : ""
             p_appIdDirFound: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.appIdDirFound) : false
+            p_emulatorType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.emulatorType : ""
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel
 

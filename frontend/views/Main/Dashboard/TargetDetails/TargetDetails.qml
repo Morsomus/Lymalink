@@ -27,6 +27,7 @@ Item {
     property string p_playtime: "" // minutes or hours
     property string p_targetType: ""
     property string p_installationStatus: ""
+    property string p_emulatorType: ""
     property bool p_appIdDirFound: false
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
@@ -48,6 +49,21 @@ Item {
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
         : 0.0
+
+    function emulatorLabel(emulatorType) {
+        switch ((emulatorType || "").trim().toUpperCase()) {
+        case "GOG-N":
+            return "GOG-Nemirtingas"
+        case "GOLDBERG":
+            return "Goldberg"
+        case "CODEX":
+            return "Codex"
+        case "RUNE":
+            return "Rune"
+        default:
+            return "-"
+        }
+    }
 
     // Component.onCompleted: {
     //     if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
@@ -743,6 +759,11 @@ Item {
                     label: qsTr("Type")
                     value: id_root.p_targetType
                     visible: id_root.p_targetType !== ""
+                }
+                C_MetaRow {
+                    label: qsTr("")
+                    value: id_root.emulatorLabel(id_root.p_emulatorType)
+                    visible: id_root.p_targetType === "Emulator" && id_root.emulatorLabel(id_root.p_emulatorType) !== "-"
                 }
                 C_MetaRow {
                     label: qsTr("Playtime")
