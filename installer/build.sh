@@ -48,6 +48,8 @@ FRONTEND_QML_MODULES=(
     QtQuick/Controls
     QtQuick/Controls/Basic
     QtQuick/Controls/Basic/impl
+    QtQuick/Controls/Fusion
+    QtQuick/Controls/Fusion/impl
     QtQuick/Controls/impl
     QtQuick/Dialogs
     QtQuick/Dialogs/quickimpl
@@ -65,6 +67,8 @@ REQUIRED_FRONTEND_QML_MODULES=(
     QtQuick/Controls
     QtQuick/Dialogs
     QtQuick/Effects
+    QtQuick/Controls/Fusion
+    QtQuick/Controls/Fusion/impl
     QtQuick/Layouts
     QtQuick/Shapes
     QtQuick/Templates

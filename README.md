@@ -97,7 +97,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.8.2-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.8.3-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -110,7 +110,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/build.sh
-./installer/build/lymalink-installer-0.8.2-*-x86_64.run
+./installer/build/lymalink-installer-0.8.3-*-x86_64.run
 ```
 
 

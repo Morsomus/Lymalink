@@ -728,5 +728,10 @@ QString Settings::NormalizeTheme(const QString &theme)
         return QStringLiteral("light");
     }
 
+    if (theme == QStringLiteral("dark"))
+    {
+        return QStringLiteral("dark");
+    }
+
     return QStringLiteral("system");
 }
