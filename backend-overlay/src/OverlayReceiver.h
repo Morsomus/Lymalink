@@ -141,6 +141,7 @@ private:
     uint32_t VulkanFindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags props) const;
     bool EnsureOpenGLIconTexture(const std::string& iconPath);
     void DestroyOpenGLIconTexture();
+    std::string BuildEmbeddedIconCacheKey() const;
 
     // Helpers
     std::string ImElideRight(const char* text, float max_width);

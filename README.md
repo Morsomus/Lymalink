@@ -1,21 +1,31 @@
 # Lymalink
 
-**Achievement tracker for Steam emulators, Steam/Cloud APIs, and fully custom targets.**
+**Achievement watcher and tracker for Steam and GOG emulators, Steam/Cloud APIs, and fully custom targets.**
 
-> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started, explore the [Features](#features) to see what's included, and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md) for configuration, usage instructions, and FAQ.
+- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For a list of supported emulators, refer to the [User Guide FAQ](frontend/res/docs/help/user-guide-0.8.*-beta.md#which-emulator-created-achievement-files-are-currently-supported).
+- Can be configured to run in the background without the user interface.
+- Import your official Steam achievements.
+
+> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.*-beta.md) for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
-## Overview
+### Implemented Features
 
-Lymalink is an open-source achievement tracker for Linux that brings together local achievement files, Steam-based data, cloud/API imports, and custom targets in one dashboard. It is built for users who want to track progress across different game setups, including emulator-based environments, official Steam achievement data, and personal achievement lists.
-
-The application is split into Qt based frontend and a lightweight background daemon, lymalinkd. The frontend is used to manage targets, view progress, customize the interface, and configure behavior, while the daemon handles background tracking, playtime monitoring, notification sounds, and in-game overlay popups for Vulkan and OpenGL games. Once configured, the daemon can continue running without the frontend, or be kept tied to the frontend depending on the user’s preferred setup.
+- **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
+- **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions.
+- **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
+- **Playtime tracking** - Track playtime for your targets.
+- **Multiple dashboard layouts** - View tracked targets using several dashboard layout options.
+- **Target organization** - Sort, filter, and search tracked targets.
+- **Manual achievement control** - Manually unlock or lock achievements when needed.
+- **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
+- **System tray support** - Keep Lymalink accessible from the system tray.
+- **Steam achievement import** - Import your personal Steam achievements to the dashboard.
 
 ## Table of Contents
 
 - [Visual Showcase](#visual-showcase)
-- [Features](#features)
 - [Installation](#installation)
   - [Option 1: Pre-built Release (Recommended for Supported Distros)](#option-1-pre-built-release-recommended-for-supported-distros)
   - [Option 2: Building from Source](#option-2-building-from-source)
@@ -63,27 +73,11 @@ The application is split into Qt based frontend and a lightweight background dae
 |:---:|:---:|
 | <img src="showcase/0.8.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.8.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
 
-
-## Features
-
-> **v0.8.*-beta** release.
-
-- **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
-- **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions.
-- **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
-- **Playtime tracking** - Track playtime for your targets.
-- **Multiple dashboard layouts** - View tracked targets using several dashboard layout options.
-- **Target organization** - Sort, filter, and search tracked targets.
-- **Manual achievement control** - Manually unlock or lock achievements when needed.
-- **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
-- **System tray support** - Keep Lymalink accessible from the system tray.
-- **Steam achievement import** - Import your personal Steam achievements to the dashboard.
-
 ## Installation
 
 Lymalink can be installed either by using the pre-built installer or by compiling the binaries manually from source if your Linux distribution has compatibility issues with the pre-made packages.
 
-> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.8.0-beta.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
+> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.8.*-beta.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
 
 ### Option 1: Pre-built Release (Recommended for Supported Distros)
 
@@ -164,9 +158,9 @@ Current progress towards different versions, platform-wise
 - **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
 - **Steam Import Auto-Update** - Selectively refresh imported Steam achievement data to keep tracked progress up to date without user intervention.
 - **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
-- **Customizable UI** - Languages to choose from, switch between dark, light, and system themes to suit your preference and much more.
 - **Export & Import** - Move your achievement data between devices or back it up in open formats such as JSON or CSV.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
+- **Localisation** - Languages to choose from.
 - **Windows Support** - Bring Lymalink to Windows.
 
 ---

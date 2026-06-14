@@ -17,6 +17,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#include <format>
 #include <algorithm>
 #include <sys/signalfd.h>
 #include <unistd.h>
@@ -125,7 +126,7 @@ Error Lymalinkd::Init()
     m_startupNotificationEnabled.store(LoadStartupNotificationConfig());
 
     // Cache targets still requiring AppId dir scan
-    std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    std::unordered_map<int, AppIdDirPathScanTarget> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
@@ -148,6 +149,7 @@ Error Lymalinkd::Init()
     // ProcessWatcher callbacks
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe) { OnProcessStarted(targetId, exe); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
+    m_achievementHandler.onAppIdDirUnavailable = [this](int targetId, const std::string& appIdDirPath) { OnAppIdDirUnavailable(targetId, appIdDirPath); };
 
     m_achievementHandler.Init();
     m_achievementHandler.Start();
@@ -189,6 +191,15 @@ Error Lymalinkd::DatabaseInit()
     if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath))
     {
         LOG_BE(Urgency::Fatal, "Database open failed: %s", m_database.LastError().c_str());
+        err = Error::DatabaseError;
+        return err;
+    }
+
+    // Execute migrates for updated version of Lymalink
+    if (!EnsureColumn(m_databaseEmuGamesTable, "installation_dir", "installation_dir TEXT") ||
+        !EnsureColumn(m_databaseEmuGamesTable, "data_opt", "data_opt TEXT"))
+    {
+        LOG_BE(Urgency::Critical, "Database migration failed: %s", m_database.LastError().c_str());
         err = Error::DatabaseError;
         return err;
     }
@@ -280,7 +291,10 @@ void Lymalinkd::Monitor()
                             SavePathScanResults(scanResults);
                             for (const AppIdDirPathScanResult& result : scanResults)
                             {
-                                m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
+                                if (result.appidDirFound)
+                                {
+                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
+                                }
                             }
 
                             if (!HasCurrentActiveTargetsNeedingAppIdDirScan())
@@ -514,6 +528,39 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
 
 /////////////////////////////////////////////////////////////////////
 
+void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath)
+{
+    if (targetId <= 0)
+    {
+        return;
+    }
+
+    LOG_BE(Urgency::Warning, "AppID dir unavailable, resetting scan state: targetId=%d path=%s", targetId, appIdDirPath.c_str());
+
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        DbRecord data{
+            {"appid_dir_found", int64_t{0}},
+            {"appid_dir_location", std::string{}},
+            {"date_updated", Utils::NowEpoch()}
+        };
+
+        if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
+        {
+            LOG_BE(Urgency::Critical, "Failed to reset AppID dir scan state: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+            return;
+        }
+    }
+
+    const std::unordered_map<int, AppIdDirPathScanTarget> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    {
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Lymalinkd::OnTestToast()
 {
     LOG_BE(Urgency::Debug, "Test toast requested.");
@@ -591,7 +638,7 @@ void Lymalinkd::OnReloadAllTargets()
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
 
     // Refresh pending AppId dir scan targets
-    const std::unordered_map<int, std::string> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
+    const std::unordered_map<int, AppIdDirPathScanTarget> targetsMissingAppIdDir = LoadAppIdDirScanTargetsFromDatabase();
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
@@ -636,7 +683,7 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
 /////////////////////////////////////////////////////////////////////
 
 // Load Targets which are missing AppId Dir paths
-std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatabase()
+std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTargetsFromDatabase()
 {
     DbRows rows;
     {
@@ -647,20 +694,25 @@ std::unordered_map<int, std::string> Lymalinkd::LoadAppIdDirScanTargetsFromDatab
             m_databaseEmuGamesTable,
             "appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
             {},
-            {"id", "prefix_location"}
+            {"id", "prefix_location", "executable_location", "installation_dir", "data_opt"}
         );
     }
 
-    std::unordered_map<int, std::string> targets;
+    std::unordered_map<int, AppIdDirPathScanTarget> targets;
     targets.reserve(rows.size());
 
-    // Map target ID to prefix path for future AppId dir scans
+    // Map target ID to scan metadata for future AppId dir scans
     for (const auto& row : rows)
     {
-        targets.emplace(
-            static_cast<int>(SQLiteManager::RowInt(row, "id")),
-            SQLiteManager::RowString(row, "prefix_location")
-        );
+        const int targetId = static_cast<int>(SQLiteManager::RowInt(row, "id"));
+        targets.emplace(targetId, AppIdDirPathScanTarget{
+            targetId,
+            std::to_string(targetId),
+            SQLiteManager::RowString(row, "prefix_location"),
+            SQLiteManager::RowString(row, "executable_location"),
+            SQLiteManager::RowString(row, "installation_dir"),
+            SQLiteManager::RowString(row, "data_opt")
+        });
     }
 
     LOG_BE(Urgency::Debug, "AppID dir scan targets loaded: %zu", targets.size());
@@ -733,7 +785,7 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
             {
                 continue;
             }
-            targets.push_back(AppIdDirPathScanTarget{targetId, std::to_string(targetId), it->second});
+            targets.push_back(it->second);
         }
     }
 
@@ -752,6 +804,7 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 {
     std::vector<int> savedTargetIds;
     savedTargetIds.reserve(results.size());
+    std::vector<std::pair<int, std::string>> savedDataOpt;
 
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
@@ -760,11 +813,20 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
         for (const auto& result : results)
         {
             DbRecord data{
-                {"appid_dir_found", int64_t{1}},
-                {"appid_dir_location", result.appidDirLocation},
-                {"emulator_type", result.emulatorType},
                 {"date_updated", Utils::NowEpoch()}
             };
+
+            if (!result.dataOpt.empty())
+            {
+                data.emplace("data_opt", result.dataOpt);
+            }
+
+            if (result.appidDirFound)
+            {
+                data.emplace("appid_dir_found", int64_t{1});
+                data.emplace("appid_dir_location", result.appidDirLocation);
+                data.emplace("emulator_type", result.emulatorType);
+            }
 
             if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(result.targetId)}))
             {
@@ -772,20 +834,69 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
                 continue;
             }
 
-            savedTargetIds.push_back(result.targetId);
-            LOG_BE(Urgency::Debug, "APPID dir saved: targetId=%d emulator=%s", result.targetId, result.emulatorType.c_str());
+            if (result.appidDirFound)
+            {
+                savedTargetIds.push_back(result.targetId);
+                LOG_BE(Urgency::Debug, "APPID dir saved: targetId=%d emulator=%s", result.targetId, result.emulatorType.c_str());
+            }
+            else if (!result.dataOpt.empty())
+            {
+                savedDataOpt.push_back({result.targetId, result.dataOpt});
+            }
         }
     }
 
-    if (!savedTargetIds.empty())
+    if (!savedTargetIds.empty() || !savedDataOpt.empty())
     {
-        // Remove saved targets from pending scan cache
+        // Remove completed targets and refresh partial metadata in pending scan cache
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         for (const int targetId : savedTargetIds)
         {
             m_targetIdsRequiringDirScan.erase(targetId);
         }
+        for (const auto& [targetId, dataOpt] : savedDataOpt)
+        {
+            if (auto it = m_targetIdsRequiringDirScan.find(targetId); it != m_targetIdsRequiringDirScan.end())
+            {
+                it->second.dataOpt = dataOpt;
+            }
+        }
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef)
+{
+    std::string escapedTableName;
+    escapedTableName.reserve(tableName.size());
+    for (const char c : tableName)
+    {
+        escapedTableName += c;
+        if (c == '\'')
+        {
+            escapedTableName += '\'';
+        }
+    }
+
+    const DbRecord row = m_database.SelectFirst(
+        m_databaseConnectionName,
+        std::format("pragma_table_info('{}')", escapedTableName),
+        "name = ?",
+        {columnName}
+    );
+    if (row.contains("name"))
+    {
+        return true;
+    }
+
+    if (!m_database.ExecuteSql(m_databaseConnectionName, std::format("ALTER TABLE {} ADD COLUMN {}", tableName, columnDef)))
+    {
+        return false;
+    }
+
+    LOG_BE(Urgency::Info, "EnsureColumn altered table=%s added column=%s", tableName.c_str(), columnName.c_str());
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

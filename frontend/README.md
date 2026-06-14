@@ -118,7 +118,7 @@ frontend
 │   ├── docs
 │   │   ├── CREDITS.md
 │   │   ├── help
-│   │   │   └── user-guide-0.8.0-beta.md
+│   │   │   └── user-guide-0.8.*-beta.md
 │   │   ├── LICENSE.md
 │   │   └── THIRD-PARTY-LICENSES-LINUX.md
 │   ├── fonts

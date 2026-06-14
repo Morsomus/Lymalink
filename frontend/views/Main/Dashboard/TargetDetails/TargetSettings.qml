@@ -31,6 +31,7 @@ Popup {
     property bool targetHiddenState: p_targetHidden
     property string currentPrefixLocation: ""
     property string currentExecutableLocation: ""
+    property string currentInstallationLocation: ""
     property bool steamUpdateLoading: false
     property bool passcodeUnlocked: false
     property bool awaitingUnlockAction: false
@@ -91,6 +92,7 @@ Popup {
     function refreshTargetLocations() {
         id_root.currentPrefixLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetPrefixLocation(id_root.p_appId) : ""
         id_root.currentExecutableLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetExecutableLocation(id_root.p_appId) : ""
+        id_root.currentInstallationLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetInstallationLocation(id_root.p_appId) : ""
     }
 
     function reloadBackendTargets() {
@@ -120,6 +122,19 @@ Popup {
             id_root.reloadBackendTargets()
         } else {
             id_errorPopup.showError(qsTr("Couldn't Edit Executable Location"), ctxLymalink.GetLastOperationError())
+        }
+    }
+
+    function setInstallationLocation(path) {
+        if (id_root.p_appId <= 0 || path.length === 0) {
+            return
+        }
+
+        if (ctxLymalink.SetTargetInstallationLocation(id_root.p_appId, path)) {
+            id_root.currentInstallationLocation = path
+            id_root.reloadBackendTargets()
+        } else {
+            id_errorPopup.showError(qsTr("Couldn't Edit Installation Directory"), ctxLymalink.GetLastOperationError())
         }
     }
 
@@ -325,6 +340,24 @@ Popup {
         }
     }
 
+    ConfirmationPopup {
+        id: id_installationLocationPopup
+
+        p_title: qsTr("Edit Installation Directory")
+        p_description: qsTr("Current path:\n%1").arg(id_root.currentInstallationLocation.length > 0
+            ? id_root.currentInstallationLocation
+            : qsTr("Not set"))
+        p_confirmText: qsTr("Apply")
+        p_popupWidth: 520
+        p_pathSelectionMode: true
+        p_pathSelectionFolder: true
+        p_pathDialogTitle: qsTr("Select Game Installation Directory")
+        p_pathPlaceholderText: qsTr("Select Game Installation Directory")
+        onConfirmed: function(path) {
+            id_root.setInstallationLocation(path)
+        }
+    }
+
     ErrorPopup {
         id: id_errorPopup
     }
@@ -459,6 +492,15 @@ Popup {
             text: qsTr("Edit Executable Location")
             tooltipText: qsTr("Select Game Executable")
             onClicked: id_executableLocationPopup.open()
+        }
+
+        C_ActionButton {
+            id: id_editInstallationLocationButton
+
+            visible: id_root.p_targetType === "Emulator"
+            text: qsTr("Edit Installation Directory")
+            tooltipText: qsTr("Select Game installation directory")
+            onClicked: id_installationLocationPopup.open()
         }
 
         C_ActionButton {

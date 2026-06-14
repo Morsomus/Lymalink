@@ -894,7 +894,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
 
     m_loggedInvalidVulkanIconState = false;
 
-    const std::string iconCacheKey = hasEmbeddedPixels ? "__embedded_icon_pixels__" : iconPath;
+    const std::string iconCacheKey = hasEmbeddedPixels ? BuildEmbeddedIconCacheKey() : iconPath;
 
     if (m_vkIconDescSet != VK_NULL_HANDLE && m_loadedIconPath == iconCacheKey)
     {
@@ -1296,7 +1296,7 @@ bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
         return false;
     }
 
-    const std::string iconCacheKey = hasEmbeddedPixels ? "__embedded_icon_pixels__" : iconPath;
+    const std::string iconCacheKey = hasEmbeddedPixels ? BuildEmbeddedIconCacheKey() : iconPath;
 
     // Reuse existing matching texture
     if (m_iconTextureId != 0 && m_loadedIconPath == iconCacheKey)
@@ -1402,6 +1402,30 @@ void OverlayReceiver::DestroyOpenGLIconTexture()
 #endif
     m_iconTextureId = 0;
     m_loadedIconPath.clear();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string OverlayReceiver::BuildEmbeddedIconCacheKey() const
+{
+    if (!m_currentActiveNotification.iconPath.empty())
+    {
+        return "embedded:" + m_currentActiveNotification.iconPath;
+    }
+
+    if (!m_currentActiveNotification.appIconPath.empty())
+    {
+        return "embedded-app:" + m_currentActiveNotification.appIconPath;
+    }
+
+    uint64_t hash = 1469598103934665603ULL;
+    for (const uint8_t byte : m_currentActiveNotification.iconPixels)
+    {
+        hash ^= byte;
+        hash *= 1099511628211ULL;
+    }
+
+    return "embedded-hash:" + std::to_string(hash);
 }
 
 /////////////////////////////////////////////////////////////////////

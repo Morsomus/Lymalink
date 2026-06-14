@@ -15,9 +15,12 @@
 #endif
 
 #include "database/SQLiteManager.h"
+#include "tools/parsers/GoGNParser.h"
+#include "watcher/PathScanner.h"
 
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -583,6 +586,159 @@ TEST_CASE("insert_missingTable_setsLastError", "[error]")
 
     CHECK_FALSE(t.mgr.Insert(CONN, "no_table", {{"x", std::string("y")}}));
     CHECK_FALSE(t.mgr.LastError().empty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("gognParser_arrayFormat_parsesUnlockedAchievements", "[gogn]")
+{
+    const fs::path root = "/tmp/lymalink_gogn_parser_array";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.json";
+    {
+        std::ofstream file(filePath);
+        file << R"([
+            {"earned_time": 1781358362, "name": "NEW_ACHIEVEMENT_1_31"},
+            {"earned_time": "1781359761", "name": "NEW_ACHIEVEMENT_1_3"}
+        ])";
+    }
+
+    GoGNParser parser;
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
+
+    REQUIRE(parsed.size() == 2);
+    CHECK(parsed[0].key == "NEW_ACHIEVEMENT_1_31");
+    CHECK(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 1781358362);
+    CHECK(parsed[1].key == "NEW_ACHIEVEMENT_1_3");
+    CHECK(parsed[1].achieved);
+    CHECK(parsed[1].unlockTime == 1781359761);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("gognParser_objectFormat_acceptsLegacyTimestampKeys", "[gogn]")
+{
+    const fs::path root = "/tmp/lymalink_gogn_parser_object";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.json";
+    {
+        std::ofstream file(filePath);
+        file << R"({
+            "ACH_UNLOCK_TIME": {"unlock_time": 1710000000},
+            "ACH_UNLOCK_TIME_CAMEL": {"unlockTime": "1710500000"},
+            "ACH_UNLOCK_DATE": {"unlock_date": 1710600000}
+        })";
+    }
+
+    GoGNParser parser;
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
+
+    REQUIRE(parsed.size() == 3);
+    CHECK(parsed[0].key == "ACH_UNLOCK_DATE");
+    CHECK(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 1710600000);
+    CHECK(parsed[1].key == "ACH_UNLOCK_TIME");
+    CHECK(parsed[1].achieved);
+    CHECK(parsed[1].unlockTime == 1710000000);
+    CHECK(parsed[2].key == "ACH_UNLOCK_TIME_CAMEL");
+    CHECK(parsed[2].achieved);
+    CHECK(parsed[2].unlockTime == 1710500000);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("gognParser_missingOrInvalidFile_returnsEmpty", "[gogn]")
+{
+    const fs::path root = "/tmp/lymalink_gogn_parser_invalid";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.json";
+    {
+        std::ofstream file(filePath);
+        file << "not json";
+    }
+
+    GoGNParser parser;
+    CHECK(parser.Parse("/tmp/lymalink_missing_achievements.json").empty());
+    CHECK(parser.Parse(filePath.string()).empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_detectsNemirtingasBelowInstallationDir", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_nemirtingas";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path exeDir = installDir / "Binaries" / "Win64";
+    fs::create_directories(exeDir / "ngalaxye_settings");
+    const fs::path exePath = installDir / "Launcher.exe";
+    {
+        std::ofstream file(exePath);
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", root.string(), exePath.string(), installDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].targetId == 123);
+    CHECK(results[0].appidDirFound);
+    CHECK(results[0].emulatorType == "GOG-N");
+    CHECK(fs::path(results[0].appidDirLocation).filename() == "ngalaxye_settings");
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_collectsGogIdsAndMatchesPrefixAchievementDir", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_gog_ids";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(installDir);
+    fs::create_directories(installDir / "Nested");
+    fs::create_directories(prefix / "users" / "steamuser" / "AppData" / "1986509485");
+    {
+        std::ofstream file(installDir / "goggame-1986509485.hashdb");
+        file << "";
+    }
+    {
+        std::ofstream file(installDir / "goggame-200.info");
+        file << "";
+    }
+    {
+        std::ofstream file(installDir / "Nested" / "goggame-999.info");
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{456, "456", prefix.string(), (installDir / "Game.exe").string(), installDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 2);
+    CHECK(results[0].targetId == 456);
+    CHECK_FALSE(results[0].appidDirFound);
+    CHECK(results[0].dataOpt == "1986509485,200");
+    CHECK(results[1].targetId == 456);
+    CHECK(results[1].appidDirFound);
+    CHECK(results[1].emulatorType == "GOG-N");
+    CHECK(results[1].dataOpt == "1986509485,200");
+    CHECK(fs::path(results[1].appidDirLocation).filename() == "1986509485");
+
+    fs::remove_all(root);
 }
 
 /////////////////////////////////////////////////////////////////////

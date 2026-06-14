@@ -48,7 +48,10 @@ Item {
     readonly property string notificationSteamLaunchOption: "lymalink-overlay %command%"
     readonly property bool prefixWarning: {
         const t = id_prefixLocationField.text.trim()
-        return t.length > 0 && !t.split("/").pop().startsWith("drive_")
+        if (t.length === 0) return false
+        
+        const folderName = t.split("/").pop()
+        return !folderName.startsWith("drive_") && !folderName.startsWith("Prefixes")
     }
 
     Connections {
@@ -170,7 +173,8 @@ Item {
             id_root.selectedAppId,
             id_root.selectedName,
             id_installLocationField.text,
-            id_prefixLocationField.text
+            id_prefixLocationField.text,
+            id_installDirField.text
         )
 
         id_root.isCreatingTarget = false
@@ -207,6 +211,17 @@ Item {
         title: qsTr("Select Prefix Location (drive_c or equivalent)")
         onAccepted: {
             id_prefixLocationField.text = id_root.fileUrlToPath(selectedFolder)
+            id_root.targetStatusText = ""
+            id_root.targetStatusIsError = false
+        }
+    }
+
+    FolderDialog {
+        id: id_installFolderDialog
+
+        title: qsTr("Select Game Installation Directory")
+        onAccepted: {
+            id_installDirField.text = id_root.fileUrlToPath(selectedFolder)
             id_root.targetStatusText = ""
             id_root.targetStatusIsError = false
         }
@@ -324,7 +339,7 @@ Item {
                         }
 
                         Text {
-                            text: qsTr("How detection works & Prefix Location (hover to expand)")
+                            text: qsTr("How detection works & Prefix Location & Supported Emulators (hover to expand)")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
                             font.bold: true
                             color: id_infoBlock.hoverActive
@@ -425,6 +440,70 @@ Item {
                                 {
                                     label: qsTr("Heroic all prefixes"),
                                     value: "/home/<user>/Games/Heroic/Prefixes"
+                                }
+                            ]
+
+                            delegate: RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                Text {
+                                    Layout.preferredWidth: 112
+                                    text: modelData.label
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.descriptionText
+                                    wrapMode: Text.Wrap
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.value
+                                    font.family: "monospace"
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                    color: Themes.emulatorTarget.colors.prefixWarningText
+                                    wrapMode: Text.WrapAnywhere
+                                }
+                            }
+                        }
+
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 4
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Supported Emulators")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.labelText
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        Repeater {
+                            model: [
+                                {
+                                    label: qsTr("CODEX / RUNE"),
+                                    value: "Reads generated 'achievements.ini' file for unlocked achievements"
+                                },
+                                {
+                                    label: qsTr("GOLDBERG"),
+                                    value: "Reads generated 'achievements.json' file for unlocked achievements"
+                                },
+                                {
+                                    label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
+                                    value: "GOG Games - Reads generated 'achievements.json' file for unlocked achievements"
                                 }
                             ]
 
@@ -950,12 +1029,48 @@ Item {
                         Layout.fillWidth: true
                         readOnly: true
                         selectByMouse: false
-                        placeholderText: qsTr("Full path to game executable (.exe)")
+                        placeholderText: qsTr("Path to game executable (.exe)")
 
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: id_exeFileDialog.open()
+                        }
+                    }
+
+                    // Installation Directory
+                    ColumnLayout {
+                        Layout.preferredWidth: 180
+                        spacing: 2
+
+                        Text {
+                            text: qsTr("Game Installation Directory")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Used for GOG Emulators")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                            color: Themes.emulatorTarget.colors.descriptionMutedText
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    CustomTextField {
+                        id: id_installDirField
+
+                        Layout.fillWidth: true
+                        readOnly: true
+                        selectByMouse: false
+                        placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: id_installFolderDialog.open()
                         }
                     }
 
@@ -1044,6 +1159,7 @@ Item {
                             readonly property bool canConfirm: id_root.selectedAppId > 0
                                 && id_root.selectedName.trim().length > 0
                                 && id_installLocationField.text.trim().length > 0
+                                && id_installDirField.text.trim().length > 0
                                 && id_prefixLocationField.text.trim().length > 0
                                 && !id_root.isCreatingTarget
 

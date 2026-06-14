@@ -69,7 +69,7 @@ private:
     std::atomic_bool m_startupNotificationEnabled;
 
     std::vector<std::pair<int, int>> m_activeTargetsIds; // id, notification (sent to frontend)
-    std::unordered_map<int, std::string> m_targetIdsRequiringDirScan;
+    std::unordered_map<int, AppIdDirPathScanTarget> m_targetIdsRequiringDirScan;
     std::string m_databaseConnectionName;
     std::string m_databasePath;
     std::string m_databaseEmuGamesTable;
@@ -83,6 +83,7 @@ private:
     void  OnProcessStarted(int targetId, const std::string& executablePath);
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);
+    void  OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath);
     void  OnTestToast();
     void  OnTestSound();
     void  OnRequestActiveTargets();
@@ -90,10 +91,11 @@ private:
     void  OnReloadConfig();
 
     std::vector<WatchTarget> LoadExeTargetsFromDatabase();
-    std::unordered_map<int, std::string> LoadAppIdDirScanTargetsFromDatabase();
+    std::unordered_map<int, AppIdDirPathScanTarget> LoadAppIdDirScanTargetsFromDatabase();
     bool HasCurrentActiveTargetsNeedingAppIdDirScan();
     std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
     void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
+    bool EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef);
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
     void ScheduleStartupNotification(int targetId, std::string gameName);

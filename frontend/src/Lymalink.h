@@ -37,17 +37,19 @@ public:
     Q_INVOKABLE void CancelSteamAppIdSearch();
     Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false, const QString &targetType = "Emulator");
     Q_INVOKABLE void CancelSteamHydration();
-    Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath);
+    Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
+    Q_INVOKABLE bool SetTargetInstallationLocation(int appId, const QString &installationDir);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
     Q_INVOKABLE bool DeleteTarget(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QString GetTargetTitle(int appId);
     Q_INVOKABLE QString GetTargetPrefixLocation(int appId);
     Q_INVOKABLE QString GetTargetExecutableLocation(int appId);
+    Q_INVOKABLE QString GetTargetInstallationLocation(int appId);
     Q_INVOKABLE QString GetLastOperationError() const;
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
@@ -85,6 +87,7 @@ private:
 
     Error DatabaseInit();
     Error FileSystemInit();
+    bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef);
     void ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);
     QString PlaytimeText(int hoursPlayed) const;
     QVariantMap LatestUnlockedAchievement(const QVariantList &achievements) const;

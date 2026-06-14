@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <chrono>
 #include <unordered_map>
+#include <utility>
 #include <sys/inotify.h>
 
 struct AchievementData
@@ -71,6 +72,9 @@ public:
     // Returns unhandled changes and marks them as handled.
     std::vector<AchievementData> PollUnhandled(int targetId);
 
+    // Fired when the stored AppID directory path is no longer watchable.
+    std::function<void(int targetId, const std::string& appIdDirPath)> onAppIdDirUnavailable;
+
 private:
     std::thread m_thread;
     std::mutex m_mutex;
@@ -89,10 +93,11 @@ private:
     std::unordered_map<int, AchievementParser*> m_parsers;
 
     void WatchLoop();
-    void HandleInotifyEvent(const struct inotify_event* ev);
+    std::pair<int, std::string> HandleInotifyEvent(const struct inotify_event* ev);
     void ReadInitial(WatchSession& session);
     void ReadAndDiff(WatchSession& session);
     void AddFileWatch(WatchSession& session);
+    void RemoveSessionLocked(int targetId);
 
     AchievementParser* CreateParser(const std::string& emulatorType);
 };

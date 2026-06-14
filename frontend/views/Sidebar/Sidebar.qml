@@ -193,7 +193,7 @@ Item {
 
                     CustomTooltip {
                         p_alwaysVisible: true
-                        p_active: (id_currentlyPlayingMouseArea.containsMouse && id_root.currentPlayingCount > 1) || (id_currentlyPlayingMouseArea.containsMouse && id_root.p_collapsed)
+                        p_active: id_currentlyPlayingMouseArea.containsMouse
                         p_delay: 300
                         p_text: id_root.currentPlayingTooltip
                     }

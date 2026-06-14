@@ -142,7 +142,7 @@ void Lymalink::CancelSteamHydration()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath)
+bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir)
 {
     bool targetCreated = false;
     m_lastOperationError.clear();
@@ -151,8 +151,9 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     gameName = gameName.trimmed();
     exePath = exePath.trimmed();
     prefixPath = prefixPath.trimmed();
+    installationDir = installationDir.trimmed();
 
-    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty() || installationDir.isEmpty())
     {
         m_lastOperationError = tr("Invalid emulator target data.");
         qWarning() << "Lymalink::CreateNewSteamEmuTarget: invalid emulator target data";
@@ -234,6 +235,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
         {"game_name", gameName},
         {"executable_location", exePath},
         {"prefix_location", prefixPath},
+        {"installation_dir", installationDir},
         {"date_added", QDateTime::currentSecsSinceEpoch()}
     };
 
@@ -939,6 +941,50 @@ bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executableP
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installationDir)
+{
+    bool targetUpdated = false;
+    m_lastOperationError.clear();
+
+    const QString trimmedInstallationDir = installationDir.trimmed();
+    if (appId <= 0 || trimmedInstallationDir.isEmpty())
+    {
+        m_lastOperationError = tr("Invalid target installation directory.");
+        qWarning() << "Lymalink::SetTargetInstallationLocation: invalid target installation directory update:" << appId << trimmedInstallationDir;
+        return targetUpdated;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        qCritical() << "Lymalink::SetTargetInstallationLocation: failed to open database for target installation directory update:" << m_databaseManager.lastError();
+        return targetUpdated;
+    }
+
+    targetUpdated = m_databaseManager.update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        {
+            {"installation_dir", trimmedInstallationDir},
+            {"appid_dir_found", 0},
+            {"appid_dir_location", ""},
+            {"date_updated", QDateTime::currentSecsSinceEpoch()}
+        },
+        "id = ?",
+        {appId}
+    );
+
+    if (!targetUpdated)
+    {
+        m_lastOperationError = tr("Couldn't save target installation directory.");
+        qCritical() << "Lymalink::SetTargetInstallationLocation: failed to update target installation directory:" << m_databaseManager.lastError();
+    }
+
+    return targetUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp)
 {
     bool achievementStateUpdated = false;
@@ -1164,6 +1210,23 @@ QString Lymalink::GetTargetExecutableLocation(int appId)
     const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
     executableLocation = Utils::MapStringValue(row, "executable_location");
     return executableLocation;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::GetTargetInstallationLocation(int appId)
+{
+    QString installationLocation = "";
+
+    if (appId <= 0)
+    {
+        return installationLocation;
+    }
+
+    // Fetch current installation directory for settings editor
+    const QVariantMap row = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    installationLocation = Utils::MapStringValue(row, "installation_dir");
+    return installationLocation;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1512,6 +1575,8 @@ Error Lymalink::DatabaseInit()
             "emulator_type TEXT",
             "executable_location TEXT",
             "prefix_location TEXT",
+            "installation_dir TEXT",
+            "data_opt TEXT",
             "target_hidden INTEGER DEFAULT 0",
             "appid_dir_found INTEGER DEFAULT 0",
             "appid_dir_location TEXT",
@@ -1527,6 +1592,14 @@ Error Lymalink::DatabaseInit()
     if (!gamesReady)
     {
         qCritical() << "Lymalink::DatabaseInit: failed to initialize" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
+        databaseResult = Error::DatabaseError;
+        return databaseResult;
+    }
+
+    // Execute migrates for updated version of Lymalink
+    if (!EnsureColumn(DATABASE_TABLE_EMU_GAMES, "installation_dir", "installation_dir TEXT") || !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "data_opt", "data_opt TEXT"))
+    {
+        qCritical() << "Lymalink::DatabaseInit: failed to migrate" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
         databaseResult = Error::DatabaseError;
         return databaseResult;
     }
@@ -1642,6 +1715,34 @@ Error Lymalink::FileSystemInit()
 
     qDebug() << "Lymalink::FileSystemInit: filesystem initialized at" << appDataPath;
     return fileSystemResult;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef)
+{
+    QString escapedTableName = tableName;
+    escapedTableName.replace("'", "''");
+
+    const QVariantMap row = m_databaseManager.selectFirst(
+        m_databaseConnectionName,
+        QString("pragma_table_info('%1')").arg(escapedTableName),
+        "name = ?",
+        {columnName}
+    );
+    if (row.contains("name"))
+    {
+        return true;
+    }
+
+    const QString sql = QString("ALTER TABLE %1 ADD COLUMN %2").arg(tableName, columnDef);
+    if (!m_databaseManager.executeSql(m_databaseConnectionName, sql))
+    {
+        return false;
+    }
+
+    qInfo() << "Lymalink::EnsureColumn: altered table" << tableName << "added column" << columnName;
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

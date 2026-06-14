@@ -9,6 +9,9 @@
 #include "Lymalinkd.h"
 #include "tools/Logger.h"
 
+#include <chrono>
+#include <thread>
+
 /////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
@@ -16,8 +19,8 @@ int main(int argc, char* argv[])
     (void)argc;
     (void)argv;
 
-    // Temporary log while dev
     Logger::Instance().Init();
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     Lymalinkd lymalinkd;
     Error err = lymalinkd.Main();

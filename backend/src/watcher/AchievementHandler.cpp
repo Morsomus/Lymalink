@@ -11,6 +11,7 @@
 #include "Defines.h"
 #include "../tools/parsers/RUNECodexParser.h"
 #include "../tools/parsers/GoldbergParser.h"
+#include "../tools/parsers/GoGNParser.h"
 #include "../tools/Logger.h"
 
 #include <unistd.h>
@@ -142,51 +143,78 @@ void AchievementHandler::Stop()
 
 void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    bool appIdDirUnavailable = false;
+    bool shouldReturn = false;
 
-    // Skip if this target is already being tracked
-    if (m_sessions.count(targetId))
     {
-        LOG_BE(Urgency::Debug, "Target already tracked: targetId=%d", targetId);
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        // Skip if this target is already being tracked
+        if (m_sessions.count(targetId))
+        {
+            LOG_BE(Urgency::Debug, "Target already tracked: targetId=%d", targetId);
+            return;
+        }
+
+        // Instantiate the appropriate parser for the emulator type
+        AchievementParser* parser = CreateParser(emulatorType);
+        if (!parser)
+        {
+            LOG_BE(Urgency::Critical, "No parser for emulator type: %s", emulatorType.c_str());
+            return;
+        }
+
+        WatchSession session;
+        session.targetId = targetId;
+        session.appIdDirPath = appIdDirPath;
+        session.emulatorType = emulatorType;
+
+        // Watch directory for file creation/move and directory removal.
+        session.dirWd = inotify_add_watch(m_inotifyFd, appIdDirPath.c_str(), IN_CREATE | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF);
+        if (session.dirWd == -1)
+        {
+            const int savedErrno = errno;
+            if (savedErrno == ENOENT || savedErrno == ENOTDIR)
+            {
+                LOG_BE(Urgency::Warning, "AppID dir unavailable for targetId=%d path=%s: %s", targetId, appIdDirPath.c_str(), strerror(savedErrno));
+                appIdDirUnavailable = true;
+            }
+            else
+            {
+                LOG_BE(Urgency::Critical, "inotify_add_watch (dir) failed for %s: %s", appIdDirPath.c_str(), strerror(savedErrno));
+            }
+            delete parser;
+            shouldReturn = true;
+        }
+
+        if (!shouldReturn)
+        {
+            m_wdToTarget[session.dirWd] = targetId;
+            m_parsers[targetId] = parser;
+            m_sessions[targetId] = std::move(session);
+
+            // If achievement file already exists: initial read + add file watch
+            WatchSession& stored = m_sessions[targetId];
+            const std::string filePath = stored.appIdDirPath + "/" + m_parsers[targetId]->GetFileName();
+            if (access(filePath.c_str(), F_OK) == 0)
+            {
+                AddFileWatch(stored);
+                ReadInitial(stored);
+            }
+
+            LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
+        }
+    }
+
+    if (appIdDirUnavailable && onAppIdDirUnavailable)
+    {
+        onAppIdDirUnavailable(targetId, appIdDirPath);
+    }
+
+    if (shouldReturn)
+    {
         return;
     }
-
-    // Instantiate the appropriate parser for the emulator type
-    AchievementParser* parser = CreateParser(emulatorType);
-    if (!parser)
-    {
-        LOG_BE(Urgency::Critical, "No parser for emulator type: %s", emulatorType.c_str());
-        return;
-    }
-
-    WatchSession session;
-    session.targetId = targetId;
-    session.appIdDirPath = appIdDirPath;
-    session.emulatorType = emulatorType;
-
-    // Watch directory for file creation/move
-    session.dirWd = inotify_add_watch(m_inotifyFd, appIdDirPath.c_str(), IN_CREATE | IN_MOVED_TO);
-    if (session.dirWd == -1)
-    {
-        LOG_BE(Urgency::Critical, "inotify_add_watch (dir) failed for %s: %s", appIdDirPath.c_str(), strerror(errno));
-        delete parser;
-        return;
-    }
-
-    m_wdToTarget[session.dirWd] = targetId;
-    m_parsers[targetId] = parser;
-    m_sessions[targetId] = std::move(session);
-
-    // If achievement file already exists: initial read + add file watch
-    WatchSession& stored = m_sessions[targetId];
-    const std::string filePath = stored.appIdDirPath + "/" + m_parsers[targetId]->GetFileName();
-    if (access(filePath.c_str(), F_OK) == 0)
-    {
-        AddFileWatch(stored);
-        ReadInitial(stored);
-    }
-
-    LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -199,6 +227,21 @@ void AchievementHandler::RemoveTarget(int targetId)
     if (it == m_sessions.end())
     {
         // targetId not found in sessions
+        return;
+    }
+
+    RemoveSessionLocked(targetId);
+
+    LOG_BE(Urgency::Debug, "Target removed: targetId=%d", targetId);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void AchievementHandler::RemoveSessionLocked(int targetId)
+{
+    auto it = m_sessions.find(targetId);
+    if (it == m_sessions.end())
+    {
         return;
     }
 
@@ -220,8 +263,6 @@ void AchievementHandler::RemoveTarget(int targetId)
     delete m_parsers[targetId];
     m_parsers.erase(targetId);
     m_sessions.erase(it);
-
-    LOG_BE(Urgency::Debug, "Target removed: targetId=%d", targetId);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -326,8 +367,16 @@ void AchievementHandler::WatchLoop()
                 continue;
             }
 
-            std::lock_guard<std::mutex> lock(m_mutex);
-            HandleInotifyEvent(ev);
+            std::pair<int, std::string> unavailableDir;
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                unavailableDir = HandleInotifyEvent(ev);
+            }
+
+            if (unavailableDir.first > 0 && onAppIdDirUnavailable)
+            {
+                onAppIdDirUnavailable(unavailableDir.first, unavailableDir.second);
+            }
         }
     }
 
@@ -336,13 +385,13 @@ void AchievementHandler::WatchLoop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
+std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
 {
     // Reverse-lookup which session owns this watch descriptor
     auto wdIt = m_wdToTarget.find(ev->wd);
     if (wdIt == m_wdToTarget.end())
     {
-        return;
+        return {};
     }
 
     const int targetId = wdIt->second;
@@ -350,10 +399,18 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
     auto sessionIt = m_sessions.find(targetId);
     if (sessionIt == m_sessions.end())
     {
-        return;
+        return {};
     }
 
     WatchSession& session = sessionIt->second;
+    const std::string appIdDirPath = session.appIdDirPath;
+
+    if (ev->wd == session.dirWd && (ev->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
+    {
+        LOG_BE(Urgency::Warning, "AppID dir removed while tracked: targetId=%d path=%s", targetId, appIdDirPath.c_str());
+        RemoveSessionLocked(targetId);
+        return {targetId, appIdDirPath};
+    }
 
     // ev->name is only populated for directory watches, it holds the filename
     // of the entry that triggered the event, not the directory itself
@@ -366,7 +423,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
         const std::string expected = m_parsers[targetId]->GetFileName();
         if (fileName != expected)
         {
-            return;
+            return {};
         }
 
         LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d file=%s", targetId, fileName.c_str());
@@ -393,7 +450,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
             LOG_BE(Urgency::Debug, "Achievement file replaced during active tracking, diffing against existing baseline: targetId=%d", targetId);
         }
         ReadAndDiff(session);
-        return;
+        return {};
     }
 
     // File event: achievement file was written
@@ -403,7 +460,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
         session.modifyPending = false;
         LOG_BE(Urgency::Debug, "Achievement file changed: targetId=%d", targetId);
         ReadAndDiff(session);
-        return;
+        return {};
     }
 
     // Some writers might keep the file open. Debounce IN_MODIFY so parsing happens after writes settle instead of once per write() call
@@ -411,7 +468,7 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
     {
         session.modifyPending = true;
         session.modifyDeadline = std::chrono::steady_clock::now() + MODIFY_DEBOUNCE;
-        return;
+        return {};
     }
 
     // File was deleted or moved away
@@ -425,6 +482,8 @@ void AchievementHandler::HandleInotifyEvent(const struct inotify_event* ev)
         session.fileWd = -1;
         session.modifyPending = false;
     }
+
+    return {};
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -547,6 +606,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating Goldberg parser.");
         return new GoldbergParser();
+    }
+    else if (emulatorType == "GOG-N")
+    {
+        LOG_BE(Urgency::Debug, "Creating GOG Nemirtingas parser.");
+        return new GoGNParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());
