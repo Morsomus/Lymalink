@@ -29,7 +29,7 @@ public:
     QStringList FileListCreate(const QString &folderPath) const;
     QStringList FolderListCreate(const QString &folderPath) const;
     QString LocalFileSource(const QString &filePath) const;
-    QString FirstImageInDirectory(const QString &directoryPath) const;
+    QString FirstImageInDirectory(const QString &directoryPath, bool logMissingDir = true) const;
 
 private:
     bool CopyFolder(const QString &sourceFolderPath, const QString &destinationFolderPath) const;

@@ -1266,7 +1266,7 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
         const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
         const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
-        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath);
+        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath, false);
 
         // Fetch achievements only enough to compute latest unlock preview
         const QVariantList achievements = m_databaseManager.selectWhere(
@@ -1329,7 +1329,7 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
         const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
         const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
-        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath);
+        const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath, false);
 
         const QVariantList achievements = m_databaseManager.selectWhere(
             m_databaseConnectionName,
@@ -1418,7 +1418,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
 
     // Prefer detail-sized cover, then fallback to first image in covers folder
     const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
-    const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath);
+    const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath, false);
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath, normalizedTargetType);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
         m_databaseConnectionName,
@@ -1942,7 +1942,7 @@ QString Lymalink::CoverImageFilePath(const QString &coversPath, const QString &f
     const QString coverPath = QDir(coversPath).filePath(fileName);
     if (!QFileInfo::exists(coverPath))
     {
-        qInfo() << "Lymalink::CoverImageFilePath: no cover available for" << fileName;
+        qDebug() << "Lymalink::CoverImageFilePath: no cover available for" << fileName;
         return coverSource;
     }
 

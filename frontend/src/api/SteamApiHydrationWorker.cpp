@@ -316,7 +316,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     emit signalAchievementsReady(appId, targetType, achievementList);
     emit signalHydrationTaskFinished(appId, targetType, true, false);
 
-    qDebug() << "SteamApiHydrationWorker::ProcessTask: task completed for appId:" << appId << "- achievements:" << achievements.size();
+    qInfo() << "SteamApiHydrationWorker::ProcessTask: task completed for appId:" << appId << "- achievements:" << achievements.size();
 }
 
 /////////////////////////////////////////////////////////////////////

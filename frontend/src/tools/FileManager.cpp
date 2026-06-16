@@ -245,7 +245,7 @@ QString FileManager::LocalFileSource(const QString &filePath) const
 
 /////////////////////////////////////////////////////////////////////
 
-QString FileManager::FirstImageInDirectory(const QString &directoryPath) const
+QString FileManager::FirstImageInDirectory(const QString &directoryPath, bool logMissingDir) const
 {
     QString imagePath = "";
 
@@ -253,7 +253,10 @@ QString FileManager::FirstImageInDirectory(const QString &directoryPath) const
     QDir directory(directoryPath);
     if (!directory.exists())
     {
-        qWarning() << "FileManager::FirstImageInDirectory: directory does not exist:" << directoryPath;
+        if (logMissingDir)
+        {
+            qWarning() << "FileManager::FirstImageInDirectory: directory does not exist:" << directoryPath;
+        }
         return imagePath;
     }
 
