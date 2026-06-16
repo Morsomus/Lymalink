@@ -669,7 +669,13 @@ Item {
                 id_root.addTargetBusy = false
             }
 
-            onRefreshClicked: id_root.refreshTargets()
+            onRefreshClicked: {
+                if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
+                    id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)
+                } else {
+                    id_root.refreshTargets()
+                }
+            }
 
             onSortSelected: function(sort) {
                 id_root.activeSort = sort

@@ -25,7 +25,7 @@ Item {
     property bool p_addTargetVisible: false
     property bool p_targetHidden: false
     property int p_appId: 0
-    property string p_targetType: "Emulator"
+    property string p_targetType: ""
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
     property bool p_returnLocked: false
@@ -700,7 +700,6 @@ Item {
 
                 // Details Sort/Filter chip bar
                 Item {
-                    Layout.fillWidth: true
                     implicitHeight: id_root.targetDetailsActivePanel === "detailsSort"
                         ? id_detailsSortBar.implicitHeight
                         : id_root.targetDetailsActivePanel === "detailsFilter"
@@ -758,6 +757,93 @@ Item {
                                 duration: 150
                             }
                         }
+                    }
+                }
+            }
+
+            // Divider
+            Rectangle {
+                visible: id_root.p_targetType === "Emulator"
+                width: 2
+                Layout.fillHeight: true
+                color: Themes.dashboardToolbar.colors.divider
+                opacity: 0.5
+            }
+
+            // Refresh selected target
+            Rectangle {
+                id: id_detailsRefresh
+
+                visible: id_root.p_targetType === "Emulator"
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                Layout.alignment: Qt.AlignTop
+                radius: 16
+
+                property real refreshRotation: 0
+
+                color: id_detailsRefreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
+                    : id_detailsRefreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                        : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
+
+                border.width: 1
+                border.color: id_detailsRefreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
+                    : id_detailsRefreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Image {
+                    id: id_detailsRefreshIcon
+
+                    anchors.centerIn: parent
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                    width: 19
+                    height: 19
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+
+                    visible: false // MultiEffect draws image
+                }
+
+                MultiEffect {
+                    anchors.fill: id_detailsRefreshIcon
+                    source: id_detailsRefreshIcon
+                    colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                    colorization: 1.0
+                    rotation: id_detailsRefresh.refreshRotation
+                }
+
+                NumberAnimation {
+                    id: id_detailsRefreshSpinAnimation
+
+                    target: id_detailsRefresh
+                    property: "refreshRotation"
+                    from: 0
+                    to: 360
+                    duration: 300
+                    easing.type: Easing.Linear
+                }
+
+                MouseArea {
+                    id: id_detailsRefreshMouseArea
+
+                    anchors.fill: parent
+                    enabled: p_targetDetailsVisible
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        id_detailsRefreshSpinAnimation.restart()
+                        id_root.refreshClicked()
                     }
                 }
             }

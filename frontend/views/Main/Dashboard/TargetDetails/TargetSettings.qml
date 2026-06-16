@@ -106,9 +106,13 @@ Popup {
             return
         }
 
+        if (path === id_root.currentPrefixLocation) {
+            return
+        }
+
         if (ctxLymalink.SetTargetPrefixLocation(id_root.p_appId, path)) {
             id_root.currentPrefixLocation = path
-            id_root.reloadBackendTargets()
+            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
         }
     }
 
@@ -130,9 +134,13 @@ Popup {
             return
         }
 
+        if (path === id_root.currentInstallationLocation) {
+            return
+        }
+
         if (ctxLymalink.SetTargetInstallationLocation(id_root.p_appId, path)) {
             id_root.currentInstallationLocation = path
-            id_root.reloadBackendTargets()
+            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
         } else {
             id_errorPopup.showError(qsTr("Couldn't Edit Installation Directory"), ctxLymalink.GetLastOperationError())
         }

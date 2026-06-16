@@ -42,7 +42,7 @@
 ###
 ## 🎮 Managing Emulator Targets
 
-In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, and GOLDBERG.
+In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG and NemirtingasGalaxyEmulator.
 
 ### ➕ Add an Emulator Target
 
@@ -167,25 +167,26 @@ Type | Launcher | OpenGL setup |
 
 ###
 ### How do achievements appear on the Dashboard?
-They update automatically when `lymalinkd` is running and the game executable path and prefix path are correctly configured.
+They update automatically when `lymalinkd` is running and the game executable path, prefix path and installation directory are correctly configured.
 - The prefix path **MUST** contain the achievement file within one of its subfolders.
 - The executable path **MUST** be set correctly. The background service only scans when a game is actively being played; otherwise, it sleeps and only checks for the presence of the configured executables.
+- The installation directory path **MUST** be set correctly. Path is used to detect GOG Emulator based achievement files.
 
 ###
 ### How do I check if I have configured my target correctly?
 - Start the game and check the sidebar; the running game should be detected.
 - Open the target details and check that 'Status' shows the 'Installed' state.
-- Open the target details and check that 'Achievement file' shows the 'Found' state. Note that this may display 'Missing' until the game is launched for the first time and the emulator creates the achievement file. Also note that some emulators do not create the achievement file until the very first achievement is unlocked in-game. If you are playing a brand-new game, the status may safely display 'Missing' until your first unlock. Just make sure that you have set correct **Prefix Location** for your target.
+- Open the target details and check that 'Achievement data' shows the 'Found' state. Note that this may display 'Missing' until the game is launched for the first time and the emulator creates the achievement data. Just make sure that you have set correct **Prefix Location** for your target.
 
-If all of the above conditions are met, you are good to go.
+If all of the above conditions are met, you are good to go. If not, then double check the target settings.
 
 ###
 ### Why are achievements not being detected?
 If your progress does not update:
 - Check the service status displayed on the sidebar; it should show a solid or breathing green indicator. You can also try restarting the background service on the Settings page.
 - Ensure that your gaming session is detected by the service during gameplay by viewing the status on the sidebar. If it is not detected, verify that the executable path is set correctly by opening the target details and checking that the Status shows 'Installed'. You can change the executable installation path from the target details page by clicking the settings gear icon at the top and selecting "Edit Executable Location".
-- Open the target details and check that the 'Achievement file' status shows 'Found'. If it shows 'Missing', ensure your prefix path is correct. The subfolders of the prefix path must contain the achievement file created by the emulator.
-* **Note:** Some emulators do not create the achievement file until the very first achievement is unlocked in-game. If you are playing a brand-new game, the status may safely display 'Missing' until your first unlock.
+- Open the target details and check that the 'Achievement data' status shows 'Found'. If it shows 'Missing', ensure your prefix path is correct. The subfolders of the prefix path must contain the achievement data created by the emulator.
+* **Note:** 'Achievement data' may display 'Missing' until the game is launched for the first time and the emulator creates the achievement data.
 
 ###
 ### I can hear the notification sound, but I don't see the achievement overlay. What's wrong?

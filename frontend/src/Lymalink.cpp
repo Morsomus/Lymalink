@@ -868,6 +868,7 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
             {"prefix_location", trimmedPrefixPath},
             {"appid_dir_found", 0},
             {"appid_dir_location", ""},
+            {"emulator_type", ""},
             {"date_updated", QDateTime::currentSecsSinceEpoch()}
         },
         "id = ?",
@@ -968,6 +969,7 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
             {"installation_dir", trimmedInstallationDir},
             {"appid_dir_found", 0},
             {"appid_dir_location", ""},
+            {"emulator_type", ""},
             {"date_updated", QDateTime::currentSecsSinceEpoch()}
         },
         "id = ?",

@@ -65,6 +65,13 @@ Item {
         }
     }
 
+    function achievementDataTooltip(emulatorType) {
+        switch ((emulatorType || "").trim().toUpperCase()) {
+        default:
+            return qsTr("Some emulators create the initial achievement data when the game first starts; others create it after the first achievement unlocks.")
+        }
+    }
+
     // Component.onCompleted: {
     //     if (ctxSettings.targetDetailsHelpText !== LYMALINK_APP_VERSION) {
     //         id_targetHelpTextMarkdownPopup.openDocument(qsTr("Tips"), CREDITS_MD_TEXT)
@@ -80,6 +87,8 @@ Item {
         property string icon:  ""
         property string label: ""
         property string value: ""
+        property string tooltip: ""
+        property bool showInfoMarker: tooltip !== ""
         property color valueColor: Themes.targetDetails.colors.text
 
         width: parent.width
@@ -99,6 +108,40 @@ Item {
         Item {
             Layout.fillWidth: true
         }
+        
+        // Info text
+        Rectangle {
+            visible: showInfoMarker && tooltip !== ""
+            width: 16
+            height: 16
+            radius: 8
+            color: "transparent"
+            border.width: 1
+            border.color: Themes.targetDetails.colors.text
+            opacity: 0.55
+
+            Text {
+                anchors.centerIn: parent
+                text: "i"
+                color: Themes.targetDetails.colors.text
+                font.pixelSize: 11
+                font.italic: true
+                font.bold: true
+            }
+
+            HoverHandler {
+                id: id_infoHover
+                cursorShape: Qt.PointingHandCursor
+            }
+
+            CustomTooltip {
+                p_active: id_infoHover.hovered
+                p_alwaysVisible: true
+                p_delay: 600
+                p_text: tooltip
+            }
+        }
+
         Text {
             text: value
             color: valueColor
@@ -781,7 +824,9 @@ Item {
                     visible: id_root.p_achievementTotal > 0
                 }
                 C_MetaRow {
-                    label: qsTr("Achievement file")
+                    label: qsTr("Achievement data")
+                    tooltip: id_root.achievementDataTooltip(id_root.p_emulatorType)
+                    showInfoMarker: !id_root.p_appIdDirFound
                     value: id_root.p_appIdDirFound ? qsTr("Found") : qsTr("Missing")
                     valueColor: id_root.p_appIdDirFound ? Themes.targetDetails.colors.text : Themes.targetDetails.colors.errorText
                     visible: id_root.p_targetType !== "Steam"
