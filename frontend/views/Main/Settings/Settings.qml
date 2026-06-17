@@ -35,6 +35,8 @@ Item {
     readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-center", "bottom-left"]
     readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-center"), qsTr("Bottom-left")]
 
+    signal achievementImportCompleted(var addedTargets)
+
     function saveSteamWebApiKey(apiKey, passcode) {
         ctxSettings.SetTempEncryptionKey(passcode)
         if (ctxSettings.SaveValue(Settings.SteamWebApiKey, apiKey)) {
@@ -101,6 +103,7 @@ Item {
                 .arg(result.addedGameCount)
                 .arg(result.mergedGameCount)
                 .arg(result.replacedGameCount))
+            id_root.achievementImportCompleted(result.addedTargets || [])
         } else {
             setAchievementTransportStatus(qsTr("Import failed: %1").arg(result.error))
         }
@@ -535,9 +538,9 @@ Item {
         id: id_achievementImportConflictPopup
 
         p_title: qsTr("Import Existing Targets")
-        p_description: qsTr("Imported data contains targets you already have in library.\nChoose how each target should be imported.\n\n" +
-            "Merge: Imports only missing and unlocked achievements, keeps current unlocks, and only raises progress.\n\n" +
-            "Replace: Removes all existing achievements and replaces with imported data.")
+        p_description: qsTr("The imported data contains targets that already exist in your library.\nChoose how each target should be handled:\n\n" +
+            "Merge: Imports only unlocked achievements and progress, existing unlocks remain unchanged.\n\n" +
+            "Replace: Removes all existing achievements and replaces them with the imported data.")
         p_mergeText: qsTr("Merge")
         p_replaceText: qsTr("Replace")
         p_cancelText: qsTr("Cancel")
@@ -1308,7 +1311,7 @@ Item {
                     C_SettingsSection {
                         fullRowMode: true
                         title: qsTr("Import / Export")
-                        infoText: "Export or import Emulator achievement data."
+                        infoText: "Export or import Emulator achievement data.\nNote: Hidden exported targets will remain hidden after being imported."
 
                         C_SettingRow {
                             fixedWidthInt: 500

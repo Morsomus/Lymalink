@@ -75,7 +75,7 @@ private:
     QVariantMap ImportedGameRow(const ImportedGame &game, qint64 now) const;
     QVariantMap ImportedAchievementRow(int gameId, const ImportedAchievement &achievement, qint64 now) const;
     QVariantMap PreviewSuccessPayload(const QString &filePath, const QVector<ImportedGame> &games, const QVariantList &conflicts) const;
-    QVariantMap ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount) const;
+    QVariantMap ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const;
     int ImportedAchievementCount(const QVector<ImportedGame> &games) const;
     int JsonIntValue(const QJsonValue &value) const;
     qint64 JsonDateValue(const QJsonValue &value) const;

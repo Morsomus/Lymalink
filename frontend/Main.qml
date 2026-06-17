@@ -148,7 +148,11 @@ ApplicationWindow {
                 Dashboard {
                     id: id_dashboard
                 }
-                Settings {}
+                Settings {
+                    onAchievementImportCompleted: function(addedTargets) {
+                        id_dashboard.applyAchievementImportResult(addedTargets)
+                    }
+                }
             }
         }
     }

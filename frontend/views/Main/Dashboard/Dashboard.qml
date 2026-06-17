@@ -509,6 +509,29 @@ Item {
         }
     }
 
+    function applyAchievementImportResult(addedTargets) {
+        id_root.showingTargetDetails = false
+        id_root.showingAddTarget = false
+        id_root.pendingTargetDetails = null
+        id_root.targetDetailsAchievements = []
+        id_root.reloadBackendTargets()
+
+        const targets = addedTargets || []
+        for (let i = 0; i < targets.length; ++i) {
+            const target = targets[i] || {}
+            const appId = Number(target.id || 0)
+            const targetType = (target.targetType || "Emulator").toString()
+            if (appId <= 0) {
+                continue
+            }
+
+            id_root.setTargetLoading(appId, targetType, true)
+            ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
+        }
+
+        id_root.refreshTargets()
+    }
+
     Connections {
         target: ctxLymalink
 

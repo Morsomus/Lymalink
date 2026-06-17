@@ -182,6 +182,7 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
     int mergedGameCount = 0;
     int replacedGameCount = 0;
     int addedAchievementCount = 0;
+    QVariantList addedTargets;
 
     for (const ImportedGame &game : games)
     {
@@ -197,6 +198,10 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
         {
             imported = InsertImportedGame(game, now, addedAchievementCount, error);
             ++addedGameCount;
+            addedTargets.append(QVariantMap{
+                {"id", game.id},
+                {"targetType", QStringLiteral("Emulator")}
+            });
         }
         else if (decisionById.value(game.id, QStringLiteral("merge")) == "replace")
         {
@@ -227,7 +232,8 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
         ImportedAchievementCount(games),
         addedGameCount,
         mergedGameCount,
-        replacedGameCount
+        replacedGameCount,
+        addedTargets
     );
 }
 
@@ -631,13 +637,14 @@ QVariantMap DataTransporter::PreviewSuccessPayload(const QString &filePath, cons
         {"addedGameCount", games.size() - conflicts.size()},
         {"mergedGameCount", 0},
         {"replacedGameCount", 0},
+        {"addedTargets", QVariantList()},
         {"conflicts", conflicts}
     };
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantMap DataTransporter::ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount) const
+QVariantMap DataTransporter::ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const
 {
     return {
         {"success", true},
@@ -650,6 +657,7 @@ QVariantMap DataTransporter::ImportSuccessPayload(const QString &filePath, int i
         {"addedGameCount", addedGameCount},
         {"mergedGameCount", mergedGameCount},
         {"replacedGameCount", replacedGameCount},
+        {"addedTargets", addedTargets},
         {"conflicts", QVariantList()}
     };
 }
@@ -844,6 +852,7 @@ QVariantMap DataTransporter::SuccessPayload(const QString &filePath, int exporte
         {"addedGameCount", 0},
         {"mergedGameCount", 0},
         {"replacedGameCount", 0},
+        {"addedTargets", QVariantList()},
         {"conflicts", QVariantList()}
     };
 }
@@ -872,6 +881,7 @@ QVariantMap DataTransporter::ErrorPayload(const QString &error, const QString &f
         {"addedGameCount", 0},
         {"mergedGameCount", 0},
         {"replacedGameCount", 0},
+        {"addedTargets", QVariantList()},
         {"conflicts", QVariantList()}
     };
 }
