@@ -100,6 +100,7 @@ qt_add_qml_module(Lymalink
         common/CustomSwitch.qml
         common/CustomTextField.qml
         common/CustomTooltip.qml
+        common/ConflictResolutionPopup.qml
         common/ConfirmationPopup.qml
         common/ErrorImage.qml
         common/ErrorPopup.qml

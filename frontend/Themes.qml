@@ -751,6 +751,26 @@ QtObject {
         }
     }
 
+    // ConflictResolutionPopup.qml
+    readonly property QtObject conflictResolutionPopup: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color overlay: Qt.rgba(0, 0, 0, 0.70)
+            readonly property color background: id_themes.themeColor(Qt.rgba(0.14, 0.14, 0.14, 0.94), Qt.rgba(1, 1, 1, 0.96))
+            readonly property color border: id_themes.themeColor(Qt.rgba(1, 1, 1, 0.12), "#d8dee6")
+            readonly property color titleText: id_themes.themeColor("#e6e6e6", "#1f2933")
+            readonly property color bodyText: id_themes.themeColor("#9b9b9b", "#4b5563")
+            readonly property color rowBackground: id_themes.themeColor(Qt.rgba(1, 1, 1, 0.04), "#f5f6f8")
+            readonly property color rowBorder: id_themes.themeColor(Qt.rgba(1, 1, 1, 0.09), "#d8dee6")
+            readonly property color rowTitleText: id_themes.themeColor("#e6e6e6", "#1f2933")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int title: 16
+            readonly property int body: 12
+            readonly property int rowTitle: 13
+        }
+    }
+
     // NewTarget.qml
     readonly property QtObject newTarget: QtObject {
         readonly property QtObject colors: QtObject {

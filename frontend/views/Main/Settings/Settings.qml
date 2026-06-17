@@ -15,7 +15,7 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
-import QtCore
+import QtCore as QtCore
 
 Item {
     id: id_root
@@ -23,6 +23,8 @@ Item {
     // Internals _____________________________________________
     property string pendingSteamWebApiKey: ""
     property string achievementTransportStatus: ""
+    property string pendingAchievementImportPath: ""
+    property var achievementImportConflicts: []
     readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
     readonly property bool backendServiceStarting: dbusServiceReady && ctxDBusService.serviceStarting
     readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
@@ -65,6 +67,42 @@ Item {
                 .arg(result.filePath))
         } else {
             setAchievementTransportStatus(qsTr("Export failed: %1").arg(result.error))
+        }
+    }
+
+    function previewAchievementImport(filePath) {
+        achievementImportConflicts = []
+        pendingAchievementImportPath = ""
+
+        const result = ctxDataTransporter.PreviewAchievementImport(filePath)
+        if (!result.success) {
+            setAchievementTransportStatus(qsTr("Import failed: %1").arg(result.error))
+            return
+        }
+
+        pendingAchievementImportPath = filePath
+        achievementImportConflicts = result.conflicts || []
+        if (achievementImportConflicts.length === 0) {
+            importAchievements(filePath, [])
+            return
+        }
+
+        id_achievementImportConflictPopup.openConflicts(achievementImportConflicts)
+    }
+
+    function importAchievements(filePath, decisions) {
+        const result = ctxDataTransporter.ImportAchievements(filePath, decisions)
+        if (result.success) {
+            pendingAchievementImportPath = ""
+            achievementImportConflicts = []
+            setAchievementTransportStatus(qsTr("Imported %1 targets and %2 achievements. Added %3, merged %4, replaced %5.")
+                .arg(result.importedGameCount)
+                .arg(result.importedAchievementCount)
+                .arg(result.addedGameCount)
+                .arg(result.mergedGameCount)
+                .arg(result.replacedGameCount))
+        } else {
+            setAchievementTransportStatus(qsTr("Import failed: %1").arg(result.error))
         }
     }
 
@@ -493,6 +531,33 @@ Item {
         id: id_markdownDocumentPopup
     }
 
+    ConflictResolutionPopup {
+        id: id_achievementImportConflictPopup
+
+        p_title: qsTr("Import Existing Targets")
+        p_description: qsTr("Imported data contains targets you already have in library.\nChoose how each target should be imported.\n\n" +
+            "Merge: Imports only missing and unlocked achievements, keeps current unlocks, and only raises progress.\n\n" +
+            "Replace: Removes all existing achievements and replaces with imported data.")
+        p_mergeText: qsTr("Merge")
+        p_replaceText: qsTr("Replace")
+        p_cancelText: qsTr("Cancel")
+        p_confirmText: qsTr("Import")
+
+        onCanceled: {
+            id_root.pendingAchievementImportPath = ""
+            id_root.achievementImportConflicts = []
+            id_root.setAchievementTransportStatus("")
+            id_achievementImportConflictPopup.reset()
+        }
+
+        onConfirmed: function(decisions) {
+            const path = id_root.pendingAchievementImportPath
+            id_root.achievementImportConflicts = []
+            id_achievementImportConflictPopup.reset()
+            id_root.importAchievements(path, decisions)
+        }
+    }
+
     FileDialog {
         id: id_customNotificationSoundDialog
 
@@ -513,7 +578,7 @@ Item {
         title: qsTr("Export emulator achievements")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
-        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + id_root.defaultAchievementExportName()
+        currentFile: QtCore.StandardPaths.writableLocation(QtCore.StandardPaths.DocumentsLocation) + "/" + id_root.defaultAchievementExportName()
         nameFilters: [qsTr("JSON files (*.json)")]
         onAccepted: id_root.exportAchievements(id_root.fileUrlToPath(selectedFile))
     }
@@ -524,7 +589,7 @@ Item {
         title: qsTr("Import emulator achievements")
         fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("JSON files (*.json)")]
-        onAccepted: id_root.setAchievementTransportStatus(qsTr("Import backend not implemented yet. Selected: %1").arg(id_root.fileUrlToPath(selectedFile)))
+        onAccepted: id_root.previewAchievementImport(id_root.fileUrlToPath(selectedFile))
     }
 
     // Fixed page header
@@ -1276,6 +1341,7 @@ Item {
                                 wrapMode: Text.WordWrap
                             }
                         }
+
                     }
 
                     // Defaults
