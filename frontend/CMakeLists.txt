@@ -21,6 +21,8 @@ qt_add_executable(Lymalink
     src/Settings.cpp
     src/SysTray.h
     src/SysTray.cpp
+    src/data/DataTransporter.h
+    src/data/DataTransporter.cpp
     src/ipc/DBusService.h
     src/ipc/DBusService.cpp
     src/database/SQLiteManager.h

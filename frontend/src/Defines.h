@@ -71,3 +71,9 @@
 #define LOG_BE(level, fmt, ...) Logger::Instance().Log(level, COMPONENT, __func__, fmt, ##__VA_ARGS__)
 #define LOG_LYMALINK_BACKEND_MAX_SIZE       5242880
 #define LOG_LYMALINK_BACKEND_MAX_BACKUPS    1
+
+/////////////////////////////////////////////////////////////////////
+// Import / Export
+/////////////////////////////////////////////////////////////////////
+
+#define EXPORT_FILE_VERSION     1

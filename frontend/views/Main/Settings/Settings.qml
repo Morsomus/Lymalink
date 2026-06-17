@@ -15,12 +15,14 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
+import QtCore
 
 Item {
     id: id_root
 
     // Internals _____________________________________________
     property string pendingSteamWebApiKey: ""
+    property string achievementTransportStatus: ""
     readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
     readonly property bool backendServiceStarting: dbusServiceReady && ctxDBusService.serviceStarting
     readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
@@ -40,6 +42,30 @@ Item {
 
     function fileUrlToPath(fileUrl) {
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
+    }
+
+    function defaultAchievementExportName() {
+        const today = new Date()
+        const year = today.getFullYear()
+        const month = String(today.getMonth() + 1).padStart(2, "0")
+        const day = String(today.getDate()).padStart(2, "0")
+        return "lymalink-achievements-export-%1-%2-%3.json".arg(year).arg(month).arg(day)
+    }
+
+    function setAchievementTransportStatus(message) {
+        achievementTransportStatus = message
+    }
+
+    function exportAchievements(filePath) {
+        const result = ctxDataTransporter.ExportAchievements(filePath)
+        if (result.success) {
+            setAchievementTransportStatus(qsTr("Exported %1 games and %2 achievements to %3")
+                .arg(result.exportedGameCount)
+                .arg(result.exportedAchievementCount)
+                .arg(result.filePath))
+        } else {
+            setAchievementTransportStatus(qsTr("Export failed: %1").arg(result.error))
+        }
     }
 
     function overlayPositionIndex(value) {
@@ -479,6 +505,26 @@ Item {
                 ctxDBusService.ReloadConfig()
             }
         }
+    }
+
+    FileDialog {
+        id: id_achievementExportDialog
+
+        title: qsTr("Export emulator achievements")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + id_root.defaultAchievementExportName()
+        nameFilters: [qsTr("JSON files (*.json)")]
+        onAccepted: id_root.exportAchievements(id_root.fileUrlToPath(selectedFile))
+    }
+
+    FileDialog {
+        id: id_achievementImportDialog
+
+        title: qsTr("Import emulator achievements")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("JSON files (*.json)")]
+        onAccepted: id_root.setAchievementTransportStatus(qsTr("Import backend not implemented yet. Selected: %1").arg(id_root.fileUrlToPath(selectedFile)))
     }
 
     // Fixed page header
@@ -1189,6 +1235,45 @@ Item {
                                     id_root.pendingSteamWebApiKey = text
                                     id_apiKeyConfirmationPopup.open()
                                 }
+                            }
+                        }
+                    }
+
+                    // Import / Export
+                    C_SettingsSection {
+                        fullRowMode: true
+                        title: qsTr("Import / Export")
+                        infoText: "Export or import Emulator achievement data."
+
+                        C_SettingRow {
+                            fixedWidthInt: 500
+
+                            RowLayout {
+                                spacing: 8
+
+                                CustomButton {
+                                    text: qsTr("Import")
+                                    onClicked: id_achievementImportDialog.open()
+                                }
+
+                                CustomButton {
+                                    text: qsTr("Export")
+                                    onClicked: id_achievementExportDialog.open()
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            visible: id_root.achievementTransportStatus !== ""
+                            Layout.fillWidth: true
+                            Layout.columnSpan: 2
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: id_root.achievementTransportStatus
+                                color: Themes.settings.colors.sectionInfo
+                                font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                wrapMode: Text.WordWrap
                             }
                         }
                     }
