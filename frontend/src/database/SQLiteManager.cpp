@@ -63,6 +63,7 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
     q.exec("PRAGMA foreign_keys=ON");
 
     m_dbConnections[conn] = db;
+    m_lastError.clear();
     emit signalConnectionStatusChanged(true, conn);
     return true;
 }
@@ -227,6 +228,7 @@ bool SQLiteManager::executeSql(const QString &connectionName, const QString &sql
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -274,6 +276,7 @@ bool SQLiteManager::insert(const QString &connectionName, const QString &tableNa
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -323,6 +326,7 @@ bool SQLiteManager::update(const QString &connectionName, const QString &tableNa
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -356,6 +360,7 @@ bool SQLiteManager::remove(const QString &connectionName, const QString &tableNa
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -397,6 +402,7 @@ QVariantList SQLiteManager::selectWhere(const QString &connectionName, const QSt
         emit signalDatabaseError(m_lastError);
         return {};
     }
+    m_lastError.clear();
     return fetchRows(q);
 }
 
@@ -432,6 +438,10 @@ QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QStr
             setLastError("selectFirst: " + q.lastError().text());
             emit signalDatabaseError(m_lastError);
         }
+        else
+        {
+            m_lastError.clear();
+        }
         return {};
     }
 
@@ -441,6 +451,7 @@ QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QStr
     {
         row[rec.fieldName(i)] = q.value(i);
     }
+    m_lastError.clear();
     return row;
 }
 
@@ -474,6 +485,7 @@ int SQLiteManager::count(const QString &connectionName, const QString &tableName
         emit signalDatabaseError(m_lastError);
         return -1;
     }
+    m_lastError.clear();
     return q.value(0).toInt();
 }
 
@@ -494,6 +506,7 @@ bool SQLiteManager::beginTransaction(const QString &connectionName)
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -514,6 +527,7 @@ bool SQLiteManager::commitTransaction(const QString &connectionName)
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 
@@ -534,6 +548,7 @@ bool SQLiteManager::rollbackTransaction(const QString &connectionName)
         emit signalDatabaseError(m_lastError);
         return false;
     }
+    m_lastError.clear();
     return true;
 }
 

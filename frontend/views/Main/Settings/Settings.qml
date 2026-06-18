@@ -539,7 +539,7 @@ Item {
 
         p_title: qsTr("Import Existing Targets")
         p_description: qsTr("The imported data contains targets that already exist in your library.\nChoose how each target should be handled:\n\n" +
-            "Merge: Imports only unlocked achievements and progress, existing unlocks remain unchanged.\n\n" +
+            "Merge: Adds missing achievements, updates progress only when imported progress is higher, and unlocks currently locked achievements. Existing unlock dates and game metadata remain unchanged.\n\n" +
             "Replace: Removes all existing achievements and replaces them with the imported data.")
         p_mergeText: qsTr("Merge")
         p_replaceText: qsTr("Replace")
@@ -547,6 +547,7 @@ Item {
         p_confirmText: qsTr("Import")
 
         onCanceled: {
+            ctxDataTransporter.ClearAchievementImportPreview()
             id_root.pendingAchievementImportPath = ""
             id_root.achievementImportConflicts = []
             id_root.setAchievementTransportStatus("")

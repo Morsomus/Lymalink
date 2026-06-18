@@ -28,6 +28,7 @@ Popup {
 
     property var conflictModes: ({})
     property int conflictModeRevision: 0
+    property bool closeHandled: false
 
     signal canceled()
     signal confirmed(var decisions)
@@ -56,6 +57,7 @@ Popup {
     function openConflicts(conflicts) {
         p_conflicts = conflicts || []
         conflictModes = {}
+        closeHandled = false
         ++conflictModeRevision
         open()
     }
@@ -111,7 +113,15 @@ Popup {
     function reset() {
         id_root.p_conflicts = []
         id_root.conflictModes = {}
+        id_root.closeHandled = false
         ++id_root.conflictModeRevision
+    }
+
+    onClosed: {
+        if (!id_root.closeHandled && id_root.p_conflicts.length > 0) {
+            id_root.closeHandled = true
+            id_root.canceled()
+        }
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -264,6 +274,7 @@ Popup {
             C_ActionButton {
                 text: id_root.p_cancelText
                 onClicked: {
+                    id_root.closeHandled = true
                     id_root.canceled()
                     id_root.close()
                 }
@@ -272,6 +283,7 @@ Popup {
             C_ActionButton {
                 text: id_root.p_confirmText
                 onClicked: {
+                    id_root.closeHandled = true
                     id_root.confirmed(id_root.decisions())
                     id_root.close()
                 }

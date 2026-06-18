@@ -22,6 +22,8 @@
 #include <QSet>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -56,7 +58,12 @@ QVariantMap DataTransporter::ExportAchievements(const QString &filePath)
 
     int exportedGameCount = 0;
     int exportedAchievementCount = 0;
-    const QJsonObject exportJson = BuildExportJson(exportedGameCount, exportedAchievementCount);
+    QJsonObject exportJson;
+    QString error;
+    if (!BuildExportJson(exportJson, exportedGameCount, exportedAchievementCount, error))
+    {
+        return ErrorPayload(error, trimmedFilePath);
+    }
 
     const QFileInfo fileInfo(trimmedFilePath);
     const QDir parentDir = fileInfo.absoluteDir();
@@ -85,6 +92,8 @@ QVariantMap DataTransporter::ExportAchievements(const QString &filePath)
 QVariantMap DataTransporter::PreviewAchievementImport(const QString &filePath)
 {
     const QString trimmedFilePath = filePath.trimmed();
+    ClearCachedImportPreview();
+
     QVector<ImportedGame> games;
     QString error;
     if (!ReadImportFile(trimmedFilePath, games, error))
@@ -109,6 +118,10 @@ QVariantMap DataTransporter::PreviewAchievementImport(const QString &filePath)
         );
         if (existingGame.isEmpty())
         {
+            if (!m_databaseManager.lastError().isEmpty())
+            {
+                return ErrorPayload(tr("Couldn't check existing game %1: %2").arg(game.name, m_databaseManager.lastError()), trimmedFilePath);
+            }
             continue;
         }
 
@@ -124,6 +137,10 @@ QVariantMap DataTransporter::PreviewAchievementImport(const QString &filePath)
             "id = ? AND date_unlocked > 0",
             {game.id}
         );
+        if (currentAchievementCount < 0 || currentUnlockedCount < 0)
+        {
+            return ErrorPayload(tr("Couldn't read current achievements for %1: %2").arg(game.name, m_databaseManager.lastError()), trimmedFilePath);
+        }
 
         conflicts.append(QVariantMap{
             {"id", game.id},
@@ -139,6 +156,7 @@ QVariantMap DataTransporter::PreviewAchievementImport(const QString &filePath)
         });
     }
 
+    CacheImportPreview(trimmedFilePath, games);
     return PreviewSuccessPayload(trimmedFilePath, games, conflicts);
 }
 
@@ -149,7 +167,7 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
     const QString trimmedFilePath = filePath.trimmed();
     QVector<ImportedGame> games;
     QString error;
-    if (!ReadImportFile(trimmedFilePath, games, error))
+    if (!CachedImportPreview(trimmedFilePath, games) && !ReadImportFile(trimmedFilePath, games, error))
     {
         return ErrorPayload(error, trimmedFilePath);
     }
@@ -192,6 +210,11 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
             "id = ?",
             {game.id}
         );
+        if (existingGame.isEmpty() && !m_databaseManager.lastError().isEmpty())
+        {
+            m_databaseManager.rollbackTransaction(m_databaseConnectionName);
+            return ErrorPayload(tr("Couldn't check existing game %1: %2").arg(game.name, m_databaseManager.lastError()), trimmedFilePath);
+        }
 
         bool imported = false;
         if (existingGame.isEmpty())
@@ -223,9 +246,12 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
 
     if (!m_databaseManager.commitTransaction(m_databaseConnectionName))
     {
-        return ErrorPayload(tr("Couldn't finish import transaction: %1").arg(m_databaseManager.lastError()), trimmedFilePath);
+        const QString commitError = m_databaseManager.lastError();
+        m_databaseManager.rollbackTransaction(m_databaseConnectionName);
+        return ErrorPayload(tr("Couldn't finish import transaction: %1").arg(commitError), trimmedFilePath);
     }
 
+    ClearCachedImportPreview();
     return ImportSuccessPayload(
         trimmedFilePath,
         games.size(),
@@ -235,6 +261,13 @@ QVariantMap DataTransporter::ImportAchievements(const QString &filePath, const Q
         replacedGameCount,
         addedTargets
     );
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DataTransporter::ClearAchievementImportPreview()
+{
+    ClearCachedImportPreview();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -330,6 +363,12 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
         return false;
     }
 
+    if (!root.contains("games") || !root.value("games").isArray())
+    {
+        error = tr("Import file games field must be an array.");
+        return false;
+    }
+
     const QJsonArray gameArray = root.value("games").toArray();
     QSet<int> gameIds;
     games.clear();
@@ -345,21 +384,50 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
 
         const QJsonObject gameObject = gameValue.toObject();
         ImportedGame game;
-        game.id = JsonIntValue(gameObject.value("id"));
+        if (!JsonNonNegativeIntValue(gameObject.value("id"), game.id, tr("game id"), error, false))
+        {
+            return false;
+        }
         game.name = gameObject.value("name").toString().trimmed();
+        if (!gameObject.value("hidden").isBool())
+        {
+            error = tr("Import file contains a game with invalid hidden value.");
+            return false;
+        }
         game.hidden = gameObject.value("hidden").toBool(false);
 
+        if (!gameObject.value("paths").isObject())
+        {
+            error = tr("Import file contains a game with invalid paths data.");
+            return false;
+        }
         const QJsonObject paths = gameObject.value("paths").toObject();
         game.executableLocation = paths.value("exe").toString();
         game.prefixLocation = paths.value("prefix").toString();
         game.installationDir = paths.value("install").toString();
 
+        if (!gameObject.value("stats").isObject())
+        {
+            error = tr("Import file contains a game with invalid stats data.");
+            return false;
+        }
         const QJsonObject stats = gameObject.value("stats").toObject();
-        game.totalSecondsPlayed = JsonIntValue(stats.value("seconds"));
+        if (!JsonNonNegativeIntValue(stats.value("seconds"), game.totalSecondsPlayed, tr("total seconds played"), error))
+        {
+            return false;
+        }
 
+        if (!gameObject.value("dates").isObject())
+        {
+            error = tr("Import file contains a game with invalid dates data.");
+            return false;
+        }
         const QJsonObject dates = gameObject.value("dates").toObject();
-        game.lastPlayedDate = JsonDateValue(dates.value("last_played"));
-        game.dateAdded = JsonDateValue(dates.value("added"));
+        if (!JsonNonNegativeDateValue(dates.value("last_played"), game.lastPlayedDate, tr("last played date"), error)
+            || !JsonNonNegativeDateValue(dates.value("added"), game.dateAdded, tr("date added"), error))
+        {
+            return false;
+        }
 
         if (game.id <= 0 || game.name.isEmpty())
         {
@@ -373,6 +441,11 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
         }
         gameIds.insert(game.id);
 
+        if (!gameObject.value("achievements").isArray())
+        {
+            error = tr("Import file contains a game with invalid achievements data for %1.").arg(game.name);
+            return false;
+        }
         const QJsonArray achievementArray = gameObject.value("achievements").toArray();
         QSet<QString> achievementKeys;
         game.achievements.reserve(achievementArray.size());
@@ -390,16 +463,45 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
             achievement.key = achievementObject.value("key").toString().trimmed();
             achievement.name = achievementObject.value("name").toString().trimmed();
             achievement.description = achievementObject.value("desc").toString();
+            if (!achievementObject.value("hidden").isBool())
+            {
+                error = tr("Import file contains an achievement with invalid hidden value for %1.").arg(game.name);
+                return false;
+            }
             achievement.hidden = achievementObject.value("hidden").toBool(false);
-            achievement.globalUnlockPercentage = achievementObject.value("percent").toDouble(0.0);
+            if (!JsonPercentageValue(achievementObject.value("percent"), achievement.globalUnlockPercentage, tr("global unlock percentage"), error))
+            {
+                return false;
+            }
 
             const QJsonArray progress = achievementObject.value("progress").toArray();
-            achievement.currentProgress = progress.size() > 0 ? JsonIntValue(progress.at(0)) : 0;
-            achievement.maxProgress = progress.size() > 1 ? JsonIntValue(progress.at(1)) : 0;
+            if (!achievementObject.value("progress").isArray() || progress.size() != 2)
+            {
+                error = tr("Import file contains an achievement with invalid progress data for %1.").arg(game.name);
+                return false;
+            }
+            if (!JsonNonNegativeIntValue(progress.at(0), achievement.currentProgress, tr("current progress"), error)
+                || !JsonNonNegativeIntValue(progress.at(1), achievement.maxProgress, tr("maximum progress"), error))
+            {
+                return false;
+            }
+            if (achievement.maxProgress > 0 && achievement.currentProgress > achievement.maxProgress)
+            {
+                error = tr("Import file contains an achievement with progress above maximum for %1.").arg(game.name);
+                return false;
+            }
 
+            if (!achievementObject.value("dates").isObject())
+            {
+                error = tr("Import file contains an achievement with invalid dates data for %1.").arg(game.name);
+                return false;
+            }
             const QJsonObject achievementDates = achievementObject.value("dates").toObject();
-            achievement.dateUnlocked = JsonDateValue(achievementDates.value("unlocked"));
-            achievement.dateAdded = JsonDateValue(achievementDates.value("added"));
+            if (!JsonNonNegativeDateValue(achievementDates.value("unlocked"), achievement.dateUnlocked, tr("date unlocked"), error)
+                || !JsonNonNegativeDateValue(achievementDates.value("added"), achievement.dateAdded, tr("achievement date added"), error))
+            {
+                return false;
+            }
 
             if (achievement.key.isEmpty())
             {
@@ -428,24 +530,33 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
 
 /////////////////////////////////////////////////////////////////////
 
-bool DataTransporter::InsertImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error)
+void DataTransporter::CacheImportPreview(const QString &filePath, const QVector<ImportedGame> &games)
 {
-    if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, ImportedGameRow(game, now)))
+    m_cachedImportFilePath = filePath;
+    m_cachedImportGames = games;
+    m_hasCachedImport = true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool DataTransporter::CachedImportPreview(const QString &filePath, QVector<ImportedGame> &games) const
+{
+    if (!m_hasCachedImport || m_cachedImportFilePath != filePath)
     {
-        error = tr("Couldn't insert imported game %1: %2").arg(game.name, m_databaseManager.lastError());
         return false;
     }
 
-    for (const ImportedAchievement &achievement : game.achievements)
-    {
-        if (!InsertImportedAchievement(game.id, achievement, now, error))
-        {
-            return false;
-        }
-        ++addedAchievements;
-    }
+    games = m_cachedImportGames;
+    return true;
+}
 
-    return RefreshImportedGameCounts(game.id, now, error);
+/////////////////////////////////////////////////////////////////////
+
+void DataTransporter::ClearCachedImportPreview()
+{
+    m_cachedImportFilePath.clear();
+    m_cachedImportGames.clear();
+    m_hasCachedImport = false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -463,6 +574,12 @@ bool DataTransporter::MergeImportedGame(const ImportedGame &game, qint64 now, in
 
         if (existingAchievement.isEmpty())
         {
+            if (!m_databaseManager.lastError().isEmpty())
+            {
+                error = tr("Couldn't check existing achievement %1 for %2: %3").arg(achievement.key, game.name, m_databaseManager.lastError());
+                return false;
+            }
+
             if (!InsertImportedAchievement(game.id, achievement, now, error))
             {
                 return false;
@@ -505,7 +622,7 @@ bool DataTransporter::MergeImportedGame(const ImportedGame &game, qint64 now, in
         }
     }
 
-    return RefreshImportedGameCounts(game.id, now, error);
+    return RefreshImportedGameCounts(game, now, error);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -523,6 +640,28 @@ bool DataTransporter::ReplaceImportedGame(const ImportedGame &game, qint64 now, 
 
 /////////////////////////////////////////////////////////////////////
 
+bool DataTransporter::InsertImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error)
+{
+    if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, ImportedGameRow(game, now)))
+    {
+        error = tr("Couldn't insert imported game %1: %2").arg(game.name, m_databaseManager.lastError());
+        return false;
+    }
+
+    for (const ImportedAchievement &achievement : game.achievements)
+    {
+        if (!InsertImportedAchievement(game.id, achievement, now, error))
+        {
+            return false;
+        }
+        ++addedAchievements;
+    }
+
+    return RefreshImportedGameCounts(game, now, error);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool DataTransporter::InsertImportedAchievement(int gameId, const ImportedAchievement &achievement, qint64 now, QString &error)
 {
     if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, ImportedAchievementRow(gameId, achievement, now)))
@@ -536,19 +675,19 @@ bool DataTransporter::InsertImportedAchievement(int gameId, const ImportedAchiev
 
 /////////////////////////////////////////////////////////////////////
 
-bool DataTransporter::RefreshImportedGameCounts(int gameId, qint64 now, QString &error)
+bool DataTransporter::RefreshImportedGameCounts(const ImportedGame &game, qint64 now, QString &error)
 {
     const int totalCount = m_databaseManager.count(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ?",
-        {gameId}
+        {game.id}
     );
     const int unlockedCount = m_databaseManager.count(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
         "id = ? AND date_unlocked > 0",
-        {gameId}
+        {game.id}
     );
     if (totalCount < 0 || unlockedCount < 0)
     {
@@ -564,12 +703,13 @@ bool DataTransporter::RefreshImportedGameCounts(int gameId, qint64 now, QString 
             {"appid_dir_found", 0},
             {"appid_dir_location", ""},
             {"data_opt", ""},
+            {"target_hidden", game.hidden ? 1 : 0},
             {"total_amount_achievements", totalCount},
             {"total_unlocked_amount_achievements", unlockedCount},
             {"date_updated", now}
         },
         "id = ?",
-        {gameId}
+        {game.id}
     ))
     {
         error = tr("Couldn't update imported game metadata: %1").arg(m_databaseManager.lastError());
@@ -624,46 +764,6 @@ QVariantMap DataTransporter::ImportedAchievementRow(int gameId, const ImportedAc
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantMap DataTransporter::PreviewSuccessPayload(const QString &filePath, const QVector<ImportedGame> &games, const QVariantList &conflicts) const
-{
-    return {
-        {"success", true},
-        {"error", QString()},
-        {"filePath", filePath},
-        {"exportedGameCount", 0},
-        {"exportedAchievementCount", 0},
-        {"importedGameCount", games.size()},
-        {"importedAchievementCount", ImportedAchievementCount(games)},
-        {"addedGameCount", games.size() - conflicts.size()},
-        {"mergedGameCount", 0},
-        {"replacedGameCount", 0},
-        {"addedTargets", QVariantList()},
-        {"conflicts", conflicts}
-    };
-}
-
-/////////////////////////////////////////////////////////////////////
-
-QVariantMap DataTransporter::ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const
-{
-    return {
-        {"success", true},
-        {"error", QString()},
-        {"filePath", filePath},
-        {"exportedGameCount", 0},
-        {"exportedAchievementCount", 0},
-        {"importedGameCount", importedGameCount},
-        {"importedAchievementCount", importedAchievementCount},
-        {"addedGameCount", addedGameCount},
-        {"mergedGameCount", mergedGameCount},
-        {"replacedGameCount", replacedGameCount},
-        {"addedTargets", addedTargets},
-        {"conflicts", QVariantList()}
-    };
-}
-
-/////////////////////////////////////////////////////////////////////
-
 int DataTransporter::ImportedAchievementCount(const QVector<ImportedGame> &games) const
 {
     int count = 0;
@@ -676,28 +776,11 @@ int DataTransporter::ImportedAchievementCount(const QVector<ImportedGame> &games
 
 /////////////////////////////////////////////////////////////////////
 
-int DataTransporter::JsonIntValue(const QJsonValue &value) const
-{
-    return value.isNull() || value.isUndefined() ? 0 : value.toInt();
-}
-
-/////////////////////////////////////////////////////////////////////
-
-qint64 DataTransporter::JsonDateValue(const QJsonValue &value) const
-{
-    if (value.isNull() || value.isUndefined())
-    {
-        return 0;
-    }
-    return static_cast<qint64>(value.toDouble(0));
-}
-
-/////////////////////////////////////////////////////////////////////
-
-QJsonObject DataTransporter::BuildExportJson(int &exportedGameCount, int &exportedAchievementCount)
+bool DataTransporter::BuildExportJson(QJsonObject &exportJson, int &exportedGameCount, int &exportedAchievementCount, QString &error)
 {
     exportedGameCount = 0;
     exportedAchievementCount = 0;
+    exportJson = QJsonObject();
 
     QJsonArray games;
     const QVariantList gameRows = m_databaseManager.selectAll(
@@ -717,6 +800,11 @@ QJsonObject DataTransporter::BuildExportJson(int &exportedGameCount, int &export
             "date_added"
         }
     );
+    if (!m_databaseManager.lastError().isEmpty())
+    {
+        error = tr("Couldn't read emulator games for export: %1").arg(m_databaseManager.lastError());
+        return false;
+    }
 
     for (const QVariant &gameValue : gameRows)
     {
@@ -739,18 +827,24 @@ QJsonObject DataTransporter::BuildExportJson(int &exportedGameCount, int &export
                 "date_added"
             }
         );
+        if (!m_databaseManager.lastError().isEmpty())
+        {
+            error = tr("Couldn't read achievements for export: %1").arg(m_databaseManager.lastError());
+            return false;
+        }
 
         games.append(BuildGameJson(gameRow, achievementRows, exportedAchievementCount));
         ++exportedGameCount;
     }
 
-    return {
+    exportJson = {
         {"format", QStringLiteral("lymalink-achievements-export")},
         {"version", EXPORT_FILE_VERSION},
         {"game_count", exportedGameCount},
         {"exported_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
         {"games", games}
     };
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -809,32 +903,42 @@ QJsonObject DataTransporter::BuildAchievementJson(const QVariantMap &row) const
 
 /////////////////////////////////////////////////////////////////////
 
-QJsonValue DataTransporter::DateValue(const QVariantMap &row, const QString &key) const
+QVariantMap DataTransporter::PreviewSuccessPayload(const QString &filePath, const QVector<ImportedGame> &games, const QVariantList &conflicts) const
 {
-    const QVariant value = row.value(key);
-    if (value.isNull() || !value.isValid())
-    {
-        return QJsonValue::Null;
-    }
-    return QJsonValue(value.toLongLong());
+    return {
+        {"success", true},
+        {"error", QString()},
+        {"filePath", filePath},
+        {"exportedGameCount", 0},
+        {"exportedAchievementCount", 0},
+        {"importedGameCount", games.size()},
+        {"importedAchievementCount", ImportedAchievementCount(games)},
+        {"addedGameCount", games.size() - conflicts.size()},
+        {"mergedGameCount", 0},
+        {"replacedGameCount", 0},
+        {"addedTargets", QVariantList()},
+        {"conflicts", conflicts}
+    };
 }
 
 /////////////////////////////////////////////////////////////////////
 
-QJsonValue DataTransporter::NumberValue(const QVariantMap &row, const QString &key) const
+QVariantMap DataTransporter::ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const
 {
-    const QVariant value = row.value(key);
-    if (value.isNull() || !value.isValid())
-    {
-        return QJsonValue::Null;
-    }
-
-    if (value.metaType().id() == QMetaType::Double || value.metaType().id() == QMetaType::Float)
-    {
-        return QJsonValue(value.toDouble());
-    }
-
-    return QJsonValue(value.toLongLong());
+    return {
+        {"success", true},
+        {"error", QString()},
+        {"filePath", filePath},
+        {"exportedGameCount", 0},
+        {"exportedAchievementCount", 0},
+        {"importedGameCount", importedGameCount},
+        {"importedAchievementCount", importedAchievementCount},
+        {"addedGameCount", addedGameCount},
+        {"mergedGameCount", mergedGameCount},
+        {"replacedGameCount", replacedGameCount},
+        {"addedTargets", addedTargets},
+        {"conflicts", QVariantList()}
+    };
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -884,4 +988,133 @@ QVariantMap DataTransporter::ErrorPayload(const QString &error, const QString &f
         {"addedTargets", QVariantList()},
         {"conflicts", QVariantList()}
     };
+}
+
+/////////////////////////////////////////////////////////////////////
+
+int DataTransporter::JsonIntValue(const QJsonValue &value) const
+{
+    return value.isNull() || value.isUndefined() ? 0 : value.toInt();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+qint64 DataTransporter::JsonDateValue(const QJsonValue &value) const
+{
+    if (value.isNull() || value.isUndefined())
+    {
+        return 0;
+    }
+    return static_cast<qint64>(value.toDouble(0));
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QJsonValue DataTransporter::DateValue(const QVariantMap &row, const QString &key) const
+{
+    const QVariant value = row.value(key);
+    if (value.isNull() || !value.isValid())
+    {
+        return QJsonValue::Null;
+    }
+    return QJsonValue(value.toLongLong());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QJsonValue DataTransporter::NumberValue(const QVariantMap &row, const QString &key) const
+{
+    const QVariant value = row.value(key);
+    if (value.isNull() || !value.isValid())
+    {
+        return QJsonValue::Null;
+    }
+
+    if (value.metaType().id() == QMetaType::Double || value.metaType().id() == QMetaType::Float)
+    {
+        return QJsonValue(value.toDouble());
+    }
+
+    return QJsonValue(value.toLongLong());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool DataTransporter::JsonNonNegativeIntValue(const QJsonValue &value, int &result, const QString &fieldName, QString &error, bool allowNull) const
+{
+    if ((value.isNull() || value.isUndefined()) && allowNull)
+    {
+        result = 0;
+        return true;
+    }
+
+    if (!value.isDouble())
+    {
+        error = tr("Import file contains invalid numeric value for %1.").arg(fieldName);
+        return false;
+    }
+
+    const double number = value.toDouble();
+    if (!std::isfinite(number) || std::floor(number) != number || number < 0.0 || number > std::numeric_limits<int>::max())
+    {
+        error = tr("Import file contains invalid numeric value for %1.").arg(fieldName);
+        return false;
+    }
+
+    result = static_cast<int>(number);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool DataTransporter::JsonNonNegativeDateValue(const QJsonValue &value, qint64 &result, const QString &fieldName, QString &error) const
+{
+    if (value.isNull() || value.isUndefined())
+    {
+        result = 0;
+        return true;
+    }
+
+    if (!value.isDouble())
+    {
+        error = tr("Import file contains invalid date value for %1.").arg(fieldName);
+        return false;
+    }
+
+    const double number = value.toDouble();
+    if (!std::isfinite(number) || std::floor(number) != number || number < 0.0 || number > static_cast<double>(std::numeric_limits<qint64>::max()))
+    {
+        error = tr("Import file contains invalid date value for %1.").arg(fieldName);
+        return false;
+    }
+
+    result = static_cast<qint64>(number);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool DataTransporter::JsonPercentageValue(const QJsonValue &value, double &result, const QString &fieldName, QString &error) const
+{
+    if (value.isNull() || value.isUndefined())
+    {
+        result = 0.0;
+        return true;
+    }
+
+    if (!value.isDouble())
+    {
+        error = tr("Import file contains invalid numeric value for %1.").arg(fieldName);
+        return false;
+    }
+
+    const double number = value.toDouble();
+    if (!std::isfinite(number) || number < 0.0 || number > 100.0)
+    {
+        error = tr("Import file contains invalid numeric value for %1.").arg(fieldName);
+        return false;
+    }
+
+    result = number;
+    return true;
 }

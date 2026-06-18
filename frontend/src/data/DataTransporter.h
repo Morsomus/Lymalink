@@ -30,6 +30,7 @@ public:
     Q_INVOKABLE QVariantMap ExportAchievements(const QString &filePath);
     Q_INVOKABLE QVariantMap PreviewAchievementImport(const QString &filePath);
     Q_INVOKABLE QVariantMap ImportAchievements(const QString &filePath, const QVariantList &decisions);
+    Q_INVOKABLE void ClearAchievementImportPreview();
 
 private:
     struct ImportedAchievement
@@ -62,28 +63,39 @@ private:
     SQLiteManager m_databaseManager;
     QString m_databaseConnectionName;
     QString m_databasePath;
+    QString m_cachedImportFilePath;
+    QVector<ImportedGame> m_cachedImportGames;
+    bool m_hasCachedImport = false;
 
     QString DefaultDatabasePath() const;
     bool EnsureDatabaseOpen(QVariantMap &payload);
     bool ReadImportFile(const QString &filePath, QVector<ImportedGame> &games, QString &error) const;
     bool ParseImportDocument(const QJsonDocument &document, QVector<ImportedGame> &games, QString &error) const;
-    bool InsertImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error);
+    void CacheImportPreview(const QString &filePath, const QVector<ImportedGame> &games);
+    bool CachedImportPreview(const QString &filePath, QVector<ImportedGame> &games) const;
+    void ClearCachedImportPreview();
     bool MergeImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error);
     bool ReplaceImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error);
+    bool InsertImportedGame(const ImportedGame &game, qint64 now, int &addedAchievements, QString &error);
     bool InsertImportedAchievement(int gameId, const ImportedAchievement &achievement, qint64 now, QString &error);
-    bool RefreshImportedGameCounts(int gameId, qint64 now, QString &error);
+    bool RefreshImportedGameCounts(const ImportedGame &game, qint64 now, QString &error);
     QVariantMap ImportedGameRow(const ImportedGame &game, qint64 now) const;
     QVariantMap ImportedAchievementRow(int gameId, const ImportedAchievement &achievement, qint64 now) const;
-    QVariantMap PreviewSuccessPayload(const QString &filePath, const QVector<ImportedGame> &games, const QVariantList &conflicts) const;
-    QVariantMap ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const;
     int ImportedAchievementCount(const QVector<ImportedGame> &games) const;
-    int JsonIntValue(const QJsonValue &value) const;
-    qint64 JsonDateValue(const QJsonValue &value) const;
-    QJsonObject BuildExportJson(int &exportedGameCount, int &exportedAchievementCount);
+    bool BuildExportJson(QJsonObject &exportJson, int &exportedGameCount, int &exportedAchievementCount, QString &error);
     QJsonObject BuildGameJson(const QVariantMap &row, const QVariantList &achievementRows, int &exportedAchievementCount) const;
     QJsonObject BuildAchievementJson(const QVariantMap &row) const;
-    QJsonValue DateValue(const QVariantMap &row, const QString &key) const;
-    QJsonValue NumberValue(const QVariantMap &row, const QString &key) const;
+
+    QVariantMap PreviewSuccessPayload(const QString &filePath, const QVector<ImportedGame> &games, const QVariantList &conflicts) const;
+    QVariantMap ImportSuccessPayload(const QString &filePath, int importedGameCount, int importedAchievementCount, int addedGameCount, int mergedGameCount, int replacedGameCount, const QVariantList &addedTargets) const;
     QVariantMap SuccessPayload(const QString &filePath, int exportedGameCount, int exportedAchievementCount) const;
     QVariantMap ErrorPayload(const QString &error, const QString &filePath = QString()) const;
+
+    int JsonIntValue(const QJsonValue &value) const;
+    qint64 JsonDateValue(const QJsonValue &value) const;
+    QJsonValue DateValue(const QVariantMap &row, const QString &key) const;
+    QJsonValue NumberValue(const QVariantMap &row, const QString &key) const;
+    bool JsonNonNegativeIntValue(const QJsonValue &value, int &result, const QString &fieldName, QString &error, bool allowNull = true) const;
+    bool JsonNonNegativeDateValue(const QJsonValue &value, qint64 &result, const QString &fieldName, QString &error) const;
+    bool JsonPercentageValue(const QJsonValue &value, double &result, const QString &fieldName, QString &error) const;
 };
