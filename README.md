@@ -21,6 +21,7 @@
 - **Manual achievement control** - Manually unlock or lock achievements when needed.
 - **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
 - **System tray support** - Keep Lymalink accessible from the system tray.
+- **Export & Import** - Move your achievement data between devices or back it up in JSON format.
 - **Steam achievement import** - Import your personal Steam achievements to the dashboard.
 
 ## Table of Contents
@@ -97,7 +98,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.8.3-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.8.4-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -110,7 +111,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/build.sh
-./installer/build/lymalink-installer-0.8.3-*-x86_64.run
+./installer/build/lymalink-installer-0.8.4-*-x86_64.run
 ```
 
 
@@ -158,7 +159,6 @@ Current progress towards different versions, platform-wise
 - **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
 - **Steam Import Auto-Update** - Selectively refresh imported Steam achievement data to keep tracked progress up to date without user intervention.
 - **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
-- **Export & Import** - Move your achievement data between devices or back it up in open formats such as JSON or CSV.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
 - **Localisation** - Languages to choose from.
 - **Windows Support** - Bring Lymalink to Windows.

@@ -1758,56 +1758,156 @@ void Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList 
         return;
     }
 
-    int inserted = 0;
+    if (appId <= 0 || achievements.isEmpty())
+    {
+        qDebug() << "Lymalink::ApplyNewAchievements: no achievement payload to merge for appId:" << appId;
+        return;
+    }
 
-    // Insert only new achievement keys from hydration payload
+    int validPayloadRows = 0;
+    for (const QVariant &val : achievements)
+    {
+        if (!Utils::MapStringValue(val.toMap(), "achievement_key").isEmpty())
+        {
+            ++validPayloadRows;
+        }
+    }
+    if (validPayloadRows == 0)
+    {
+        qDebug() << "Lymalink::ApplyNewAchievements: no valid achievement keys to merge for appId:" << appId;
+        return;
+    }
+
+    if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
+    {
+        qWarning() << "Lymalink::ApplyNewAchievements: failed to start transaction:" << m_databaseManager.lastError();
+        return;
+    }
+
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    int inserted = 0;
+    int updated = 0;
+    bool mergeSucceeded = true;
+
+    // Merge fetched keys only. Missing remote keys must never remove local user data.
     for (const QVariant &val : achievements)
     {
         QVariantMap entry = val.toMap();
-        entry["id"] = appId;
-
         const QString achievementKey = Utils::MapStringValue(entry, "achievement_key");
         if (achievementKey.isEmpty())
         {
             continue;
         }
 
-        const int existingRows = m_databaseManager.count(
+        const QVariantMap existingAchievement = m_databaseManager.selectFirst(
             m_databaseConnectionName,
             DATABASE_TABLE_EMU_ACHIEVEMENTS,
             "id = ? AND achievement_key = ?",
             {appId, achievementKey}
         );
-        if (existingRows > 0)
+
+        if (existingAchievement.isEmpty())
+        {
+            entry["id"] = appId;
+            entry["date_added"] = now;
+            entry["date_updated"] = now;
+
+            if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, entry))
+            {
+                qWarning() << "Lymalink::ApplyNewAchievements: failed to insert achievement:" << achievementKey << m_databaseManager.lastError();
+                mergeSucceeded = false;
+                break;
+            }
+            ++inserted;
+            continue;
+        }
+
+        QVariantMap achievementUpdate = {};
+
+        const QString newName = Utils::MapStringValue(entry, "achievement_name");
+        if (!newName.isEmpty() && newName != Utils::MapStringValue(existingAchievement, "achievement_name"))
+        {
+            achievementUpdate["achievement_name"] = newName;
+        }
+
+        const QString newDescription = Utils::MapStringValue(entry, "achievement_description");
+        if (newDescription != Utils::MapStringValue(existingAchievement, "achievement_description"))
+        {
+            achievementUpdate["achievement_description"] = newDescription;
+        }
+
+        const int newHidden = Utils::MapIntValue(entry, "achievement_hidden");
+        if (newHidden != Utils::MapIntValue(existingAchievement, "achievement_hidden"))
+        {
+            achievementUpdate["achievement_hidden"] = newHidden;
+        }
+
+        const double newGlobalUnlockPercentage = entry.value("global_unlock_percentage").toDouble();
+        if (newGlobalUnlockPercentage != existingAchievement.value("global_unlock_percentage").toDouble())
+        {
+            achievementUpdate["global_unlock_percentage"] = newGlobalUnlockPercentage;
+        }
+
+        const int oldMaxProgress = Utils::MapIntValue(existingAchievement, "max_progress");
+        const int newMaxProgress = Utils::MapIntValue(entry, "max_progress");
+        if (newMaxProgress != oldMaxProgress)
+        {
+            const int oldCurProgress = Utils::MapIntValue(existingAchievement, "cur_progress");
+            achievementUpdate["max_progress"] = newMaxProgress;
+
+            if (oldMaxProgress > 0 && oldCurProgress >= oldMaxProgress)
+            {
+                achievementUpdate["cur_progress"] = newMaxProgress;
+            }
+            else if (oldCurProgress > newMaxProgress)
+            {
+                achievementUpdate["cur_progress"] = 0;
+            }
+        }
+
+        if (achievementUpdate.isEmpty())
         {
             continue;
         }
 
-        if (!m_databaseManager.insert(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, entry))
+        achievementUpdate["date_updated"] = now;
+        if (!m_databaseManager.update(
+            m_databaseConnectionName,
+            DATABASE_TABLE_EMU_ACHIEVEMENTS,
+            achievementUpdate,
+            "id = ? AND achievement_key = ?",
+            {appId, achievementKey}))
         {
-            qWarning() << "Lymalink::ApplyNewAchievements: failed to insert achievement:" << achievementKey << m_databaseManager.lastError();
-            continue;
+            qWarning() << "Lymalink::ApplyNewAchievements: failed to update achievement:" << achievementKey << m_databaseManager.lastError();
+            mergeSucceeded = false;
+            break;
         }
-        ++inserted;
+        ++updated;
     }
 
-    if (inserted > 0)
+    const int totalAchievements = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, "id = ?", {appId});
+    if (mergeSucceeded && totalAchievements >= 0)
     {
-        // Refresh target achievement total after inserting new rows
-        const qint64 now = QDateTime::currentSecsSinceEpoch();
-        const int totalAchievements = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_ACHIEVEMENTS, "id = ?", {appId});
-        if (!m_databaseManager.update(
+        mergeSucceeded = m_databaseManager.update(
             m_databaseConnectionName,
             DATABASE_TABLE_EMU_GAMES,
             {{"total_amount_achievements", totalAchievements}, {"date_updated", now}},
             "id = ?",
-            {appId}))
-        {
-            qWarning() << "Lymalink::ApplyNewAchievements: failed to update achievement count for appId:" << appId;
-        }
+            {appId});
+    }
+    else
+    {
+        mergeSucceeded = false;
     }
 
-    qDebug() << "Lymalink::ApplyNewAchievements: inserted" << inserted << "new achievements for appId:" << appId;
+    if (mergeSucceeded && m_databaseManager.commitTransaction(m_databaseConnectionName))
+    {
+        qDebug() << "Lymalink::ApplyNewAchievements: inserted" << inserted << "updated" << updated << "achievements for appId:" << appId;
+        return;
+    }
+
+    m_databaseManager.rollbackTransaction(m_databaseConnectionName);
+    qWarning() << "Lymalink::ApplyNewAchievements: failed to merge achievements for appId:" << appId << m_databaseManager.lastError();
 }
 
 /////////////////////////////////////////////////////////////////////

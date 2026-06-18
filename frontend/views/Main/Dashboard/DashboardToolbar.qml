@@ -700,6 +700,11 @@ Item {
 
                 // Details Sort/Filter chip bar
                 Item {
+                    implicitWidth: id_root.targetDetailsActivePanel === "detailsSort"
+                        ? 320
+                        : id_root.targetDetailsActivePanel === "detailsFilter"
+                            ? 300
+                            : 0
                     implicitHeight: id_root.targetDetailsActivePanel === "detailsSort"
                         ? id_detailsSortBar.implicitHeight
                         : id_root.targetDetailsActivePanel === "detailsFilter"
