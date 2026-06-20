@@ -153,7 +153,11 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     prefixPath = prefixPath.trimmed();
     installationDir = installationDir.trimmed();
 
+#if defined(Q_OS_WIN)
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || installationDir.isEmpty())
+#else
     if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty() || installationDir.isEmpty())
+#endif
     {
         m_lastOperationError = tr("Invalid emulator target data.");
         qWarning() << "Lymalink::CreateNewSteamEmuTarget: invalid emulator target data";
@@ -849,7 +853,11 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 
     // Prefix changes invalidate discovered Steam appid directory cache
     const QString trimmedPrefixPath = prefixPath.trimmed();
+#if defined(Q_OS_WIN)
+    if (appId <= 0)
+#else
     if (appId <= 0 || trimmedPrefixPath.isEmpty())
+#endif
     {
         qWarning() << "Lymalink::SetTargetPrefixLocation: invalid target prefix location update:" << appId << trimmedPrefixPath;
         return targetUpdated;

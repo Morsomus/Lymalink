@@ -12,6 +12,9 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#if defined(Q_OS_WIN)
+    #include <QStandardPaths>
+#endif
 #include <iostream>
 
 /////////////////////////////////////////////////////////////////////
@@ -63,6 +66,13 @@ void Logger::SetLogFile(const QString &path)
 
 /////////////////////////////////////////////////////////////////////
 
+#if defined(Q_OS_WIN)
+QString Logger::DefaultWindowsLogPath(const QString &appName)
+{
+    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    return QDir(appDataPath).filePath(QString("logs/%1-frontend.log").arg(appName));
+}
+#else
 QString Logger::DefaultLinuxLogPath(const QString &appName)
 {
     QString stateHome = qEnvironmentVariable("XDG_STATE_HOME");
@@ -73,6 +83,7 @@ QString Logger::DefaultLinuxLogPath(const QString &appName)
 
     return QString("%1/%2/%2-frontend.log").arg(stateHome, appName);
 }
+#endif
 
 /////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////

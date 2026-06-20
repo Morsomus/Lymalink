@@ -514,7 +514,7 @@ Popup {
         C_ActionButton {
             id: id_editPrefixLocationButton
 
-            visible: id_root.p_targetType !== "Steam"
+            visible: !OS_WIN && id_root.p_targetType !== "Steam"
             text: qsTr("Edit Prefix Location")
             tooltipText: qsTr("Select Prefix Location (drive_c or equivalent)")
             onClicked: id_prefixLocationPopup.open()

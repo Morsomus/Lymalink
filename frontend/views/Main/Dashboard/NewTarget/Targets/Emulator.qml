@@ -47,6 +47,8 @@ Item {
     readonly property string notificationWineCommand: "lymalink-overlay wine \"game.exe\""
     readonly property string notificationSteamLaunchOption: "lymalink-overlay %command%"
     readonly property bool prefixWarning: {
+        if (OS_WIN) return false
+
         const t = id_prefixLocationField.text.trim()
         if (t.length === 0) return false
         
@@ -91,6 +93,10 @@ Item {
     Component.onDestruction: id_root.cancelSearch(false)
 
     function fileUrlToPath(fileUrl) {
+        if (OS_WIN) {
+            return decodeURIComponent(fileUrl.toString().replace(/^file:\/\/\//, ""))
+        }
+
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
     }
 
@@ -339,7 +345,7 @@ Item {
                         }
 
                         Text {
-                            text: qsTr("How detection works & Prefix Location & Supported Emulators (hover to expand)")
+                            text: OS_WIN ? qsTr("How detection works & Supported Emulators (hover to expand)") : qsTr("How detection works & Prefix Location & Supported Emulators (hover to expand)")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
                             font.bold: true
                             color: id_infoBlock.hoverActive
@@ -391,6 +397,7 @@ Item {
                         }
 
                         ColumnLayout {
+                            visible: !OS_WIN
                             Layout.fillWidth: true
                             Layout.topMargin: 4
                             spacing: 4
@@ -414,6 +421,7 @@ Item {
                         }
 
                         Text {
+                            visible: !OS_WIN
                             Layout.fillWidth: true
                             Layout.topMargin: 4
                             text: qsTr("Prefix examples")
@@ -423,46 +431,50 @@ Item {
                             wrapMode: Text.Wrap
                         }
 
-                        Repeater {
-                            model: [
-                                {
-                                    label: qsTr("Wine"),
-                                    value: "/home/<user>/.wine/drive_c"
-                                },
-                                {
-                                    label: qsTr("Flatpak Bottles"),
-                                    value: "/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c"
-                                },
-                                {
-                                    label: qsTr("Heroic"),
-                                    value: "/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c"
-                                },
-                                {
-                                    label: qsTr("Heroic all prefixes"),
-                                    value: "/home/<user>/Games/Heroic/Prefixes"
-                                }
-                            ]
+                        Item {
+                            visible: !OS_WIN
 
-                            delegate: RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
+                            Repeater {
+                                model: [
+                                    {
+                                        label: qsTr("Wine"),
+                                        value: "/home/<user>/.wine/drive_c"
+                                    },
+                                    {
+                                        label: qsTr("Flatpak Bottles"),
+                                        value: "/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c"
+                                    },
+                                    {
+                                        label: qsTr("Heroic"),
+                                        value: "/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c"
+                                    },
+                                    {
+                                        label: qsTr("Heroic all prefixes"),
+                                        value: "/home/<user>/Games/Heroic/Prefixes"
+                                    }
+                                ]
 
-                                Text {
-                                    Layout.preferredWidth: 112
-                                    text: modelData.label
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                    font.bold: true
-                                    color: Themes.emulatorTarget.colors.descriptionText
-                                    wrapMode: Text.Wrap
-                                }
-
-                                Text {
+                                delegate: RowLayout {
                                     Layout.fillWidth: true
-                                    text: modelData.value
-                                    font.family: "monospace"
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                    color: Themes.emulatorTarget.colors.prefixWarningText
-                                    wrapMode: Text.WrapAnywhere
+                                    spacing: 8
+
+                                    Text {
+                                        Layout.preferredWidth: 112
+                                        text: modelData.label
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                        font.bold: true
+                                        color: Themes.emulatorTarget.colors.descriptionText
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.value
+                                        font.family: "monospace"
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                        color: Themes.emulatorTarget.colors.prefixWarningText
+                                        wrapMode: Text.WrapAnywhere
+                                    }
                                 }
                             }
                         }
@@ -525,6 +537,7 @@ Item {
                 id: id_notificationBlock
 
                 property bool hoverActive: false
+                visible: !OS_WIN
                 Layout.fillWidth: true
                 radius: 6
                 color: id_notificationBlock.hoverActive
@@ -1062,6 +1075,7 @@ Item {
 
                     // Prefix Location
                     ColumnLayout {
+                        visible: !OS_WIN
                         Layout.preferredWidth: 180
                         spacing: 2
 
@@ -1082,6 +1096,7 @@ Item {
                     }
 
                     ColumnLayout {
+                        visible: !OS_WIN
                         Layout.fillWidth: true
                         spacing: 4
 
@@ -1146,7 +1161,7 @@ Item {
                                 && id_root.selectedName.trim().length > 0
                                 && id_installLocationField.text.trim().length > 0
                                 && id_installDirField.text.trim().length > 0
-                                && id_prefixLocationField.text.trim().length > 0
+                                && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
                                 && !id_root.isCreatingTarget
 
                             implicitHeight: 32

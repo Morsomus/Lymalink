@@ -45,6 +45,10 @@ Item {
     }
 
     function fileUrlToPath(fileUrl) {
+        if (OS_WIN) {
+            return decodeURIComponent(fileUrl.toString().replace(/^file:\/\/\//, ""))
+        }
+
         return decodeURIComponent(fileUrl.toString().replace("file://", ""))
     }
 

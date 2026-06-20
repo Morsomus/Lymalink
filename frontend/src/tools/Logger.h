@@ -23,7 +23,11 @@ public:
 
     void Install();
     void SetLogFile(const QString &path);
+#if defined(Q_OS_WIN)
+    static QString DefaultWindowsLogPath(const QString &appName);
+#else
     static QString DefaultLinuxLogPath(const QString &appName);
+#endif
 
 private:
     QString m_logPath;

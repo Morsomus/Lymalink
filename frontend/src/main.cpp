@@ -13,6 +13,7 @@
 #include "ipc/BackendControl.h"
 #if defined(Q_OS_WIN)
     #include "ipc/WindowsSocketService.h"
+    #include <QQuickStyle>
 #else
     #include "ipc/DBusService.h"
 #endif
@@ -65,6 +66,9 @@ int main(int argc, char *argv[]) {
 
     QCoreApplication::setApplicationName("Lymalink");
     QGuiApplication::setDesktopFileName("lymalink");
+#if defined(Q_OS_WIN)
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
+#endif
 
     // Single instance guard
     const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");
@@ -80,7 +84,11 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
     Logger &logger = Logger::Instance();
+#if defined(Q_OS_WIN)
+    logger.SetLogFile(Logger::DefaultWindowsLogPath(QCoreApplication::applicationName().toLower()));
+#else
     logger.SetLogFile(Logger::DefaultLinuxLogPath(QCoreApplication::applicationName().toLower()));
+#endif
     logger.Install();
 
     QFontDatabase::addApplicationFont(":/qt/qml/Lymalink/res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf");
@@ -115,6 +123,11 @@ int main(int argc, char *argv[]) {
 
     // Set context
     engine.rootContext()->setContextProperty("LYMALINK_APP_VERSION", QStringLiteral(LYMALINK_VERSION));
+#if defined(Q_OS_WIN)
+    engine.rootContext()->setContextProperty("OS_WIN", true);
+#else
+    engine.rootContext()->setContextProperty("OS_WIN", false);
+#endif
     engine.rootContext()->setContextProperty("LICENSE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/LICENSE.md")));
     engine.rootContext()->setContextProperty("THIRD_PARTY_LICENSES_LINUX_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/THIRD-PARTY-LICENSES-LINUX.md")));
     engine.rootContext()->setContextProperty("CREDITS_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/CREDITS.md")));

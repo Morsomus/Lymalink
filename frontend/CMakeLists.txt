@@ -20,6 +20,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         src/ipc/DBusService.cpp
     )
 elseif(WIN32)
+    find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
     set(PLATFORM_BACKEND_SOURCES
         src/ipc/WindowsSocketService.h
         src/ipc/WindowsSocketService.cpp
@@ -159,6 +160,8 @@ target_link_libraries(Lymalink PRIVATE
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(Lymalink PRIVATE Qt6::DBus)
+elseif(WIN32)
+    target_link_libraries(Lymalink PRIVATE Qt6::QuickControls2)
 endif()
 
 ##############################################################
