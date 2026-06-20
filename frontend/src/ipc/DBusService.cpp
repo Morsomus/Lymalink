@@ -23,7 +23,7 @@
 
 /////////////////////////////////////////////////////////////////////
 
-DBusService::DBusService(QObject *parent) : QObject(parent)
+DBusService::DBusService(QObject *parent) : BackendControl(parent)
 {
     m_pingTimer = nullptr;
     m_activeTargetsRequestTimer = nullptr;

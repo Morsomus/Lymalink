@@ -30,8 +30,8 @@ Item {
     readonly property bool hideLogo: !ctxSettings.showLymalinkLogo
     readonly property bool disableCollapseBorder: !ctxSettings.enableCollapseBorderButton
     readonly property bool disableCollapseButton: !ctxSettings.showCollapseButton
-    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
-    readonly property var activeTargetIds: id_root.dbusServiceReady ? ctxDBusService.activeTargetIds : []
+    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
+    readonly property var activeTargetIds: id_root.backendServiceReady ? ctxBackendService.activeTargetIds : []
     readonly property int currentPlayingCount: id_root.activeTargetIds.length
     readonly property string currentPlayingTitle: id_root.currentPlayingCount > 0 ? targetTitle(id_root.activeTargetIds[0]) : ""
     readonly property string currentPlayingSummary: id_root.currentPlayingTitle + (id_root.currentPlayingCount > 1 ? " (+" + (id_root.currentPlayingCount - 1) + ")" : "")

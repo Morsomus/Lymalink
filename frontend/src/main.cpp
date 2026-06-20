@@ -10,7 +10,12 @@
 #include "SysTray.h"
 #include "Settings.h"
 #include "data/DataTransporter.h"
-#include "ipc/DBusService.h"
+#include "ipc/BackendControl.h"
+#if defined(Q_OS_WIN)
+    #include "ipc/WindowsSocketService.h"
+#else
+    #include "ipc/DBusService.h"
+#endif
 #include "tools/Logger.h"
 #include "tools/Utils.h"
 
@@ -89,7 +94,12 @@ int main(int argc, char *argv[]) {
 
     Settings* settings = new Settings(&app);
     SysTray* sysTray = new SysTray(&app);
-    DBusService* dbusService = new DBusService(&app);
+    BackendControl* backendService = nullptr;
+#if defined(Q_OS_WIN)
+    backendService = new WindowsSocketService(&app);
+#else
+    backendService = new DBusService(&app);
+#endif
     DataTransporter* dataTransporter = new DataTransporter(&app);
     Lymalink* lymalink = new Lymalink(&app);
     const Error lymalinkInitError = lymalink->Initialize();
@@ -112,14 +122,14 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);
-    engine.rootContext()->setContextProperty("ctxDBusService", dbusService);
+    engine.rootContext()->setContextProperty("ctxBackendService", backendService);
     engine.rootContext()->setContextProperty("ctxDataTransporter", dataTransporter);
 
     // Register
     qmlRegisterSingletonType(QUrl("qrc:/qt/qml/Lymalink/Themes.qml"), "app.themes", 1, 0, "Themes");
     qmlRegisterUncreatableType<Settings>("app.settings", 1, 0, "Settings", "Constants only");
 
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, dbusService, &DBusService::StopServiceIfNotEnabled);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, backendService, &BackendControl::StopServiceIfNotEnabled);
 
     // Handle QML loading failures with a critical exit
     QObject::connect(

@@ -8,10 +8,26 @@ project(Lymalink VERSION ${LYMALINK_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network DBus)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network)
 find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
 qt_policy(SET QTP0004 NEW)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Qt6 REQUIRED COMPONENTS DBus)
+    set(PLATFORM_BACKEND_SOURCES
+        src/ipc/DBusService.h
+        src/ipc/DBusService.cpp
+    )
+elseif(WIN32)
+    set(PLATFORM_BACKEND_SOURCES
+        src/ipc/WindowsSocketService.h
+        src/ipc/WindowsSocketService.cpp
+        res/windows/Lymalink.rc
+    )
+else()
+    message(FATAL_ERROR "Currently only supports Linux and Windows")
+endif()
 
 qt_add_executable(Lymalink
     src/main.cpp
@@ -23,8 +39,9 @@ qt_add_executable(Lymalink
     src/SysTray.cpp
     src/data/DataTransporter.h
     src/data/DataTransporter.cpp
-    src/ipc/DBusService.h
-    src/ipc/DBusService.cpp
+    src/ipc/BackendControl.h
+    src/ipc/BackendControl.cpp
+    ${PLATFORM_BACKEND_SOURCES}
     src/database/SQLiteManager.h
     src/database/SQLiteManager.cpp
     src/tools/Encryption.h
@@ -49,7 +66,9 @@ target_compile_definitions(Lymalink PRIVATE
     LYMALINK_VERSION="${LYMALINK_VERSION}"
 )
 
-target_link_options(Lymalink PRIVATE "-Wl,--no-undefined")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(Lymalink PRIVATE "-Wl,--no-undefined")
+endif()
 
 set_target_properties(Lymalink PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -135,9 +154,12 @@ target_link_libraries(Lymalink PRIVATE
     Qt6::Widgets
     Qt6::Sql
     Qt6::Network
-    Qt6::DBus
     OpenSSL::Crypto
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(Lymalink PRIVATE Qt6::DBus)
+endif()
 
 ##############################################################
 ## Testing

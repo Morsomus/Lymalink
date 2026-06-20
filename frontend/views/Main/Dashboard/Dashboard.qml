@@ -504,8 +504,8 @@ Item {
     }
 
     function reloadBackendTargets() {
-        if (typeof ctxDBusService !== "undefined" && ctxDBusService !== null) {
-            ctxDBusService.ReloadAllTargets()
+        if (typeof ctxBackendService !== "undefined" && ctxBackendService !== null) {
+            ctxBackendService.ReloadAllTargets()
         }
     }
 
@@ -553,7 +553,7 @@ Item {
     }
 
     Connections {
-        target: typeof ctxDBusService !== "undefined" ? ctxDBusService : null
+        target: typeof ctxBackendService !== "undefined" ? ctxBackendService : null
 
         function onSignalAchievementUnlocked(appId, achievementKey) {
             if (id_root.pendingTargetDetails) {

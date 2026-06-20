@@ -24,11 +24,11 @@ Rectangle {
     signal clicked()
 
     // Internals _____________________________________________
-    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
-    readonly property bool serviceAvailable: dbusServiceReady && ctxDBusService.serviceAvailable
-    readonly property bool serviceActive: dbusServiceReady && ctxDBusService.serviceActive
-    readonly property bool serviceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
-    readonly property bool serviceStarting: dbusServiceReady && ctxDBusService.serviceStarting
+    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
+    readonly property bool serviceAvailable: backendServiceReady && ctxBackendService.serviceAvailable
+    readonly property bool serviceActive: backendServiceReady && ctxBackendService.serviceActive
+    readonly property bool serviceEnabled: backendServiceReady && ctxBackendService.serviceEnabled
+    readonly property bool serviceStarting: backendServiceReady && ctxBackendService.serviceStarting
     readonly property bool serviceHealthy: serviceAvailable && serviceActive
     readonly property int serviceState: serviceStarting ? 3 : (serviceHealthy ? (serviceEnabled ? 2 : 1) : 0)
     readonly property color serviceColor: {

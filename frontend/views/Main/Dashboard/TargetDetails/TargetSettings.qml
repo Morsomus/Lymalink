@@ -96,8 +96,8 @@ Popup {
     }
 
     function reloadBackendTargets() {
-        if (typeof ctxDBusService !== "undefined" && ctxDBusService !== null) {
-            ctxDBusService.ReloadAllTargets()
+        if (typeof ctxBackendService !== "undefined" && ctxBackendService !== null) {
+            ctxBackendService.ReloadAllTargets()
         }
     }
 

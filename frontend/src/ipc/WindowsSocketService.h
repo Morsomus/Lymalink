@@ -1,25 +1,20 @@
 /////////////////////////////////////////////////////////
-// File: DBusService.h
-// Date: 2026-05-23
+// File: WindowsSocketService.h
+// Date: 2026-06-19
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Qt D-Bus client for lymalinkd service.
+// Description: Declares Windows backend-control placeholder
+//              for future local sockets.
 /////////////////////////////////////////////////////////
 
 #pragma once
 
 #include "BackendControl.h"
-#include "../Defines.h"
 
-#include <QList>
-#include <QObject>
 #include <QString>
 #include <QVariantList>
 
-class QDBusPendingCallWatcher;
-class QTimer;
-
-class DBusService : public BackendControl
+class WindowsSocketService : public BackendControl
 {
     Q_OBJECT
     Q_PROPERTY(bool serviceAvailable READ GetServiceAvailable NOTIFY signalServiceAvailabilityChanged)
@@ -28,12 +23,12 @@ class DBusService : public BackendControl
     Q_PROPERTY(bool serviceEnabled READ GetServiceEnabled NOTIFY signalServiceStatusChanged)
     Q_PROPERTY(QString lastError READ GetLastError NOTIFY signalLastErrorChanged)
     Q_PROPERTY(QVariantList activeTargetIds READ GetActiveTargetIds NOTIFY signalActiveTargetIdsChanged)
-    Q_PROPERTY(bool supportsServiceAutostart READ GetSupportsServiceAutostart CONSTANT)         // TODO: Usage
-    Q_PROPERTY(bool supportsOverlayLaunchHints READ GetSupportsOverlayLaunchHints CONSTANT)     // TODO: Usage
+    Q_PROPERTY(bool supportsServiceAutostart READ GetSupportsServiceAutostart CONSTANT)
+    Q_PROPERTY(bool supportsOverlayLaunchHints READ GetSupportsOverlayLaunchHints CONSTANT)
 
 public:
-    explicit DBusService(QObject *parent = nullptr);
-    ~DBusService() override;
+    explicit WindowsSocketService(QObject *parent = nullptr);
+    ~WindowsSocketService() override;
 
     bool StopServiceIfNotEnabled() override;
 
@@ -54,8 +49,8 @@ public:
     inline bool GetServiceEnabled() const { return m_serviceEnabled; }
     inline QString GetLastError() const { return m_lastError; }
     inline QVariantList GetActiveTargetIds() const { return m_activeTargetIds; }
-    inline bool GetSupportsServiceAutostart() const { return true; }        // TODO: Usage
-    inline bool GetSupportsOverlayLaunchHints() const { return true; }      // TODO: Usage
+    inline bool GetSupportsServiceAutostart() const { return false; }
+    inline bool GetSupportsOverlayLaunchHints() const { return false; }
 
 signals:
     void signalServiceAvailabilityChanged();
@@ -64,34 +59,15 @@ signals:
     void signalActiveTargetIdsChanged();
     void signalAchievementUnlocked(int appId, const QString &achievementKey);
 
-private slots:
-    void OnPingFinished(QDBusPendingCallWatcher *watcher);
-    void OnGameStateChanged(const QList<int> &targetIds, const QString &state);
-    void OnAchievementUnlocked(int appId, const QString &achievementKey);
-
 private:
-    QTimer *m_pingTimer;
-    QTimer *m_activeTargetsRequestTimer;
-    bool m_pingInFlight;
-    uint16_t m_pingIntervalMs;
-    uint16_t m_pingTimeoutMs;
-    int m_systemdTimeoutMs;
-    bool m_serviceAvailable;
-    bool m_serviceActive;
-    bool m_serviceStarting;
-    bool m_serviceEnabled;
+    bool m_serviceAvailable = false;
+    bool m_serviceActive = false;
+    bool m_serviceStarting = false;
+    bool m_serviceEnabled = false;
     QString m_lastError;
     QVariantList m_activeTargetIds;
 
-    void ResetPingTimer();
-    void ConnectDaemonSignals();
-    void ScheduleActiveTargetsRequest();
-    void RequestActiveTargets();
-    bool EnableService();
-    bool DisableService();
-    bool CallSystemdUnitMethod(const QString &method);
-    bool FetchServiceActiveStatus();
-    bool FetchServiceEnabledStatus();
+    void ReportUnsupported();
     void SetServiceAvailable(bool available);
     void SetServiceActive(bool active);
     void SetServiceEnabledState(bool enabled);

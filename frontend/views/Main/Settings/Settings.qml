@@ -25,12 +25,12 @@ Item {
     property string achievementTransportStatus: ""
     property string pendingAchievementImportPath: ""
     property var achievementImportConflicts: []
-    readonly property bool dbusServiceReady: typeof ctxDBusService !== "undefined" && ctxDBusService !== null
-    readonly property bool backendServiceStarting: dbusServiceReady && ctxDBusService.serviceStarting
-    readonly property bool backendServiceHealthy: dbusServiceReady && ctxDBusService.serviceActive && ctxDBusService.serviceAvailable
-    readonly property bool backendServiceEnabled: dbusServiceReady && ctxDBusService.serviceEnabled
+    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
+    readonly property bool backendServiceStarting: backendServiceReady && ctxBackendService.serviceStarting
+    readonly property bool backendServiceHealthy: backendServiceReady && ctxBackendService.serviceActive && ctxBackendService.serviceAvailable
+    readonly property bool backendServiceEnabled: backendServiceReady && ctxBackendService.serviceEnabled
     readonly property int backendServiceState: backendServiceStarting ? 3 : (backendServiceHealthy ? (backendServiceEnabled ? 2 : 1) : 0)
-    readonly property var activeTargetIds: dbusServiceReady ? ctxDBusService.activeTargetIds : []
+    readonly property var activeTargetIds: backendServiceReady ? ctxBackendService.activeTargetIds : []
     readonly property bool hasActiveTarget: activeTargetIds.length > 0
     readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-center", "bottom-left"]
     readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-center"), qsTr("Bottom-left")]
@@ -570,8 +570,8 @@ Item {
         nameFilters: [qsTr("Audio files (*.ogg *.wav)")]
         onAccepted: {
             const soundPath = id_root.fileUrlToPath(selectedFile)
-            if (ctxSettings.SaveValue(Settings.CustomNotificationSoundPath, soundPath) && id_root.dbusServiceReady) {
-                ctxDBusService.ReloadConfig()
+            if (ctxSettings.SaveValue(Settings.CustomNotificationSoundPath, soundPath) && id_root.backendServiceReady) {
+                ctxBackendService.ReloadConfig()
             }
         }
     }
@@ -1003,7 +1003,7 @@ Item {
                             CustomSwitch {
                                 id: id_backendServiceSwitch
 
-                                enabled: id_root.dbusServiceReady
+                                enabled: id_root.backendServiceReady
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 HoverHandler { id: id_backendServiceHover }
                                 CustomTooltip {
@@ -1015,8 +1015,8 @@ Item {
                                 }
                                 onToggled: {
                                     const intendedEnabled = checked
-                                    if (id_root.dbusServiceReady) {
-                                        ctxDBusService.SetServiceEnabled(intendedEnabled)
+                                    if (id_root.backendServiceReady) {
+                                        ctxBackendService.SetServiceEnabled(intendedEnabled)
                                     }
                                 }
                             }
@@ -1073,8 +1073,8 @@ Item {
 
                                 CustomButton {
                                     text: id_root.backendServiceStarting ? qsTr("Starting...") : qsTr("Restart")
-                                    enabled: id_root.dbusServiceReady && !id_root.backendServiceStarting
-                                    onClicked: ctxDBusService.RestartService()
+                                    enabled: id_root.backendServiceReady && !id_root.backendServiceStarting
+                                    onClicked: ctxBackendService.RestartService()
                                 }
                             }
                         }
@@ -1092,8 +1092,8 @@ Item {
 
                                 onActivated: (index) => {
                                     const position = id_root.overlayPositionValues[index]
-                                    if (ctxSettings.SaveValue(Settings.OverlayNotificationPosition, position) && id_root.dbusServiceReady) {
-                                        ctxDBusService.ReloadConfig()
+                                    if (ctxSettings.SaveValue(Settings.OverlayNotificationPosition, position) && id_root.backendServiceReady) {
+                                        ctxBackendService.ReloadConfig()
                                     }
                                 }
                             }
@@ -1113,8 +1113,8 @@ Item {
                                     p_text: qsTr("Show an overlay notification shortly after a tracked game starts")
                                 }
                                 onToggled: {
-                                    if (ctxSettings.SaveValue(Settings.StartupNotification, checked) && id_root.dbusServiceReady) {
-                                        ctxDBusService.ReloadConfig()
+                                    if (ctxSettings.SaveValue(Settings.StartupNotification, checked) && id_root.backendServiceReady) {
+                                        ctxBackendService.ReloadConfig()
                                     }
                                 }
                             }
@@ -1171,8 +1171,8 @@ Item {
                                 CustomButton {
                                     Layout.preferredWidth: 140
                                     text: qsTr("Send test")
-                                    enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy && id_root.hasActiveTarget
-                                    onClicked: ctxDBusService.TestToast()
+                                    enabled: id_root.backendServiceReady && id_root.backendServiceHealthy && id_root.hasActiveTarget
+                                    onClicked: ctxBackendService.TestToast()
                                 }
                             }
                         }
@@ -1188,9 +1188,9 @@ Item {
 
                                 CustomButton {
                                     text: qsTr("Test")
-                                    enabled: id_root.dbusServiceReady && id_root.backendServiceHealthy
+                                    enabled: id_root.backendServiceReady && id_root.backendServiceHealthy
                                         && (id_notificationSoundCombo.count > 0 || ctxSettings.customNotificationSound)
-                                    onClicked: ctxDBusService.TestSound()
+                                    onClicked: ctxBackendService.TestSound()
                                 }
 
                                 CustomComboBox {
@@ -1205,8 +1205,8 @@ Item {
                                     p_textFromValue: function(value, index) { return qsTr("Sound %1").arg(index + 1) }
                                     displayText: enabled ? qsTr("Sound %1").arg(currentIndex + 1) : qsTr("No sounds")
                                     onActivated: (index) => {
-                                        if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.dbusServiceReady) {
-                                            ctxDBusService.ReloadConfig()
+                                        if (ctxSettings.SaveValue(Settings.NotificationSound, model[index]) && id_root.backendServiceReady) {
+                                            ctxBackendService.ReloadConfig()
                                         }
                                     }
                                 }
@@ -1221,8 +1221,8 @@ Item {
                                 checked: ctxSettings.customNotificationSound
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
                                 onToggled: {
-                                    if (ctxSettings.SaveValue(Settings.CustomNotificationSound, checked) && id_root.dbusServiceReady) {
-                                        ctxDBusService.ReloadConfig()
+                                    if (ctxSettings.SaveValue(Settings.CustomNotificationSound, checked) && id_root.backendServiceReady) {
+                                        ctxBackendService.ReloadConfig()
                                     }
                                 }
                             }
@@ -1386,8 +1386,8 @@ Item {
                                 text: qsTr("Reset Defaults")
 
                                 onClicked: {
-                                    if (ctxSettings.ResetDefaults() && id_root.dbusServiceReady) {
-                                        ctxDBusService.ReloadConfig()
+                                    if (ctxSettings.ResetDefaults() && id_root.backendServiceReady) {
+                                        ctxBackendService.ReloadConfig()
                                     }
 
                                     // Also reset window size
