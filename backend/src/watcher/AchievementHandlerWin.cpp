@@ -48,7 +48,7 @@ AchievementHandler::~AchievementHandler()
 
 void AchievementHandler::Init()
 {
-    // -
+    LOG_BE(Urgency::Debug, "Initialized.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -61,6 +61,8 @@ void AchievementHandler::Start()
     }
 
     m_thread = std::thread(&AchievementHandler::WatchLoop, this);
+
+    LOG_BE(Urgency::Debug, "Started.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -69,6 +71,8 @@ void AchievementHandler::Pause()
 {
     m_paused.store(true);
     m_stateCv.notify_all();
+
+    LOG_BE(Urgency::Debug, "Paused.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -77,6 +81,8 @@ void AchievementHandler::Resume()
 {
     m_paused.store(false);
     m_stateCv.notify_all();
+
+    LOG_BE(Urgency::Debug, "Resumed.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -93,6 +99,8 @@ void AchievementHandler::Stop()
     {
         m_thread.join();
     }
+
+    LOG_BE(Urgency::Debug, "Stopped.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -102,6 +110,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     // Ensure the directory exists before continuing
     if (!fs::is_directory(appIdDirPath))
     {
+        LOG_BE(Urgency::Warning, "AppID dir unavailable for targetId=%d path=%s", targetId, appIdDirPath.c_str());
         if (onAppIdDirUnavailable)
         {
             onAppIdDirUnavailable(targetId, appIdDirPath);
@@ -112,6 +121,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_sessions.contains(targetId))
     {
+        LOG_BE(Urgency::Debug, "Target already tracked: targetId=%d", targetId);
         return;
     }
 
@@ -119,7 +129,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     AchievementParser* parser = CreateParser(emulatorType);
     if (!parser)
     {
-        LOG_BE(Urgency::Warning, "No parser for emulator type: %s", emulatorType.c_str());
+        LOG_BE(Urgency::Critical, "No parser for emulator type: %s", emulatorType.c_str());
         return;
     }
 
@@ -133,6 +143,8 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
 
     // Perform initial read to establish baseline state
     ReadInitial(m_sessions[targetId]);
+
+    LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -140,7 +152,14 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
 void AchievementHandler::RemoveTarget(int targetId)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_sessions.contains(targetId))
+    {
+        return;
+    }
+
     RemoveSessionLocked(targetId);
+
+    LOG_BE(Urgency::Debug, "Target removed: targetId=%d", targetId);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -213,11 +232,16 @@ void AchievementHandler::WatchLoop()
                 if (!session.achievementFilePresent)
                 {
                     session.achievementFilePresent = true;
+                    LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d file=%s", session.targetId, filePath.filename().string().c_str());
                     if (!session.initialReadDone)
                     {
-                        LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d", session.targetId);
                         // File first appeared after tracking began: diff it, never create a silent startup baseline
                         session.initialReadDone = true;
+                        LOG_BE(Urgency::Debug, "Achievement file first appeared during active tracking, diffing current state: targetId=%d", session.targetId);
+                    }
+                    else
+                    {
+                        LOG_BE(Urgency::Debug, "Achievement file replaced during active tracking, diffing against existing baseline: targetId=%d", session.targetId);
                     }
                 }
 
@@ -251,6 +275,8 @@ void AchievementHandler::WatchLoop()
             });
         }
     }
+
+    LOG_BE(Urgency::Debug, "WatchLoop exited.");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -290,17 +316,19 @@ void AchievementHandler::ReadInitial(WatchSession& session)
     try
     {
         // Parse baseline profile file structure
-        for (AchievementData value : m_parsers[session.targetId]->Parse(filePath.string()))
+        const std::vector<AchievementData> parsed = m_parsers[session.targetId]->Parse(filePath.string());
+        for (AchievementData value : parsed)
         {
             value.handled = false;
             value.newlyUnlocked = false;
             session.achievements[value.key] = std::move(value);
         }
         session.initialReadDone = true;
+        LOG_BE(Urgency::Info, "Initial read done: targetId=%d count=%zu", session.targetId, parsed.size());
     }
     catch (const std::exception& error)
     {
-        LOG_BE(Urgency::Warning, "Initial achievement parse failed: targetId=%d error=%s", session.targetId, error.what());
+        LOG_BE(Urgency::Warning, "Failed to parse achievement file: targetId=%d path=%s error=%s", session.targetId, filePath.string().c_str(), error.what());
     }
 }
 
@@ -317,6 +345,8 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
 
     try
     {
+        int newUnlocks = 0;
+
         // Compare active live state against cached session records
         for (const AchievementData& parsed : m_parsers[session.targetId]->Parse(filePath.string()))
         {
@@ -338,12 +368,23 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
             value.handled = false;
             value.newlyUnlocked = newlyUnlocked;
             session.achievements[value.key] = std::move(value);
+
+            if (newlyUnlocked)
+            {
+                newUnlocks++;
+                LOG_BE(Urgency::Debug, "Achievement unlocked: targetId=%d key=%s", session.targetId, parsed.key.c_str());
+            }
         }
         session.initialReadDone = true;
+
+        if (newUnlocks > 0)
+        {
+            LOG_BE(Urgency::Debug, "Diff done: targetId=%d newUnlocks=%d", session.targetId, newUnlocks);
+        }
     }
     catch (const std::exception& error)
     {
-        LOG_BE(Urgency::Warning, "Achievement parse failed: targetId=%d error=%s", session.targetId, error.what());
+        LOG_BE(Urgency::Warning, "Failed to parse achievement file: targetId=%d path=%s error=%s", session.targetId, filePath.string().c_str(), error.what());
     }
 }
 
@@ -353,16 +394,20 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
 {
     if (emulatorType == "CODEX" || emulatorType == "RUNE")
     {
+        LOG_BE(Urgency::Debug, "Creating CODEX/RUNE parser.");
         return new RUNECodexParser();
     }
     if (emulatorType == "GOLDBERG")
     {
+        LOG_BE(Urgency::Debug, "Creating Goldberg parser.");
         return new GoldbergParser();
     }
     if (emulatorType == "GOG-N")
     {
+        LOG_BE(Urgency::Debug, "Creating GOG Nemirtingas parser.");
         return new GoGNParser();
     }
 
+    LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());
     return nullptr;
 }

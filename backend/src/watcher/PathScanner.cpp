@@ -95,53 +95,12 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         // GOG Emu req files handling - End
 
 #if defined(_WIN32)
-        std::vector<fs::path> scanRoots;
-
-        // Native Windows targets never need Wine prefix_location
-        // Emulator saves live in current profile or Public profile; scan both roots for every active target
-        if (const char* profile = std::getenv("USERPROFILE"); profile && *profile)
+        std::string emulatorType;
+        const std::string appIdDir = FindWindowsAppIdDir(target, emulatorType);
+        if (!appIdDir.empty())
         {
-            scanRoots.emplace_back(profile);
-        }
-        scanRoots.emplace_back("C:\\Users\\Public");
-
-        bool found = false;
-        for (const fs::path& root : scanRoots)
-        {
-            std::error_code ec;
-            if (!fs::exists(root, ec) || !fs::is_directory(root, ec)) continue;
-            fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
-            const fs::recursive_directory_iterator end;
-            for (; it != end && !ec; it.increment(ec))
-            {
-                if (!it->is_directory(ec) || it->path().filename().string() != target.appId)
-                {
-                    continue;
-                }
-
-                // Found AppID dir must contain Emulator folder as root
-                const std::string foundPath = it->path().string();
-                const std::string emuType = DetectEmulatorType(foundPath);
-                if (emuType == "UNKNOWN")
-                {
-                    LOG_BE(Urgency::Debug, "Ignoring APPID dir without known emulator root: targetId=%d path=%s", target.targetId, foundPath.c_str());
-                    continue;
-                }
-
-                results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, emuType, joinedGogIds, true});
-                LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
-                found = true;
-                break;
-            }
-
-            if (ec)
-            {
-                LOG_BE(Urgency::Warning, "Scan error: targetId=%d root=%s error=%s", target.targetId, root.string().c_str(), ec.message().c_str());
-            }
-            if (found)
-            {
-                break;
-            }
+            results.push_back(AppIdDirPathScanResult{target.targetId, appIdDir, emulatorType, joinedGogIds, true});
+            LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, appIdDir.c_str(), emulatorType.c_str());
         }
 #else
         // Validate prefix before recursive traversal
@@ -196,8 +155,13 @@ std::string PathScanner::DetectEmulatorType(const std::string& appidDirLocation)
 {
     // Emulator folder is parent directory of discovered AppId folder
     const fs::path path(appidDirLocation);
-    std::string folderName = path.parent_path().filename().string();
+    return DetectEmulatorTypeFromFolderName(path.parent_path().filename().string());
+}
 
+/////////////////////////////////////////////////////////////////////
+
+std::string PathScanner::DetectEmulatorTypeFromFolderName(const std::string& folderName) const
+{
     // Compare lower-case folder names against known emulator aliases
     std::string lower = folderName;
     std::ranges::transform(lower, lower.begin(), [](unsigned char c) {
@@ -223,6 +187,106 @@ std::string PathScanner::DetectEmulatorType(const std::string& appidDirLocation)
 
     return "UNKNOWN";
 }
+
+/////////////////////////////////////////////////////////////////////
+
+#if defined(_WIN32)
+std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType) const
+{
+    // Check <emulator folder>\\<AppId>
+    auto findAppIdBelowEmulatorDir = [&](const fs::path& directory) -> std::string
+    {
+        const std::string foundEmulatorType = DetectEmulatorTypeFromFolderName(directory.filename().string());
+        if (foundEmulatorType == "UNKNOWN")
+        {
+            return "";
+        }
+
+        const fs::path candidate = directory / target.appId;
+        std::error_code candidateEc;
+        if (!fs::is_directory(candidate, candidateEc))
+        {
+            return "";
+        }
+
+        emulatorType = foundEmulatorType;
+        return candidate.string();
+    };
+
+    // AppData roots; direct folders
+    std::vector<fs::path> appDataRoots;
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData)
+    {
+        appDataRoots.emplace_back(appData);
+    }
+    if (const char* localAppData = std::getenv("LOCALAPPDATA"); localAppData && *localAppData)
+    {
+        appDataRoots.emplace_back(localAppData);
+    }
+
+    // Non-recursive AppData scan
+    for (const fs::path& root : appDataRoots)
+    {
+        std::error_code ec;
+        if (!fs::exists(root, ec) || !fs::is_directory(root, ec))
+        {
+            continue;
+        }
+
+        fs::directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
+        const fs::directory_iterator end;
+        for (; it != end && !ec; it.increment(ec))
+        {
+            if (!it->is_directory(ec))
+            {
+                continue;
+            }
+
+            const std::string appIdDir = findAppIdBelowEmulatorDir(it->path());
+            if (!appIdDir.empty())
+            {
+                return appIdDir;
+            }
+        }
+
+        if (ec)
+        {
+            LOG_BE(Urgency::Warning, "Scan error: targetId=%d root=%s error=%s", target.targetId, root.string().c_str(), ec.message().c_str());
+        }
+    }
+
+    // Recursive Public Documents scan; known emulator folders only
+    const fs::path publicDocuments = "C:\\Users\\Public\\Documents";
+    std::error_code ec;
+    if (!fs::exists(publicDocuments, ec) || !fs::is_directory(publicDocuments, ec))
+    {
+        return "";
+    }
+
+    fs::recursive_directory_iterator it(publicDocuments, fs::directory_options::skip_permission_denied, ec);
+    const fs::recursive_directory_iterator end;
+    for (; it != end && !ec; it.increment(ec))
+    {
+        if (!it->is_directory(ec))
+        {
+            continue;
+        }
+
+        const std::string appIdDir = findAppIdBelowEmulatorDir(it->path());
+        if (!appIdDir.empty())
+        {
+            return appIdDir;
+        }
+    }
+
+    if (ec)
+    {
+        LOG_BE(Urgency::Warning, "Scan error: targetId=%d root=%s error=%s", target.targetId, publicDocuments.string().c_str(), ec.message().c_str());
+    }
+
+    return "";
+}
+#endif
 
 /////////////////////////////////////////////////////////////////////
 
