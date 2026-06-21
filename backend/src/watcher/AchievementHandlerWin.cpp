@@ -105,7 +105,7 @@ void AchievementHandler::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
+void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, std::optional<std::filesystem::file_time_type> processStartedAt)
 {
     // Ensure the directory exists before continuing
     if (!fs::is_directory(appIdDirPath))
@@ -138,6 +138,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     session.targetId = targetId;
     session.appIdDirPath = appIdDirPath;
     session.emulatorType = emulatorType;
+    session.processStartedAt = processStartedAt;
     m_parsers[targetId] = parser;
     m_sessions[targetId] = std::move(session);
 
@@ -313,6 +314,22 @@ void AchievementHandler::ReadInitial(WatchSession& session)
     }
     session.achievementFilePresent = true;
 
+    bool notifyInitialUnlocks = false;
+    if (session.processStartedAt)
+    {
+        std::error_code error;
+        const fs::file_time_type lastWriteTime = fs::last_write_time(filePath, error);
+        if (error)
+        {
+            LOG_BE(Urgency::Warning, "Could not read achievement file timestamp: targetId=%d path=%s error=%s",
+                session.targetId, filePath.string().c_str(), error.message().c_str());
+        }
+        else
+        {
+            notifyInitialUnlocks = lastWriteTime > *session.processStartedAt;
+        }
+    }
+
     try
     {
         // Parse baseline profile file structure
@@ -320,7 +337,7 @@ void AchievementHandler::ReadInitial(WatchSession& session)
         for (AchievementData value : parsed)
         {
             value.handled = false;
-            value.newlyUnlocked = false;
+            value.newlyUnlocked = notifyInitialUnlocks && value.achieved;
             session.achievements[value.key] = std::move(value);
         }
         session.initialReadDone = true;

@@ -347,7 +347,23 @@ void Lymalinkd::Monitor()
                             {
                                 if (result.appidDirFound)
                                 {
+#if defined(_WIN32)
+                                    std::filesystem::file_time_type processStartedAt{};
+                                    bool hasProcessStartTime = false;
+                                    {
+                                        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+                                        const auto it = m_processStartedAt.find(result.targetId);
+                                        if (it != m_processStartedAt.end())
+                                        {
+                                            processStartedAt = it->second;
+                                            hasProcessStartTime = true;
+                                        }
+                                    }
+
+                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, hasProcessStartTime ? std::optional{processStartedAt} : std::nullopt);
+#else
                                     m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
+#endif
                                 }
                             }
 
@@ -502,6 +518,9 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
         if (it == m_activeTargetsIds.end())
         {
             m_activeTargetsIds.push_back({targetId, 0});
+#if defined(_WIN32)
+            m_processStartedAt[targetId] = std::filesystem::file_time_type::clock::now();
+#endif
         }
     }
 
@@ -539,6 +558,9 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
             return activeTarget.first == targetId;
         });
         m_activeTargetsIds.erase(removeIt, m_activeTargetsIds.end());
+#if defined(_WIN32)
+        m_processStartedAt.erase(targetId);
+#endif
     }
     EmitGameStateChanged({targetId}, "Inactive");
     m_achievementHandler.RemoveTarget(targetId);

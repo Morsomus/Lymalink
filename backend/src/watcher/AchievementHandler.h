@@ -20,7 +20,10 @@
 #include <chrono>
 #include <unordered_map>
 #include <utility>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+    #include <filesystem>
+    #include <optional>
+#else
     #include <sys/inotify.h>
 #endif
 
@@ -46,6 +49,9 @@ struct WatchSession
     int fileWd = -1;
     bool initialReadDone = false;
     bool achievementFilePresent = false;
+#if defined(_WIN32)
+    std::optional<std::filesystem::file_time_type> processStartedAt;
+#endif
     bool modifyPending = false;
     std::chrono::steady_clock::time_point modifyDeadline{};
     std::unordered_map<std::string, AchievementData> achievements;
@@ -68,7 +74,11 @@ public:
     void Stop();
 
     // Add a target session to track. Parser is selected by emulatorType.
+#if defined(_WIN32)
+    void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, std::optional<std::filesystem::file_time_type> processStartedAt = std::nullopt);
+#else
     void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType);
+#endif
     void RemoveTarget(int targetId);
 
     // Called by Lymalinkd to collect achievement changes for DB sync.

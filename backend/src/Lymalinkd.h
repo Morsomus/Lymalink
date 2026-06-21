@@ -88,6 +88,9 @@ private:
     std::atomic_bool m_startupNotificationEnabled;
 
     std::vector<std::pair<int, int>> m_activeTargetsIds; // id, notification (sent to frontend)
+#if defined(_WIN32)
+    std::unordered_map<int, std::filesystem::file_time_type> m_processStartedAt;
+#endif
     std::unordered_map<int, AppIdDirPathScanTarget> m_targetIdsRequiringDirScan;
     std::string m_databaseConnectionName;
     std::string m_databasePath;
