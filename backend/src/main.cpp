@@ -11,13 +11,31 @@
 
 #include <chrono>
 #include <thread>
+#if defined(_WIN32)
+    #include <QCoreApplication>
+    #include <windows.h>
+#endif
 
 /////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
+#if defined(_WIN32)
+    QCoreApplication app(argc, argv);
+    HANDLE instanceMutex = CreateMutexW(nullptr, FALSE, L"Local\\LymalinkdSession");
+    if (instanceMutex == nullptr)
+    {
+        return 1;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        CloseHandle(instanceMutex);
+        return 0;
+    }
+#else
     (void)argc;
     (void)argv;
+#endif
 
     Logger::Instance().Init();
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -25,5 +43,8 @@ int main(int argc, char* argv[])
     Lymalinkd lymalinkd;
     Error err = lymalinkd.Main();
 
+#if defined(_WIN32)
+    CloseHandle(instanceMutex);
+#endif
     return err == Error::NoError ? 0 : 1;
 }

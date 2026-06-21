@@ -90,3 +90,4 @@ backend-overlay/build/
 installer/build/
 imgui
 nlohmann
+miniaudio

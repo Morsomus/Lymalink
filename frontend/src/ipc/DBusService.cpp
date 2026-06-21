@@ -751,6 +751,7 @@ void DBusService::SetLastError(const QString &error)
     }
 
     // Avoid duplicate error notifications for same message
+    qDebug() << "DBusService::SetLastError:" << error;
     m_lastError = error;
     emit signalLastErrorChanged();
 }

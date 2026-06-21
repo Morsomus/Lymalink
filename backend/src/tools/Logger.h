@@ -37,7 +37,11 @@ public:
     void Init();
 
     // Logger::Instance().Log(Urgency::Warning, "Lymalinkd", "Main", "sigprocmask failed: %s", strerror(errno));
+#if defined(_MSC_VER)
+    void Log(Urgency level, const char* component, const char* function, const char* fmt, ...);
+#else
     void Log(Urgency level, const char* component, const char* function, const char* fmt, ...) __attribute__((format(printf, 5, 6)));
+#endif
 
 private:
     std::string m_logPath;

@@ -9,6 +9,7 @@
 #include "Settings.h"
 #include "tools/Encryption.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
@@ -524,8 +525,13 @@ QString Settings::GetConfigFilePath() const
 
 QStringList Settings::GetNotificationSounds() const
 {
+#if defined(_WIN32)
+    // Windows deployment keeps bundled sounds next to Lymalink.exe.
+    QDir soundDir(QCoreApplication::applicationDirPath() + "/sounds");
+#else
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     QDir soundDir(dataRoot + "/Lymalink/sounds");
+#endif
     return soundDir.entryList(QStringList{"*.ogg"}, QDir::Files | QDir::Readable, QDir::Name);
 }
 

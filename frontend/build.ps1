@@ -31,6 +31,7 @@ $SCRIPT_DIR = $PSScriptRoot
 $BUILD_ROOT = Join-Path $SCRIPT_DIR "build\windows"
 $MIN_QT_VERSION = [Version]"6.8.0"
 $CMAKE_GENERATOR = "Ninja"
+$BACKEND_OWNED_INSTALL_ITEMS = @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "sounds")
 
 ##############################################################################
 
@@ -264,10 +265,11 @@ function Get-BinaryPath {
 ##############################################################################
 
 function Clean {
-    Write-Host "==> Cleaning Windows build directory..."
+    $buildDirectory = Join-Path $SCRIPT_DIR "build"
+    Write-Host "==> Cleaning build directory..."
 
-    if (Test-Path -LiteralPath $BUILD_ROOT) {
-        Remove-Item -LiteralPath $BUILD_ROOT -Recurse -Force
+    if (Test-Path -LiteralPath $buildDirectory) {
+        Remove-Item -LiteralPath $buildDirectory -Recurse -Force
     }
 
     Write-Host "==> Clean done."
@@ -449,11 +451,14 @@ function Deploy {
     }
 
     Stop-LymalinkProcess
-    if (Test-Path -LiteralPath $installPaths.InstallDirectory) {
-        Remove-Item -LiteralPath $installPaths.InstallDirectory -Recurse -Force
+    if (Test-Path -LiteralPath $installPaths.InstallDirectory -PathType Container) {
+        Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force |
+            Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } |
+            Remove-Item -Recurse -Force
     }
     New-Item -ItemType Directory -Path (Split-Path -Parent $installPaths.InstallDirectory) -Force | Out-Null
-    Copy-Item -LiteralPath $bundleDir -Destination $installPaths.InstallDirectory -Recurse
+    New-Item -ItemType Directory -Path $installPaths.InstallDirectory -Force | Out-Null
+    Get-ChildItem -LiteralPath $bundleDir -Force | Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } | Copy-Item -Destination $installPaths.InstallDirectory -Recurse -Force
     if (-not (Test-Path -LiteralPath (Join-Path $installPaths.InstallDirectory "Lymalink.exe") -PathType Leaf)) {
         throw "Installed binary not found: $($installPaths.InstallDirectory)\Lymalink.exe"
     }
@@ -472,11 +477,19 @@ function Uninstall {
 
     Write-Host "==> Removing Lymalink installation..."
 
-    if (Test-Path -LiteralPath $installPaths.InstallDirectory) {
-        Remove-Item -LiteralPath $installPaths.InstallDirectory -Recurse -Force
+    if (Test-Path -LiteralPath $installPaths.InstallDirectory -PathType Container) {
+        Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force |
+            Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } |
+            Remove-Item -Recurse -Force
+        if (@(Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force).Count -eq 0) {
+            Remove-Item -LiteralPath $installPaths.InstallDirectory -Force
+        }
     }
-    if (Test-Path -LiteralPath $installPaths.StartMenuDirectory) {
-        Remove-Item -LiteralPath $installPaths.StartMenuDirectory -Recurse -Force
+    if (Test-Path -LiteralPath $installPaths.ShortcutPath -PathType Leaf) {
+        Remove-Item -LiteralPath $installPaths.ShortcutPath -Force
+    }
+    if (Test-Path -LiteralPath $installPaths.StartMenuDirectory -PathType Container -and @(Get-ChildItem -LiteralPath $installPaths.StartMenuDirectory -Force).Count -eq 0) {
+        Remove-Item -LiteralPath $installPaths.StartMenuDirectory -Force
     }
 
     Write-Host "==> Uninstall done. User settings and data were preserved."
@@ -550,7 +563,7 @@ switch ($Command) {
     default {
         Write-Host "Usage: .\build.ps1 [clean|debug|release|deploy|uninstall|dev|test]"
         Write-Host ""
-        Write-Host "  clean          - Remove build\windows\"
+        Write-Host "  clean          - Remove build\"
         Write-Host "  debug          - Debug build   -> build\windows\debug\"
         Write-Host "  release        - Release build -> build\windows\release\"
         Write-Host "  deploy         - clean + release build + per-user install"

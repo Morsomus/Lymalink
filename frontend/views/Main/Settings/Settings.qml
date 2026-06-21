@@ -571,7 +571,9 @@ Item {
 
         title: qsTr("Select notification sound")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("Audio files (*.ogg *.wav)")]
+        nameFilters: OS_WIN
+            ? [qsTr("Audio files (*.ogg *.wav *.mp3 *.flac)")]
+            : [qsTr("Audio files (*.ogg *.wav)")]
         onAccepted: {
             const soundPath = id_root.fileUrlToPath(selectedFile)
             if (ctxSettings.SaveValue(Settings.CustomNotificationSoundPath, soundPath) && id_root.backendServiceReady) {
@@ -1218,8 +1220,12 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Custom notification sound (.ogg, .wav)")
-                            tooltip: qsTr("Use a custom .ogg or .wav sound file instead of the bundled notification sound")
+                            label: OS_WIN
+                                ? qsTr("Custom notification sound (.ogg, .wav, .mp3, .flac)")
+                                : qsTr("Custom notification sound (.ogg, .wav)")
+                            tooltip: OS_WIN
+                                ? qsTr("Use a custom .ogg, .wav, .mp3, or .flac sound file instead of the bundled notification sound")
+                                : qsTr("Use a custom .ogg or .wav sound file instead of the bundled notification sound")
 
                             CustomSwitch {
                                 checked: ctxSettings.customNotificationSound
@@ -1249,7 +1255,9 @@ Item {
                                     readOnly: true
                                     selectByMouse: true
                                     text: ctxSettings.customNotificationSoundPath
-                                    placeholderText: qsTr("Select .ogg or .wav file")
+                                    placeholderText: OS_WIN
+                                        ? qsTr("Select .ogg, .wav, .mp3, or .flac file")
+                                        : qsTr("Select .ogg or .wav file")
                                 }
 
                                 CustomButton {

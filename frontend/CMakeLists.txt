@@ -22,8 +22,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif(WIN32)
     find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
     set(PLATFORM_BACKEND_SOURCES
-        src/ipc/WindowsSocketService.h
-        src/ipc/WindowsSocketService.cpp
+        src/ipc/WinSocketService.h
+        src/ipc/WinSocketService.cpp
         res/windows/Lymalink.rc
     )
 else()

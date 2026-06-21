@@ -19,7 +19,9 @@
 #include <cstdint>
 #include <ctime>
 #include <unordered_set>
-#include <sys/types.h>
+#if !defined(_WIN32)
+    #include <sys/types.h>
+#endif
 
 struct WatchTarget {
     int targetId;
@@ -52,7 +54,11 @@ private:
     struct ActiveProcess {
         int targetId;
         std::string executablePath;
+#if defined(_WIN32)
+        uint32_t pid;
+#else
         pid_t pid;
+#endif
         time_t sessionStart;
     };
 
@@ -70,6 +76,8 @@ private:
 
     TargetMeta BuildMeta(const std::string& exePath);
     std::string ExtractFilename(const std::string& path);
+#if !defined(_WIN32)
     std::string ReadCmdline(const std::string& pid);
     pid_t MatchCmdline(const std::string& cmdline, const TargetMeta& m, const std::string& pid);
+#endif
 };

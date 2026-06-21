@@ -12,7 +12,7 @@
 #include "data/DataTransporter.h"
 #include "ipc/BackendControl.h"
 #if defined(Q_OS_WIN)
-    #include "ipc/WindowsSocketService.h"
+    #include "ipc/WinSocketService.h"
     #include <QQuickStyle>
 #else
     #include "ipc/DBusService.h"
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
     SysTray* sysTray = new SysTray(&app);
     BackendControl* backendService = nullptr;
 #if defined(Q_OS_WIN)
-    backendService = new WindowsSocketService(&app);
+    backendService = new WinSocketService(&app);
 #else
     backendService = new DBusService(&app);
 #endif

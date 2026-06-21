@@ -1,20 +1,22 @@
 /////////////////////////////////////////////////////////
-// File: WindowsSocketService.h
+// File: WinSocketService.h
 // Date: 2026-06-19
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares Windows backend-control placeholder
-//              for future local sockets.
+// Description: Declares Windows local socket backend-control service
 /////////////////////////////////////////////////////////
 
 #pragma once
 
 #include "BackendControl.h"
+#include "../Defines.h"
 
-#include <QString>
+#include <QLocalSocket>
+#include <QJsonObject>
+#include <QTimer>
 #include <QVariantList>
 
-class WindowsSocketService : public BackendControl
+class WinSocketService : public BackendControl
 {
     Q_OBJECT
     Q_PROPERTY(bool serviceAvailable READ GetServiceAvailable NOTIFY signalServiceAvailabilityChanged)
@@ -23,12 +25,10 @@ class WindowsSocketService : public BackendControl
     Q_PROPERTY(bool serviceEnabled READ GetServiceEnabled NOTIFY signalServiceStatusChanged)
     Q_PROPERTY(QString lastError READ GetLastError NOTIFY signalLastErrorChanged)
     Q_PROPERTY(QVariantList activeTargetIds READ GetActiveTargetIds NOTIFY signalActiveTargetIdsChanged)
-    Q_PROPERTY(bool supportsServiceAutostart READ GetSupportsServiceAutostart CONSTANT)
-    Q_PROPERTY(bool supportsOverlayLaunchHints READ GetSupportsOverlayLaunchHints CONSTANT)
 
 public:
-    explicit WindowsSocketService(QObject *parent = nullptr);
-    ~WindowsSocketService() override;
+    explicit WinSocketService(QObject *parent = nullptr);
+    ~WinSocketService() override;
 
     bool StopServiceIfNotEnabled() override;
 
@@ -43,14 +43,12 @@ public:
     Q_INVOKABLE void TestToast() override;
     Q_INVOKABLE void TestSound() override;
 
-    inline bool GetServiceAvailable() const { return m_serviceAvailable; }
-    inline bool GetServiceActive() const { return m_serviceActive; }
-    inline bool GetServiceStarting() const { return m_serviceStarting; }
-    inline bool GetServiceEnabled() const { return m_serviceEnabled; }
-    inline QString GetLastError() const { return m_lastError; }
-    inline QVariantList GetActiveTargetIds() const { return m_activeTargetIds; }
-    inline bool GetSupportsServiceAutostart() const { return false; }
-    inline bool GetSupportsOverlayLaunchHints() const { return false; }
+    bool GetServiceAvailable() const { return m_serviceAvailable; }
+    bool GetServiceActive() const { return m_serviceActive; }
+    bool GetServiceStarting() const { return m_serviceStarting; }
+    bool GetServiceEnabled() const { return m_serviceEnabled; }
+    QString GetLastError() const { return m_lastError; }
+    QVariantList GetActiveTargetIds() const { return m_activeTargetIds; }
 
 signals:
     void signalServiceAvailabilityChanged();
@@ -60,14 +58,24 @@ signals:
     void signalAchievementUnlocked(int appId, const QString &achievementKey);
 
 private:
-    bool m_serviceAvailable = false;
-    bool m_serviceActive = false;
-    bool m_serviceStarting = false;
-    bool m_serviceEnabled = false;
+    QLocalSocket m_socket;
+    QTimer m_pingTimer;
+    QTimer m_startTimeoutTimer;
+    uint16_t m_pingIntervalMs;
+    quint64 m_nextRequestId;
+    bool m_serviceAvailable;
+    bool m_serviceActive;
+    bool m_serviceStarting;
+    bool m_serviceEnabled;
     QString m_lastError;
     QVariantList m_activeTargetIds;
 
-    void ReportUnsupported();
+    void ConnectSocket();
+    bool ConnectExistingBackend(int timeoutMs);
+    void SendRequest(const QString &method, const QJsonObject &params = {});
+    void HandleMessage(const QJsonObject &message);
+    bool FetchServiceEnabledStatus();
+    QString GetDaemonExecutablePath() const;
     void SetServiceAvailable(bool available);
     void SetServiceActive(bool active);
     void SetServiceEnabledState(bool enabled);

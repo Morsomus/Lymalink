@@ -18,6 +18,9 @@
 #include <regex>
 #include <system_error>
 #include <unordered_set>
+#if defined(_WIN32)
+    #include <cstdlib>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -55,7 +58,11 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
     // Scan each active target prefix for matching AppId directory
     for (const auto& target : m_targets)
     {
+#if defined(_WIN32)
+        if (target.appId.empty())
+#else
         if (target.appId.empty() || target.prefixLocation.empty())
+#endif
         {
             continue;
         }
@@ -77,15 +84,66 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             continue;
         }
 
-        const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds);
-        if (!gogPrefixDir.empty())
-        {
-            results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
-            LOG_BE(Urgency::Info, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
-            continue;
-        }
+        // TODO: Currently disabled because need to make sure if this structure is even possible, and also contains risk of false positives
+        // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds);
+        // if (!gogPrefixDir.empty())
+        // {
+        //     results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
+        //     LOG_BE(Urgency::Info, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
+        //     continue;
+        // }
         // GOG Emu req files handling - End
 
+#if defined(_WIN32)
+        std::vector<fs::path> scanRoots;
+
+        // Native Windows targets never need Wine prefix_location
+        // Emulator saves live in current profile or Public profile; scan both roots for every active target
+        if (const char* profile = std::getenv("USERPROFILE"); profile && *profile)
+        {
+            scanRoots.emplace_back(profile);
+        }
+        scanRoots.emplace_back("C:\\Users\\Public");
+
+        bool found = false;
+        for (const fs::path& root : scanRoots)
+        {
+            std::error_code ec;
+            if (!fs::exists(root, ec) || !fs::is_directory(root, ec)) continue;
+            fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
+            const fs::recursive_directory_iterator end;
+            for (; it != end && !ec; it.increment(ec))
+            {
+                if (!it->is_directory(ec) || it->path().filename().string() != target.appId)
+                {
+                    continue;
+                }
+
+                // Found AppID dir must contain Emulator folder as root
+                const std::string foundPath = it->path().string();
+                const std::string emuType = DetectEmulatorType(foundPath);
+                if (emuType == "UNKNOWN")
+                {
+                    LOG_BE(Urgency::Debug, "Ignoring APPID dir without known emulator root: targetId=%d path=%s", target.targetId, foundPath.c_str());
+                    continue;
+                }
+
+                results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, emuType, joinedGogIds, true});
+                LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
+                found = true;
+                break;
+            }
+
+            if (ec)
+            {
+                LOG_BE(Urgency::Warning, "Scan error: targetId=%d root=%s error=%s", target.targetId, root.string().c_str(), ec.message().c_str());
+            }
+            if (found)
+            {
+                break;
+            }
+        }
+#else
         // Validate prefix before recursive traversal
         std::error_code ec;
         if (!fs::exists(target.prefixLocation, ec) || !fs::is_directory(target.prefixLocation, ec))
@@ -124,6 +182,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         {
             LOG_BE(Urgency::Critical, "Scan error: targetId=%d error=%s", target.targetId, ec.message().c_str());
         }
+#endif
     }
 
     return results;
@@ -162,13 +221,50 @@ std::string PathScanner::DetectEmulatorType(const std::string& appidDirLocation)
     if (lower == "steampunks" ||
         lower == "steam punks")                         return "STEAMPUNKS";
 
-    return folderName.empty() ? "UNKNOWN" : folderName;
+    return "UNKNOWN";
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target) const
 {
+#if defined(_WIN32)
+    std::vector<fs::path> scanRoots;
+    if (!target.installationDir.empty())
+    {
+        scanRoots.emplace_back(target.installationDir);
+    }
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData)
+    {
+        scanRoots.emplace_back(appData);
+    }
+    if (const char* localAppData = std::getenv("LOCALAPPDATA"); localAppData && *localAppData)
+    {
+        scanRoots.emplace_back(localAppData);
+    }
+    scanRoots.emplace_back("C:\\Users\\Public");
+
+    for (const fs::path& root : scanRoots)
+    {
+        std::error_code ec;
+        if (!fs::exists(root, ec) || !fs::is_directory(root, ec))
+        {
+            continue;
+        }
+
+        fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
+        const fs::recursive_directory_iterator end;
+        for (; it != end && !ec; it.increment(ec))
+        {
+            if (it->is_directory(ec) && it->path().filename().string() == "ngalaxye_settings")
+            {
+                return it->path().string();
+            }
+        }
+    }
+
+    return "";
+#else
     std::vector<fs::path> candidates = {};
     if (!target.executableLocation.empty())
     {
@@ -210,12 +306,52 @@ std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target
     }
 
     return "";
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////
 
 std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds) const
 {
+#if defined(_WIN32)
+    if (gogIds.empty())
+    {
+        return "";
+    }
+
+    std::vector<fs::path> scanRoots;
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData)
+    {
+        scanRoots.emplace_back(appData);
+    }
+    if (const char* localAppData = std::getenv("LOCALAPPDATA"); localAppData && *localAppData)
+    {
+        scanRoots.emplace_back(localAppData);
+    }
+    scanRoots.emplace_back("C:\\Users\\Public");
+
+    const std::unordered_set<std::string> idSet(gogIds.begin(), gogIds.end());
+    for (const fs::path& root : scanRoots)
+    {
+        std::error_code ec;
+        if (!fs::exists(root, ec) || !fs::is_directory(root, ec))
+        {
+            continue;
+        }
+
+        fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
+        const fs::recursive_directory_iterator end;
+        for (; it != end && !ec; it.increment(ec))
+        {
+            if (it->is_directory(ec) && idSet.contains(it->path().filename().string()))
+            {
+                return it->path().string();
+            }
+        }
+    }
+
+    return "";
+#else
     if (target.prefixLocation.empty() || gogIds.empty())
     {
         return "";
@@ -246,6 +382,7 @@ std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& tar
     }
 
     return "";
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////

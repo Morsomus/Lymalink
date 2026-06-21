@@ -28,8 +28,6 @@ class DBusService : public BackendControl
     Q_PROPERTY(bool serviceEnabled READ GetServiceEnabled NOTIFY signalServiceStatusChanged)
     Q_PROPERTY(QString lastError READ GetLastError NOTIFY signalLastErrorChanged)
     Q_PROPERTY(QVariantList activeTargetIds READ GetActiveTargetIds NOTIFY signalActiveTargetIdsChanged)
-    Q_PROPERTY(bool supportsServiceAutostart READ GetSupportsServiceAutostart CONSTANT)         // TODO: Usage
-    Q_PROPERTY(bool supportsOverlayLaunchHints READ GetSupportsOverlayLaunchHints CONSTANT)     // TODO: Usage
 
 public:
     explicit DBusService(QObject *parent = nullptr);
@@ -54,8 +52,6 @@ public:
     inline bool GetServiceEnabled() const { return m_serviceEnabled; }
     inline QString GetLastError() const { return m_lastError; }
     inline QVariantList GetActiveTargetIds() const { return m_activeTargetIds; }
-    inline bool GetSupportsServiceAutostart() const { return true; }        // TODO: Usage
-    inline bool GetSupportsOverlayLaunchHints() const { return true; }      // TODO: Usage
 
 signals:
     void signalServiceAvailabilityChanged();

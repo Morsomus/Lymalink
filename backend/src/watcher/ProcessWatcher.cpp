@@ -11,6 +11,7 @@
 #include "ProcessWatcher.h"
 #include "Defines.h"
 #include "../tools/Logger.h"
+#include "../tools/Utils.h"
 
 #include <chrono>
 #include <filesystem>
@@ -19,7 +20,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <unistd.h>
+#if defined(_WIN32)
+    #include <windows.h>
+    #include <tlhelp32.h>
+#else
+    #include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -156,6 +162,59 @@ void ProcessWatcher::ScanProc()
     const size_t totalTargets = m_targets.size();
 
     // Map executablePath -> pid (from live /proc scan)
+#if defined(_WIN32)
+    std::unordered_map<std::string, uint32_t> running;
+
+    // Take a snapshot of all currently running processes in the system
+    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot != INVALID_HANDLE_VALUE)
+    {
+        // Iterate through the process snapshot sequentially
+        PROCESSENTRY32 entry{sizeof(entry)};
+        for (BOOL ok = Process32First(snapshot, &entry); ok; ok = Process32Next(snapshot, &entry))
+        {
+            // Open the process handle with limited query permissions to read its metadata
+            const HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
+            if (!process)
+            {
+                continue;
+            }
+            char path[MAX_PATH]{};
+            DWORD size = MAX_PATH;
+
+            // Retrieve the full executable file path for the given process handle
+            const bool hasPath = QueryFullProcessImageNameA(process, 0, path, &size) != FALSE;
+            CloseHandle(process);
+            if (!hasPath)
+            {
+                continue;
+            }
+
+            // Convert the running process path to lowercase
+            const std::string runningPath = Utils::ToLower(std::string(path, size));
+            for (size_t i = 0; i < totalTargets; ++i)
+            {
+                // Normalize the target path delimiters and convert to lowercase
+                std::string targetPath = m_meta[i].exePath;
+                std::replace(targetPath.begin(), targetPath.end(), '/', '\\');
+                targetPath = Utils::ToLower(std::move(targetPath));
+
+                // If this target hasn't been mapped yet and paths match, register the running process ID
+                if (!running.contains(m_meta[i].exePath) && runningPath == targetPath)
+                {
+                    running.emplace(m_meta[i].exePath, entry.th32ProcessID);
+                }    
+            }
+
+            // Early exit if all target processes have already been found
+            if (running.size() >= totalTargets)
+            {
+                break;
+            }
+        }
+        CloseHandle(snapshot);
+    }
+#else
     std::unordered_map<std::string, pid_t> running;
     running.reserve(32);
 
@@ -197,6 +256,7 @@ void ProcessWatcher::ScanProc()
             break;
         }
     }
+#endif
 
     // Check if any target just started
     for (size_t i = 0; i < totalTargets; ++i)
@@ -266,6 +326,7 @@ ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
     m.exePath = exePath;
     m.exeFilename = ExtractFilename(exePath);
 
+#if !defined(_WIN32)
     // Build Wine Z: path variant from Linux absolute path
     m.zPath  = "Z:";
     for (char c : exePath)
@@ -282,6 +343,13 @@ ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
     {
         m.dir = exePath.substr(0, dirEnd);
     }
+#else
+    const auto dirEnd = exePath.find_last_of("/\\");
+    if (dirEnd != std::string::npos)
+    {
+        m.dir = exePath.substr(0, dirEnd);
+    }
+#endif
 
     return m;
 }
@@ -311,6 +379,7 @@ std::string ProcessWatcher::ExtractFilename(const std::string& path)
 
 /////////////////////////////////////////////////////////////////////
 
+#if !defined(_WIN32)
 std::string ProcessWatcher::ReadCmdline(const std::string& pid)
 {
     std::string cmdline = "";
@@ -383,3 +452,4 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
 
     return matched;
 }
+#endif

@@ -15,6 +15,10 @@
 #include <filesystem>
 #include <iostream>
 #include <vector>
+#if defined(_WIN32)
+    #include <windows.h>
+    #include <shlobj.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -162,6 +166,13 @@ void Logger::Rotate()
 
 std::string Logger::Timestamp() const
 {
+#if defined(_WIN32)
+    SYSTEMTIME time{};
+    GetLocalTime(&time);
+    char full[64];
+    std::snprintf(full, sizeof(full), "%04u-%02u-%02u %02u:%02u:%02u.%03u", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
+    return full;
+#else
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
@@ -174,6 +185,7 @@ std::string Logger::Timestamp() const
     char full[64];
     std::snprintf(full, sizeof(full), "%s.%03ld", buf, ts.tv_nsec / 1'000'000);
     return full;
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -210,9 +222,9 @@ std::string Logger::ResolveLogPath() const
         char narrow[MAX_PATH];
         WideCharToMultiByte(CP_UTF8, 0, wpath, -1, narrow, MAX_PATH, nullptr, nullptr);
         CoTaskMemFree(wpath);
-        return std::string(narrow) + "\\lymalink\\lymalink-backend.log";
+        return std::string(narrow) + "\\Lymalink\\logs\\lymalink-backend.log";
     }
-    return "C:\\lymalink\\lymalink-backend.log";
+    return "C:\\Lymalink\\logs\\lymalink-backend.log";
 
 #else
     const char* xdgState = std::getenv("XDG_STATE_HOME");

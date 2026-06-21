@@ -20,7 +20,9 @@
 #include <chrono>
 #include <unordered_map>
 #include <utility>
-#include <sys/inotify.h>
+#if !defined(_WIN32)
+    #include <sys/inotify.h>
+#endif
 
 struct AchievementData
 {
@@ -43,6 +45,7 @@ struct WatchSession
     int dirWd = -1;
     int fileWd = -1;
     bool initialReadDone = false;
+    bool achievementFilePresent = false;
     bool modifyPending = false;
     std::chrono::steady_clock::time_point modifyDeadline{};
     std::unordered_map<std::string, AchievementData> achievements;
@@ -93,7 +96,9 @@ private:
     std::unordered_map<int, AchievementParser*> m_parsers;
 
     void WatchLoop();
+#if !defined(_WIN32)
     std::pair<int, std::string> HandleInotifyEvent(const struct inotify_event* ev);
+#endif
     void ReadInitial(WatchSession& session);
     void ReadAndDiff(WatchSession& session);
     void AddFileWatch(WatchSession& session);

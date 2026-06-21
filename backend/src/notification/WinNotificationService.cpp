@@ -1,0 +1,34 @@
+/////////////////////////////////////////////////////////
+// File: WinNotificationService.cpp
+// Date: 2026-06-20
+// Author: Morsomus
+// Copyright: see /LICENSE
+// Description: Reserved Windows notification adapter
+/////////////////////////////////////////////////////////
+
+#include "WinNotificationService.h"
+#include "Defines.h"
+#include "tools/Logger.h"
+
+#define COMPONENT "WinNotificationService"
+
+/////////////////////////////////////////////////////////////////////
+
+WinNotificationService::WinNotificationService()
+{
+    // Constructor
+}
+
+WinNotificationService::~WinNotificationService()
+{
+    // Destructor
+}
+
+/////////////////////////////////////////////////////////////////////
+////////////////////////////// PUBLIC ///////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+bool WinNotificationService::ShowAchievementToast(const AchievementNotification& notification)
+{
+    return false;
+}

@@ -9,17 +9,22 @@
 #pragma once
 
 #include "Error.h"
-#include "service/SystemdNotify.h"
-#include "ipc/DBusService.h"
-#include "notification/CanberraSoundService.h"
+#if defined(_WIN32)
+    #include "ipc/WinSocketServer.h"
+    #include "notification/WinSoundService.h"
+    #include "platform/WinOverlayStub.h"
+#else
+    #include "service/SystemdNotify.h"
+    #include "ipc/DBusService.h"
+    #include "notification/CanberraSoundService.h"
+    #include "overlay/OverlayNotifier.h"
+#endif
 #include "notification/AchievementNotificationService.h"
-#include "overlay/OverlayNotifier.h"
 #include "database/SQLiteManager.h"
 #include "watcher/PathScanner.h"
 #include "watcher/ProcessWatcher.h"
 #include "watcher/AchievementHandler.h"
 
-#include <signal.h>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -30,6 +35,9 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#if !defined(_WIN32)
+    #include <signal.h>
+#endif
 
 class Lymalinkd
 {
@@ -40,11 +48,17 @@ public:
     Error Main();
 
 private:
+#if defined(_WIN32)
+    WinSocketServer m_ipc;
+    WinSoundService m_notificationSound;
+    WinOverlayStub m_overlayNotifications; // TODO: TEMPORARY
+#else
     SystemdNotify m_notify;
     DBusService m_dbus;
-    SQLiteManager m_database;
     OverlayNotifier m_overlayNotifications;
     CanberraSoundService m_notificationSound;
+#endif
+    SQLiteManager m_database;
     AchievementNotificationService m_achievementNotifications;
     PathScanner m_pathScanner;
     ProcessWatcher m_processWatcher;
@@ -57,7 +71,12 @@ private:
     std::mutex m_startupNotificationThreadsMutex;
 
     std::thread m_sleepTimerThread;
+#if defined(_WIN32)
+    std::thread m_monitorThread;
+#endif
+#if !defined(_WIN32)
     std::thread m_signalThread;
+#endif
     std::vector<std::thread> m_startupNotificationThreads;
 
     std::condition_variable m_cv;
@@ -77,7 +96,9 @@ private:
     Error Init();
     Error DatabaseInit();
     void  Monitor();
+#if !defined(_WIN32)
     void  SignalThread(sigset_t mask);
+#endif
     void  Shutdown();
     
     void  OnProcessStarted(int targetId, const std::string& executablePath);
@@ -86,6 +107,7 @@ private:
     void  OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath);
     void  OnTestToast();
     void  OnTestSound();
+    void  OnShutdown();
     void  OnRequestActiveTargets();
     void  OnReloadAllTargets();
     void  OnReloadConfig();
@@ -112,4 +134,6 @@ private:
     bool LoadStartupNotificationConfig() const;
     bool ParseConfigBool(const std::string& value) const;
     bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
+    void EmitAchievementUnlocked(int targetId, const std::string& achievementKey);
+    void EmitGameStateChanged(const std::vector<int>& targetIds, const std::string& state);
 };

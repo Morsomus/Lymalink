@@ -2,11 +2,13 @@
 
 Build information for the Linux backend daemon.
 
-## Supported Build Host
+## Linux
+
+### Supported Build Host
 
 - Linux `x86_64`
 
-## Dependencies
+### Dependencies
 
 Install these packages, or your distro's equivalent:
 
@@ -24,7 +26,7 @@ sudo apt install \
   pkg-config
 ```
 
-## Build Script
+### Build Script
 
 From repository root:
 
@@ -42,7 +44,7 @@ make -C backend BUILD=debug
 make -C backend BUILD=release
 ```
 
-## Run Locally
+### Run Locally
 
 ```bash
 backend/build/debug/bin/lymalinkd
@@ -54,7 +56,7 @@ Logs:
 tail -f ~/.local/state/lymalink/lymalink-frontend.log
 ```
 
-## Tests
+### Tests
 
 ```bash
 backend/build.sh test
@@ -63,7 +65,7 @@ backend/build.sh test --silent
 
 The backend test command builds and runs the Catch2 test binary under `backend/build/debug/tests`.
 
-## User Service
+### User Service
 
 Deploy installs:
 
@@ -95,6 +97,72 @@ backend/build.sh uninstall
 Uninstall removes the backend service, binary, sounds directory, and test icon.
 User configuration, database files, and unrelated application data are
 preserved.
+
+## Windows
+
+### Supported Build Host
+
+- Windows 10/11 `x86_64`
+
+### Dependencies
+
+- PowerShell 5.1 or later
+- CMake
+- Ninja
+- Qt 6 MSVC kit, including `qmake.exe`
+- vcpkg with `sqlite3:x64-windows`
+- Build Tools for Visual Studio 2022 with MSVC x64/x86 tools, a Windows SDK, and CMake tools
+
+Set `VCPKG_ROOT`, then install SQLite:
+
+```powershell
+$env:VCPKG_ROOT = 'C:\path\to\vcpkg'
+& "$env:VCPKG_ROOT\vcpkg.exe" install sqlite3:x64-windows
+```
+
+To persist the vcpkg path:
+
+```powershell
+[Environment]::SetEnvironmentVariable('VCPKG_ROOT', 'C:\path\to\vcpkg', 'User')
+```
+
+Miniaudio and nlohmann/json download automatically on first build. If needed, allow the script for the current terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
+### Build Script
+
+Run from repository root:
+
+```powershell
+.\backend\build.ps1 clean
+.\backend\build.ps1 debug
+.\backend\build.ps1 release
+```
+
+Build outputs:
+
+| Command | Output | Binary |
+|---------|--------|--------|
+| `debug` | `backend\build\windows\debug\` | `backend\build\windows\debug\bin\lymalinkd.exe` |
+| `release` | `backend\build\windows\release\` | `backend\build\windows\release\bin\lymalinkd.exe` |
+
+### Deploy
+
+```powershell
+.\backend\build.ps1 deploy
+.\backend\build.ps1 deploy --debug
+.\backend\build.ps1 start
+.\backend\build.ps1 stop
+.\backend\build.ps1 restart
+.\backend\build.ps1 status
+.\backend\build.ps1 logs
+.\backend\build.ps1 uninstall
+```
+
+`deploy` installs `lymalinkd.exe`, `sqlite3.dll`, sounds, and test icon to `%LOCALAPPDATA%\Programs\Lymalink`. `start` runs daemon independently for current session. `logs` follows `%LOCALAPPDATA%\Lymalink\logs\lymalink-backend.log`. `uninstall` removes backend files only; frontend files, configuration, database, and logs remain.
 
 ## Backend Layout
 
