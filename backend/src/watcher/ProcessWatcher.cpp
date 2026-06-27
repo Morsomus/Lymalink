@@ -284,7 +284,7 @@ void ProcessWatcher::ScanProc()
             
             if (onProcessStarted)
             {
-                onProcessStarted(ap.targetId, ap.executablePath);
+                onProcessStarted(ap.targetId, ap.executablePath, static_cast<uint32_t>(ap.pid));
             }
         }
     }

@@ -2,12 +2,14 @@
 
 Build information for the Linux Vulkan and OpenGL overlay libraries.
 
-## Supported Build Host
+## Linux
+
+### Supported Build Host
 
 - Linux `x86_64`
 - Flatpak extension branch `25.08`
 
-## Dependencies
+### Dependencies
 
 Install these packages, or your distro's equivalent:
 
@@ -63,7 +65,7 @@ flatpak install --user flathub org.freedesktop.Sdk.Compat.i386//25.08
 flatpak install --user flathub org.freedesktop.Platform//25.08
 ```
 
-## Build Script
+### Build Script
 
 From repository root:
 
@@ -75,7 +77,7 @@ backend-overlay/build.sh flatpak-debug
 backend-overlay/build.sh flatpak-release
 ```
 
-## Deploy
+### Deploy
 
 ```bash
 backend-overlay/build.sh deploy
@@ -91,34 +93,119 @@ Deploy installs:
 - OpenGL launcher: `~/.local/bin/lymalink-overlay`
 - Flatpak VulkanLayer extension with x86_64 and i386 libraries: user Flatpak runtime, when Flatpak is available
 
-## Direct Makefile Build
+### Direct Makefile Build
 
 ```bash
 make -C backend-overlay BUILD=debug
 make -C backend-overlay BUILD=release
 ```
 
+## Windows
+
+### Supported Build Host
+
+- Windows 10/11 `x86_64`
+
+### Dependencies
+
+- PowerShell 5.1 or later
+- CMake
+- Ninja
+- Vulkan SDK, including headers and both x64/x86 loader import libraries
+- Build Tools for Visual Studio 2022
+  - Desktop development with C++
+  - MSVC v143 C++ x64/x86 build tools
+  - Windows 10 or Windows 11 SDK
+  - C++ CMake tools for Windows
+
+Install the LunarG Vulkan SDK, then open a new PowerShell terminal:
+
+```powershell
+Invoke-WebRequest -Uri 'https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe' -OutFile "$env:TEMP\vulkan-sdk.exe"
+Start-Process -FilePath "$env:TEMP\vulkan-sdk.exe" -Wait
+```
+
+Verify that the SDK environment variable and headers are available:
+
+```powershell
+$env:VULKAN_SDK
+Test-Path (Join-Path $env:VULKAN_SDK 'Include\vulkan\vulkan.h')
+```
+
+The second command must return `True`. Dear ImGui and MinHook download
+automatically on the first build. If script execution is restricted, run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
+### Build Script
+
+Run from repository root:
+
+```powershell
+.\backend-overlay\build.ps1 clean
+.\backend-overlay\build.ps1 debug
+.\backend-overlay\build.ps1 release
+```
+
+Both x64 and x86 overlay DLLs and injector executables are built under
+`backend-overlay\build\windows\<MODE>\<ARCH>\bin\`.
+
+### Deploy
+
+```powershell
+.\backend-overlay\build.ps1 deploy
+.\backend-overlay\build.ps1 deploy --debug
+.\backend-overlay\build.ps1 uninstall
+```
+
+`deploy` installs both architecture variants to
+`%LOCALAPPDATA%\Programs\Lymalink\overlay` and registers their Vulkan implicit
+layer manifests for current user. `uninstall` removes those overlay files and
+registry entries only.
+
 ## Backend Overlay Layout
 
 ```text
 backend-overlay
+├── build.ps1
 ├── build.sh
-├── include
-│   ├── OverlaySharedMemoryState.h
-│   └── OverlaySocketProtocol.h
+├── CMakeLists.txt
 ├── lymalink-overlay.sh
 ├── Makefile
 ├── README.md
+├── include
+│   ├── OverlaySharedMemoryState.h
+│   ├── OverlaySocketProtocol.h
+│   └── WinOverlaySharedMemoryState.h
 └── src
-    ├── FontEmbedded.h
-    ├── GLOverlayOpenGL.cpp
-    ├── GLOverlayPreloader.cpp
-    ├── Logger.cpp
-    ├── Logger.h
-    ├── OverlayReceiver.cpp
-    ├── OverlayReceiver.h
-    ├── VulkanOverlayLayer.cpp
-    ├── VulkanOverlayLayer.h
-    ├── VulkanOverlayRenderer.cpp
-    └── VulkanOverlayRenderer.h
+    ├── linux
+    │   ├── DlsymResolver.h
+    │   ├── FontEmbedded.h
+    │   ├── GLOverlayOpenGL.cpp
+    │   ├── GLOverlayPreloader.cpp
+    │   ├── I386DsoHandle.cpp
+    │   ├── Logger.cpp
+    │   ├── Logger.h
+    │   ├── OverlayReceiver.cpp
+    │   ├── OverlayReceiver.h
+    │   ├── VulkanOverlayLayer.cpp
+    │   ├── VulkanOverlayLayer.h
+    │   ├── VulkanOverlayRenderer.cpp
+    │   └── VulkanOverlayRenderer.h
+    └── win
+        ├── FontEmbedded.h
+        ├── WinLogger.cpp
+        ├── WinLogger.h
+        ├── WinOverlayReceiver.cpp
+        ├── WinOverlayReceiver.h
+        ├── WinOverlayTypes.h
+        ├── WinOverlayUi.cpp
+        ├── WinOverlayUi.h
+        └── vulkan
+            ├── VulkanOverlayLayer.cpp
+            ├── VulkanOverlayLayer.h
+            ├── VulkanOverlayRenderer.cpp
+            └── VulkanOverlayRenderer.h
 ```

@@ -12,7 +12,7 @@
 #if defined(_WIN32)
     #include "ipc/WinSocketServer.h"
     #include "notification/WinSoundService.h"
-    #include "platform/WinOverlayStub.h"
+    #include "overlay/WinOverlayNotifier.h"
 #else
     #include "service/SystemdNotify.h"
     #include "ipc/DBusService.h"
@@ -51,7 +51,7 @@ private:
 #if defined(_WIN32)
     WinSocketServer m_ipc;
     WinSoundService m_notificationSound;
-    WinOverlayStub m_overlayNotifications; // TODO: TEMPORARY
+    WinOverlayNotifier m_overlayNotifications;
 #else
     SystemdNotify m_notify;
     DBusService m_dbus;
@@ -104,7 +104,7 @@ private:
 #endif
     void  Shutdown();
     
-    void  OnProcessStarted(int targetId, const std::string& executablePath);
+    void  OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid);
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);
     void  OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath);

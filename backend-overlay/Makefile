@@ -23,7 +23,7 @@ BIN_DIR := $(BUILD_DIR)/bin
 IMGUI_DIR ?= src/imgui
 IMGUI_CFLAGS := -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 
-CPPFLAGS := -Iinclude -Isrc -I../backend/src
+CPPFLAGS := -Iinclude -Isrc/linux -I../backend/src
 CPPFLAGS_release := -DLYMALINK_OVERLAY_DISABLE_LOGGING
 CPPFLAGS += $(CPPFLAGS_$(BUILD_PROFILE))
 ARCH_CXXFLAGS :=
@@ -37,7 +37,7 @@ EGL_LIBS := -lEGL
 ifeq ($(ARCH),i386)
 ARCH_CXXFLAGS := -m32
 ARCH_LDFLAGS := -nostartfiles -L$(OBJ_DIR)/i386-libgcc-stub -L/usr/lib/i386-linux-gnu
-ARCH_EXTRA_OBJECTS := $(OBJ_DIR)/$(ARCH)/src/I386DsoHandle.o
+ARCH_EXTRA_OBJECTS := $(OBJ_DIR)/$(ARCH)/src/linux/I386DsoHandle.o
 ARCH_STUB_LIB := $(OBJ_DIR)/i386-libgcc-stub/libgcc.a
 VULKAN_LIBS_OVERRIDE := -l:libvulkan.so.1
 GDK_PIXBUF_LIBS_OVERRIDE := -l:libgdk_pixbuf-2.0.so.0 -l:libgobject-2.0.so.0 -l:libglib-2.0.so.0
@@ -62,8 +62,8 @@ GDK_PIXBUF_LIBS := $(or $(GDK_PIXBUF_LIBS_OVERRIDE),$(shell $(PKG_CONFIG_ENV) pk
 
 # Source groups
 COMMON_SOURCES := \
-    src/OverlayReceiver.cpp \
-    src/Logger.cpp \
+    src/linux/OverlayReceiver.cpp \
+    src/linux/Logger.cpp \
     ../backend/src/tools/Utils.cpp
 
 IMGUI_SOURCES := \
@@ -73,8 +73,8 @@ IMGUI_SOURCES := \
     $(IMGUI_DIR)/imgui_widgets.cpp
 
 VULKAN_SOURCES := \
-    src/VulkanOverlayRenderer.cpp \
-    src/VulkanOverlayLayer.cpp \
+    src/linux/VulkanOverlayRenderer.cpp \
+    src/linux/VulkanOverlayLayer.cpp \
     $(IMGUI_DIR)/backends/imgui_impl_vulkan.cpp
 
 OPENGL_SOURCES := \
@@ -82,10 +82,10 @@ OPENGL_SOURCES := \
 
 # Per-target sources
 VULKAN_TARGET_SOURCES := $(COMMON_SOURCES) $(IMGUI_SOURCES) $(VULKAN_SOURCES)
-OPENGL_TARGET_SOURCES := $(COMMON_SOURCES) $(IMGUI_SOURCES) $(OPENGL_SOURCES) src/GLOverlayOpenGL.cpp
+OPENGL_TARGET_SOURCES := $(COMMON_SOURCES) $(IMGUI_SOURCES) $(OPENGL_SOURCES) src/linux/GLOverlayOpenGL.cpp
 PRELOADER_TARGET_SOURCES := \
-    src/GLOverlayPreloader.cpp \
-    src/Logger.cpp
+    src/linux/GLOverlayPreloader.cpp \
+    src/linux/Logger.cpp
 
 VULKAN_OBJECTS := $(VULKAN_TARGET_SOURCES:%.cpp=$(OBJ_DIR)/vulkan/%.o)
 OPENGL_OBJECTS := $(OPENGL_TARGET_SOURCES:%.cpp=$(OBJ_DIR)/opengl/%.o)
@@ -123,7 +123,7 @@ $(OBJ_DIR)/vulkan/$(IMGUI_DIR)/backends/imgui_impl_vulkan.o: \
 	    -DIMGUI_IMPL_VULKAN_NO_PROTOTYPES $(DEPFLAGS) -c $< -o $@
 
 ifeq ($(ARCH),i386)
-$(OBJ_DIR)/$(ARCH)/src/I386DsoHandle.o: src/I386DsoHandle.cpp | $(OBJ_DIR)
+$(OBJ_DIR)/$(ARCH)/src/linux/I386DsoHandle.o: src/linux/I386DsoHandle.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(SHARED_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

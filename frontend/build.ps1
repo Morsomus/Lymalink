@@ -31,7 +31,7 @@ $SCRIPT_DIR = $PSScriptRoot
 $BUILD_ROOT = Join-Path $SCRIPT_DIR "build\windows"
 $MIN_QT_VERSION = [Version]"6.8.0"
 $CMAKE_GENERATOR = "Ninja"
-$BACKEND_OWNED_INSTALL_ITEMS = @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "sounds")
+$BACKEND_OWNED_INSTALL_ITEMS = @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "sounds", "overlay")
 
 ##############################################################################
 

@@ -139,11 +139,11 @@ Error Lymalinkd::Init()
     std::filesystem::path databaseParent = std::filesystem::path(m_databasePath).parent_path();
     m_achievementNotifications.Configure(m_databaseConnectionName, databaseParent.string());
 
-#if !defined(_WIN32)
     if (!m_overlayNotifications.Init())
     {
         LOG_BE(Urgency::Warning, "Overlay notifications unavailable.");
     }
+#if !defined(_WIN32)
     else
     {
         // Start in paused, until running executable is detected
@@ -195,7 +195,7 @@ Error Lymalinkd::Init()
 #endif
 
     // ProcessWatcher callbacks
-    m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe) { OnProcessStarted(targetId, exe); };
+    m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe, uint32_t pid) { OnProcessStarted(targetId, exe, pid); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
     m_achievementHandler.onAppIdDirUnavailable = [this](int targetId, const std::string& appIdDirPath) { OnAppIdDirUnavailable(targetId, appIdDirPath); };
 
@@ -452,9 +452,7 @@ void Lymalinkd::Shutdown()
 
     // Stop external services before closing database connection
     m_processWatcher.Stop();
-#if !defined(_WIN32)
     m_overlayNotifications.Shutdown();
-#endif
     m_notificationSound.Stop();
 #if defined(_WIN32)
     m_ipc.Stop();
@@ -497,9 +495,18 @@ void Lymalinkd::Shutdown()
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath)
+void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid)
 {
     LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
+
+#if defined(_WIN32)
+    if (!m_overlayNotifications.RegisterProcess(targetId, pid))
+    {
+        LOG_BE(Urgency::Warning, "Overlay mapping unavailable for targetId=%d pid=%u.", targetId, pid);
+    }
+#else
+    (void)pid;
+#endif
 
     // Mark daemon active and wake monitor loop
     m_activeCount.fetch_add(1);
@@ -562,6 +569,9 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
         m_processStartedAt.erase(targetId);
 #endif
     }
+#if defined(_WIN32)
+    m_overlayNotifications.UnregisterProcess(targetId);
+#endif
     EmitGameStateChanged({targetId}, "Inactive");
     m_achievementHandler.RemoveTarget(targetId);
 
@@ -667,6 +677,18 @@ void Lymalinkd::OnTestToast()
     }
 
     AchievementNotification notification;
+#if defined(_WIN32)
+    // Windows mappings are per game PID - Route the manual test toast to the first active configured target
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        if (m_activeTargetsIds.empty())
+        {
+            LOG_BE(Urgency::Warning, "No active target available for Windows overlay test toast.");
+            return;
+        }
+        notification.targetId = m_activeTargetsIds.front().first;
+    }
+#endif
     notification.achievementName = "Scientific Overlay Experiment";
     notification.achievementDescription = "If you can see this, the overlay survived another day";
     notification.iconPath = appIconPath;
@@ -1219,6 +1241,12 @@ void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
         notification.iconPath = appIconPath;
         notification.appIconPath = appIconPath;
 
+#if defined(_WIN32)
+        // Windows has only its target-PID shared-memory mapping - The injected overlay claims the same single pending slot used for Linux SHM
+        const bool sharedMemorySent = m_overlayNotifications.ShowAchievementToast(notification);
+        LOG_BE(Urgency::Debug, "Startup SHM notification completed. Sent successfully: %s targetId=%d exe=%s", sharedMemorySent ? "true" : "false", targetId, gameName.c_str());
+        return;
+#else
         // SHM is written even if game overlay is not ready yet; native overlay reads latest SHM state when it starts
         const bool sharedMemorySent = m_overlayNotifications.ShowAchievementToastSharedMemory(notification);
         LOG_BE(Urgency::Debug, "Startup SHM notification completed. Sent successfully: %s targetId=%d exe=%s", sharedMemorySent ? "true" : "false", targetId, gameName.c_str());
@@ -1246,6 +1274,7 @@ void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
         }
 
         LOG_BE(Urgency::Debug, "Startup socket notification timed out: targetId=%d exe=%s", targetId, gameName.c_str());
+#endif
     });
 }
 

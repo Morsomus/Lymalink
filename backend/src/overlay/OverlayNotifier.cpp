@@ -33,6 +33,8 @@
 
 namespace fs = std::filesystem;
 
+/////////////////////////////////////////////////////////////////////
+
 OverlayNotifier::OverlayNotifier() :
     m_socketThread(),
     m_socketMutex(),

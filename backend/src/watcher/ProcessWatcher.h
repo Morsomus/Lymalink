@@ -39,7 +39,7 @@ public:
     void Stop();
 
     // Callbacks
-    std::function<void(int targetId, const std::string& executablePath)> onProcessStarted;
+    std::function<void(int targetId, const std::string& executablePath, uint32_t pid)> onProcessStarted;
     std::function<void(int targetId, long secondsPlayed)> onProcessStopped;
 
 private:

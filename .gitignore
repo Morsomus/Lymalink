@@ -89,5 +89,6 @@ backend/build/
 backend-overlay/build/
 installer/build/
 imgui
+minhook
 nlohmann
 miniaudio
