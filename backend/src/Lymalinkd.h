@@ -12,6 +12,7 @@
 #if defined(_WIN32)
     #include "ipc/WinSocketServer.h"
     #include "notification/WinSoundService.h"
+    #include "overlay/WinOverlayOpenGLInjector.h"
     #include "overlay/WinOverlayNotifier.h"
 #else
     #include "service/SystemdNotify.h"
@@ -52,6 +53,7 @@ private:
     WinSocketServer m_ipc;
     WinSoundService m_notificationSound;
     WinOverlayNotifier m_overlayNotifications;
+    WinOverlayOpenGLInjector m_openGLInjector;
 #else
     SystemdNotify m_notify;
     DBusService m_dbus;

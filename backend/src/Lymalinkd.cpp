@@ -500,9 +500,17 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
 
 #if defined(_WIN32)
-    if (!m_overlayNotifications.RegisterProcess(targetId, pid))
+    const bool overlayMappingReady = m_overlayNotifications.RegisterProcess(targetId, pid);
+    if (!overlayMappingReady)
     {
         LOG_BE(Urgency::Warning, "Overlay mapping unavailable for targetId=%d pid=%u.", targetId, pid);
+    }
+    else
+    {
+        if (!m_openGLInjector.InjectOpenGL(pid))
+        {
+            LOG_BE(Urgency::Warning, "OpenGL overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+        }
     }
 #else
     (void)pid;

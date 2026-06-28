@@ -15,6 +15,7 @@
 #include "imgui.h"
 
 #include <cstdint>
+#include <vector>
 
 class WinOverlayReceiver
 {
@@ -25,8 +26,10 @@ public:
     void Shutdown();
 
     void BeginFrame();
-    ImTextureID PrepareIconTexture(class VulkanOverlayRenderer& renderer);
     void Draw(uint32_t framebufferWidth, uint32_t framebufferHeight, ImTextureID iconTexture);
+
+    inline const std::vector<uint8_t>& IconPixels() const { return m_ui.IconPixels(); }
+    inline uint64_t IconGeneration() const { return m_ui.IconGeneration(); }
 
 private:
     HANDLE m_mapping;

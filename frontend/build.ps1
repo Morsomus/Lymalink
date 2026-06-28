@@ -488,7 +488,7 @@ function Uninstall {
     if (Test-Path -LiteralPath $installPaths.ShortcutPath -PathType Leaf) {
         Remove-Item -LiteralPath $installPaths.ShortcutPath -Force
     }
-    if (Test-Path -LiteralPath $installPaths.StartMenuDirectory -PathType Container -and @(Get-ChildItem -LiteralPath $installPaths.StartMenuDirectory -Force).Count -eq 0) {
+    if ((Test-Path -LiteralPath $installPaths.StartMenuDirectory -PathType Container) -and @(Get-ChildItem -LiteralPath $installPaths.StartMenuDirectory -Force).Count -eq 0) {
         Remove-Item -LiteralPath $installPaths.StartMenuDirectory -Force
     }
 

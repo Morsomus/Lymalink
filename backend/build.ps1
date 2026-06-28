@@ -483,7 +483,7 @@ function Uninstall {
     if (Test-Path -LiteralPath $soundDir) {
         Remove-Item -LiteralPath $soundDir -Recurse -Force
     }
-    if (Test-Path -LiteralPath $installDir -PathType Container -and @(Get-ChildItem -LiteralPath $installDir -Force).Count -eq 0) {
+    if ((Test-Path -LiteralPath $installDir -PathType Container) -and @(Get-ChildItem -LiteralPath $installDir -Force).Count -eq 0) {
         Remove-Item -LiteralPath $installDir -Force
     }
 

@@ -28,6 +28,7 @@ qt_add_executable(lymalinkd
     src/notification/AchievementNotificationService.cpp src/notification/AchievementNotificationService.h
     src/notification/WinNotificationService.cpp src/notification/WinNotificationService.h
     src/notification/WinSoundService.cpp src/notification/WinSoundService.h
+    src/overlay/WinOverlayOpenGLInjector.cpp src/overlay/WinOverlayOpenGLInjector.h
     src/overlay/WinOverlayNotifier.cpp src/overlay/WinOverlayNotifier.h
     src/database/SQLiteManager.cpp src/database/SQLiteManager.h
     src/tools/Utils.cpp src/tools/Utils.h

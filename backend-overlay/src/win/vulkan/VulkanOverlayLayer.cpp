@@ -529,7 +529,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
         ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
         s_overlay.BeginFrame();
-        ImTextureID icon = s_overlay.PrepareIconTexture(*renderer);
+        ImTextureID icon = renderer->EnsureIconTexture(s_overlay.IconPixels(), s_overlay.IconGeneration());
         s_overlay.Draw(width, height, icon);
         ImGui::Render();
 

@@ -10,8 +10,6 @@
 #include "WinOverlayReceiver.h"
 
 #include "WinLogger.h"
-#include "VulkanOverlayRenderer.h"
-
 #include <windows.h>
 
 #include <string>
@@ -48,14 +46,6 @@ void WinOverlayReceiver::BeginFrame()
     WinOverlayNotification notification;
     const bool hasNotification = m_ui.IsIdle() && TryClaim(notification);
     m_ui.Update(hasNotification ? &notification : nullptr);
-}
-
-/////////////////////////////////////////////////////////////////////
-
-ImTextureID WinOverlayReceiver::PrepareIconTexture(VulkanOverlayRenderer& renderer)
-{
-    // Renderer owns GPU objects; UI exposes pixels plus a generation counter for cache invalidation
-    return renderer.EnsureIconTexture(m_ui.IconPixels(), m_ui.IconGeneration());
 }
 
 /////////////////////////////////////////////////////////////////////

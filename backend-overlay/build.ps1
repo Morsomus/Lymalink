@@ -29,7 +29,9 @@ $BUILD_DIR = Join-Path $SCRIPT_DIR "build"
 $BUILD_ROOT = Join-Path $BUILD_DIR "windows"
 $CMAKE_GENERATOR = "Ninja"
 $IMGUI_VERSION = "1.92.8"
+$MINHOOK_VERSION = "1.3.4"
 $IMGUI_DIR = Join-Path $SCRIPT_DIR "src\imgui"
+$MINHOOK_DIR = Join-Path $SCRIPT_DIR "src\minhook"
 $INSTALL_DIR_NAME = "Programs\Lymalink\overlay"
 $ARCHITECTURES = @("x64", "x86")
 
@@ -157,6 +159,7 @@ function Get-SourceArchive {
 
 function Get-Dependencies {
     Get-SourceArchive $IMGUI_DIR "imgui.h" "https://github.com/ocornut/imgui/archive/refs/tags/v$IMGUI_VERSION.zip" "imgui-$IMGUI_VERSION"
+    Get-SourceArchive $MINHOOK_DIR "include\MinHook.h" "https://github.com/TsudaKageyu/minhook/archive/refs/tags/v$MINHOOK_VERSION.zip" "minhook-$MINHOOK_VERSION"
 }
 
 ##############################################################################
@@ -194,7 +197,11 @@ function Build {
         }
 
         $binDirectory = Join-Path $buildDirectory "bin"
-        foreach ($artifact in @("lymalink-overlay-vulkan-$architecture.dll")) {
+        foreach ($artifact in @(
+            "lymalink-overlay-vulkan-$architecture.dll",
+            "lymalink-overlay-opengl-$architecture.dll",
+            "lymalink-overlay-injector-$architecture.exe"
+        )) {
             $path = Join-Path $binDirectory $artifact
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Expected build artifact not found: $path"
@@ -326,6 +333,14 @@ function Deploy {
         }
         else {
             Remove-VulkanManifest $installDirectory $architecture
+        }
+
+        foreach ($artifact in @("lymalink-overlay-opengl-$architecture.dll", "lymalink-overlay-injector-$architecture.exe")) {
+            $source = Join-Path $binDirectory $artifact
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+                throw "Expected OpenGL overlay artifact not found: $source"
+            }
+            Copy-Item -LiteralPath $source -Destination (Join-Path $installDirectory $artifact) -Force
         }
     }
 

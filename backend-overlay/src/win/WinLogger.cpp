@@ -9,19 +9,17 @@
 
 #include "WinLogger.h"
 
-#ifndef LYMALINK_OVERLAY_DISABLE_LOGGING
-
 #ifndef NOMINMAX
     #define NOMINMAX
 #endif
 #include <windows.h>
 
-#include <cstdint>
+#ifndef LYMALINK_OVERLAY_DISABLE_LOGGING
+
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
-#include <string>
 
 namespace
 {
@@ -43,21 +41,15 @@ std::filesystem::path ResolveLogPath()
 
     return "lymalink-overlay.log";
 }
+}
 
-const char* OverlayArch()
-{
-#if INTPTR_MAX == INT64_MAX
-    return "x64";
-#else
-    return "x86";
 #endif
-}
-}
 
 /////////////////////////////////////////////////////////////////////
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
+#ifndef LYMALINK_OVERLAY_DISABLE_LOGGING
 void WinLogger::Log(const std::string& message)
 {
     std::time_t now = std::time(nullptr);
@@ -87,24 +79,4 @@ void WinLogger::Log(const std::string& message)
         out << line;
     }
 }
-
-/////////////////////////////////////////////////////////////////////
-
-BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
-{
-    (void)instance;
-    (void)reserved;
-
-    if (reason == DLL_PROCESS_ATTACH)
-    {
-        LYMALINK_LOG(std::string("[OverlayLibrary] Loaded arch=") + OverlayArch());
-    }
-    else if (reason == DLL_PROCESS_DETACH)
-    {
-        LYMALINK_LOG("[OverlayLibrary] Unloaded");
-    }
-
-    return TRUE;
-}
-
 #endif
