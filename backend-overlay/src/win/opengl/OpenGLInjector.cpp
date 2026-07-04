@@ -106,7 +106,7 @@ std::string Timestamp()
 
 void Log(const std::wstring& message)
 {
-    const std::wstring line = L"[LymalinkOpenGLInjector] " + message + L"\n";
+    const std::wstring line = L"[LymalinkOverlayInjector] " + message + L"\n";
     OutputDebugStringW(line.c_str());
     std::wcerr << line;
 

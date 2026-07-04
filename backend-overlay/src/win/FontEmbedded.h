@@ -72915,25 +72915,20 @@ static unsigned int VariableFont_ttf_len = 874708;
 
 /////////////////////////////////////////////////////////////////////
 
-static std::once_flag s_font_init_flag;
-
 static bool EnsureEmbeddedFontLoaded()
 {
-    std::call_once(s_font_init_flag, []()
+    if (!ImGui::GetCurrentContext())
     {
-        if (!ImGui::GetCurrentContext())
-        {
-            ImGui::CreateContext();
-        }
-        
-        ImGuiIO& io = ImGui::GetIO();
-        if (!io.FontDefault)
-        {
-          ImFontConfig fontConfig;
-          fontConfig.FontDataOwnedByAtlas = false;
-          io.FontDefault = io.Fonts->AddFontFromMemoryTTF(VariableFont_ttf, VariableFont_ttf_len, 18.0f, &fontConfig);
-        }
-    });
+        ImGui::CreateContext();
+    }
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.FontDefault)
+    {
+        ImFontConfig fontConfig;
+        fontConfig.FontDataOwnedByAtlas = false;
+        io.FontDefault = io.Fonts->AddFontFromMemoryTTF(VariableFont_ttf, VariableFont_ttf_len, 18.0f, &fontConfig);
+    }
     return ImGui::GetIO().FontDefault != nullptr;
 }
 
