@@ -112,7 +112,8 @@ make -C backend-overlay BUILD=release
 - CMake
 - Ninja
 - Vulkan SDK, including headers and both x64/x86 loader import libraries
-- Windows SDK Direct3D 9 headers and import libraries (`d3d9.h`, `d3d9.lib`);
+- Windows SDK Direct3D 9/10 and DXGI headers and import libraries
+  (`d3d9.h`, `d3d9.lib`, `d3d10.h`, `d3d10.lib`, `dxgi.h`, `dxgi.lib`);
   the legacy DirectX SDK is not required
 - Build Tools for Visual Studio 2022
   - Desktop development with C++
@@ -157,6 +158,7 @@ Both x64 and x86 overlay DLLs and injector executables are built under
 - `lymalink-overlay-vulkan-<ARCH>.dll`
 - `lymalink-overlay-opengl-<ARCH>.dll`
 - `lymalink-overlay-dx9-<ARCH>.dll`
+- `lymalink-overlay-dx10-<ARCH>.dll`
 - `lymalink-overlay-injector-<ARCH>.exe`
 
 ### Deploy
@@ -169,7 +171,7 @@ Both x64 and x86 overlay DLLs and injector executables are built under
 
 `deploy` installs both architecture variants to
 `%LOCALAPPDATA%\Programs\Lymalink\overlay` and registers their Vulkan implicit
-layer manifests for current user. OpenGL and Direct3D 9 are injected by
+layer manifests for current user. OpenGL, Direct3D 9, and Direct3D 10 are injected by
 `lymalinkd` through the architecture-matched injector helper. `uninstall`
 removes those overlay files and registry entries only.
 
@@ -213,6 +215,11 @@ backend-overlay
         ├── WinOverlayUi.h
         ├── dx9
         │   └── Direct3D9OverlayLayer.cpp
+        ├── dx10
+        │   └── Direct3D10OverlayLayer.cpp
+        ├── opengl
+        │   ├── OpenGLInjector.cpp
+        │   └── OpenGLOverlayLayer.cpp
         └── vulkan
             ├── VulkanOverlayLayer.cpp
             ├── VulkanOverlayLayer.h

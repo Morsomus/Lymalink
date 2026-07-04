@@ -19,6 +19,9 @@ public:
     // Launches architecture-matched helper to inject Direct3D 9 overlay DLL into target process
     bool InjectDirect3D9(uint32_t pid) const;
 
+    // Launches architecture-matched helper to inject Direct3D 10 overlay DLL into target process
+    bool InjectDirect3D10(uint32_t pid) const;
+
 private:
     bool InjectOverlayLibrary(uint32_t pid, const wchar_t* x86Dll, const wchar_t* x64Dll, const char* backendName) const;
 };

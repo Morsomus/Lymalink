@@ -201,6 +201,7 @@ function Build {
             "lymalink-overlay-vulkan-$architecture.dll",
             "lymalink-overlay-opengl-$architecture.dll",
             "lymalink-overlay-dx9-$architecture.dll",
+            "lymalink-overlay-dx10-$architecture.dll",
             "lymalink-overlay-injector-$architecture.exe"
         )) {
             $path = Join-Path $binDirectory $artifact
@@ -336,7 +337,7 @@ function Deploy {
             Remove-VulkanManifest $installDirectory $architecture
         }
 
-        foreach ($artifact in @("lymalink-overlay-opengl-$architecture.dll", "lymalink-overlay-dx9-$architecture.dll", "lymalink-overlay-injector-$architecture.exe")) {
+        foreach ($artifact in @("lymalink-overlay-opengl-$architecture.dll", "lymalink-overlay-dx9-$architecture.dll", "lymalink-overlay-dx10-$architecture.dll", "lymalink-overlay-injector-$architecture.exe")) {
             $source = Join-Path $binDirectory $artifact
             if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
                 throw "Expected overlay artifact not found: $source"
