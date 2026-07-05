@@ -15,16 +15,18 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
+#include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx10.h"
 #include "MinHook.h"
 
 #include <windows.h>
-#include <d3d10.h>
+#include <d3d10_1.h>
 #include <dxgi.h>
 
 #include <atomic>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -68,7 +70,19 @@ static ID3D10Texture2D* s_iconTexture = nullptr;
 static bool s_imguiReady = false;
 static uint64_t s_iconGeneration = 0;
 
+static void* s_vtableObject = nullptr;
+static void** s_originalVTable = nullptr;
+static void** s_patchedVTable = nullptr;
+static PFN_Present s_vtablePresent = nullptr;
+static thread_local bool s_callingVTableOriginal = false;
+
 static std::atomic_bool s_loggedPresentHit{false};
+static std::atomic_bool s_loggedVTablePresentHit{false};
+static std::atomic_bool s_loggedRoutedSwapChain{false};
+
+/////////////////////////////////////////////////////////////////////
+
+HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -328,6 +342,64 @@ ImTextureID EnsureDirect3D10IconTexture(ID3D10Device* device, const std::vector<
 
 /////////////////////////////////////////////////////////////////////
 
+bool InstallSwapChainVTableHookLocked(IDXGISwapChain* swapChain)
+{
+    // Install object-level Present hook for a routed swap chain
+    if (!swapChain)
+    {
+        return false;
+    }
+
+    // Same swap chain is already patched
+    if (s_vtableObject == swapChain && s_patchedVTable)
+    {
+        return true;
+    }
+
+    // Read the COM object's current vtable pointer
+    void*** objectVTable = reinterpret_cast<void***>(swapChain);
+    void** table = *objectVTable;
+    if (!table)
+    {
+        return false;
+    }
+
+    // Clone the slots we need so only this object is affected
+    constexpr size_t SlotCount = VTable_ResizeBuffers + 1;
+    void** patched = static_cast<void**>(VirtualAlloc(nullptr, sizeof(void*) * SlotCount, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!patched)
+    {
+        LYMALINK_LOG("[Direct3D10OverlayLayer][VTableHook] VirtualAlloc failed error=" + std::to_string(GetLastError()));
+        return false;
+    }
+
+    std::memcpy(patched, table, sizeof(void*) * SlotCount);
+    s_vtablePresent = reinterpret_cast<PFN_Present>(table[VTable_Present]);
+    patched[VTable_Present] = reinterpret_cast<void*>(&Hook_VTablePresent);
+
+    // Replace the object's vtable pointer with the patched clone
+    DWORD oldProtect = 0;
+    if (!VirtualProtect(objectVTable, sizeof(void**), PAGE_READWRITE, &oldProtect))
+    {
+        LYMALINK_LOG("[Direct3D10OverlayLayer][VTableHook] VirtualProtect failed error=" + std::to_string(GetLastError()));
+        VirtualFree(patched, 0, MEM_RELEASE);
+        s_vtablePresent = nullptr;
+        return false;
+    }
+
+    *objectVTable = patched;
+    VirtualProtect(objectVTable, sizeof(void**), oldProtect, &oldProtect);
+
+    // Keep original state so the vtable hook can call through
+    s_vtableObject = swapChain;
+    s_originalVTable = table;
+    s_patchedVTable = patched;
+    LYMALINK_LOG("[Direct3D10OverlayLayer][VTableHook] installed swap-chain vtable hook.");
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 {
     // Present is the main DX10 render path
@@ -337,6 +409,16 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     }
 
     // Resolve the D3D10 device from the intercepted swap chain
+    const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
+    if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D10)
+    {
+        if (WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) && !s_loggedRoutedSwapChain.exchange(true))
+        {
+            LYMALINK_LOG("[Direct3D10OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
+        }
+        return;
+    }
+
     ID3D10Device* device = nullptr;
     if (FAILED(swapChain->GetDevice(__uuidof(ID3D10Device), reinterpret_cast<void**>(&device))) || !device)
     {
@@ -357,6 +439,8 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 
     if (InitImGuiLocked(swapChain, device, width, height) && EnsureRenderTargetLocked(swapChain, device))
     {
+        InstallSwapChainVTableHookLocked(swapChain);
+        
         // Save host render state that this overlay temporarily changes
         ID3D10RenderTargetView* previousRenderTarget = nullptr;
         ID3D10DepthStencilView* previousDepthStencil = nullptr;
@@ -402,12 +486,35 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
 {
     // Main render path for DX10 apps
+    if (s_callingVTableOriginal)
+    {
+        return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
+    }
     if (!s_loggedPresentHit.exchange(true))
     {
         LYMALINK_LOG("[Direct3D10OverlayLayer][Hook_Present] first Present intercepted.");
     }
     RenderOverlay(swapChain, "Present");
     return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
+{
+    // Render through this layer, then call the swap chain's original Present
+    if (!s_loggedVTablePresentHit.exchange(true))
+    {
+        LYMALINK_LOG("[Direct3D10OverlayLayer][Hook_VTablePresent] first vtable Present intercepted.");
+    }
+    RenderOverlay(swapChain, "VTablePresent");
+
+    // Avoid re-entering this layer's MinHook Present hook while forwarding
+    s_callingVTableOriginal = true;
+    const HRESULT result = s_vtablePresent ? s_vtablePresent(swapChain, syncInterval, flags) :
+        (s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL);
+    s_callingVTableOriginal = false;
+    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -658,6 +765,36 @@ DWORD WINAPI InitThread(LPVOID)
 /////////////////////////////////////////////////////////////////////
 // Called from WinOverlayEntrypoint.cpp DllMain when this target defines
 // LYMALINK_OVERLAY_ATTACH_HOOKS.
+/////////////////////////////////////////////////////////////////////
+
+// Export used by other DX overlay DLLs to attach this DX10 layer to a real swap chain.
+extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D10InstallSwapChainHook(IUnknown* swapChainObject)
+{
+    if (s_shuttingDown.load() || !swapChainObject)
+    {
+        return FALSE;
+    }
+
+    IDXGISwapChain* swapChain = nullptr;
+    if (FAILED(swapChainObject->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&swapChain))) || !swapChain)
+    {
+        return FALSE;
+    }
+
+    ID3D10Device* device = nullptr;
+    if (FAILED(swapChain->GetDevice(__uuidof(ID3D10Device), reinterpret_cast<void**>(&device))) || !device)
+    {
+        ReleaseCom(swapChain);
+        return FALSE;
+    }
+    ReleaseCom(device);
+
+    std::lock_guard<std::mutex> lock(s_renderMutex);
+    const bool installed = InstallSwapChainVTableHookLocked(swapChain);
+    ReleaseCom(swapChain);
+    return installed ? TRUE : FALSE;
+}
+
 /////////////////////////////////////////////////////////////////////
 
 extern "C" void LymalinkOverlayOnProcessAttach(HINSTANCE instance)

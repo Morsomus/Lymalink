@@ -15,17 +15,18 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
+#include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "MinHook.h"
 
 #include <windows.h>
-#include <d3d10_1.h>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <dxgi1_2.h>
 
 #include <atomic>
+#include <cstring>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -61,12 +62,19 @@ static PFN_Present s_realPresent = nullptr;
 static PFN_ResizeBuffers s_realResizeBuffers = nullptr;
 static PFN_Present1 s_realPresent1 = nullptr;
 
+static void* s_vtableObject = nullptr;
+static void** s_originalVTable = nullptr;
+static void** s_patchedVTable = nullptr;
+static PFN_Present s_vtablePresent = nullptr;
+static PFN_Present1 s_vtablePresent1 = nullptr;
+
 // One receiver and one ImGui context are shared by every DX11 hook in this process
 static WinOverlayReceiver s_overlay;
 static std::mutex s_renderMutex;
 static std::atomic_bool s_hooksReady{false};
 static std::atomic_bool s_shuttingDown{false};
 static thread_local bool s_rendering = false;   // Prevents recursive interception while ImGui renders
+static thread_local bool s_callingVTableOriginal = false;
 
 static IDXGISwapChain* s_swapChain = nullptr;
 static ID3D11Device* s_device = nullptr;
@@ -79,7 +87,15 @@ static uint64_t s_iconGeneration = 0;
 
 static std::atomic_bool s_loggedPresentHit{false};
 static std::atomic_bool s_loggedPresent1Hit{false};
-static std::atomic_bool s_loggedD3D10SwapChainSkip{false};
+static std::atomic_bool s_loggedVTablePresentHit{false};
+static std::atomic_bool s_loggedVTablePresent1Hit{false};
+static std::atomic_bool s_loggedRoutedSwapChain{false};
+
+HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
+HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags);
+HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters);
+HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
+HRESULT WINAPI Hook_VTablePresent1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -354,6 +370,83 @@ ImTextureID EnsureDirect3D11IconTexture(ID3D11Device* device, const std::vector<
 
 /////////////////////////////////////////////////////////////////////
 
+bool InstallSwapChainVTableHookLocked(IDXGISwapChain* swapChain)
+{
+    // Install object-level Present hooks for a routed swap chain
+    if (!swapChain)
+    {
+        return false;
+    }
+
+    // Same swap chain is already patched
+    if (s_vtableObject == swapChain && s_patchedVTable)
+    {
+        return true;
+    }
+
+    // Present1 is available only when the object exposes IDXGISwapChain1 on the same pointer
+    IDXGISwapChain1* swapChain1 = nullptr;
+    if (FAILED(swapChain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swapChain1))))
+    {
+        swapChain1 = nullptr;
+    }
+
+    const bool sameInterface = swapChain1 && reinterpret_cast<void*>(swapChain1) == reinterpret_cast<void*>(swapChain);
+    // Read the COM object's current vtable pointer
+    void*** objectVTable = reinterpret_cast<void***>(swapChain);
+    void** table = *objectVTable;
+    if (!table)
+    {
+        ReleaseCom(swapChain1);
+        return false;
+    }
+
+    // Clone the slots we need so only this object is affected
+    const size_t slotCount = sameInterface ? VTable_Present1 + 1 : VTable_ResizeBuffers + 1;
+    void** patched = static_cast<void**>(VirtualAlloc(nullptr, sizeof(void*) * slotCount, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!patched)
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] VirtualAlloc failed error=" + std::to_string(GetLastError()));
+        ReleaseCom(swapChain1);
+        return false;
+    }
+
+    std::memcpy(patched, table, sizeof(void*) * slotCount);
+    s_vtablePresent = reinterpret_cast<PFN_Present>(table[VTable_Present]);
+    patched[VTable_Present] = reinterpret_cast<void*>(&Hook_VTablePresent);
+    if (sameInterface)
+    {
+        s_vtablePresent1 = reinterpret_cast<PFN_Present1>(table[VTable_Present1]);
+        patched[VTable_Present1] = reinterpret_cast<void*>(&Hook_VTablePresent1);
+    }
+
+    // Replace the object's vtable pointer with the patched clone
+    DWORD oldProtect = 0;
+    if (!VirtualProtect(objectVTable, sizeof(void**), PAGE_READWRITE, &oldProtect))
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] VirtualProtect failed error=" + std::to_string(GetLastError()));
+        VirtualFree(patched, 0, MEM_RELEASE);
+        s_vtablePresent = nullptr;
+        s_vtablePresent1 = nullptr;
+        ReleaseCom(swapChain1);
+        return false;
+    }
+
+    *objectVTable = patched;
+    VirtualProtect(objectVTable, sizeof(void**), oldProtect, &oldProtect);
+
+    // Keep original state so the vtable hooks can call through
+    s_vtableObject = swapChain;
+    s_originalVTable = table;
+    s_patchedVTable = patched;
+
+    ReleaseCom(swapChain1);
+    LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] installed swap-chain vtable hook.");
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 {
     // Present and Present1 are the main DX11 render paths
@@ -362,15 +455,12 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
         return;
     }
 
-    // D3D10 and D3D11 share the same DXGI Present entry point - If this swap chain exposes a D3D10 device, leave notification ownership to the DX10 layer
-    ID3D10Device* d3d10Device = nullptr;
-    if (SUCCEEDED(swapChain->GetDevice(__uuidof(ID3D10Device), reinterpret_cast<void**>(&d3d10Device))) && d3d10Device)
+    const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
+    if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D11)
     {
-        ReleaseCom(d3d10Device);
-        if (!s_loggedD3D10SwapChainSkip.exchange(true))
+        if (WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) && !s_loggedRoutedSwapChain.exchange(true))
         {
-            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] skipped D3D10 swap chain; renderer=dx11 path=" +
-                std::string(presentPath));
+            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
         }
         return;
     }
@@ -405,6 +495,8 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 
     if (InitImGuiLocked(swapChain, device, context, width, height) && EnsureRenderTargetLocked(swapChain, device))
     {
+        InstallSwapChainVTableHookLocked(swapChain);
+        
         // Save host render targets that this overlay temporarily changes
         ID3D11RenderTargetView* previousRenderTarget = nullptr;
         ID3D11DepthStencilView* previousDepthStencil = nullptr;
@@ -444,6 +536,10 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
 {
     // Main render path for DX11 apps using IDXGISwapChain::Present
+    if (s_callingVTableOriginal)
+    {
+        return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
+    }
     if (!s_loggedPresentHit.exchange(true))
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present] first Present intercepted.");
@@ -457,12 +553,54 @@ HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT f
 HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters)
 {
     // Main render path for DX11 apps using IDXGISwapChain1::Present1
+    if (s_callingVTableOriginal)
+    {
+        return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
+    }
     if (!s_loggedPresent1Hit.exchange(true))
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present1] first Present1 intercepted.");
     }
     RenderOverlay(swapChain, "Present1");
     return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
+{
+    // Render through this layer, then call the swap chain's original Present
+    if (!s_loggedVTablePresentHit.exchange(true))
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_VTablePresent] first vtable Present intercepted.");
+    }
+    RenderOverlay(swapChain, "VTablePresent");
+
+    // Avoid re-entering this layer's MinHook Present hook while forwarding
+    s_callingVTableOriginal = true;
+    const HRESULT result = s_vtablePresent ? s_vtablePresent(swapChain, syncInterval, flags) :
+        (s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL);
+    s_callingVTableOriginal = false;
+    return result;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+HRESULT WINAPI Hook_VTablePresent1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters)
+{
+    // Render through this layer, then call the swap chain's original Present1.
+    if (!s_loggedVTablePresent1Hit.exchange(true))
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_VTablePresent1] first vtable Present1 intercepted.");
+    }
+    RenderOverlay(swapChain, "VTablePresent1");
+
+    // Avoid re-entering this layer's MinHook Present1 hook while forwarding.
+    s_callingVTableOriginal = true;
+    const HRESULT result = s_vtablePresent1 ? s_vtablePresent1(swapChain, syncInterval, flags, presentParameters) :
+        (s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL);
+    s_callingVTableOriginal = false;
+    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -741,6 +879,36 @@ DWORD WINAPI InitThread(LPVOID)
 /////////////////////////////////////////////////////////////////////
 // Called from WinOverlayEntrypoint.cpp DllMain when this target defines
 // LYMALINK_OVERLAY_ATTACH_HOOKS.
+/////////////////////////////////////////////////////////////////////
+
+// Export used by other DX overlay DLLs to attach this DX11 layer to a real swap chain.
+extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D11InstallSwapChainHook(IUnknown* swapChainObject)
+{
+    if (s_shuttingDown.load() || !swapChainObject)
+    {
+        return FALSE;
+    }
+
+    IDXGISwapChain* swapChain = nullptr;
+    if (FAILED(swapChainObject->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&swapChain))) || !swapChain)
+    {
+        return FALSE;
+    }
+
+    ID3D11Device* device = nullptr;
+    if (FAILED(swapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device))) || !device)
+    {
+        ReleaseCom(swapChain);
+        return FALSE;
+    }
+    ReleaseCom(device);
+
+    std::lock_guard<std::mutex> lock(s_renderMutex);
+    const bool installed = InstallSwapChainVTableHookLocked(swapChain);
+    ReleaseCom(swapChain);
+    return installed ? TRUE : FALSE;
+}
+
 /////////////////////////////////////////////////////////////////////
 
 extern "C" void LymalinkOverlayOnProcessAttach(HINSTANCE instance)
