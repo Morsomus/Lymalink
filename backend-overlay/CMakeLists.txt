@@ -118,6 +118,23 @@ set_target_properties(lymalink-overlay-dx10 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+add_library(lymalink-overlay-dx11 SHARED
+    src/win/dx11/Direct3D11OverlayLayer.cpp
+    src/win/WinOverlayReceiver.cpp
+    src/win/WinOverlayUi.cpp
+    src/win/WinOverlayEntrypoint.cpp
+    src/win/WinLogger.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_dx11.cpp
+)
+target_include_directories(lymalink-overlay-dx11 PRIVATE include src/win/dx11 src/win ${IMGUI_DIR} ${IMGUI_DIR}/backends ${MINHOOK_DIR}/include)
+target_compile_definitions(lymalink-overlay-dx11 PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
+target_compile_definitions(lymalink-overlay-dx11 PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
+target_link_libraries(lymalink-overlay-dx11 PRIVATE lymalink_imgui lymalink_minhook d3d11 dxgi user32 gdi32)
+set_target_properties(lymalink-overlay-dx11 PROPERTIES
+    OUTPUT_NAME "lymalink-overlay-dx11-${LYMALINK_ARCH}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 add_executable(lymalink-overlay-injector
     src/win/opengl/OpenGLInjector.cpp
 )

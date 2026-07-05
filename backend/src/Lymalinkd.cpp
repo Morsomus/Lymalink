@@ -519,6 +519,10 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
         {
             LOG_BE(Urgency::Warning, "Direct3D10 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
         }
+        if (!m_overlayInjector.InjectDirect3D11(pid))
+        {
+            LOG_BE(Urgency::Warning, "Direct3D11 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+        }
     }
 #else
     (void)pid;
