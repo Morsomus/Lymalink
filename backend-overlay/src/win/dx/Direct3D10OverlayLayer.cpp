@@ -328,7 +328,7 @@ ImTextureID EnsureDirect3D10IconTexture(ID3D10Device* device, const std::vector<
 
 /////////////////////////////////////////////////////////////////////
 
-void RenderOverlay(IDXGISwapChain* swapChain)
+void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 {
     // Present is the main DX10 render path
     if (s_rendering || s_shuttingDown.load() || !swapChain)
@@ -371,9 +371,15 @@ void RenderOverlay(IDXGISwapChain* swapChain)
         ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         ImGui_ImplDX10_NewFrame();
         ImGui::NewFrame();
-        s_overlay.BeginFrame();
+        const bool claimedNotification = s_overlay.BeginFrame();
         ImTextureID icon = EnsureDirect3D10IconTexture(device, s_overlay.IconPixels(), s_overlay.IconGeneration());
         s_overlay.Draw(width, height, icon);
+        if (claimedNotification)
+        {
+            LYMALINK_LOG("[Direct3D10OverlayLayer][RenderOverlay] claimed notification; renderer=dx10 path=" +
+                std::string(presentPath) + " size=" +
+                std::to_string(width) + "x" + std::to_string(height));
+        }
         ImGui::Render();
         ImGui_ImplDX10_RenderDrawData(ImGui::GetDrawData());
 
@@ -400,7 +406,7 @@ HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT f
     {
         LYMALINK_LOG("[Direct3D10OverlayLayer][Hook_Present] first Present intercepted.");
     }
-    RenderOverlay(swapChain);
+    RenderOverlay(swapChain, "Present");
     return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
 }
 

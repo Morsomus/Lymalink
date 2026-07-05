@@ -40,12 +40,13 @@ void WinOverlayReceiver::Shutdown()
 
 /////////////////////////////////////////////////////////////////////
 
-void WinOverlayReceiver::BeginFrame()
+bool WinOverlayReceiver::BeginFrame()
 {
     // Only claim a new notification once the current UI animation has fully completed
     WinOverlayNotification notification;
     const bool hasNotification = m_ui.IsIdle() && TryClaim(notification);
     m_ui.Update(hasNotification ? &notification : nullptr);
+    return hasNotification;
 }
 
 /////////////////////////////////////////////////////////////////////

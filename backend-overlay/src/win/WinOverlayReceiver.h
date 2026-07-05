@@ -25,7 +25,7 @@ public:
 
     void Shutdown();
 
-    void BeginFrame();
+    bool BeginFrame();
     void Draw(uint32_t framebufferWidth, uint32_t framebufferHeight, ImTextureID iconTexture);
 
     inline const std::vector<uint8_t>& IconPixels() const { return m_ui.IconPixels(); }

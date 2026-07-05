@@ -337,9 +337,15 @@ void RenderOverlay(IDirect3DDevice9* device, bool presentFallback)
         ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         ImGui_ImplDX9_NewFrame();
         ImGui::NewFrame();
-        s_overlay.BeginFrame();
+        const bool claimedNotification = s_overlay.BeginFrame();
         ImTextureID icon = EnsureDirect3D9IconTexture(device, s_overlay.IconPixels(), s_overlay.IconGeneration());
         s_overlay.Draw(width, height, icon);
+        if (claimedNotification)
+        {
+            LYMALINK_LOG("[Direct3D9OverlayLayer][RenderOverlay] claimed notification; renderer=dx9 path=" +
+                std::string(presentFallback ? "Present" : "EndScene") +
+                " size=" + std::to_string(width) + "x" + std::to_string(height));
+        }
         ImGui::Render();
         ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
     }

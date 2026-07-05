@@ -352,7 +352,7 @@ ImTextureID EnsureDirect3D11IconTexture(ID3D11Device* device, const std::vector<
 
 /////////////////////////////////////////////////////////////////////
 
-void RenderOverlay(IDXGISwapChain* swapChain)
+void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 {
     // Present and Present1 are the main DX11 render paths
     if (s_rendering || s_shuttingDown.load() || !swapChain)
@@ -401,9 +401,15 @@ void RenderOverlay(IDXGISwapChain* swapChain)
         ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         ImGui_ImplDX11_NewFrame();
         ImGui::NewFrame();
-        s_overlay.BeginFrame();
+        const bool claimedNotification = s_overlay.BeginFrame();
         ImTextureID icon = EnsureDirect3D11IconTexture(device, s_overlay.IconPixels(), s_overlay.IconGeneration());
         s_overlay.Draw(width, height, icon);
+        if (claimedNotification)
+        {
+            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] claimed notification; renderer=dx11 path=" +
+                std::string(presentPath) + " size=" +
+                std::to_string(width) + "x" + std::to_string(height));
+        }
         ImGui::Render();
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
@@ -427,7 +433,7 @@ HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT f
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present] first Present intercepted.");
     }
-    RenderOverlay(swapChain);
+    RenderOverlay(swapChain, "Present");
     return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
 }
 
@@ -440,7 +446,7 @@ HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present1] first Present1 intercepted.");
     }
-    RenderOverlay(swapChain);
+    RenderOverlay(swapChain, "Present1");
     return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
 }
 
