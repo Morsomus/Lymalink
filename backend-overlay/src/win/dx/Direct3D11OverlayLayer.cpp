@@ -20,6 +20,7 @@
 #include "MinHook.h"
 
 #include <windows.h>
+#include <d3d10_1.h>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <dxgi1_2.h>
@@ -78,6 +79,7 @@ static uint64_t s_iconGeneration = 0;
 
 static std::atomic_bool s_loggedPresentHit{false};
 static std::atomic_bool s_loggedPresent1Hit{false};
+static std::atomic_bool s_loggedD3D10SwapChainSkip{false};
 
 /////////////////////////////////////////////////////////////////////
 
@@ -357,6 +359,19 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     // Present and Present1 are the main DX11 render paths
     if (s_rendering || s_shuttingDown.load() || !swapChain)
     {
+        return;
+    }
+
+    // D3D10 and D3D11 share the same DXGI Present entry point - If this swap chain exposes a D3D10 device, leave notification ownership to the DX10 layer
+    ID3D10Device* d3d10Device = nullptr;
+    if (SUCCEEDED(swapChain->GetDevice(__uuidof(ID3D10Device), reinterpret_cast<void**>(&d3d10Device))) && d3d10Device)
+    {
+        ReleaseCom(d3d10Device);
+        if (!s_loggedD3D10SwapChainSkip.exchange(true))
+        {
+            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] skipped D3D10 swap chain; renderer=dx11 path=" +
+                std::string(presentPath));
+        }
         return;
     }
 

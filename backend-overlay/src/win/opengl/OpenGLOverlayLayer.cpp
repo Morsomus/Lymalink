@@ -198,7 +198,7 @@ ImTextureID EnsureOpenGLIconTexture(const std::vector<uint8_t>& rgbaPixels, uint
 
 /////////////////////////////////////////////////////////////////////
 
-void RenderOverlay(HDC dc)
+void RenderOverlay(HDC dc, const char* swapPath)
 {
     // Swap hooks can fire from helper threads or teardown paths; only render with an active WGL context
     if (s_rendering || s_shuttingDown.load() || !wglGetCurrentContext())
@@ -243,9 +243,14 @@ void RenderOverlay(HDC dc)
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
-    s_overlay.BeginFrame();
+    const bool claimedNotification = s_overlay.BeginFrame();
     ImTextureID icon = EnsureOpenGLIconTexture(s_overlay.IconPixels(), s_overlay.IconGeneration());
     s_overlay.Draw(width, height, icon);
+    if (claimedNotification)
+    {
+        LYMALINK_LOG("[OpenGLOverlayLayer][RenderOverlay] claimed notification; renderer=opengl path=" +
+            std::string(swapPath) + " size=" + std::to_string(width) + "x" + std::to_string(height));
+    }
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -268,7 +273,7 @@ BOOL WINAPI Hook_SwapBuffers(HDC dc)
     {
         LYMALINK_LOG("[OpenGLOverlayLayer][Hook_SwapBuffers] first swap intercepted.");
     }
-    RenderOverlay(dc);
+    RenderOverlay(dc, "SwapBuffers");
     return s_realSwapBuffers ? s_realSwapBuffers(dc) : FALSE;
 }
 
@@ -281,7 +286,7 @@ BOOL WINAPI Hook_wglSwapLayerBuffers(HDC dc, UINT planes)
     {
         LYMALINK_LOG("[OpenGLOverlayLayer][Hook_wglSwapLayerBuffers] first swap intercepted.");
     }
-    RenderOverlay(dc);
+    RenderOverlay(dc, "wglSwapLayerBuffers");
     return s_realWglSwapLayerBuffers ? s_realWglSwapLayerBuffers(dc, planes) : FALSE;
 }
 
