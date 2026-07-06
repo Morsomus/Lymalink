@@ -957,7 +957,11 @@ std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTarge
         rows = m_database.SelectWhere(
             m_databaseConnectionName,
             m_databaseEmuGamesTable,
+#if defined(_WIN32)
+            "appid_dir_found = 0 AND executable_location IS NOT NULL AND executable_location != ''",
+#else
             "appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
+#endif
             {},
             {"id", "prefix_location", "executable_location", "installation_dir", "data_opt"}
         );

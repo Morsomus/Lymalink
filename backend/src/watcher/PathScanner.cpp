@@ -294,6 +294,27 @@ std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target
 {
 #if defined(_WIN32)
     std::vector<fs::path> scanRoots;
+    std::vector<fs::path> candidates;
+    if (!target.executableLocation.empty())
+    {
+        candidates.push_back(fs::path(target.executableLocation).parent_path() / "ngalaxye_settings");
+    }
+
+    std::error_code candidateEc;
+    for (const fs::path& candidate : candidates)
+    {
+        if (candidate.empty())
+        {
+            continue;
+        }
+
+        if (fs::exists(candidate, candidateEc) && fs::is_directory(candidate, candidateEc))
+        {
+            return candidate.string();
+        }
+        candidateEc.clear();
+    }
+
     if (!target.installationDir.empty())
     {
         scanRoots.emplace_back(target.installationDir);
