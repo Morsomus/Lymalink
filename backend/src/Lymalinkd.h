@@ -105,7 +105,12 @@ private:
     void  SignalThread(sigset_t mask);
 #endif
     void  Shutdown();
-    
+
+#if defined(_WIN32)
+    void  InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid);
+    bool  IsWindowsProcessAlive(uint32_t pid) const;
+    std::vector<uint32_t> CollectWindowsProcessTree(uint32_t rootPid) const;
+#endif
     void  OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid);
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);

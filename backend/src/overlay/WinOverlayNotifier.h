@@ -17,6 +17,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class WinOverlayNotifier : public IDesktopNotificationService
 {
@@ -44,7 +45,7 @@ private:
     };
 
     std::mutex m_mutex;
-    std::unordered_map<int, Mapping> m_mappings;
+    std::unordered_map<int, std::vector<Mapping>> m_mappings;
     bool m_initialised;
     uint64_t m_activeTimeoutMs;
 

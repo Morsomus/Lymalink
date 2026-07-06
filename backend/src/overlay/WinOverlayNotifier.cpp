@@ -68,10 +68,13 @@ void WinOverlayNotifier::Shutdown()
     }
 
     // Signal every injected overlay before removing its shared-memory mapping
-    for (auto& [targetId, mapping] : m_mappings)
+    for (auto& [targetId, mappings] : m_mappings)
     {
         (void)targetId;
-        CloseMapping(mapping);
+        for (Mapping& mapping : mappings)
+        {
+            CloseMapping(mapping);
+        }
     }
     m_mappings.clear();
     SetVulkanLayersEnabled(false);
@@ -93,12 +96,22 @@ bool WinOverlayNotifier::RegisterProcess(int targetId, uint32_t pid)
         return false;
     }
 
-    // Replace old mapping if target process restarted with a new PID
+    // Keep one mapping per injected process - Some games launch a child render process
     auto existing = m_mappings.find(targetId);
     if (existing != m_mappings.end())
     {
-        CloseMapping(existing->second);
-        m_mappings.erase(existing);
+        for (auto it = existing->second.begin(); it != existing->second.end(); )
+        {
+            if (it->pid == pid)
+            {
+                CloseMapping(*it);
+                it = existing->second.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
     }
 
     // Mapping name includes PID, preventing cross-process notification delivery
@@ -128,7 +141,7 @@ bool WinOverlayNotifier::RegisterProcess(int targetId, uint32_t pid)
     state->version = WIN_OVERLAY_SHM_VERSION;
     state->structSize = sizeof(*state);
     InterlockedExchange(&state->daemonActive, 1);
-    m_mappings.emplace(targetId, Mapping{pid, handle, state});
+    m_mappings[targetId].push_back(Mapping{pid, handle, state});
     LOG_BE(Urgency::Debug, "Overlay SHM ready for targetId=%d pid=%u.", targetId, pid);
     return true;
 }
@@ -145,7 +158,10 @@ void WinOverlayNotifier::UnregisterProcess(int targetId)
     {
         return;
     }
-    CloseMapping(it->second);
+    for (Mapping& mapping : it->second)
+    {
+        CloseMapping(mapping);
+    }
     m_mappings.erase(it);
 }
 
@@ -156,12 +172,15 @@ void WinOverlayNotifier::ClearSharedMemoryNotification()
     std::lock_guard<std::mutex> lock(m_mutex);
 
     // Clear only active flags; next writer replaces complete payload
-    for (auto& [targetId, mapping] : m_mappings)
+    for (auto& [targetId, mappings] : m_mappings)
     {
         (void)targetId;
-        if (mapping.state)
+        for (Mapping& mapping : mappings)
         {
-            InterlockedExchange(&mapping.state->active, 0);
+            if (mapping.state)
+            {
+                InterlockedExchange(&mapping.state->active, 0);
+            }
         }
     }
 }
@@ -171,47 +190,59 @@ void WinOverlayNotifier::ClearSharedMemoryNotification()
 bool WinOverlayNotifier::ShowAchievementToast(const AchievementNotification& notification)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    const auto it = m_mappings.find(notification.targetId);
-    if (it == m_mappings.end() || !it->second.state)
+    auto it = m_mappings.find(notification.targetId);
+    if (it == m_mappings.end() || it->second.empty())
     {
         LOG_BE(Urgency::Debug, "Overlay target not mapped, skipping notification: targetId=%d.", notification.targetId);
         return false;
     }
 
-    WinOverlaySharedMemoryState& state = *it->second.state;
     const uint64_t nowMs = Utils::NowMs();
+    bool wroteAny = false;
 
-    // Do not overwrite an active notification unless its state is stale
-    if (InterlockedCompareExchange(&state.active, 0, 0) != 0)
+    for (Mapping& mapping : it->second)
     {
-        const uint64_t ageMs = nowMs > state.timestamp ? nowMs - state.timestamp : 0;
-        if (ageMs < m_activeTimeoutMs)
+        if (!mapping.state)
         {
-            LOG_BE(Urgency::Debug, "Overlay busy, skipping notification: targetId=%d.", notification.targetId);
-            return false;
+            continue;
         }
-        InterlockedExchange(&state.active, 0);
+
+        WinOverlaySharedMemoryState& state = *mapping.state;
+
+        // Do not overwrite an active notification unless its state is stale
+        if (InterlockedCompareExchange(&state.active, 0, 0) != 0)
+        {
+            const uint64_t ageMs = nowMs > state.timestamp ? nowMs - state.timestamp : 0;
+            if (ageMs < m_activeTimeoutMs)
+            {
+                LOG_BE(Urgency::Debug, "Overlay busy, skipping notification: targetId=%d pid=%u.", notification.targetId, mapping.pid);
+                continue;
+            }
+            InterlockedExchange(&state.active, 0);
+        }
+
+        // Reset fixed buffers so shorter next payload cannot retain stale bytes
+        std::memset(state.title, 0, sizeof(state.title));
+        std::memset(state.description, 0, sizeof(state.description));
+        std::memset(state.iconPath, 0, sizeof(state.iconPath));
+        std::memset(state.appIconPath, 0, sizeof(state.appIconPath));
+        std::memset(state.iconPixels, 0, sizeof(state.iconPixels));
+        CopyText(state.title, sizeof(state.title), notification.achievementName);
+        CopyText(state.description, sizeof(state.description), notification.achievementDescription);
+        CopyText(state.iconPath, sizeof(state.iconPath), notification.iconPath);
+        CopyText(state.appIconPath, sizeof(state.appIconPath), notification.appIconPath);
+        state.timestamp = nowMs;
+        state.durationMs = 6000;
+        state.notificationPosition = static_cast<uint32_t>(ResolveNotificationPosition());
+        state.hasIconPixels = LoadIconPixels(notification, state.iconPixels) ? 1U : 0U;
+
+        // Publish only after all payload bytes are visible to the injected reader
+        MemoryBarrier();
+        InterlockedExchange(&state.active, 1);
+        wroteAny = true;
     }
 
-    // Reset fixed buffers so shorter next payload cannot retain stale bytes
-    std::memset(state.title, 0, sizeof(state.title));
-    std::memset(state.description, 0, sizeof(state.description));
-    std::memset(state.iconPath, 0, sizeof(state.iconPath));
-    std::memset(state.appIconPath, 0, sizeof(state.appIconPath));
-    std::memset(state.iconPixels, 0, sizeof(state.iconPixels));
-    CopyText(state.title, sizeof(state.title), notification.achievementName);
-    CopyText(state.description, sizeof(state.description), notification.achievementDescription);
-    CopyText(state.iconPath, sizeof(state.iconPath), notification.iconPath);
-    CopyText(state.appIconPath, sizeof(state.appIconPath), notification.appIconPath);
-    state.timestamp = nowMs;
-    state.durationMs = 6000;
-    state.notificationPosition = static_cast<uint32_t>(ResolveNotificationPosition());
-    state.hasIconPixels = LoadIconPixels(notification, state.iconPixels) ? 1U : 0U;
-
-    // Publish only after all payload bytes are visible to the injected reader
-    MemoryBarrier();
-    InterlockedExchange(&state.active, 1);
-    return true;
+    return wroteAny;
 }
 
 /////////////////////////////////////////////////////////////////////

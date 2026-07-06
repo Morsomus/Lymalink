@@ -19,10 +19,12 @@
 #include <fstream>
 #include <format>
 #include <algorithm>
+#include <unordered_set>
 #if defined(_WIN32)
     #include <QCoreApplication>
     #include <QMetaObject>
     #include <windows.h>
+    #include <tlhelp32.h>
 #else
     #include <sys/signalfd.h>
     #include <unistd.h>
@@ -495,39 +497,153 @@ void Lymalinkd::Shutdown()
 
 /////////////////////////////////////////////////////////////////////
 
+#if defined(_WIN32)
+bool Lymalinkd::IsWindowsProcessAlive(uint32_t pid) const
+{
+    // Open a lightweight handle and check whether the process has exited
+    HANDLE process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process)
+    {
+        return false;
+    }
+
+    const DWORD wait = WaitForSingleObject(process, 0);
+    CloseHandle(process);
+    return wait == WAIT_TIMEOUT;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::vector<uint32_t> Lymalinkd::CollectWindowsProcessTree(uint32_t rootPid) const
+{
+    std::vector<uint32_t> pids;
+    if (rootPid == 0)
+    {
+        return pids;
+    }
+
+    // Always inject the watched root process first
+    pids.push_back(rootPid);
+
+    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE)
+    {
+        LOG_BE(Urgency::Warning, "Process tree snapshot failed for root pid=%u.", rootPid);
+        return pids;
+    }
+
+    // Cache snapshot rows so parent/child expansion can run without holding OS resources
+    std::vector<PROCESSENTRY32> entries;
+    PROCESSENTRY32 entry{sizeof(entry)};
+    for (BOOL ok = Process32First(snapshot, &entry); ok; ok = Process32Next(snapshot, &entry))
+    {
+        entries.push_back(entry);
+    }
+    CloseHandle(snapshot);
+
+    // Add direct and nested child processes below the watched root
+    bool added = true;
+    while (added)
+    {
+        added = false;
+        for (const PROCESSENTRY32& process : entries)
+        {
+            const uint32_t pid = static_cast<uint32_t>(process.th32ProcessID);
+            const uint32_t parentPid = static_cast<uint32_t>(process.th32ParentProcessID);
+            if (std::find(pids.begin(), pids.end(), pid) != pids.end())
+            {
+                continue;
+            }
+            if (std::find(pids.begin(), pids.end(), parentPid) == pids.end())
+            {
+                continue;
+            }
+
+            pids.push_back(pid);
+            added = true;
+        }
+    }
+
+    return pids;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
+{
+    // Retry briefly because some games spawn the real render process after the launcher process
+    auto worker = [this, targetId, rootPid]() {
+        std::unordered_set<uint32_t> injected;
+        constexpr int retrySeconds = 45;
+
+        for (int second = 0; second < retrySeconds && m_running.load(); ++second)
+        {
+            // Stop polling once the watched root process has exited
+            if (!IsWindowsProcessAlive(rootPid))
+            {
+                LOG_BE(Urgency::Debug, "Windows overlay process-tree injection stopped: root pid=%u exited.", rootPid);
+                return;
+            }
+
+            // Inject each newly discovered process in the root process tree once
+            const std::vector<uint32_t> pids = CollectWindowsProcessTree(rootPid);
+            for (uint32_t pid : pids)
+            {
+                if (pid == 0 || injected.count(pid))
+                {
+                    continue;
+                }
+
+                LOG_BE(Urgency::Info, "Windows overlay process-tree injection targetId=%d rootPid=%u pid=%u.", targetId, rootPid, pid);
+                const bool overlayMappingReady = m_overlayNotifications.RegisterProcess(targetId, pid);
+                if (!overlayMappingReady)
+                {
+                    LOG_BE(Urgency::Warning, "Overlay mapping unavailable for targetId=%d pid=%u.", targetId, pid);
+                    injected.insert(pid);
+                    continue;
+                }
+
+                if (!m_overlayInjector.InjectOpenGL(pid))
+                {
+                    LOG_BE(Urgency::Warning, "OpenGL overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+                }
+                if (!m_overlayInjector.InjectDirect3D9(pid))
+                {
+                    LOG_BE(Urgency::Warning, "Direct3D9 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+                }
+                if (!m_overlayInjector.InjectDirect3D10(pid))
+                {
+                    LOG_BE(Urgency::Warning, "Direct3D10 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+                }
+                if (!m_overlayInjector.InjectDirect3D11(pid))
+                {
+                    LOG_BE(Urgency::Warning, "Direct3D11 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+                }
+                if (!m_overlayInjector.InjectDirect3D12(pid))
+                {
+                    LOG_BE(Urgency::Warning, "Direct3D12 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
+                }
+
+                injected.insert(pid);
+            }
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    };
+
+    std::lock_guard<std::mutex> lock(m_startupNotificationThreadsMutex);
+    m_startupNotificationThreads.emplace_back(std::move(worker));
+}
+#endif
+
+/////////////////////////////////////////////////////////////////////
+
 void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid)
 {
     LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
 
 #if defined(_WIN32)
-    const bool overlayMappingReady = m_overlayNotifications.RegisterProcess(targetId, pid);
-    if (!overlayMappingReady)
-    {
-        LOG_BE(Urgency::Warning, "Overlay mapping unavailable for targetId=%d pid=%u.", targetId, pid);
-    }
-    else
-    {
-        if (!m_overlayInjector.InjectOpenGL(pid))
-        {
-            LOG_BE(Urgency::Warning, "OpenGL overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
-        }
-        if (!m_overlayInjector.InjectDirect3D9(pid))
-        {
-            LOG_BE(Urgency::Warning, "Direct3D9 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
-        }
-        if (!m_overlayInjector.InjectDirect3D10(pid))
-        {
-            LOG_BE(Urgency::Warning, "Direct3D10 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
-        }
-        if (!m_overlayInjector.InjectDirect3D11(pid))
-        {
-            LOG_BE(Urgency::Warning, "Direct3D11 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
-        }
-        if (!m_overlayInjector.InjectDirect3D12(pid))
-        {
-            LOG_BE(Urgency::Warning, "Direct3D12 overlay injection unavailable for targetId=%d pid=%u.", targetId, pid);
-        }
-    }
+    InjectWindowsOverlayProcessTree(targetId, pid);
 #else
     (void)pid;
 #endif
