@@ -75,6 +75,10 @@ set_target_properties(Lymalink PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+if(WIN32)
+    set_target_properties(Lymalink PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
 set_source_files_properties(Themes.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )

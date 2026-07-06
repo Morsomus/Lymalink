@@ -2,11 +2,11 @@
 
 **Achievement watcher and tracker for Steam and GOG emulators, Steam/Cloud APIs, and fully custom targets.**
 
-- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For a list of supported emulators, refer to the [User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#which-emulator-created-achievement-files-are-currently-supported).
+- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For supported emulator details, see the [Linux User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#which-emulator-created-achievement-files-are-currently-supported) or [Windows User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-win.md#which-emulator-created-achievement-files-are-currently-supported).
 - Can be configured to run in the background without the user interface.
 - Import your official Steam achievements.
 
-> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started and consult the [User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) for configuration, usage instructions, and FAQ.
+> The **v0.9.*-beta** release is available for Linux and Windows. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
@@ -27,16 +27,20 @@
 ## Table of Contents
 
 - [Visual Showcase](#visual-showcase)
-- [Installation](#installation)
+- [Installation - Linux](#installation---linux)
   - [Option 1: Pre-built Release (Recommended for Supported Distros)](#option-1-pre-built-release-recommended-for-supported-distros)
   - [Option 2: Building from Source](#option-2-building-from-source)
+- [Installation - Windows](#installation---windows)
+  - [Option 1: Pre-built Release](#option-1-pre-built-release)
+  - [Option 2: Building from Source](#option-2-building-from-source-1)
 - [Project Status](#project-status)
 - [Planned Features](#planned-features)
-- [Building for Linux](#building-for-linux)
+- [Building](#building)
   - [Frontend](#frontend)
   - [Backend](#backend)
   - [Backend Overlay](#backend-overlay)
-  - [Installer](#installer)
+  - [Linux Installer](#linux-installer)
+  - [Windows Installer](#windows-installer)
 - [Credits](#credits)
 - [Disclaimer](#disclaimer)
   - [General](#general)
@@ -74,7 +78,7 @@
 |:---:|:---:|
 | <img src="showcase/0.8.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.8.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
 
-## Installation
+## Installation - Linux
 
 Lymalink can be installed either by using the pre-built installer or by compiling the binaries manually from source if your Linux distribution has compatibility issues with the pre-made packages.
 
@@ -98,7 +102,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.8.4-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.9.0-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -111,7 +115,39 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/linux/build.sh
-./installer/linux/build/lymalink-installer-0.8.4-*-x86_64.run
+./installer/linux/build/lymalink-installer-0.9.0-*-x86_64.run
+```
+
+## Installation - Windows
+
+> After installation, consult the [Windows User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-win.md#-achievement-notifications) for usage information.
+
+### Option 1: Pre-built Release
+
+Download the latest `lymalink-installer-<VERSION>-win-x64.exe` from the [Releases](https://github.com/Morsomus/Lymalink/releases) page and run it.
+
+> **Note:** To uninstall while keeping your configuration and achievement data files, use Windows Installed apps or run `& "$env:LOCALAPPDATA\Programs\Lymalink\uninstall-lymalink.exe"` in PowerShell.
+
+> **Note:** To update an existing installation, run the latest installer. User data and configuration under `%APPDATA%\Lymalink` will be preserved.
+
+### Option 2: Building from Source
+
+```powershell
+git clone --depth 1 --branch v0.9.0-beta https://github.com/Morsomus/Lymalink.git
+cd Lymalink
+```
+
+Install the Windows dependencies documented for each component:
+
+* **Frontend:** [frontend/README.md#dependencies-1](frontend/README.md#dependencies-1)
+* **Backend:** [backend/README.md#dependencies-1](backend/README.md#dependencies-1)
+* **Backend Overlay:** [backend-overlay/README.md#dependencies-1](backend-overlay/README.md#dependencies-1)
+* **Windows Installer Requirements:** [installer/windows/README.md#build-requirements](installer/windows/README.md#build-requirements)
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\installer\windows\build.ps1
+.\installer\windows\build\lymalink-installer-0.9.0-win-x64.exe
 ```
 
 
@@ -120,34 +156,39 @@ installer/linux/build.sh
 Current progress towards different versions, platform-wise
 
 ### Linux
-| Component | Status<br>v0.8.0-beta | Milestone |
-|-----------|--------|--------|
-| **Frontend** | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | 🔴 To Be Started | v0.9.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | 🔴 To Be Started | v0.9.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Localisation | 🔴 To Be Started | |
-| **Backend Service** | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Local Achievement File Support | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Sound System | ✅ Ready to Deploy | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | v0.8.0-beta |
-| **Compatibility & Testing** | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | v1.0.0 |
+| Component | Status<br>v0.8.0-beta | Status<br>v0.9.0-beta | Milestone |
+|-----------|--------|--------|--------|
+| **Frontend** | | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | - | 🔴 To Be Started | v0.9.x-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | - | 🔴 To Be Started | v0.9.x-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Localisation | - | 🔴 To Be Started | v1.x.x |
+| **Backend Service** | | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Local Achievement File Support | 🚧 In Development | - | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Sound System | ✅ Ready to Deploy | - | v0.8.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | - | v0.8.0-beta |
+| **Compatibility & Testing** | | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | - | v1.0.0 |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | - | v1.0.0 |
 
 ### Windows
-| Component | Status |
-|-----------|--------|
-| Frontend | 🔴 To Be Started |
-| Backend Service | 🔴 To Be Started |
+| Component | Status<br>v0.9.0-beta | Milestone |
+|-----------|--------|--------|
+| **Frontend** | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Initial port | ✅ Ready to Deploy | v0.9.0-beta |
+| **Backend Service** | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Initial port | ✅ Ready to Deploy | v0.9.0-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL, DX9-12) | ✅ Ready to Deploy | v0.9.0-beta |
+| **Compatibility & Testing** | | |
+| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | v1.0.0 |
 
 ---
 
@@ -161,75 +202,77 @@ Current progress towards different versions, platform-wise
 - **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
 - **Localisation** - Languages to choose from.
-- **Windows Support** - Bring Lymalink to Windows.
 
 ---
 
-## Building for Linux
+## Building
 
-- [Frontend build guide](frontend/README.md)
-- [Backend build guide](backend/README.md)
-- [Backend overlay build guide](backend-overlay/README.md)
-- [Linux installer build guide](installer/linux/README.md)
+Use the `.sh` build scripts on Linux and the `.ps1` build scripts in Windows PowerShell.
+
+1. [Frontend build guide](frontend/README.md)
+2. [Backend build guide](backend/README.md)
+3. [Backend overlay build guide](backend-overlay/README.md)
+4. [Linux installer build guide](installer/linux/README.md)
+5. [Windows installer build guide](installer/windows/README.md)
 
 ### Frontend
 
-The Qt frontend can be built with `frontend/build.sh` from the repository root:
+The Qt frontend can be built with `frontend/build.sh` on Linux or `frontend/build.ps1` on Windows from the repository root:
 
 ```bash
-frontend/build.sh clean
-frontend/build.sh debug
-frontend/build.sh release
-frontend/build.sh deploy
-frontend/build.sh deploy --debug
-frontend/build.sh uninstall
-frontend/build.sh dev
-frontend/build.sh test
-frontend/build.sh test --silent
+frontend/build.sh/ps1 clean
+frontend/build.sh/ps1 debug
+frontend/build.sh/ps1 release
+frontend/build.sh/ps1 deploy
+frontend/build.sh/ps1 deploy --debug
+frontend/build.sh/ps1 uninstall
+frontend/build.sh/ps1 dev
+frontend/build.sh/ps1 test
+frontend/build.sh/ps1 test --silent
 ```
 
-For frontend setup, direct CMake usage, tests, and deployment details, see [frontend/README.md](frontend/README.md).
+For Linux and Windows frontend setup, direct CMake usage, tests, and deployment details, see [frontend/README.md](frontend/README.md).
 
 ### Backend
 
-`lymalinkd` is the Linux backend daemon. It can be built with `backend/build.sh` from the repository root:
+`lymalinkd` is the backend service. It can be built with `backend/build.sh` on Linux or `backend/build.ps1` on Windows from the repository root:
 
 ```bash
-backend/build.sh clean
-backend/build.sh debug
-backend/build.sh release
+backend/build.sh/ps1 clean
+backend/build.sh/ps1 debug
+backend/build.sh/ps1 release
+backend/build.sh/ps1 deploy
+backend/build.sh/ps1 deploy --debug
+backend/build.sh/ps1 start
+backend/build.sh/ps1 stop
+backend/build.sh/ps1 restart
+backend/build.sh/ps1 status
+backend/build.sh/ps1 logs
+backend/build.sh/ps1 uninstall
 backend/build.sh test
 backend/build.sh test --silent
-backend/build.sh deploy
-backend/build.sh deploy --debug
-backend/build.sh start
-backend/build.sh stop
-backend/build.sh restart
-backend/build.sh status
-backend/build.sh logs
-backend/build.sh uninstall
 ```
 
-For backend setup, direct `make` usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
+For Linux and Windows backend setup, direct build usage, tests, local run commands, and service details, see [backend/README.md](backend/README.md).
 
 ### Backend Overlay
 
-The standalone overlay libraries can be built and deployed separately:
+The standalone overlay libraries can be built and deployed with `backend-overlay/build.sh` on Linux or `backend-overlay/build.ps1` on Windows from the repository root:
 
 ```bash
-backend-overlay/build.sh clean
-backend-overlay/build.sh debug
-backend-overlay/build.sh release
+backend-overlay/build.sh/ps1 clean
+backend-overlay/build.sh/ps1 debug
+backend-overlay/build.sh/ps1 release
+backend-overlay/build.sh/ps1 deploy
+backend-overlay/build.sh/ps1 deploy --debug
+backend-overlay/build.sh/ps1 uninstall
 backend-overlay/build.sh flatpak-debug
 backend-overlay/build.sh flatpak-release
-backend-overlay/build.sh deploy
-backend-overlay/build.sh deploy --debug
-backend-overlay/build.sh uninstall
 ```
 
-For overlay setup, Flatpak SDK setup, direct `make` usage, and deployment details, see [backend-overlay/README.md](backend-overlay/README.md).
+For Linux overlay setup, Flatpak SDK setup, and direct `make` usage, and for Windows Vulkan/Direct3D setup and deployment details, see [backend-overlay/README.md](backend-overlay/README.md).
 
-### Installer
+### Linux Installer
 
 The `installer/linux/build.sh` script builds the frontend, backend, overlay libraries, Flatpak VulkanLayer extension, and a self-extracting user-level Linux installer:
 
@@ -250,6 +293,37 @@ Chmod +x and run the generated `.run` file to install Lymalink without root. To 
 
 ```bash
 ~/.local/bin/uninstall-lymalink
+```
+
+### Windows Installer
+
+The `installer/windows/build.ps1` script builds the frontend, backend, x64/x86 overlay libraries, stages the Qt runtime with `windeployqt`, and creates a per-user NSIS installer:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\installer\windows\build.ps1
+```
+
+To clean the Windows installer build directory:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\installer\windows\build.ps1 clean
+```
+
+For Windows installer host requirements, NSIS setup, payload layout, registry entries, and packaging details, see [installer/windows/README.md](installer/windows/README.md).
+
+Installer output is written to:
+
+```text
+installer/windows/build/lymalink-release/
+installer/windows/build/lymalink-installer-<VERSION>-win-x64.exe
+```
+
+Run the generated `.exe` file to install Lymalink for the current Windows user. To remove installer-managed files while preserving user configuration and database data, uninstall from Windows Installed apps or run:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Lymalink\uninstall-lymalink.exe"
 ```
 
 ---

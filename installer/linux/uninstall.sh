@@ -60,10 +60,17 @@ else
     CONFIG_HOME="$LOGIN_HOME/.config"
 fi
 
+if [ -n "${XDG_STATE_HOME:-}" ] && ! path_inside_snap_home "$XDG_STATE_HOME" "$LOGIN_HOME"; then
+    STATE_HOME="$XDG_STATE_HOME"
+else
+    STATE_HOME="$LOGIN_HOME/.local/state"
+fi
+
 BIN_DIR="$LOGIN_HOME/.local/bin"
 LIB_DIR="$LOGIN_HOME/.local/lib"
 APP_LIB_DIR="$LIB_DIR/lymalink"
 FRONTEND_DIR="$APP_LIB_DIR/frontend"
+APP_CONFIG_DIR="$CONFIG_HOME/Lymalink"
 SERVICE_DIR="$CONFIG_HOME/systemd/user"
 VULKAN_DIR="$DATA_HOME/vulkan/implicit_layer.d"
 ICON_DIR="$DATA_HOME/icons/hicolor/256x256/apps"
@@ -149,6 +156,21 @@ fi
 remove_path_block "$LOGIN_HOME/.bash_profile"
 remove_path_block "$LOGIN_HOME/.profile"
 remove_path_block "$LOGIN_HOME/.bashrc"
+
+# Remove generated user data while preserving configuration and database files.
+if [ -d "$APP_DATA_DIR" ]; then
+    find "$APP_DATA_DIR" -depth -mindepth 1 \
+        ! -name "lymalink_database" \
+        ! -name "lymalink_database-wal" \
+        ! -name "lymalink_database-shm" \
+        -exec rm -rf {} +
+    rmdir "$APP_DATA_DIR" >/dev/null 2>&1 || true
+fi
+if [ -d "$APP_CONFIG_DIR" ]; then
+    find "$APP_CONFIG_DIR" -depth -mindepth 1 ! -name "config.ini" -exec rm -rf {} +
+    rmdir "$APP_CONFIG_DIR" >/dev/null 2>&1 || true
+fi
+rm -rf "$STATE_HOME/Lymalink" "$STATE_HOME/lymalink"
 
 # Refresh systemd user unit configurations if available
 if command -v systemctl >/dev/null 2>&1; then

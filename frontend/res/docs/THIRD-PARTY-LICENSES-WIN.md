@@ -77,6 +77,14 @@ Vulkan headers and loader are provided by the Khronos Group. Lymalink uses Vulka
 
 ---
 
+### NSIS
+**License:** zlib/libpng License
+**Source / Info:** https://nsis.sourceforge.io/License / https://nsis.sourceforge.io/
+
+NSIS is used to build the per-user Windows installer and uninstaller for Lymalink.
+
+---
+
 ## Fonts
 
 ### Inter

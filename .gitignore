@@ -87,7 +87,8 @@ a_notes/
 frontend/build/
 backend/build/
 backend-overlay/build/
-installer/build/
+installer/windows/build/
+installer/linux/build/
 imgui
 minhook
 nlohmann

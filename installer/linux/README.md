@@ -141,8 +141,7 @@ If `~/.local/bin` is missing from `PATH`, installer adds a managed block to
 ~/.local/bin/uninstall-lymalink
 ```
 
-Uninstaller removes installer-managed files, PATH blocks, notification sounds,
-Flatpak extension, and user `systemd` unit. User config and database files stay.
+Uninstaller removes installer-managed files, PATH blocks, notification sounds, generated images, logs, Flatpak extension, and user `systemd` unit. User configuration and database files are preserved.
 
 ## Notes
 

@@ -44,6 +44,8 @@ target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-over
 target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Network Qt6::Sql SQLite::SQLite3 ole32 windowscodecs advapi32)
 set_target_properties(lymalinkd PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+set_target_properties(lymalinkd PROPERTIES WIN32_EXECUTABLE TRUE)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(lymalinkd PRIVATE BACKEND_DEBUG)
 endif()

@@ -197,4 +197,4 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 
 ###
 ### Support & Development
-Development updates, releases, and source code are available on our official GitHub repository. If you encounter any issues, please report them in the repository **Issues** section. You can access it by clicking the link on the sidebar.
+Development updates, releases, and source code are available on our official GitHub repository. If you encounter any issues, please report them in the repository **Issues** section. You can access it by clicking the GitHub link on the sidebar.

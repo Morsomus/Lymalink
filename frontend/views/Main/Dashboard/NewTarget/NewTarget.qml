@@ -95,7 +95,7 @@ Item {
                 readonly property bool isPressed: id_targetTypeMouseArea.pressed
                 readonly property string badgeText: modelData.key === "steam" && ctxLymalink.steamHydrationBusy
                     ? qsTr("Importing...")
-                    : qsTr("Soon")
+                    : qsTr("Future")
                 readonly property color defaultBackground: isPressed
                     ? Themes.newTarget.colors.cardBackgroundPressed
                     : isHovered
