@@ -107,11 +107,11 @@ Install the required dependencies for your specific Linux distribution (the docu
 * **Frontend:** [frontend/README.md#dependencies](frontend/README.md#dependencies)
 * **Backend:** [backend/README.md#dependencies](backend/README.md#dependencies)
 * **Backend Overlay:** [backend-overlay/README.md#dependencies](backend-overlay/README.md#dependencies)
-* **Installer Requirements:** [installer/README.md#build-requirements](installer/README.md#build-requirements)
+* **Linux Installer Requirements:** [installer/linux/README.md#build-requirements](installer/linux/README.md#build-requirements)
 
 ```bash
-installer/build.sh
-./installer/build/lymalink-installer-0.8.4-*-x86_64.run
+installer/linux/build.sh
+./installer/linux/build/lymalink-installer-0.8.4-*-x86_64.run
 ```
 
 
@@ -170,7 +170,7 @@ Current progress towards different versions, platform-wise
 - [Frontend build guide](frontend/README.md)
 - [Backend build guide](backend/README.md)
 - [Backend overlay build guide](backend-overlay/README.md)
-- [Installer build guide](installer/README.md)
+- [Linux installer build guide](installer/linux/README.md)
 
 ### Frontend
 
@@ -231,19 +231,19 @@ For overlay setup, Flatpak SDK setup, direct `make` usage, and deployment detail
 
 ### Installer
 
-The `installer/build.sh` script builds the frontend, backend, overlay libraries, Flatpak VulkanLayer extension, and a self-extracting user-level installer:
+The `installer/linux/build.sh` script builds the frontend, backend, overlay libraries, Flatpak VulkanLayer extension, and a self-extracting user-level Linux installer:
 
 ```bash
-installer/build.sh
+installer/linux/build.sh
 ```
 
-For installer host requirements, Flatpak SDK setup, manual Qt runtime bundling, and packaging details, see [installer/README.md](installer/README.md).
+For installer host requirements, Flatpak SDK setup, manual Qt runtime bundling, and packaging details, see [installer/linux/README.md](installer/linux/README.md).
 
 Installer output is written to:
 
 ```text
-installer/build/lymalink-release/
-installer/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
+installer/linux/build/lymalink-release/
+installer/linux/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
 ```
 
 Chmod +x and run the generated `.run` file to install Lymalink without root. To remove installer-managed files while preserving user configuration and database data, run:

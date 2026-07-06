@@ -33,9 +33,9 @@ fails.
 
 Install component build requirements first:
 
-- [Frontend requirements](../frontend/README.md#dependencies)
-- [Backend requirements](../backend/README.md#dependencies)
-- [Overlay requirements](../backend-overlay/README.md#dependencies)
+- [Frontend requirements](../../frontend/README.md#dependencies)
+- [Backend requirements](../../backend/README.md#dependencies)
+- [Overlay requirements](../../backend-overlay/README.md#dependencies)
 
 Installer-only packages, using your distro package manager:
 
@@ -48,7 +48,7 @@ binutils coreutils flatpak makeself
 Run from repository root:
 
 ```bash
-installer/build.sh
+installer/linux/build.sh
 ```
 
 `build.sh` detects the build host from `/etc/os-release` and writes that tag
@@ -58,18 +58,18 @@ Build flow:
 
 1. Builds frontend, backend, and native x86_64/i386 overlay release artifacts.
 2. Builds Flatpak x86_64/i386 overlay artifacts.
-3. Stages payload in `installer/build/lymalink-release/`.
+3. Stages payload in `installer/linux/build/lymalink-release/`.
 4. Bundles frontend Qt libraries, plugins, QML imports, and ICU runtime.
 5. Stores frontend build Qt version in payload metadata.
 6. Builds Flatpak VulkanLayer extension bundle with x86_64 and i386 libraries.
 7. Creates self-extracting installer with `makeself`.
 
-Version comes from root [VERSION](../VERSION).
+Version comes from root [VERSION](../../VERSION).
 
 ## Output
 
 ```text
-installer/build/
+installer/linux/build/
 ├── flatpak-work/
 ├── lymalink-release/
 └── lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
@@ -78,7 +78,7 @@ installer/build/
 Distribute:
 
 ```text
-installer/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
+installer/linux/build/lymalink-installer-<VERSION>-<DISTRO_VERSION>-x86_64.run
 ```
 
 ## Target Runtime Requirements
@@ -103,8 +103,8 @@ best-effort package command for the detected package manager.
 Run as normal desktop user:
 
 ```bash
-chmod +x installer/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
-installer/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
+chmod +x installer/linux/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
+installer/linux/build/lymalink-installer-<VERSION>-<DISTRO>-x86_64.run
 ```
 
 Install script checks before copying files:
