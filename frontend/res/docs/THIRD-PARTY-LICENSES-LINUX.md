@@ -97,6 +97,6 @@ This application and its authors are **not** affiliated with, endorsed by, or ot
 
 ---
 
-## C++ Standard Library & System Interfaces
+## C++ Standard Library & Linux System Interfaces
 Lymalink uses the C++20 standard library and standard POSIX/Linux system interfaces (`<signal.h>`, `<sys/socket.h>`, `<sys/inotify.h>`, `<unistd.h>`, `<dlfcn.h>`, etc.). These are provided by the system toolchain (e.g. libstdc++ / libc++) and are covered by their respective system library licenses, typically GCC Runtime Library Exception or equivalent.
 EGL and GLX headers (`<EGL/egl.h>`, `<GL/glx.h>`) are provided by the system graphics stack and are covered by their respective system library licenses.

@@ -209,7 +209,7 @@ frontend
 │   ├── docs
 │   │   ├── CREDITS.md
 │   │   ├── help
-│   │   │   └── user-guide-0.8.x-beta.md
+│   │   │   └── user-guide-0.9.x-beta-linux.md
 │   │   ├── LICENSE.md
 │   │   └── THIRD-PARTY-LICENSES-LINUX.md
 │   ├── fonts

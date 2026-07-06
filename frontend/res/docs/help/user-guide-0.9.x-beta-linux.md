@@ -24,7 +24,7 @@
 | --- | --- |
 | **Search & Filters** | Find targets by name/ID, or filter by status (Completed, Emulator, Hidden, Installed). |
 | **View & Sort** | Change layouts (List, Details, Small, Default card) and sort by playtime, progress, or dates. |
-| **Add Target** | Setup new targets (For **Emulators**: search game, select executable and prefix). |
+| **Add Target** | Setup new targets (For **Emulators**: search game, set prefix, executable and installation paths). |
 | **Target Card** | Click to access game details, achievement lists, and target settings. |
 | **Refresh** | Reloads dashboard data. |
 
@@ -167,7 +167,7 @@ Type | Launcher | OpenGL setup |
 
 ###
 ### How do achievements appear on the Dashboard?
-They update automatically when `lymalinkd` is running and the game executable path, prefix path and installation directory are correctly configured.
+They update automatically when `lymalinkd` is running and the game executable path, prefix path and installation directory paths are correctly configured.
 - The prefix path **MUST** contain the achievement file within one of its subfolders.
 - The executable path **MUST** be set correctly. The background service only scans when a game is actively being played; otherwise, it sleeps and only checks for the presence of the configured executables.
 - The installation directory path **MUST** be set correctly. Path is used to detect GOG Emulator based achievement files.
@@ -203,8 +203,10 @@ If you encounter any bugs, rendering issues, or if the overlay does not appear o
 Yes. In Settings, you can allow the background service to run independently by enabling 'Track in Background'. The Dashboard is entirely optional once tracking has been configured.
 
 ###
-### Lymalink was not active during gameplay, and I missed an achievement!
-No worries. You can manually "unlock" achievements on the target details page. Simply click the achievement icon and set the desired date and time.
+### Lymalink was not active during gameplay, and I may have missed an achievement!
+No worries. Lymalink scans your achievement file every time you launch the game, so your progress will automatically update.
+
+TIP: You can manually "unlock" achievements on the target details page. Simply click the achievement icon and set the desired date and time.
 
 ###
 ### Which emulator created achievement files are currently supported?
@@ -221,4 +223,4 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 
 ###
 ### Support & Development
-Development updates, releases, and source code are available on our official GitHub repository. If you encounter any issues, please report them in the repository **Issues** section. You can access it by clicking the link on the sidebar.
+Development updates, releases, and source code are available on our official GitHub repository. If you encounter any issues, please report them in the repository **Issues** section. You can access it by clicking the GitHub link on the sidebar.

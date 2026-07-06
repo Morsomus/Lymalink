@@ -2,11 +2,11 @@
 
 **Achievement watcher and tracker for Steam and GOG emulators, Steam/Cloud APIs, and fully custom targets.**
 
-- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For a list of supported emulators, refer to the [User Guide FAQ](frontend/res/docs/help/user-guide-0.8.x-beta.md#which-emulator-created-achievement-files-are-currently-supported).
+- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For a list of supported emulators, refer to the [User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#which-emulator-created-achievement-files-are-currently-supported).
 - Can be configured to run in the background without the user interface.
 - Import your official Steam achievements.
 
-> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started and consult the [User Guide](frontend/res/docs/help/user-guide-0.8.x-beta.md) for configuration, usage instructions, and FAQ.
+> The **v0.8.*-beta** release is now available for Linux. See the [Installation](#installation) section to get started and consult the [User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
@@ -78,7 +78,7 @@
 
 Lymalink can be installed either by using the pre-built installer or by compiling the binaries manually from source if your Linux distribution has compatibility issues with the pre-made packages.
 
-> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.8.x-beta.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
+> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
 
 ### Option 1: Pre-built Release (Recommended for Supported Distros)
 

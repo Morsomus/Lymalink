@@ -129,9 +129,17 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("OS_WIN", false);
 #endif
     engine.rootContext()->setContextProperty("LICENSE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/LICENSE.md")));
-    engine.rootContext()->setContextProperty("THIRD_PARTY_LICENSES_LINUX_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/THIRD-PARTY-LICENSES-LINUX.md")));
+#if defined(Q_OS_WIN)
+    engine.rootContext()->setContextProperty("THIRD_PARTY_LICENSES_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/THIRD-PARTY-LICENSES-WIN.md")));
+#else
+    engine.rootContext()->setContextProperty("THIRD_PARTY_LICENSES_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/THIRD-PARTY-LICENSES-LINUX.md")));
+#endif
     engine.rootContext()->setContextProperty("CREDITS_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/CREDITS.md")));
-    engine.rootContext()->setContextProperty("USER_GUIDE_0_8_0_BETA_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.8.x-beta.md")));
+#if defined(Q_OS_WIN)
+    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.9.x-beta-win.md")));
+#else
+    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.9.x-beta-linux.md")));
+#endif
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);

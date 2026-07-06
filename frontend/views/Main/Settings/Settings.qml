@@ -1167,8 +1167,9 @@ Item {
                                         p_maxLineCount: 6
                                         p_text: qsTr(
                                             qsTr("Sends a test overlay notification to verify that overlay is working correctly.\n") +
-                                            qsTr("The notification is only visible inside applications configured for achievement tracking.\n") +
-                                            qsTr("A small test popup will appear and a notification sound will be played in the background.")
+                                            qsTr("1. Make sure game you are tracking is running.\n") +
+                                            qsTr("2. Press 'Send test'.\n") +
+                                            qsTr("3. Notification appears inside game window and a sound will be played.")
                                         )
                                     }
                                 }
@@ -1375,7 +1376,7 @@ Item {
 
                                 CustomButton {
                                     text: qsTr("Third-Party Licenses")
-                                    onClicked: id_markdownDocumentPopup.openDocument(qsTr("Third-Party Licenses"), THIRD_PARTY_LICENSES_LINUX_MD_TEXT)
+                                    onClicked: id_markdownDocumentPopup.openDocument(qsTr("Third-Party Licenses"), THIRD_PARTY_LICENSES_MD_TEXT)
                                 }
 
                                 CustomButton {
@@ -1390,7 +1391,7 @@ Item {
 
                             CustomButton {
                                 text: qsTr("User Guide")
-                                onClicked: id_markdownDocumentPopup.openDocument(qsTr("User Guide"), USER_GUIDE_0_8_0_BETA_MD_TEXT)
+                                onClicked: id_markdownDocumentPopup.openDocument(qsTr("User Guide"), USER_GUIDE_MD_TEXT)
                             }
 
                             CustomButton {
