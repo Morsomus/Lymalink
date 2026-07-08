@@ -40,8 +40,6 @@ const char* OverlayArch()
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
 {
-    (void)reserved;
-
     if (reason == DLL_PROCESS_ATTACH)
     {
         LYMALINK_LOG(std::string("[OverlayLibrary] Loaded arch=") + OverlayArch());
@@ -53,6 +51,12 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
     }
     else if (reason == DLL_PROCESS_DETACH)
     {
+        // Prevent deadlock on graphics runtimes while loader-lock cleanup
+        if (reserved)
+        {
+            return TRUE;
+        }
+
 #ifdef LYMALINK_OVERLAY_ATTACH_HOOKS
         LymalinkOverlayOnProcessDetach();
 #else
