@@ -431,8 +431,10 @@ Item {
                             wrapMode: Text.Wrap
                         }
 
-                        Item {
+                        ColumnLayout {
                             visible: !OS_WIN
+                            Layout.fillWidth: true
+                            spacing: 4
 
                             Repeater {
                                 model: [

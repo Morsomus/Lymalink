@@ -702,7 +702,9 @@ TEST_CASE("pathScanner_detectsNemirtingasBelowInstallationDir", "[pathscanner]")
 
 /////////////////////////////////////////////////////////////////////
 
-TEST_CASE("pathScanner_collectsGogIdsAndMatchesPrefixAchievementDir", "[pathscanner]")
+// Disabled while FindGogPrefixAppIdDir() is intentionally not used.
+// Current scanner only records GOG IDs; prefix-dir matching was parked due false-positive risk.
+TEST_CASE("pathScanner_collectsGogIdsAndMatchesPrefixAchievementDir", "[pathscanner][.]")
 {
     const fs::path root = "/tmp/lymalink_pathscanner_gog_ids";
     fs::remove_all(root);

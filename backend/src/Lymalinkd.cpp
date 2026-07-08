@@ -857,7 +857,9 @@ void Lymalinkd::OnShutdown()
 
     m_running.store(false);
     m_cv.notify_all();
+#if defined(_WIN32)
     QCoreApplication::quit();
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////
