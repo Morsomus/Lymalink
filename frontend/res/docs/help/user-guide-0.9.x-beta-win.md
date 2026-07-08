@@ -169,6 +169,7 @@ If the sound plays but the visual notification is missing, consider the followin
 - **Overlay support:** The Windows overlay currently supports Vulkan, OpenGL, Direct3D 9, Direct3D 10, Direct3D 11, and Direct3D 12.
 - **Beta Phase Limitations:** The in-game notification overlay is complex and highly experimental. Since Lymalink is currently in beta, the overlay may require platform-specific tweaks to display correctly depending on your system configuration.
 - **Test the Overlay:** You can trigger a manual test notification from the **Settings** page under the **Background Service** section. Note that for the test to work, your game **must be running** and correctly configured so that Lymalink detects your active gaming session.
+- **Administrator privileges:** Prefer running games without administrator privileges. If a game must run as administrator, Lymalink and background service must also run as administrator for the overlay to work.
 
 If you encounter any bugs, rendering issues, or if the overlay does not appear on your specific setup, please report them in our repository's **Issues** section.
 
