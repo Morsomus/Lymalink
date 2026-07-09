@@ -30,6 +30,10 @@
     #include <unistd.h>
 #endif
 
+#if defined(_WIN32)
+    #define WINDOWS_OVERLAY_INJECTION_DELAY_MS 3000
+#endif
+
 #define COMPONENT "Lymalinkd"
 
 /////////////////////////////////////////////////////////////////////
@@ -599,6 +603,17 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
                 if (!overlayMappingReady)
                 {
                     LOG_BE(Urgency::Warning, "Overlay mapping unavailable for targetId=%d pid=%u.", targetId, pid);
+                    injected.insert(pid);
+                    continue;
+                }
+
+                LOG_BE(Urgency::Debug, "Delaying Windows overlay injection for stability for targetId=%d pid=%u by %dms.", targetId, pid, WINDOWS_OVERLAY_INJECTION_DELAY_MS);
+                std::this_thread::sleep_for(std::chrono::milliseconds(WINDOWS_OVERLAY_INJECTION_DELAY_MS));
+
+                // After delay, check if process is still alive - If not, do not try to inject
+                if (!m_running.load() || !IsWindowsProcessAlive(rootPid) || !IsWindowsProcessAlive(pid))
+                {
+                    LOG_BE(Urgency::Debug, "Windows overlay injection skipped after delay: rootPid=%u pid=%u exited.", rootPid, pid);
                     injected.insert(pid);
                     continue;
                 }
@@ -1349,7 +1364,11 @@ void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
 
     std::lock_guard<std::mutex> lock(m_startupNotificationThreadsMutex);
     m_startupNotificationThreads.emplace_back([this, targetId, gameName]() {
+#if defined(_WIN32)
+        constexpr int STARTUP_NOTIFICATION_DELAY_MS = 5000 + WINDOWS_OVERLAY_INJECTION_DELAY_MS;
+#else
         constexpr int STARTUP_NOTIFICATION_DELAY_MS = 5000;
+#endif
         constexpr int SOCKET_NOTIFICATION_TIMEOUT_MS = 30000;
         constexpr int POLL_INTERVAL_MS = 100;
 
