@@ -32,6 +32,7 @@ $BUILD_ROOT = Join-Path $SCRIPT_DIR "build\windows"
 $MIN_QT_VERSION = [Version]"6.8.0"
 $CMAKE_GENERATOR = "Ninja"
 $BACKEND_OWNED_INSTALL_ITEMS = @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "sounds", "overlay")
+$REQUIRED_QML_MODULES = @("Qt5Compat\GraphicalEffects")
 
 ##############################################################################
 
@@ -83,6 +84,39 @@ function Test-QtVersion {
 
     if ($qtVersion -lt $MIN_QT_VERSION) {
         throw "Qt $qtVersionText is too old for the frontend QML runtime. Build with Qt >= $MIN_QT_VERSION."
+    }
+}
+
+##############################################################################
+
+function Test-RequiredQtQmlModules {
+    param([string]$QmakePath)
+
+    $qtQmlDir = (& $QmakePath -query QT_INSTALL_QML)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($qtQmlDir)) {
+        throw "Could not query Qt QML module directory with: $QmakePath"
+    }
+
+    $qtQmlDir = $qtQmlDir.Trim()
+    foreach ($module in $REQUIRED_QML_MODULES) {
+        $moduleDir = Join-Path $qtQmlDir $module
+        $moduleManifest = Join-Path $moduleDir "qmldir"
+        if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) {
+            throw "Required Qt QML module is not installed: $module. Install the Qt 5 Compatibility Module for this Qt kit. Expected: $moduleManifest"
+        }
+    }
+}
+
+##############################################################################
+
+function Test-DeployedQtQmlModules {
+    param([string]$BundleDirectory)
+
+    foreach ($module in $REQUIRED_QML_MODULES) {
+        $moduleManifest = Join-Path (Join-Path $BundleDirectory "qml") (Join-Path $module "qmldir")
+        if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) {
+            throw "windeployqt did not bundle required Qt QML module: $module. Missing: $moduleManifest"
+        }
     }
 }
 
@@ -209,6 +243,7 @@ function Test-Toolchain {
 
     $qmakePath = Resolve-Qmake
     Test-QtVersion $qmakePath
+    Test-RequiredQtQmlModules $qmakePath
 
     $qtSpec = (& $qmakePath -query QMAKE_SPEC)
     if ($LASTEXITCODE -ne 0) {
@@ -449,6 +484,7 @@ function Deploy {
     if ($LASTEXITCODE -ne 0) {
         throw "windeployqt failed."
     }
+    Test-DeployedQtQmlModules $bundleDir
 
     Stop-LymalinkProcess
     if (Test-Path -LiteralPath $installPaths.InstallDirectory -PathType Container) {

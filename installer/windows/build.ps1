@@ -23,6 +23,7 @@ $BUILD_DIR = Join-Path $SCRIPT_DIR "build"
 $RELEASE_DIR = Join-Path $BUILD_DIR "lymalink-release"
 $ARCH = "x64"
 $MIN_QT_VERSION = [Version]"6.8.0"
+$REQUIRED_QML_MODULES = @("Qt5Compat\GraphicalEffects")
 $OVERLAY_ARCHITECTURES = @("x64", "x86")
 $OVERLAY_ARTIFACTS = @(
     "lymalink-overlay-vulkan-{0}.dll",
@@ -107,6 +108,39 @@ function Test-QtVersion {
 
 ##############################################################################
 
+function Test-RequiredQtQmlModules {
+    param([string]$QmakePath)
+
+    $qtQmlDir = (& $QmakePath -query QT_INSTALL_QML)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($qtQmlDir)) {
+        throw "Could not query Qt QML module directory with: $QmakePath"
+    }
+
+    $qtQmlDir = $qtQmlDir.Trim()
+    foreach ($module in $REQUIRED_QML_MODULES) {
+        $moduleDir = Join-Path $qtQmlDir $module
+        $moduleManifest = Join-Path $moduleDir "qmldir"
+        if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) {
+            throw "Required Qt QML module is not installed: $module. Install the Qt 5 Compatibility Module for this Qt kit. Expected: $moduleManifest"
+        }
+    }
+}
+
+##############################################################################
+
+function Test-DeployedQtQmlModules {
+    param([string]$BundleDirectory)
+
+    foreach ($module in $REQUIRED_QML_MODULES) {
+        $moduleManifest = Join-Path (Join-Path $BundleDirectory "qml") (Join-Path $module "qmldir")
+        if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) {
+            throw "windeployqt did not bundle required Qt QML module: $module. Missing: $moduleManifest"
+        }
+    }
+}
+
+##############################################################################
+
 function Resolve-Windeployqt {
     param([string]$QmakePath)
 
@@ -164,6 +198,7 @@ function Test-Toolchain {
 
     $qmakePath = Resolve-Qmake
     Test-QtVersion $qmakePath
+    Test-RequiredQtQmlModules $qmakePath
     Resolve-Windeployqt $qmakePath | Out-Null
     Resolve-Vcpkg | Out-Null
 
@@ -296,6 +331,7 @@ function Stage-Payload {
     if ($LASTEXITCODE -ne 0) {
         throw "windeployqt failed."
     }
+    Test-DeployedQtQmlModules $RELEASE_DIR
 
     foreach ($path in @(
         (Join-Path $RELEASE_DIR "Lymalink.exe"),
