@@ -528,9 +528,13 @@ static VKAPI_ATTR VkResult VKAPI_CALL Hook_vkQueuePresentKHR(VkQueue queue, cons
         ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
-        s_overlay.BeginFrame();
+        const bool claimedNotification = s_overlay.BeginFrame();
         ImTextureID icon = renderer->EnsureIconTexture(s_overlay.IconPixels(), s_overlay.IconGeneration());
         s_overlay.Draw(width, height, icon);
+        if (claimedNotification)
+        {
+            LYMALINK_LOG("[VulkanOverlayLayer][Hook_vkQueuePresentKHR] claimed notification; renderer=vulkan size=" + std::to_string(width) + "x" + std::to_string(height));
+        }
         ImGui::Render();
 
         overlaySemaphore = renderer->RenderDrawData(queue, presentInfo, ImGui::GetDrawData());

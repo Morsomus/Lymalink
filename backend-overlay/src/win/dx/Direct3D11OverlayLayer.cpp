@@ -15,6 +15,7 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
+#include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "MinHook.h"
@@ -82,6 +83,7 @@ static uint64_t s_iconGeneration = 0;
 
 static std::atomic_bool s_loggedPresentHit{false};
 static std::atomic_bool s_loggedPresent1Hit{false};
+static std::atomic_bool s_loggedRoutedSwapChain{false};
 
 HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
 HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags);
@@ -521,6 +523,19 @@ bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     // Present and Present1 are the main DX11 render paths
     if (s_rendering || s_shuttingDown.load() || !swapChain)
     {
+        return false;
+    }
+
+    // DX11 hooks can intercept shared DXGI swap chains; route non-DX11 chains before touching SHM
+    const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
+    if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D11)
+    {
+        if (renderer != WinDxgiOverlayRouter::Renderer::Unknown &&
+            WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) &&
+            !s_loggedRoutedSwapChain.exchange(true))
+        {
+            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
+        }
         return false;
     }
 

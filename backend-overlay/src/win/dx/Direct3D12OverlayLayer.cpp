@@ -15,6 +15,7 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
+#include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
 #include "MinHook.h"
@@ -58,6 +59,7 @@ constexpr int VTable_CreateSwapChainForCoreWindow = 16;
 constexpr int VTable_CreateSwapChainForComposition = 24;
 constexpr int VTable_ExecuteCommandLists = 10;
 
+constexpr int ResizeFailureRecoveryPresentFrames = 180;
 constexpr UINT MaxSwapChainBuffers = DXGI_MAX_SWAP_CHAIN_BUFFERS;
 constexpr UINT SrvDescriptorCount = 64;
 
@@ -100,6 +102,7 @@ static std::mutex s_queueMutex;
 static std::vector<QueueMapping> s_queueMappings;
 static std::atomic_bool s_hooksReady{false};
 static std::atomic_bool s_shuttingDown{false};
+static std::atomic_int s_resizeFailureRecoveryFrames{0};
 static thread_local bool s_rendering = false;   // Prevents recursive interception while ImGui renders
 static bool s_ownsMinHook = false;
 
@@ -135,6 +138,9 @@ static std::atomic_bool s_loggedQueueCapture{false};
 static std::atomic_bool s_loggedFallbackQueue{false};
 static std::atomic_bool s_loggedUsingFallbackQueue{false};
 static std::atomic_bool s_loggedMissingQueue{false};
+static std::atomic_bool s_loggedRoutedSwapChain{false};
+static std::atomic_bool s_loggedResizeFailure{false};
+static std::atomic_bool s_loggedResizeRecoveryWait{false};
 
 /////////////////////////////////////////////////////////////////////
 
@@ -1123,8 +1129,37 @@ bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
         return false;
     }
 
+    // DX12 hooks can intercept shared DXGI swap chains; route non-DX12 chains before touching SHM
+    const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
+    if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D12)
+    {
+        if (renderer != WinDxgiOverlayRouter::Renderer::Unknown &&
+            WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) &&
+            !s_loggedRoutedSwapChain.exchange(true))
+        {
+            LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
+        }
+        return false;
+    }
+
+    const int recoveryFrames = s_resizeFailureRecoveryFrames.load();
+    if (recoveryFrames > 0)
+    {
+        // Some games leave the swap chain in a bad transient state after invalid resize.
+        // Let Present pass through for a short window, then rebuild ImGui on a clean frame.
+        if (!s_loggedResizeRecoveryWait.exchange(true))
+        {
+            LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] resize recovery active; overlay pass-through.");
+        }
+        if (s_resizeFailureRecoveryFrames.fetch_sub(1) == 1)
+        {
+            s_loggedResizeRecoveryWait.store(false);
+            LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] resize recovery complete; overlay will reinitialize.");
+        }
+        return true;
+    }
+
     // Resolve the D3D12 device from the intercepted swap chain
-    // DXGI Present is shared with DX10/DX11, so ignore non-DX12 swap chains quietly
     ID3D12Device* device = nullptr;
     if (FAILED(swapChain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device))) || !device)
     {
@@ -1270,13 +1305,44 @@ void BeforeResizeBuffers(IDXGISwapChain* swapChain)
 
 /////////////////////////////////////////////////////////////////////
 
+HRESULT HandleResizeBuffersResult(const char* apiName, HRESULT result)
+{
+    if (SUCCEEDED(result))
+    {
+        s_resizeFailureRecoveryFrames.store(0);
+        s_loggedResizeFailure.store(false);
+        s_loggedResizeRecoveryWait.store(false);
+        return result;
+    }
+
+    if (!s_loggedResizeFailure.exchange(true))
+    {
+        LYMALINK_LOG(std::string("[Direct3D12OverlayLayer][") + apiName + "] failed hr=" + std::to_string(result));
+    }
+
+    if (result == DXGI_ERROR_INVALID_CALL)
+    {
+        // Keep the game alive when DXGI rejects a resize during overlay teardown.
+        // Overlay stays disabled briefly and reinitializes from the next stable Present.
+        s_resizeFailureRecoveryFrames.store(ResizeFailureRecoveryPresentFrames);
+        s_loggedResizeRecoveryWait.store(false);
+        LYMALINK_LOG(std::string("[Direct3D12OverlayLayer][") + apiName + "] DXGI_ERROR_INVALID_CALL recovered; returning S_OK and reinitializing after pass-through.");
+        return S_OK;
+    }
+
+    return result;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags)
 {
     // ResizeBuffers invalidates backbuffer-dependent D3D resources
     BeforeResizeBuffers(swapChain);
-    return s_realResizeBuffers ?
+    const HRESULT result = s_realResizeBuffers ?
         s_realResizeBuffers(swapChain, bufferCount, width, height, newFormat, swapChainFlags) :
         DXGI_ERROR_INVALID_CALL;
+    return HandleResizeBuffersResult("ResizeBuffers", result);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1292,7 +1358,7 @@ HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount,
     {
         CaptureSwapChainQueue(swapChain, presentQueue[0], "ResizeBuffers1");
     }
-    return result;
+    return HandleResizeBuffersResult("ResizeBuffers1", result);
 }
 
 /////////////////////////////////////////////////////////////////////
