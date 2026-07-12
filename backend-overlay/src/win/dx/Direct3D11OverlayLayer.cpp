@@ -15,19 +15,17 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
-#include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "MinHook.h"
 
 #include <windows.h>
 #include <d3d11.h>
-#include <dxgi.h>
-#include <dxgi1_2.h>
+#include <dxgi1_4.h>
 
 #include <atomic>
-#include <cstring>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -38,6 +36,7 @@ namespace
 using PFN_Present = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT);
 using PFN_ResizeBuffers = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 using PFN_Present1 = HRESULT(WINAPI*)(IDXGISwapChain1*, UINT, UINT, const DXGI_PRESENT_PARAMETERS*);
+using PFN_ResizeBuffers1 = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT, const UINT*, IUnknown* const*);
 using PFN_D3D11CreateDeviceAndSwapChain = HRESULT(WINAPI*)(
     IDXGIAdapter*,
     D3D_DRIVER_TYPE,
@@ -56,17 +55,13 @@ using PFN_D3D11CreateDeviceAndSwapChain = HRESULT(WINAPI*)(
 constexpr int VTable_Present = 8;
 constexpr int VTable_ResizeBuffers = 13;
 constexpr int VTable_Present1 = 22;
+constexpr int VTable_ResizeBuffers1 = 39;
 
 // Original DXGI methods saved by MinHook
 static PFN_Present s_realPresent = nullptr;
 static PFN_ResizeBuffers s_realResizeBuffers = nullptr;
 static PFN_Present1 s_realPresent1 = nullptr;
-
-static void* s_vtableObject = nullptr;
-static void** s_originalVTable = nullptr;
-static void** s_patchedVTable = nullptr;
-static PFN_Present s_vtablePresent = nullptr;
-static PFN_Present1 s_vtablePresent1 = nullptr;
+static PFN_ResizeBuffers1 s_realResizeBuffers1 = nullptr;
 
 // One receiver and one ImGui context are shared by every DX11 hook in this process
 static WinOverlayReceiver s_overlay;
@@ -74,7 +69,6 @@ static std::mutex s_renderMutex;
 static std::atomic_bool s_hooksReady{false};
 static std::atomic_bool s_shuttingDown{false};
 static thread_local bool s_rendering = false;   // Prevents recursive interception while ImGui renders
-static thread_local bool s_callingVTableOriginal = false;
 
 static IDXGISwapChain* s_swapChain = nullptr;
 static ID3D11Device* s_device = nullptr;
@@ -87,15 +81,11 @@ static uint64_t s_iconGeneration = 0;
 
 static std::atomic_bool s_loggedPresentHit{false};
 static std::atomic_bool s_loggedPresent1Hit{false};
-static std::atomic_bool s_loggedVTablePresentHit{false};
-static std::atomic_bool s_loggedVTablePresent1Hit{false};
-static std::atomic_bool s_loggedRoutedSwapChain{false};
 
 HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
 HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags);
 HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters);
-HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
-HRESULT WINAPI Hook_VTablePresent1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters);
+HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags, const UINT* creationNodeMask, IUnknown* const* presentQueue);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -103,6 +93,161 @@ std::string HookStatus(const char* name, MH_STATUS status)
 {
     // Keep MinHook logs compact and readable
     return std::string(name) + " status=" + std::to_string(static_cast<int>(status));
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool QueryReadableMemory(uintptr_t address, MEMORY_BASIC_INFORMATION& info)
+{
+    // Validate the page before reading instruction bytes or indirect jump targets
+    if (VirtualQuery(reinterpret_cast<void*>(address), &info, sizeof(info)) == 0)
+    {
+        return false;
+    }
+
+    if (info.State != MEM_COMMIT || (info.Protect & PAGE_GUARD) != 0 || (info.Protect & PAGE_NOACCESS) != 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool IsReadableAddress(uintptr_t address)
+{
+    // Data slots used by indirect jumps may be non-executable but still readable.
+    MEMORY_BASIC_INFORMATION info{};
+    return QueryReadableMemory(address, info);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool IsReadableExecutableAddress(uintptr_t address)
+{
+    // Final hook destinations must be executable code, not just readable memory
+    MEMORY_BASIC_INFORMATION info{};
+    if (!QueryReadableMemory(address, info))
+    {
+        return false;
+    }
+
+    const DWORD protect = info.Protect & 0xff;
+    return protect == PAGE_EXECUTE ||
+        protect == PAGE_EXECUTE_READ ||
+        protect == PAGE_EXECUTE_READWRITE ||
+        protect == PAGE_EXECUTE_WRITECOPY;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+template <typename T>
+bool ReadValue(uintptr_t address, T& value)
+{
+    // Copy through memcpy so unaligned instruction/immediate reads stay well-defined
+    if (!IsReadableAddress(address))
+    {
+        return false;
+    }
+
+    std::memcpy(&value, reinterpret_cast<const void*>(address), sizeof(T));
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool TryResolveJumpTarget(uintptr_t address, uintptr_t& target)
+{
+    // Resolve common JMP stubs so RTSS/MSI Afterburner-style hooks stay in front
+    unsigned char bytes[14]{};
+    if (!ReadValue(address, bytes))
+    {
+        return false;
+    }
+
+    // E9 rel32
+    if (bytes[0] == 0xe9)
+    {
+        int32_t displacement = 0;
+        std::memcpy(&displacement, bytes + 1, sizeof(displacement));
+        target = address + 5 + displacement;
+        return target != address;
+    }
+
+    // EB rel8
+    if (bytes[0] == 0xeb)
+    {
+        const int8_t displacement = static_cast<int8_t>(bytes[1]);
+        target = address + 2 + displacement;
+        return target != address;
+    }
+
+#if defined(_WIN64)
+    // FF 25 rel32: x64 absolute indirect jump via RIP-relative pointer
+    if (bytes[0] == 0xff && bytes[1] == 0x25)
+    {
+        int32_t displacement = 0;
+        std::memcpy(&displacement, bytes + 2, sizeof(displacement));
+        const uintptr_t pointerAddress = address + 6 + displacement;
+        return ReadValue(pointerAddress, target) && target != address;
+    }
+
+    // 48 FF 25 rel32: REX-prefixed absolute indirect jump
+    if (bytes[0] == 0x48 && bytes[1] == 0xff && bytes[2] == 0x25)
+    {
+        int32_t displacement = 0;
+        std::memcpy(&displacement, bytes + 3, sizeof(displacement));
+        const uintptr_t pointerAddress = address + 7 + displacement;
+        return ReadValue(pointerAddress, target) && target != address;
+    }
+#else
+    // FF 25 imm32: x86 absolute indirect jump via absolute pointer
+    if (bytes[0] == 0xff && bytes[1] == 0x25)
+    {
+        uint32_t pointerAddress = 0;
+        std::memcpy(&pointerAddress, bytes + 2, sizeof(pointerAddress));
+        uint32_t target32 = 0;
+        if (!ReadValue(static_cast<uintptr_t>(pointerAddress), target32))
+        {
+            return false;
+        }
+        target = static_cast<uintptr_t>(target32);
+        return target != address;
+    }
+#endif
+
+    return false;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void* ResolveExistingHookTarget(void* target, const char* name)
+{
+    // Follow a short chain of pre-existing jump stubs, then let MinHook hook the resolved executable destination
+    // This keeps RTSS/other-overlay chaining intact
+    uintptr_t current = reinterpret_cast<uintptr_t>(target);
+    uintptr_t next = 0;
+    int jumpsFollowed = 0;
+    constexpr int MaxJumpsToFollow = 16;
+
+    while (jumpsFollowed < MaxJumpsToFollow && TryResolveJumpTarget(current, next))
+    {
+        if (!IsReadableExecutableAddress(next))
+        {
+            break;
+        }
+        current = next;
+        ++jumpsFollowed;
+    }
+
+    if (jumpsFollowed > 0)
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][CreateHook] followed existing jump chain for " +
+            std::string(name) + " hops=" + std::to_string(jumpsFollowed));
+    }
+
+    return reinterpret_cast<void*>(current);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -370,106 +515,19 @@ ImTextureID EnsureDirect3D11IconTexture(ID3D11Device* device, const std::vector<
 
 /////////////////////////////////////////////////////////////////////
 
-bool InstallSwapChainVTableHookLocked(IDXGISwapChain* swapChain)
-{
-    // Install object-level Present hooks for a routed swap chain
-    if (!swapChain)
-    {
-        return false;
-    }
-
-    // Same swap chain is already patched
-    if (s_vtableObject == swapChain && s_patchedVTable)
-    {
-        return true;
-    }
-
-    // Present1 is available only when the object exposes IDXGISwapChain1 on the same pointer
-    IDXGISwapChain1* swapChain1 = nullptr;
-    if (FAILED(swapChain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swapChain1))))
-    {
-        swapChain1 = nullptr;
-    }
-
-    const bool sameInterface = swapChain1 && reinterpret_cast<void*>(swapChain1) == reinterpret_cast<void*>(swapChain);
-    // Read the COM object's current vtable pointer
-    void*** objectVTable = reinterpret_cast<void***>(swapChain);
-    void** table = *objectVTable;
-    if (!table)
-    {
-        ReleaseCom(swapChain1);
-        return false;
-    }
-
-    // Clone the slots we need so only this object is affected
-    const size_t slotCount = sameInterface ? VTable_Present1 + 1 : VTable_ResizeBuffers + 1;
-    void** patched = static_cast<void**>(VirtualAlloc(nullptr, sizeof(void*) * slotCount, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-    if (!patched)
-    {
-        LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] VirtualAlloc failed error=" + std::to_string(GetLastError()));
-        ReleaseCom(swapChain1);
-        return false;
-    }
-
-    std::memcpy(patched, table, sizeof(void*) * slotCount);
-    s_vtablePresent = reinterpret_cast<PFN_Present>(table[VTable_Present]);
-    patched[VTable_Present] = reinterpret_cast<void*>(&Hook_VTablePresent);
-    if (sameInterface)
-    {
-        s_vtablePresent1 = reinterpret_cast<PFN_Present1>(table[VTable_Present1]);
-        patched[VTable_Present1] = reinterpret_cast<void*>(&Hook_VTablePresent1);
-    }
-
-    // Replace the object's vtable pointer with the patched clone
-    DWORD oldProtect = 0;
-    if (!VirtualProtect(objectVTable, sizeof(void**), PAGE_READWRITE, &oldProtect))
-    {
-        LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] VirtualProtect failed error=" + std::to_string(GetLastError()));
-        VirtualFree(patched, 0, MEM_RELEASE);
-        s_vtablePresent = nullptr;
-        s_vtablePresent1 = nullptr;
-        ReleaseCom(swapChain1);
-        return false;
-    }
-
-    *objectVTable = patched;
-    VirtualProtect(objectVTable, sizeof(void**), oldProtect, &oldProtect);
-
-    // Keep original state so the vtable hooks can call through
-    s_vtableObject = swapChain;
-    s_originalVTable = table;
-    s_patchedVTable = patched;
-
-    ReleaseCom(swapChain1);
-    LYMALINK_LOG("[Direct3D11OverlayLayer][VTableHook] installed swap-chain vtable hook.");
-    return true;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
+bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 {
     // Present and Present1 are the main DX11 render paths
     if (s_rendering || s_shuttingDown.load() || !swapChain)
     {
-        return;
-    }
-
-    const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
-    if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D11)
-    {
-        if (WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) && !s_loggedRoutedSwapChain.exchange(true))
-        {
-            LYMALINK_LOG("[Direct3D11OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
-        }
-        return;
+        return false;
     }
 
     // Resolve the D3D11 device from the intercepted swap chain
     ID3D11Device* device = nullptr;
     if (FAILED(swapChain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device))) || !device)
     {
-        return;
+        return false;
     }
 
     ID3D11DeviceContext* context = nullptr;
@@ -477,7 +535,7 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     if (!context)
     {
         ReleaseCom(device);
-        return;
+        return true;
     }
 
     // Need real framebuffer size before creating ImGui frame
@@ -487,7 +545,7 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     {
         ReleaseCom(context);
         ReleaseCom(device);
-        return;
+        return true;
     }
 
     std::lock_guard<std::mutex> lock(s_renderMutex);
@@ -495,8 +553,6 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 
     if (InitImGuiLocked(swapChain, device, context, width, height) && EnsureRenderTargetLocked(swapChain, device))
     {
-        InstallSwapChainVTableHookLocked(swapChain);
-        
         // Save host render targets that this overlay temporarily changes
         ID3D11RenderTargetView* previousRenderTarget = nullptr;
         ID3D11DepthStencilView* previousDepthStencil = nullptr;
@@ -529,6 +585,7 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     s_rendering = false;
     ReleaseCom(context);
     ReleaseCom(device);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -536,15 +593,11 @@ void RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
 HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
 {
     // Main render path for DX11 apps using IDXGISwapChain::Present
-    if (s_callingVTableOriginal)
-    {
-        return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
-    }
-    if (!s_loggedPresentHit.exchange(true))
+    const bool dx11SwapChain = RenderOverlay(swapChain, "Present");
+    if (dx11SwapChain && !s_loggedPresentHit.exchange(true))
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present] first Present intercepted.");
     }
-    RenderOverlay(swapChain, "Present");
     return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
 }
 
@@ -553,54 +606,12 @@ HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT f
 HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters)
 {
     // Main render path for DX11 apps using IDXGISwapChain1::Present1
-    if (s_callingVTableOriginal)
-    {
-        return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
-    }
-    if (!s_loggedPresent1Hit.exchange(true))
+    const bool dx11SwapChain = RenderOverlay(swapChain, "Present1");
+    if (dx11SwapChain && !s_loggedPresent1Hit.exchange(true))
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_Present1] first Present1 intercepted.");
     }
-    RenderOverlay(swapChain, "Present1");
     return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_VTablePresent(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
-{
-    // Render through this layer, then call the swap chain's original Present
-    if (!s_loggedVTablePresentHit.exchange(true))
-    {
-        LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_VTablePresent] first vtable Present intercepted.");
-    }
-    RenderOverlay(swapChain, "VTablePresent");
-
-    // Avoid re-entering this layer's MinHook Present hook while forwarding
-    s_callingVTableOriginal = true;
-    const HRESULT result = s_vtablePresent ? s_vtablePresent(swapChain, syncInterval, flags) :
-        (s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL);
-    s_callingVTableOriginal = false;
-    return result;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_VTablePresent1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters)
-{
-    // Render through this layer, then call the swap chain's original Present1.
-    if (!s_loggedVTablePresent1Hit.exchange(true))
-    {
-        LYMALINK_LOG("[Direct3D11OverlayLayer][Hook_VTablePresent1] first vtable Present1 intercepted.");
-    }
-    RenderOverlay(swapChain, "VTablePresent1");
-
-    // Avoid re-entering this layer's MinHook Present1 hook while forwarding.
-    s_callingVTableOriginal = true;
-    const HRESULT result = s_vtablePresent1 ? s_vtablePresent1(swapChain, syncInterval, flags, presentParameters) :
-        (s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL);
-    s_callingVTableOriginal = false;
-    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -646,23 +657,44 @@ HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, U
 
 /////////////////////////////////////////////////////////////////////
 
+HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags, const UINT* creationNodeMask, IUnknown* const* presentQueue)
+{
+    // ResizeBuffers1 invalidates backbuffer-dependent D3D resources on newer DXGI swap chains
+    BeforeResizeBuffers(swapChain);
+    const HRESULT result = s_realResizeBuffers1 ?
+        s_realResizeBuffers1(swapChain, bufferCount, width, height, newFormat, swapChainFlags, creationNodeMask, presentQueue) :
+        DXGI_ERROR_INVALID_CALL;
+    AfterResizeBuffers(swapChain, result);
+    return result;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void CreateHook(void* target, void* detour, void** original, const char* name)
 {
     // Create and enable one MinHook detour
+    // Follow existing jump stubs first so third-party overlays remain in the call chain instead of being overwritten
     if (!target)
     {
         LYMALINK_LOG(std::string("[Direct3D11OverlayLayer][CreateHook] missing target ") + name);
         return;
     }
 
-    MH_STATUS status = MH_CreateHook(target, detour, original);
+    void* resolvedTarget = ResolveExistingHookTarget(target, name);
+    if (!resolvedTarget)
+    {
+        LYMALINK_LOG(std::string("[Direct3D11OverlayLayer][CreateHook] unresolved target ") + name);
+        return;
+    }
+
+    MH_STATUS status = MH_CreateHook(resolvedTarget, detour, original);
     if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED)
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][CreateHook] " + HookStatus(name, status));
         return;
     }
 
-    status = MH_EnableHook(target);
+    status = MH_EnableHook(resolvedTarget);
     if (status != MH_OK && status != MH_ERROR_ENABLED)
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][EnableHook] " + HookStatus(name, status));
@@ -808,8 +840,8 @@ DWORD WINAPI InitThread(LPVOID)
         return 1;
     }
 
-    // D3D11CreateDeviceAndSwapChain is required for hook discovery
-    // Dummy swap chain exposes vtable entries for MinHook targets
+    // D3D11CreateDeviceAndSwapChain is required for hook discovery - The dummy swap chain is used only to read DXGI method addresses
+    // Live game swap-chain vtables are never patched
     auto createDeviceAndSwapChain = reinterpret_cast<PFN_D3D11CreateDeviceAndSwapChain>(GetProcAddress(d3d11, "D3D11CreateDeviceAndSwapChain"));
     if (!createDeviceAndSwapChain)
     {
@@ -824,7 +856,7 @@ DWORD WINAPI InitThread(LPVOID)
         return 1;
     }
 
-    // Build dummy D3D11 device/swap chain so its vtable can be hooked
+    // Build dummy D3D11 device/swap chain so its vtable reveals shared method addresses
     IDXGISwapChain* swapChain = nullptr;
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;
@@ -850,7 +882,17 @@ DWORD WINAPI InitThread(LPVOID)
     }
 
     void** table = VTable(swapChain);
-    // Hook swap-chain calls used by DX11 presentation and resize
+    if (!table)
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][InitThread] swap-chain vtable missing.");
+        ReleaseCom(context);
+        ReleaseCom(device);
+        ReleaseCom(swapChain);
+        DestroyWindow(window);
+        return 1;
+    }
+
+    // Detour process-wide swap-chain calls used by DX11 presentation and resize
     CreateHook(table[VTable_Present], reinterpret_cast<void*>(&Hook_Present), reinterpret_cast<void**>(&s_realPresent), "IDXGISwapChain::Present");
     CreateHook(table[VTable_ResizeBuffers], reinterpret_cast<void*>(&Hook_ResizeBuffers), reinterpret_cast<void**>(&s_realResizeBuffers), "IDXGISwapChain::ResizeBuffers");
 
@@ -859,8 +901,23 @@ DWORD WINAPI InitThread(LPVOID)
     if (SUCCEEDED(swapChain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swapChain1))) && swapChain1)
     {
         void** table1 = VTable(swapChain1);
-        CreateHook(table1[VTable_Present1], reinterpret_cast<void*>(&Hook_Present1), reinterpret_cast<void**>(&s_realPresent1), "IDXGISwapChain1::Present1");
+        if (table1)
+        {
+            CreateHook(table1[VTable_Present1], reinterpret_cast<void*>(&Hook_Present1), reinterpret_cast<void**>(&s_realPresent1), "IDXGISwapChain1::Present1");
+        }
         ReleaseCom(swapChain1);
+    }
+
+    // ResizeBuffers1 exists on IDXGISwapChain3 and is used by some flip-model paths
+    IDXGISwapChain3* swapChain3 = nullptr;
+    if (SUCCEEDED(swapChain->QueryInterface(__uuidof(IDXGISwapChain3), reinterpret_cast<void**>(&swapChain3))) && swapChain3)
+    {
+        void** table3 = VTable(swapChain3);
+        if (table3)
+        {
+            CreateHook(table3[VTable_ResizeBuffers1], reinterpret_cast<void*>(&Hook_ResizeBuffers1), reinterpret_cast<void**>(&s_realResizeBuffers1), "IDXGISwapChain3::ResizeBuffers1");
+        }
+        ReleaseCom(swapChain3);
     }
 
     // Dummy objects are no longer needed once hooks are installed
@@ -881,7 +938,7 @@ DWORD WINAPI InitThread(LPVOID)
 // LYMALINK_OVERLAY_ATTACH_HOOKS.
 /////////////////////////////////////////////////////////////////////
 
-// Export used by other DX overlay DLLs to attach this DX11 layer to a real swap chain.
+// DX11 uses process-wide MinHook detours and never mutates live swap-chain vtables
 extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D11InstallSwapChainHook(IUnknown* swapChainObject)
 {
     if (s_shuttingDown.load() || !swapChainObject)
@@ -903,10 +960,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D11InstallSwapChainH
     }
     ReleaseCom(device);
 
-    std::lock_guard<std::mutex> lock(s_renderMutex);
-    const bool installed = InstallSwapChainVTableHookLocked(swapChain);
     ReleaseCom(swapChain);
-    return installed ? TRUE : FALSE;
+    return TRUE;
 }
 
 /////////////////////////////////////////////////////////////////////
