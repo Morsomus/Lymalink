@@ -69,6 +69,7 @@ static std::mutex s_renderMutex;
 static std::atomic_bool s_hooksReady{false};
 static std::atomic_bool s_shuttingDown{false};
 static thread_local bool s_rendering = false;   // Prevents recursive interception while ImGui renders
+static bool s_ownsMinHook = false;
 
 static IDXGISwapChain* s_swapChain = nullptr;
 static ID3D11Device* s_device = nullptr;
@@ -670,35 +671,43 @@ HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount,
 
 /////////////////////////////////////////////////////////////////////
 
-void CreateHook(void* target, void* detour, void** original, const char* name)
+bool CreateHook(void* target, void* detour, void** original, const char* name)
 {
     // Create and enable one MinHook detour
     // Follow existing jump stubs first so third-party overlays remain in the call chain instead of being overwritten
     if (!target)
     {
         LYMALINK_LOG(std::string("[Direct3D11OverlayLayer][CreateHook] missing target ") + name);
-        return;
+        return false;
     }
 
     void* resolvedTarget = ResolveExistingHookTarget(target, name);
     if (!resolvedTarget)
     {
         LYMALINK_LOG(std::string("[Direct3D11OverlayLayer][CreateHook] unresolved target ") + name);
-        return;
+        return false;
     }
 
     MH_STATUS status = MH_CreateHook(resolvedTarget, detour, original);
     if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED)
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][CreateHook] " + HookStatus(name, status));
-        return;
+        return false;
+    }
+
+    if (status == MH_ERROR_ALREADY_CREATED && (!original || !*original))
+    {
+        LYMALINK_LOG(std::string("[Direct3D11OverlayLayer][CreateHook] already created without original trampoline for ") + name);
+        return false;
     }
 
     status = MH_EnableHook(resolvedTarget);
     if (status != MH_OK && status != MH_ERROR_ENABLED)
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][EnableHook] " + HookStatus(name, status));
+        return false;
     }
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -880,11 +889,17 @@ DWORD WINAPI InitThread(LPVOID)
         DestroyWindow(window);
         return 1;
     }
+    s_ownsMinHook = status == MH_OK;
 
     void** table = VTable(swapChain);
     if (!table)
     {
         LYMALINK_LOG("[Direct3D11OverlayLayer][InitThread] swap-chain vtable missing.");
+        if (s_ownsMinHook)
+        {
+            MH_Uninitialize();
+            s_ownsMinHook = false;
+        }
         ReleaseCom(context);
         ReleaseCom(device);
         ReleaseCom(swapChain);
@@ -893,8 +908,8 @@ DWORD WINAPI InitThread(LPVOID)
     }
 
     // Detour process-wide swap-chain calls used by DX11 presentation and resize
-    CreateHook(table[VTable_Present], reinterpret_cast<void*>(&Hook_Present), reinterpret_cast<void**>(&s_realPresent), "IDXGISwapChain::Present");
-    CreateHook(table[VTable_ResizeBuffers], reinterpret_cast<void*>(&Hook_ResizeBuffers), reinterpret_cast<void**>(&s_realResizeBuffers), "IDXGISwapChain::ResizeBuffers");
+    const bool presentHookReady = CreateHook(table[VTable_Present], reinterpret_cast<void*>(&Hook_Present), reinterpret_cast<void**>(&s_realPresent), "IDXGISwapChain::Present");
+    const bool resizeHookReady = CreateHook(table[VTable_ResizeBuffers], reinterpret_cast<void*>(&Hook_ResizeBuffers), reinterpret_cast<void**>(&s_realResizeBuffers), "IDXGISwapChain::ResizeBuffers");
 
     // Present1 exists on newer DXGI swap chains
     IDXGISwapChain1* swapChain1 = nullptr;
@@ -918,6 +933,24 @@ DWORD WINAPI InitThread(LPVOID)
             CreateHook(table3[VTable_ResizeBuffers1], reinterpret_cast<void*>(&Hook_ResizeBuffers1), reinterpret_cast<void**>(&s_realResizeBuffers1), "IDXGISwapChain3::ResizeBuffers1");
         }
         ReleaseCom(swapChain3);
+    }
+
+    if (!presentHookReady || !resizeHookReady)
+    {
+        LYMALINK_LOG("[Direct3D11OverlayLayer][InitThread] required hooks incomplete present=" +
+            std::to_string(presentHookReady ? 1 : 0) +
+            " resize=" + std::to_string(resizeHookReady ? 1 : 0));
+        MH_DisableHook(MH_ALL_HOOKS);
+        if (s_ownsMinHook)
+        {
+            MH_Uninitialize();
+            s_ownsMinHook = false;
+        }
+        ReleaseCom(context);
+        ReleaseCom(device);
+        ReleaseCom(swapChain);
+        DestroyWindow(window);
+        return 1;
     }
 
     // Dummy objects are no longer needed once hooks are installed
@@ -991,7 +1024,12 @@ extern "C" void LymalinkOverlayOnProcessDetach()
     if (s_hooksReady.load())
     {
         MH_DisableHook(MH_ALL_HOOKS);
-        MH_Uninitialize();
+        s_hooksReady.store(false);
+        if (s_ownsMinHook)
+        {
+            MH_Uninitialize();
+            s_ownsMinHook = false;
+        }
     }
     {
         std::lock_guard<std::mutex> lock(s_renderMutex);
