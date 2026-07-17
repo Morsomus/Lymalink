@@ -682,15 +682,12 @@ void** VTable(void* object)
 
 DWORD WINAPI InitThread(LPVOID)
 {
-    // Load d3d9.dll if target process has not loaded it yet
+    // Do not force D3D9 into non-DX9 processes. If the game has not loaded it, this layer does nothing.
     HMODULE d3d9 = GetModuleHandleW(L"d3d9.dll");
+    LYMALINK_LOG(std::string("[Direct3D9OverlayLayer][Identity] I am DX9; process uses DX9=") + (d3d9 ? "yes; active" : "no; inactive"));
     if (!d3d9)
     {
-        d3d9 = LoadLibraryW(L"d3d9.dll");
-    }
-    if (!d3d9)
-    {
-        LYMALINK_LOG("[Direct3D9OverlayLayer][InitThread] d3d9.dll load failed error=" + std::to_string(GetLastError()));
+        LYMALINK_LOG("[Direct3D9OverlayLayer][InitThread] d3d9.dll not loaded; layer inactive.");
         return 1;
     }
 
@@ -775,6 +772,7 @@ DWORD WINAPI InitThread(LPVOID)
 extern "C" void LymalinkOverlayOnProcessAttach(HINSTANCE instance)
 {
     // Keep attach lightweight; hook setup runs on worker thread
+    LYMALINK_LOG("[Direct3D9OverlayLayer][Identity] I am DX9; process attach.");
     DisableThreadLibraryCalls(instance);
 
     HANDLE thread = CreateThread(nullptr, 0, InitThread, nullptr, 0, nullptr);

@@ -15,6 +15,8 @@
 #include <d3d12.h>
 #include <dxgi.h>
 
+#include <string>
+
 namespace WinDxgiOverlayRouter
 {
 // Renderer owner for a DXGI swap chain
@@ -37,6 +39,31 @@ void ReleaseLocal(T*& value)
         value->Release();
         value = nullptr;
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Resolve exported callbacks from renderer DLLs - x86 __stdcall exports are decorated as _Name@bytes, while x64 exports are undecorated
+inline FARPROC ResolveExport(HMODULE module, const char* exportName, int stdcallBytes)
+{
+    if (!module || !exportName)
+    {
+        return nullptr;
+    }
+
+    FARPROC proc = GetProcAddress(module, exportName);
+    if (proc)
+    {
+        return proc;
+    }
+
+#if !defined(_WIN64)
+    const std::string decoratedName = "_" + std::string(exportName) + "@" + std::to_string(stdcallBytes);
+    proc = GetProcAddress(module, decoratedName.c_str());
+#else
+    (void)stdcallBytes;
+#endif
+    return proc;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -140,8 +167,125 @@ inline bool InstallSwapChainHook(Renderer renderer, IDXGISwapChain* swapChain)
     }
 
     using PFN_InstallSwapChainHook = BOOL(WINAPI*)(IUnknown*);
-    auto installHook = reinterpret_cast<PFN_InstallSwapChainHook>(GetProcAddress(module, exportName));
+    auto installHook = reinterpret_cast<PFN_InstallSwapChainHook>(ResolveExport(module, exportName, 4));
     return installHook && installHook(swapChain) == TRUE;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Route Present/Present1 to the renderer DLL that owns this swap chain
+inline bool RenderSwapChain(Renderer renderer, IDXGISwapChain* swapChain, const char* presentPath)
+{
+    const wchar_t* moduleName = ModuleName(renderer);
+    const char* exportName = nullptr;
+
+    switch (renderer)
+    {
+        case Renderer::Direct3D10:
+            exportName = "LymalinkDirect3D10RenderSwapChain";
+            break;
+        case Renderer::Direct3D11:
+            exportName = "LymalinkDirect3D11RenderSwapChain";
+            break;
+        case Renderer::Direct3D12:
+            exportName = "LymalinkDirect3D12RenderSwapChain";
+            break;
+        default:
+            break;
+    }
+
+    if (!moduleName || !exportName || !swapChain || !presentPath)
+    {
+        return false;
+    }
+
+    HMODULE module = GetModuleHandleW(moduleName);
+    if (!module)
+    {
+        return false;
+    }
+
+    using PFN_RenderSwapChain = BOOL(WINAPI*)(IUnknown*, const char*);
+    auto render = reinterpret_cast<PFN_RenderSwapChain>(ResolveExport(module, exportName, 8));
+    return render && render(swapChain, presentPath) == TRUE;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Notify the renderer DLL before a resize invalidates backbuffer resources
+inline bool BeforeResize(Renderer renderer, IDXGISwapChain* swapChain)
+{
+    const wchar_t* moduleName = ModuleName(renderer);
+    const char* exportName = nullptr;
+
+    switch (renderer)
+    {
+        case Renderer::Direct3D10:
+            exportName = "LymalinkDirect3D10BeforeResize";
+            break;
+        case Renderer::Direct3D11:
+            exportName = "LymalinkDirect3D11BeforeResize";
+            break;
+        case Renderer::Direct3D12:
+            exportName = "LymalinkDirect3D12BeforeResize";
+            break;
+        default:
+            break;
+    }
+
+    if (!moduleName || !exportName || !swapChain)
+    {
+        return false;
+    }
+
+    HMODULE module = GetModuleHandleW(moduleName);
+    if (!module)
+    {
+        return false;
+    }
+
+    using PFN_BeforeResize = BOOL(WINAPI*)(IUnknown*);
+    auto beforeResize = reinterpret_cast<PFN_BeforeResize>(ResolveExport(module, exportName, 4));
+    return beforeResize && beforeResize(swapChain) == TRUE;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Notify the renderer DLL after resize returns - DX12 can adjust the HRESULT for recovery
+inline HRESULT AfterResize(Renderer renderer, IDXGISwapChain* swapChain, const char* apiName, HRESULT result, IUnknown* const* presentQueue)
+{
+    const wchar_t* moduleName = ModuleName(renderer);
+    const char* exportName = nullptr;
+
+    switch (renderer)
+    {
+        case Renderer::Direct3D10:
+            exportName = "LymalinkDirect3D10AfterResize";
+            break;
+        case Renderer::Direct3D11:
+            exportName = "LymalinkDirect3D11AfterResize";
+            break;
+        case Renderer::Direct3D12:
+            exportName = "LymalinkDirect3D12AfterResize";
+            break;
+        default:
+            break;
+    }
+
+    if (!moduleName || !exportName || !swapChain || !apiName)
+    {
+        return result;
+    }
+
+    HMODULE module = GetModuleHandleW(moduleName);
+    if (!module)
+    {
+        return result;
+    }
+
+    using PFN_AfterResize = HRESULT(WINAPI*)(IUnknown*, const char*, HRESULT, IUnknown* const*);
+    auto afterResize = reinterpret_cast<PFN_AfterResize>(ResolveExport(module, exportName, 16));
+    return afterResize ? afterResize(swapChain, apiName, result, presentQueue) : result;
 }
 
 }

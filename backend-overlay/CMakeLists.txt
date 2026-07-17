@@ -103,6 +103,7 @@ set_target_properties(lymalink-overlay-dx9 PROPERTIES
 
 add_library(lymalink-overlay-dx10 SHARED
     src/win/dx/Direct3D10OverlayLayer.cpp
+    src/win/dx/WinDxgiOverlayCoordinator.cpp
     src/win/WinOverlayReceiver.cpp
     src/win/WinOverlayUi.cpp
     src/win/WinOverlayEntrypoint.cpp
@@ -120,6 +121,7 @@ set_target_properties(lymalink-overlay-dx10 PROPERTIES
 
 add_library(lymalink-overlay-dx11 SHARED
     src/win/dx/Direct3D11OverlayLayer.cpp
+    src/win/dx/WinDxgiOverlayCoordinator.cpp
     src/win/WinOverlayReceiver.cpp
     src/win/WinOverlayUi.cpp
     src/win/WinOverlayEntrypoint.cpp
@@ -137,6 +139,7 @@ set_target_properties(lymalink-overlay-dx11 PROPERTIES
 
 add_library(lymalink-overlay-dx12 SHARED
     src/win/dx/Direct3D12OverlayLayer.cpp
+    src/win/dx/WinDxgiOverlayCoordinator.cpp
     src/win/WinOverlayReceiver.cpp
     src/win/WinOverlayUi.cpp
     src/win/WinOverlayEntrypoint.cpp

@@ -15,6 +15,7 @@
 #include "OverlaySharedMemoryState.h"
 #include "WinLogger.h"
 #include "WinOverlayReceiver.h"
+#include "WinDxgiOverlayCoordinator.h"
 #include "WinDxgiOverlayRouter.h"
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
@@ -35,11 +36,8 @@
 
 namespace
 {
-// Function pointer types for DXGI/D3D12 methods we intercept
-using PFN_Present = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT);
-using PFN_Present1 = HRESULT(WINAPI*)(IDXGISwapChain1*, UINT, UINT, const DXGI_PRESENT_PARAMETERS*);
-using PFN_ResizeBuffers = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
-using PFN_ResizeBuffers1 = HRESULT(WINAPI*)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT, const UINT*, IUnknown* const*);
+// Function pointer types for DX12 queue/factory methods we intercept.
+// DXGI Present/Resize hooks are owned by WinDxgiOverlayCoordinator.
 using PFN_CreateSwapChain = HRESULT(WINAPI*)(IDXGIFactory*, IUnknown*, DXGI_SWAP_CHAIN_DESC*, IDXGISwapChain**);
 using PFN_CreateSwapChainForHwnd = HRESULT(WINAPI*)(IDXGIFactory2*, IUnknown*, HWND, const DXGI_SWAP_CHAIN_DESC1*, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC*, IDXGIOutput*, IDXGISwapChain1**);
 using PFN_CreateSwapChainForCoreWindow = HRESULT(WINAPI*)(IDXGIFactory2*, IUnknown*, IUnknown*, const DXGI_SWAP_CHAIN_DESC1*, IDXGIOutput*, IDXGISwapChain1**);
@@ -48,11 +46,7 @@ using PFN_ExecuteCommandLists = void(WINAPI*)(ID3D12CommandQueue*, UINT, ID3D12C
 using PFN_D3D12CreateDevice = HRESULT(WINAPI*)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
 using PFN_CreateDXGIFactory2 = HRESULT(WINAPI*)(UINT, REFIID, void**);
 
-// Known DXGI/D3D12 vtable slots used by the hook setup
-constexpr int VTable_Present = 8;
-constexpr int VTable_ResizeBuffers = 13;
-constexpr int VTable_Present1 = 22;
-constexpr int VTable_ResizeBuffers1 = 39;
+// Known DXGI/D3D12 vtable slots used by the queue/factory hook setup
 constexpr int VTable_CreateSwapChain = 10;
 constexpr int VTable_CreateSwapChainForHwnd = 15;
 constexpr int VTable_CreateSwapChainForCoreWindow = 16;
@@ -84,11 +78,7 @@ struct DescriptorSlot
     D3D12_GPU_DESCRIPTOR_HANDLE gpu{};
 };
 
-// Original DXGI/D3D12 methods saved by MinHook
-static PFN_Present s_realPresent = nullptr;
-static PFN_Present1 s_realPresent1 = nullptr;
-static PFN_ResizeBuffers s_realResizeBuffers = nullptr;
-static PFN_ResizeBuffers1 s_realResizeBuffers1 = nullptr;
+// Original queue/factory methods saved by MinHook
 static PFN_CreateSwapChain s_realCreateSwapChain = nullptr;
 static PFN_CreateSwapChainForHwnd s_realCreateSwapChainForHwnd = nullptr;
 static PFN_CreateSwapChainForCoreWindow s_realCreateSwapChainForCoreWindow = nullptr;
@@ -132,8 +122,6 @@ static uint64_t s_iconGeneration = 0;
 
 static ID3D12CommandQueue* s_lastDirectQueue = nullptr;
 
-static std::atomic_bool s_loggedPresentHit{false};
-static std::atomic_bool s_loggedPresent1Hit{false};
 static std::atomic_bool s_loggedQueueCapture{false};
 static std::atomic_bool s_loggedFallbackQueue{false};
 static std::atomic_bool s_loggedUsingFallbackQueue{false};
@@ -141,11 +129,6 @@ static std::atomic_bool s_loggedMissingQueue{false};
 static std::atomic_bool s_loggedRoutedSwapChain{false};
 static std::atomic_bool s_loggedResizeFailure{false};
 static std::atomic_bool s_loggedResizeRecoveryWait{false};
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags);
-HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -1129,15 +1112,13 @@ bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
         return false;
     }
 
-    // DX12 hooks can intercept shared DXGI swap chains; route non-DX12 chains before touching SHM
+    // DX12 hooks can intercept shared DXGI swap chains - Non-DX12 chains are pass-through
     const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
     if (renderer != WinDxgiOverlayRouter::Renderer::Direct3D12)
     {
-        if (renderer != WinDxgiOverlayRouter::Renderer::Unknown &&
-            WinDxgiOverlayRouter::InstallSwapChainHook(renderer, swapChain) &&
-            !s_loggedRoutedSwapChain.exchange(true))
+        if (renderer != WinDxgiOverlayRouter::Renderer::Unknown && !s_loggedRoutedSwapChain.exchange(true))
         {
-            LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] routed swap chain to owning DX layer.");
+            LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] pass-through non-DX12 swap chain.");
         }
         return false;
     }
@@ -1145,8 +1126,8 @@ bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     const int recoveryFrames = s_resizeFailureRecoveryFrames.load();
     if (recoveryFrames > 0)
     {
-        // Some games leave the swap chain in a bad transient state after invalid resize.
-        // Let Present pass through for a short window, then rebuild ImGui on a clean frame.
+        // Some games leave the swap chain in a bad transient state after invalid resize
+        // Let Present pass through for a short window, then rebuild ImGui on a clean frame
         if (!s_loggedResizeRecoveryWait.exchange(true))
         {
             LYMALINK_LOG("[Direct3D12OverlayLayer][RenderOverlay] resize recovery active; overlay pass-through.");
@@ -1264,34 +1245,6 @@ bool RenderOverlay(IDXGISwapChain* swapChain, const char* presentPath)
     return true;
 }
 
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_Present(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
-{
-    // Main render path for DX12 apps using IDXGISwapChain::Present
-    const bool dx12SwapChain = RenderOverlay(swapChain, "Present");
-    if (dx12SwapChain && !s_loggedPresentHit.exchange(true))
-    {
-        LYMALINK_LOG("[Direct3D12OverlayLayer][Hook_Present] first Present intercepted.");
-    }
-    return s_realPresent ? s_realPresent(swapChain, syncInterval, flags) : DXGI_ERROR_INVALID_CALL;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT flags, const DXGI_PRESENT_PARAMETERS* presentParameters)
-{
-    // Main render path for DX12 apps using IDXGISwapChain1::Present1
-    const bool dx12SwapChain = RenderOverlay(swapChain, "Present1");
-    if (dx12SwapChain && !s_loggedPresent1Hit.exchange(true))
-    {
-        LYMALINK_LOG("[Direct3D12OverlayLayer][Hook_Present1] first Present1 intercepted.");
-    }
-    return s_realPresent1 ? s_realPresent1(swapChain, syncInterval, flags, presentParameters) : DXGI_ERROR_INVALID_CALL;
-}
-
-/////////////////////////////////////////////////////////////////////
-
 void BeforeResizeBuffers(IDXGISwapChain* swapChain)
 {
     std::lock_guard<std::mutex> lock(s_renderMutex);
@@ -1332,36 +1285,6 @@ HRESULT HandleResizeBuffersResult(const char* apiName, HRESULT result)
 
     return result;
 }
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags)
-{
-    // ResizeBuffers invalidates backbuffer-dependent D3D resources
-    BeforeResizeBuffers(swapChain);
-    const HRESULT result = s_realResizeBuffers ?
-        s_realResizeBuffers(swapChain, bufferCount, width, height, newFormat, swapChainFlags) :
-        DXGI_ERROR_INVALID_CALL;
-    return HandleResizeBuffersResult("ResizeBuffers", result);
-}
-
-/////////////////////////////////////////////////////////////////////
-
-HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags, const UINT* creationNodeMask, IUnknown* const* presentQueue)
-{
-    // ResizeBuffers1 invalidates backbuffer-dependent D3D resources and may provide new present queues
-    BeforeResizeBuffers(swapChain);
-    const HRESULT result = s_realResizeBuffers1 ?
-        s_realResizeBuffers1(swapChain, bufferCount, width, height, newFormat, swapChainFlags, creationNodeMask, presentQueue) :
-        DXGI_ERROR_INVALID_CALL;
-    if (SUCCEEDED(result) && presentQueue && presentQueue[0])
-    {
-        CaptureSwapChainQueue(swapChain, presentQueue[0], "ResizeBuffers1");
-    }
-    return HandleResizeBuffersResult("ResizeBuffers1", result);
-}
-
-/////////////////////////////////////////////////////////////////////
 
 HRESULT WINAPI Hook_CreateSwapChain(IDXGIFactory* factory, IUnknown* device, DXGI_SWAP_CHAIN_DESC* desc, IDXGISwapChain** swapChain)
 {
@@ -1592,26 +1515,41 @@ void** VTable(void* object)
 
 DWORD WINAPI InitThread(LPVOID)
 {
-    // Load D3D12/DXGI if target process has not loaded them yet
-    HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
-    if (!d3d12)
+    // Do not force D3D12 into non-DX12 processes - Watch briefly for late runtime loads
+    HMODULE d3d12 = nullptr;
+    HMODULE dxgi = nullptr;
+    constexpr int MaxRuntimeWaitMs = 30000;
+    constexpr int RuntimePollMs = 100;
+    for (int waitedMs = 0; waitedMs <= MaxRuntimeWaitMs && !s_shuttingDown.load(); waitedMs += RuntimePollMs)
     {
-        d3d12 = LoadLibraryW(L"d3d12.dll");
+        d3d12 = GetModuleHandleW(L"d3d12.dll");
+        dxgi = GetModuleHandleW(L"dxgi.dll");
+        if (d3d12 && dxgi)
+        {
+            break;
+        }
+        Sleep(RuntimePollMs);
+    }
+    LYMALINK_LOG(std::string("[Direct3D12OverlayLayer][Identity] I am DX12; process uses DX12=") + (d3d12 ? "yes; active" : "no; inactive"));
+    if (s_shuttingDown.load())
+    {
+        return 1;
     }
     if (!d3d12)
     {
-        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] d3d12.dll load failed error=" + std::to_string(GetLastError()));
+        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] d3d12.dll not loaded; layer inactive.");
         return 1;
     }
 
-    HMODULE dxgi = GetModuleHandleW(L"dxgi.dll");
     if (!dxgi)
     {
-        dxgi = LoadLibraryW(L"dxgi.dll");
+        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] dxgi.dll not loaded; layer inactive.");
+        return 1;
     }
-    if (!dxgi)
+
+    if (!WinDxgiOverlayCoordinator::Start())
     {
-        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] dxgi.dll load failed error=" + std::to_string(GetLastError()));
+        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] DXGI coordinator unavailable.");
         return 1;
     }
 
@@ -1676,32 +1614,9 @@ DWORD WINAPI InitThread(LPVOID)
         return 1;
     }
 
-    // Hook swap-chain calls used by DX12 presentation and resize
-    bool presentHookReady = CreateHook(swapChainTable[VTable_Present], reinterpret_cast<void*>(&Hook_Present), reinterpret_cast<void**>(&s_realPresent), "IDXGISwapChain::Present");
-    bool resizeHookReady = CreateHook(swapChainTable[VTable_ResizeBuffers], reinterpret_cast<void*>(&Hook_ResizeBuffers), reinterpret_cast<void**>(&s_realResizeBuffers), "IDXGISwapChain::ResizeBuffers");
+    // DXGI Present/Resize hooks are owned by WinDxgiOverlayCoordinator
+    // DX12 still installs queue/factory hooks so renderer can submit ImGui command lists
     bool queueCaptureReady = false;
-
-    IDXGISwapChain1* swapChain1 = nullptr;
-    if (SUCCEEDED(swapChain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swapChain1))) && swapChain1)
-    {
-        void** table1 = VTable(swapChain1);
-        if (table1)
-        {
-            CreateHook(table1[VTable_Present1], reinterpret_cast<void*>(&Hook_Present1), reinterpret_cast<void**>(&s_realPresent1), "IDXGISwapChain1::Present1");
-        }
-        ReleaseCom(swapChain1);
-    }
-
-    IDXGISwapChain3* swapChain3 = nullptr;
-    if (SUCCEEDED(swapChain->QueryInterface(__uuidof(IDXGISwapChain3), reinterpret_cast<void**>(&swapChain3))) && swapChain3)
-    {
-        void** table3 = VTable(swapChain3);
-        if (table3)
-        {
-            CreateHook(table3[VTable_ResizeBuffers1], reinterpret_cast<void*>(&Hook_ResizeBuffers1), reinterpret_cast<void**>(&s_realResizeBuffers1), "IDXGISwapChain3::ResizeBuffers1");
-        }
-        ReleaseCom(swapChain3);
-    }
 
     IDXGIFactory* factory0 = nullptr;
     if (SUCCEEDED(factory->QueryInterface(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&factory0))) && factory0)
@@ -1728,24 +1643,15 @@ DWORD WINAPI InitThread(LPVOID)
         queueCaptureReady = CreateHook(queueTable[VTable_ExecuteCommandLists], reinterpret_cast<void*>(&Hook_ExecuteCommandLists), reinterpret_cast<void**>(&s_realExecuteCommandLists), "ID3D12CommandQueue::ExecuteCommandLists") || queueCaptureReady;
     }
 
-    if (!presentHookReady || !resizeHookReady || !queueCaptureReady)
+    if (!queueCaptureReady)
     {
-        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] required hooks incomplete present=" +
-            std::to_string(presentHookReady ? 1 : 0) +
-            " resize=" + std::to_string(resizeHookReady ? 1 : 0) +
-            " queueCapture=" + std::to_string(queueCaptureReady ? 1 : 0));
-        MH_DisableHook(MH_ALL_HOOKS);
-        if (s_ownsMinHook)
-        {
-            MH_Uninitialize();
-            s_ownsMinHook = false;
-        }
+        LYMALINK_LOG("[Direct3D12OverlayLayer][InitThread] queue capture hooks unavailable; DXGI coordinator remains active.");
         ReleaseCom(swapChain);
         ReleaseCom(factory);
         ReleaseCom(queue);
         ReleaseCom(device);
         DestroyWindow(window);
-        return 1;
+        return 0;
     }
 
     // Dummy objects are no longer needed once hooks are installed
@@ -1767,7 +1673,72 @@ DWORD WINAPI InitThread(LPVOID)
 // LYMALINK_OVERLAY_ATTACH_HOOKS.
 /////////////////////////////////////////////////////////////////////
 
-// Export kept for ABI compatibility; DX12 now uses process-wide MinHook detours and never mutates live swap-chain vtables
+extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D12RenderSwapChain(IUnknown* swapChainObject, const char* presentPath)
+{
+    if (s_shuttingDown.load() || !swapChainObject || !presentPath)
+    {
+        return FALSE;
+    }
+
+    IDXGISwapChain* swapChain = nullptr;
+    if (FAILED(swapChainObject->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&swapChain))) || !swapChain)
+    {
+        return FALSE;
+    }
+
+    const bool rendered = RenderOverlay(swapChain, presentPath);
+    ReleaseCom(swapChain);
+    return rendered ? TRUE : FALSE;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D12BeforeResize(IUnknown* swapChainObject)
+{
+    if (s_shuttingDown.load() || !swapChainObject)
+    {
+        return FALSE;
+    }
+
+    IDXGISwapChain* swapChain = nullptr;
+    if (FAILED(swapChainObject->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&swapChain))) || !swapChain)
+    {
+        return FALSE;
+    }
+
+    BeforeResizeBuffers(swapChain);
+    ReleaseCom(swapChain);
+    return TRUE;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+extern "C" __declspec(dllexport) HRESULT WINAPI LymalinkDirect3D12AfterResize(IUnknown* swapChainObject, const char* apiName, HRESULT result, IUnknown* const* presentQueue)
+{
+    if (s_shuttingDown.load() || !swapChainObject || !apiName)
+    {
+        return result;
+    }
+
+    IDXGISwapChain* swapChain = nullptr;
+    if (FAILED(swapChainObject->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&swapChain))) || !swapChain)
+    {
+        return result;
+    }
+
+    if (SUCCEEDED(result) && presentQueue && presentQueue[0] && std::string(apiName) == "ResizeBuffers1")
+    {
+        CaptureSwapChainQueue(swapChain, presentQueue[0], "ResizeBuffers1");
+    }
+
+    const HRESULT adjustedResult = HandleResizeBuffersResult(apiName, result);
+    ReleaseCom(swapChain);
+    return adjustedResult;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+// Export for ABI compatibility; DX12 now uses process-wide MinHook detours and never mutates live swap-chain vtables
 extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D12InstallSwapChainHook(IUnknown* swapChainObject)
 {
     if (s_shuttingDown.load() || !swapChainObject)
@@ -1798,6 +1769,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI LymalinkDirect3D12InstallSwapChainH
 extern "C" void LymalinkOverlayOnProcessAttach(HINSTANCE instance)
 {
     // Keep attach lightweight; hook setup runs on worker thread
+    LYMALINK_LOG("[Direct3D12OverlayLayer][Identity] I am DX12; process attach.");
     DisableThreadLibraryCalls(instance);
 
     HANDLE thread = CreateThread(nullptr, 0, InitThread, nullptr, 0, nullptr);
@@ -1827,6 +1799,7 @@ extern "C" void LymalinkOverlayOnProcessDetach()
             s_ownsMinHook = false;
         }
     }
+    WinDxgiOverlayCoordinator::Shutdown();
     {
         std::lock_guard<std::mutex> lock(s_renderMutex);
         ShutdownImGuiLocked();

@@ -31,7 +31,7 @@
 #endif
 
 #if defined(_WIN32)
-    #define WINDOWS_OVERLAY_INJECTION_DELAY_MS 3000
+    #define WINDOWS_OVERLAY_INJECTION_DELAY_MS 100
 #endif
 
 #define COMPONENT "Lymalinkd"
@@ -575,6 +575,9 @@ std::vector<uint32_t> Lymalinkd::CollectWindowsProcessTree(uint32_t rootPid) con
 
 void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
 {
+    LOG_BE(Urgency::Debug, "Delaying starting Windows overlay injection for stability for targetId=%d rootPid=%u by %dms.", targetId, rootPid, 3000);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
     // Retry briefly because some games spawn the real render process after the launcher process
     auto worker = [this, targetId, rootPid]() {
         std::unordered_set<uint32_t> injected;
