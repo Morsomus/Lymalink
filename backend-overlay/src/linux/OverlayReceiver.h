@@ -64,6 +64,7 @@ private:
         std::string iconPath;
         std::string appIconPath;
         OverlayNotificationPosition position = OverlayNotificationPosition::BottomRight;
+        OverlayNotificationExitAnimation exitAnimation = OverlayNotificationExitAnimation::SlideOut;
         // Embedded icon pixels from socket packet, non-empty when hasIconPixels == 1.
         std::vector<uint8_t> iconPixels; // RGBA
     };

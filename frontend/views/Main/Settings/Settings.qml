@@ -34,6 +34,8 @@ Item {
     readonly property bool hasActiveTarget: activeTargetIds.length > 0
     readonly property var overlayPositionValues: ["top-left", "top-center", "top-right", "bottom-right", "bottom-center", "bottom-left"]
     readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-center"), qsTr("Bottom-left")]
+    readonly property var overlayExitAnimationValues: ["slide-out", "fade-out"]
+    readonly property var overlayExitAnimationLabels: [qsTr("Slide out"), qsTr("Fade out")]
 
     signal achievementImportCompleted(var addedTargets)
 
@@ -120,6 +122,15 @@ Item {
             }
         }
         return 3
+    }
+
+    function overlayExitAnimationIndex(value) {
+        for (let i = 0; i < overlayExitAnimationValues.length; ++i) {
+            if (overlayExitAnimationValues[i] === value) {
+                return i
+            }
+        }
+        return 0
     }
 
     function colorStyleLabel(value) {
@@ -1106,20 +1117,19 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Startup Notification")
-                            tooltip: qsTr("Show an overlay notification shortly after a tracked game starts")
+                            label: qsTr("Exit animation")
+                            tooltip: qsTr("Select how achievement overlay notifications disappear")
 
-                            CustomSwitch {
-                                checked: ctxSettings.startupNotification
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_startupNotificationHover }
-                                CustomTooltip {
-                                    p_active: id_startupNotificationHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Show an overlay notification shortly after a tracked game starts")
-                                }
-                                onToggled: {
-                                    if (ctxSettings.SaveValue(Settings.StartupNotification, checked) && id_root.backendServiceReady) {
+                            CustomComboBox {
+                                id: id_overlayExitAnimationCombo
+
+                                model: id_root.overlayExitAnimationLabels
+                                currentIndex: id_root.overlayExitAnimationIndex(ctxSettings.overlayNotificationExitAnimation)
+                                implicitWidth: 140
+
+                                onActivated: (index) => {
+                                    const animation = id_root.overlayExitAnimationValues[index]
+                                    if (ctxSettings.SaveValue(Settings.OverlayNotificationExitAnimation, animation) && id_root.backendServiceReady) {
                                         ctxBackendService.ReloadConfig()
                                     }
                                 }
@@ -1184,7 +1194,26 @@ Item {
                             }
                         }
 
-                        C_SettingRow {}
+                        C_SettingRow {
+                            label: qsTr("Startup Notification")
+                            tooltip: qsTr("Show an overlay notification shortly after a tracked game starts")
+
+                            CustomSwitch {
+                                checked: ctxSettings.startupNotification
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_startupNotificationHover }
+                                CustomTooltip {
+                                    p_active: id_startupNotificationHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show an overlay notification shortly after a tracked game starts")
+                                }
+                                onToggled: {
+                                    if (ctxSettings.SaveValue(Settings.StartupNotification, checked) && id_root.backendServiceReady) {
+                                        ctxBackendService.ReloadConfig()
+                                    }
+                                }
+                            }
+                        }
 
                         C_SettingRow {
                             label: qsTr("Notification sound")

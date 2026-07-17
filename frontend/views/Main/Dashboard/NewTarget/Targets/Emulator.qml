@@ -34,6 +34,7 @@ Item {
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
+    property bool gogEmulatorEnabled: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
     readonly property string notificationFlatpakLdPreload: "LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so:/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
@@ -180,7 +181,7 @@ Item {
             id_root.selectedName,
             id_installLocationField.text,
             id_prefixLocationField.text,
-            id_installDirField.text
+            id_root.gogEmulatorEnabled ? id_installDirField.text : ""
         )
 
         id_root.isCreatingTarget = false
@@ -1053,10 +1054,21 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("Used for GOG Emulators")
+                            text: qsTr("Used for scanning GOG Emulators")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
                             color: Themes.emulatorTarget.colors.descriptionMutedText
                             wrapMode: Text.Wrap
+                        }
+
+                        CustomCheckBox {
+                            Layout.topMargin: 4
+                            text: qsTr("GOG Emulator enabled")
+                            checked: id_root.gogEmulatorEnabled
+                            onToggled: {
+                                id_root.gogEmulatorEnabled = checked
+                                id_root.targetStatusText = ""
+                                id_root.targetStatusIsError = false
+                            }
                         }
                     }
 
@@ -1064,12 +1076,15 @@ Item {
                         id: id_installDirField
 
                         Layout.fillWidth: true
+                        enabled: id_root.gogEmulatorEnabled
+                        opacity: enabled ? 1.0 : 0.55
                         readOnly: true
                         selectByMouse: false
                         placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
 
                         MouseArea {
                             anchors.fill: parent
+                            enabled: id_root.gogEmulatorEnabled
                             cursorShape: Qt.PointingHandCursor
                             onClicked: id_installFolderDialog.open()
                         }
@@ -1162,7 +1177,7 @@ Item {
                             readonly property bool canConfirm: id_root.selectedAppId > 0
                                 && id_root.selectedName.trim().length > 0
                                 && id_installLocationField.text.trim().length > 0
-                                && id_installDirField.text.trim().length > 0
+                                && (!id_root.gogEmulatorEnabled || id_installDirField.text.trim().length > 0)
                                 && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
                                 && !id_root.isCreatingTarget
 

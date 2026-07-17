@@ -57,26 +57,56 @@ void WinOverlayUi::Update(const WinOverlayNotification* notification)
 
     const float delta = m_lastFrameMs == 0 ? 0.0f : (std::min)(0.1f, static_cast<float>(now - m_lastFrameMs) / 1000.0f);
     m_lastFrameMs = now;
+    constexpr float margin = 40.0f;
+    constexpr float width = 480.0f;
+    constexpr float height = 100.0f;
+    constexpr float fadeSpeed = 4.0f;
+    constexpr float slideSpeed = 200.0f;
+    constexpr float exitSlideSpeed = 1200.0f;
 
-    // Begin fade-out after notification duration expires
+    // Begin exit slide after notification duration expires
     if (!m_fadingOut && now - m_notification.shownAtMs >= m_notification.durationMs)
     {
         m_fadingOut = true;
+        m_alpha = 1.0f;
     }
     if (m_fadingOut)
     {
-        m_alpha = (std::max)(0.0f, m_alpha - delta * 4.0f);
-        m_slide = (std::min)(40.0f, m_slide + delta * 200.0f);
-        if (m_alpha == 0.0f)
+        if (m_notification.exitAnimation == OverlayNotificationExitAnimation::FadeOut)
         {
-            m_visible = false;
-            m_fadingOut = false;
+            m_alpha = (std::max)(0.0f, m_alpha - delta * fadeSpeed);
+            m_slide = (std::min)(40.0f, m_slide + delta * slideSpeed);
+            if (m_alpha == 0.0f)
+            {
+                m_visible = false;
+                m_fadingOut = false;
+                m_slide = 40.0f;
+            }
+        }
+        else
+        {
+            const bool centeredPosition = m_notification.position == OverlayNotificationPosition::TopCenter || m_notification.position == OverlayNotificationPosition::BottomCenter;
+            const float exitSlideDistance = centeredPosition
+                ? height + margin
+                : width + margin;
+            const float exitSlideProgress = exitSlideDistance > 0.0f ? (std::min)(1.0f, m_slide / (exitSlideDistance * 0.10f)) : 1.0f;
+            const float maxSlideSpeed = centeredPosition ? exitSlideSpeed * 0.5f : exitSlideSpeed;
+            const float currentSlideSpeed = slideSpeed + (maxSlideSpeed - slideSpeed) * exitSlideProgress * exitSlideProgress;
+            m_alpha = 1.0f;
+            m_slide = (std::min)(exitSlideDistance, m_slide + delta * currentSlideSpeed);
+            if (m_slide >= exitSlideDistance)
+            {
+                m_visible = false;
+                m_fadingOut = false;
+                m_alpha = 0.0f;
+                m_slide = 40.0f;
+            }
         }
     }
     else
     {
-        m_alpha = (std::min)(1.0f, m_alpha + delta * 4.0f);
-        m_slide = (std::max)(0.0f, m_slide - delta * 200.0f);
+        m_alpha = (std::min)(1.0f, m_alpha + delta * fadeSpeed);
+        m_slide = (std::max)(0.0f, m_slide - delta * slideSpeed);
     }
 }
 

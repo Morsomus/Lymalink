@@ -78,6 +78,8 @@ private:
     bool EmbedIconIntoPacket(OverlaySocketPacket& packet, const std::string& iconPath) const;
     OverlayNotificationPosition ResolveNotificationPosition() const;
     OverlayNotificationPosition ParseNotificationPosition(const std::string& value) const;
+    OverlayNotificationExitAnimation ResolveNotificationExitAnimation() const;
+    OverlayNotificationExitAnimation ParseNotificationExitAnimation(const std::string& value) const;
     std::string ResolveConfigPath() const;
     std::string ResolveRuntimeDir() const;
 };

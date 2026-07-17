@@ -130,7 +130,7 @@ Popup {
     }
 
     function setInstallationLocation(path) {
-        if (id_root.p_appId <= 0 || path.length === 0) {
+        if (id_root.p_appId <= 0) {
             return
         }
 
@@ -352,13 +352,15 @@ Popup {
         id: id_installationLocationPopup
 
         p_title: qsTr("Edit Installation Directory")
-        p_description: qsTr("Current path:\n%1").arg(id_root.currentInstallationLocation.length > 0
+        p_description: qsTr("Adding an installation directory enables scanning for GOG Emulator.\nClear it to disable scanning for GOG Emulator.\n\nCurrent path:\n%1").arg(id_root.currentInstallationLocation.length > 0
             ? id_root.currentInstallationLocation
             : qsTr("Not set"))
         p_confirmText: qsTr("Apply")
         p_popupWidth: 520
         p_pathSelectionMode: true
         p_pathSelectionFolder: true
+        p_pathSelectionRequired: false
+        p_pathAllowClear: true
         p_pathDialogTitle: qsTr("Select Game Installation Directory")
         p_pathPlaceholderText: qsTr("Select Game Installation Directory")
         onConfirmed: function(path) {

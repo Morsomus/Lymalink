@@ -702,6 +702,35 @@ TEST_CASE("pathScanner_detectsNemirtingasBelowInstallationDir", "[pathscanner]")
 
 /////////////////////////////////////////////////////////////////////
 
+TEST_CASE("pathScanner_skipsGogScanWhenInstallationDirEmpty", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_gog_disabled";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(installDir / "ngalaxye_settings");
+    fs::create_directories(prefix / "Goldberg" / "123");
+    const fs::path exePath = installDir / "Game.exe";
+    {
+        std::ofstream file(exePath);
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), exePath.string(), "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].targetId == 123);
+    CHECK(results[0].appidDirFound);
+    CHECK(results[0].emulatorType == "GOLDBERG");
+    CHECK(fs::path(results[0].appidDirLocation).filename() == "123");
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 // Disabled while FindGogPrefixAppIdDir() is intentionally not used.
 // Current scanner only records GOG IDs; prefix-dir matching was parked due false-positive risk.
 TEST_CASE("pathScanner_collectsGogIdsAndMatchesPrefixAchievementDir", "[pathscanner][.]")

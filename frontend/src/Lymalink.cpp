@@ -154,9 +154,9 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     installationDir = installationDir.trimmed();
 
 #if defined(Q_OS_WIN)
-    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || installationDir.isEmpty())
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty())
 #else
-    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty() || installationDir.isEmpty())
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
 #endif
     {
         m_lastOperationError = tr("Invalid emulator target data.");
@@ -956,7 +956,7 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
     m_lastOperationError.clear();
 
     const QString trimmedInstallationDir = installationDir.trimmed();
-    if (appId <= 0 || trimmedInstallationDir.isEmpty())
+    if (appId <= 0)
     {
         m_lastOperationError = tr("Invalid target installation directory.");
         qWarning() << "Lymalink::SetTargetInstallationLocation: invalid target installation directory update:" << appId << trimmedInstallationDir;

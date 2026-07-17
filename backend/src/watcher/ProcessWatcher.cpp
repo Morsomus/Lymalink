@@ -107,6 +107,13 @@ void ProcessWatcher::SetTargets(const std::vector<WatchTarget>& targets)
 
 /////////////////////////////////////////////////////////////////////
 
+void ProcessWatcher::SetPollIntervalSec(uint8_t seconds)
+{
+    m_pollIntervalSec.store(seconds);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void ProcessWatcher::Start()
 {
     if (m_running.load())
@@ -149,7 +156,7 @@ void ProcessWatcher::PollLoop()
     while (m_running.load())
     {
         ScanProc();
-        std::this_thread::sleep_for(std::chrono::seconds(m_pollIntervalSec));
+        std::this_thread::sleep_for(std::chrono::seconds(m_pollIntervalSec.load()));
     }
 }
 

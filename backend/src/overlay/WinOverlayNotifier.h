@@ -59,5 +59,7 @@ private:
     static void SetVulkanLayersEnabled(bool enabled);
     static OverlayNotificationPosition ResolveNotificationPosition();
     static OverlayNotificationPosition ParseNotificationPosition(const std::string& value);
+    static OverlayNotificationExitAnimation ResolveNotificationExitAnimation();
+    static OverlayNotificationExitAnimation ParseNotificationExitAnimation(const std::string& value);
     static std::string ResolveConfigPath();
 };

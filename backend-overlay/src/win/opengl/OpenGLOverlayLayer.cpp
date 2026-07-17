@@ -26,6 +26,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifndef GL_DRAW_FRAMEBUFFER
@@ -33,6 +34,12 @@
 #endif
 #ifndef GL_DRAW_FRAMEBUFFER_BINDING
     #define GL_DRAW_FRAMEBUFFER_BINDING 0x8CA6
+#endif
+#ifndef GL_PIXEL_UNPACK_BUFFER
+    #define GL_PIXEL_UNPACK_BUFFER 0x88EC
+#endif
+#ifndef GL_PIXEL_UNPACK_BUFFER_BINDING
+    #define GL_PIXEL_UNPACK_BUFFER_BINDING 0x88EF
 #endif
 
 namespace
@@ -42,23 +49,33 @@ using PFN_wglSwapLayerBuffers = BOOL(WINAPI*)(HDC, UINT);
 using PFN_wglGetProcAddress = PROC(WINAPI*)(LPCSTR);
 using PFN_GetProcAddress = FARPROC(WINAPI*)(HMODULE, LPCSTR);
 using PFN_glBindFramebuffer = void(APIENTRY*)(GLenum, GLuint);
+using PFN_glBindBuffer = void(APIENTRY*)(GLenum, GLuint);
+
+struct OpenGLContextState
+{
+    ImGuiContext* imguiContext = nullptr;
+    GLuint iconTexture = 0;
+    uint64_t iconGeneration = 0;
+    uint32_t framebufferWidth = 0;
+    uint32_t framebufferHeight = 0;
+    bool backendReady = false;
+};
 
 static PFN_SwapBuffers s_realSwapBuffers = nullptr;
 static PFN_wglSwapLayerBuffers s_realWglSwapLayerBuffers = nullptr;
 static PFN_wglGetProcAddress s_realWglGetProcAddress = nullptr;
 static PFN_GetProcAddress s_realGetProcAddress = nullptr;
 static PFN_glBindFramebuffer s_glBindFramebuffer = nullptr;
+static PFN_glBindBuffer s_glBindBuffer = nullptr;
 
-// One receiver and one ImGui context are shared by every OpenGL swap hook in this process
+// Receiver state is process-wide, but OpenGL textures/shaders are owned by the current WGL context
 static WinOverlayReceiver s_overlay;
-static std::once_flag s_imguiInitFlag;
+static std::unordered_map<HGLRC, OpenGLContextState> s_contexts;
 static std::mutex s_renderMutex;
 static std::atomic_bool s_hooksReady{false};
 static std::atomic_bool s_shuttingDown{false};
 static thread_local bool s_rendering = false;   // Prevents recursive swap interception while ImGui renders
 
-static GLuint s_iconTexture = 0;
-static uint64_t s_iconGeneration = 0;
 static std::atomic_bool s_loggedSwapHit{false};
 static std::atomic_bool s_loggedNoContext{false};
 static std::atomic_bool s_loggedWglProcSwap{false};
@@ -121,12 +138,33 @@ uint32_t QueryFramebufferSize(HDC dc, uint32_t& outWidth, uint32_t& outHeight)
 
 /////////////////////////////////////////////////////////////////////
 
-void InitImGui(uint32_t width, uint32_t height)
+void DeleteIconTexture(OpenGLContextState& state)
 {
-    std::call_once(s_imguiInitFlag, [width, height]() {
-        // Bind Dear ImGui to the game's current OpenGL context on the first real swap
+    if (state.iconTexture != 0)
+    {
+        glDeleteTextures(1, &state.iconTexture);
+        state.iconTexture = 0;
+        state.iconGeneration = 0;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+OpenGLContextState* EnsureImGuiForContext(HGLRC glContext, uint32_t width, uint32_t height)
+{
+    if (!glContext)
+    {
+        return nullptr;
+    }
+
+    OpenGLContextState& state = s_contexts[glContext];
+    const bool created = state.imguiContext == nullptr;
+    if (created)
+    {
+        // A resized/recreated WGL context owns a different namespace of GL textures/shaders
         IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
+        state.imguiContext = ImGui::CreateContext();
+        ImGui::SetCurrentContext(state.imguiContext);
         OverlayFonts::EnsureEmbeddedFontLoaded();
 
         ImGuiIO& io = ImGui::GetIO();
@@ -134,7 +172,8 @@ void InitImGui(uint32_t width, uint32_t height)
         io.IniFilename = nullptr;
         ImGui::StyleColorsDark();
 
-        if (!ImGui_ImplOpenGL3_Init("#version 130"))
+        state.backendReady = ImGui_ImplOpenGL3_Init("#version 130");
+        if (!state.backendReady)
         {
             LYMALINK_LOG("[OpenGLOverlayLayer][InitImGui] ImGui_ImplOpenGL3_Init failed.");
         }
@@ -142,7 +181,28 @@ void InitImGui(uint32_t width, uint32_t height)
         {
             LYMALINK_LOG("[OpenGLOverlayLayer][InitImGui] ready " + std::to_string(width) + "x" + std::to_string(height));
         }
-    });
+    }
+    else
+    {
+        ImGui::SetCurrentContext(state.imguiContext);
+    }
+
+    ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+
+    if (state.backendReady && !created && (state.framebufferWidth != width || state.framebufferHeight != height))
+    {
+        // Some legacy WGL games rebuild context-adjacent resources on resize without changing HGLRC
+        DeleteIconTexture(state);
+        ImGui_ImplOpenGL3_DestroyDeviceObjects();
+        if (!ImGui_ImplOpenGL3_CreateDeviceObjects())
+        {
+            LYMALINK_LOG("[OpenGLOverlayLayer][InitImGui] ImGui_ImplOpenGL3_CreateDeviceObjects failed after resize.");
+        }
+    }
+
+    state.framebufferWidth = width;
+    state.framebufferHeight = height;
+    return state.backendReady ? &state : nullptr;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -159,29 +219,51 @@ PFN_glBindFramebuffer ResolveBindFramebuffer()
 
 /////////////////////////////////////////////////////////////////////
 
-ImTextureID EnsureOpenGLIconTexture(const std::vector<uint8_t>& rgbaPixels, uint64_t generation)
+PFN_glBindBuffer ResolveBindBuffer()
+{
+    if (!s_glBindBuffer && s_realWglGetProcAddress)
+    {
+        s_glBindBuffer = reinterpret_cast<PFN_glBindBuffer>(s_realWglGetProcAddress("glBindBuffer"));
+    }
+    return s_glBindBuffer;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+ImTextureID EnsureOpenGLIconTexture(OpenGLContextState& state, const std::vector<uint8_t>& rgbaPixels, uint64_t generation)
 {
     // Upload notification icons only when the producer updates the shared-memory generation
     if (rgbaPixels.size() != OVERLAY_ICON_DATA_SIZE)
     {
         return ImTextureID_Invalid;
     }
-    if (s_iconTexture != 0 && s_iconGeneration == generation)
+    if (state.iconTexture != 0 && state.iconGeneration == generation)
     {
-        return static_cast<ImTextureID>(static_cast<uintptr_t>(s_iconTexture));
+        return static_cast<ImTextureID>(static_cast<uintptr_t>(state.iconTexture));
     }
 
     GLint previousTexture = 0;
     GLint previousUnpackAlignment = 0;
+    GLint previousPixelUnpackBuffer = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousUnpackAlignment);
 
-    if (s_iconTexture == 0)
+    PFN_glBindBuffer bindBuffer = ResolveBindBuffer();
+    if (bindBuffer)
     {
-        glGenTextures(1, &s_iconTexture);
+        glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &previousPixelUnpackBuffer);
+        if (previousPixelUnpackBuffer != 0)
+        {
+            bindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        }
     }
 
-    glBindTexture(GL_TEXTURE_2D, s_iconTexture);
+    if (state.iconTexture == 0)
+    {
+        glGenTextures(1, &state.iconTexture);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, state.iconTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -189,19 +271,24 @@ ImTextureID EnsureOpenGLIconTexture(const std::vector<uint8_t>& rgbaPixels, uint
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, OVERLAY_ICON_SIZE, OVERLAY_ICON_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels.data());
 
+    if (bindBuffer && previousPixelUnpackBuffer != 0)
+    {
+        bindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(previousPixelUnpackBuffer));
+    }
     glPixelStorei(GL_UNPACK_ALIGNMENT, previousUnpackAlignment);
     glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previousTexture));
 
-    s_iconGeneration = generation;
-    return static_cast<ImTextureID>(static_cast<uintptr_t>(s_iconTexture));
+    state.iconGeneration = generation;
+    return static_cast<ImTextureID>(static_cast<uintptr_t>(state.iconTexture));
 }
 
 /////////////////////////////////////////////////////////////////////
 
 void RenderOverlay(HDC dc, const char* swapPath)
 {
+    HGLRC glContext = wglGetCurrentContext();
     // Swap hooks can fire from helper threads or teardown paths; only render with an active WGL context
-    if (s_rendering || s_shuttingDown.load() || !wglGetCurrentContext())
+    if (s_rendering || s_shuttingDown.load() || !glContext)
     {
         if (!s_rendering && !s_shuttingDown.load() && !s_loggedNoContext.exchange(true))
         {
@@ -221,8 +308,14 @@ void RenderOverlay(HDC dc, const char* swapPath)
     s_rendering = true;
 
     // Draw into the back buffer immediately before the game presents it
-    InitImGui(width, height);
-    ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+    ImGuiContext* previousImguiContext = ImGui::GetCurrentContext();
+    OpenGLContextState* contextState = EnsureImGuiForContext(glContext, width, height);
+    if (!contextState)
+    {
+        ImGui::SetCurrentContext(previousImguiContext);
+        s_rendering = false;
+        return;
+    }
 
     GLint previousViewport[4]{};
     GLint previousScissor[4]{};
@@ -244,7 +337,7 @@ void RenderOverlay(HDC dc, const char* swapPath)
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
     const bool claimedNotification = s_overlay.BeginFrame();
-    ImTextureID icon = EnsureOpenGLIconTexture(s_overlay.IconPixels(), s_overlay.IconGeneration());
+    ImTextureID icon = EnsureOpenGLIconTexture(*contextState, s_overlay.IconPixels(), s_overlay.IconGeneration());
     s_overlay.Draw(width, height, icon);
     if (claimedNotification)
     {
@@ -261,6 +354,7 @@ void RenderOverlay(HDC dc, const char* swapPath)
     glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
     glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
 
+    ImGui::SetCurrentContext(previousImguiContext);
     s_rendering = false;
 }
 
@@ -449,15 +543,27 @@ extern "C" void LymalinkOverlayOnProcessDetach()
         MH_DisableHook(MH_ALL_HOOKS);
         MH_Uninitialize();
     }
-    if (s_iconTexture != 0 && wglGetCurrentContext())
+
+    const HGLRC currentContext = wglGetCurrentContext();
+    for (auto& entry : s_contexts)
     {
-        glDeleteTextures(1, &s_iconTexture);
-        s_iconTexture = 0;
+        OpenGLContextState& state = entry.second;
+        if (!state.imguiContext)
+        {
+            continue;
+        }
+
+        ImGui::SetCurrentContext(state.imguiContext);
+        if (entry.first == currentContext && state.backendReady)
+        {
+            DeleteIconTexture(state);
+            ImGui_ImplOpenGL3_Shutdown();
+            state.backendReady = false;
+        }
+        ImGui::DestroyContext(state.imguiContext);
+        state.imguiContext = nullptr;
     }
-    if (ImGui::GetCurrentContext())
-    {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui::DestroyContext();
-    }
+    s_contexts.clear();
+    ImGui::SetCurrentContext(nullptr);
     s_overlay.Shutdown();
 }

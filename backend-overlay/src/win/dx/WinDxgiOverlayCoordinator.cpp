@@ -608,30 +608,25 @@ bool DispatchRender(IDXGISwapChain* swapChain, const char* presentPath)
 
 /////////////////////////////////////////////////////////////////////
 
-HRESULT DispatchBeforeResize(IDXGISwapChain* swapChain)
+WinDxgiOverlayRouter::Renderer DispatchBeforeResize(IDXGISwapChain* swapChain)
 {
     // Resize invalidates renderer-owned backbuffer resources
     // Capture renderer before real ResizeBuffers because device/swap-chain state may change during call
     const WinDxgiOverlayRouter::Renderer renderer = WinDxgiOverlayRouter::DetectSwapChainRenderer(swapChain);
     if (renderer == WinDxgiOverlayRouter::Renderer::Unknown)
     {
-        return DXGI_ERROR_NOT_FOUND;
+        return WinDxgiOverlayRouter::Renderer::Unknown;
     }
     WinDxgiOverlayRouter::BeforeResize(renderer, swapChain);
-    return static_cast<HRESULT>(renderer);
+    return renderer;
 }
 
 /////////////////////////////////////////////////////////////////////
 
-HRESULT DispatchAfterResize(HRESULT rendererToken, IDXGISwapChain* swapChain, const char* apiName, HRESULT result, IUnknown* const* presentQueue)
+HRESULT DispatchAfterResize(WinDxgiOverlayRouter::Renderer renderer, IDXGISwapChain* swapChain, const char* apiName, HRESULT result, IUnknown* const* presentQueue)
 {
     // Pair with DispatchBeforeResize - DX10/11 rebuild ImGui device objects - DX12 can also recover
     // DXGI_ERROR_INVALID_CALL and capture ResizeBuffers1 present queue
-    if (rendererToken == DXGI_ERROR_NOT_FOUND)
-    {
-        return result;
-    }
-    const auto renderer = static_cast<WinDxgiOverlayRouter::Renderer>(rendererToken);
     if (renderer == WinDxgiOverlayRouter::Renderer::Unknown)
     {
         return result;
@@ -662,9 +657,9 @@ HRESULT WINAPI Hook_Present1(IDXGISwapChain1* swapChain, UINT syncInterval, UINT
 HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags)
 {
     // Notify backend before/after the real resize so renderer resources follow swap-chain lifetime
-    const HRESULT rendererToken = DispatchBeforeResize(swapChain);
+    const WinDxgiOverlayRouter::Renderer renderer = DispatchBeforeResize(swapChain);
     const HRESULT result = s_realResizeBuffers ? s_realResizeBuffers(swapChain, bufferCount, width, height, newFormat, swapChainFlags) : DXGI_ERROR_INVALID_CALL;
-    return DispatchAfterResize(rendererToken, swapChain, "ResizeBuffers", result, nullptr);
+    return DispatchAfterResize(renderer, swapChain, "ResizeBuffers", result, nullptr);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -672,9 +667,9 @@ HRESULT WINAPI Hook_ResizeBuffers(IDXGISwapChain* swapChain, UINT bufferCount, U
 HRESULT WINAPI Hook_ResizeBuffers1(IDXGISwapChain3* swapChain, UINT bufferCount, UINT width, UINT height, DXGI_FORMAT newFormat, UINT swapChainFlags, const UINT* creationNodeMask, IUnknown* const* presentQueue)
 {
     // ResizeBuffers1 can pass a new present queue - DX12 backend uses it after successful resize
-    const HRESULT rendererToken = DispatchBeforeResize(swapChain);
+    const WinDxgiOverlayRouter::Renderer renderer = DispatchBeforeResize(swapChain);
     const HRESULT result = s_realResizeBuffers1 ? s_realResizeBuffers1(swapChain, bufferCount, width, height, newFormat, swapChainFlags, creationNodeMask, presentQueue) : DXGI_ERROR_INVALID_CALL;
-    return DispatchAfterResize(rendererToken, swapChain, "ResizeBuffers1", result, presentQueue);
+    return DispatchAfterResize(renderer, swapChain, "ResizeBuffers1", result, presentQueue);
 }
 }
 

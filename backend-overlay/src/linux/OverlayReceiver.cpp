@@ -340,6 +340,7 @@ bool OverlayReceiver::SharedMemoryClaimPendingNotification()
     m_currentActiveNotification.iconPath = m_shm->iconPath;
     m_currentActiveNotification.appIconPath = m_shm->appIconPath;
     m_currentActiveNotification.position = static_cast<OverlayNotificationPosition>(m_shm->notificationPosition);
+    m_currentActiveNotification.exitAnimation = static_cast<OverlayNotificationExitAnimation>(m_shm->notificationExitAnimation);
 
     if (m_shm->hasIconPixels == 1)
     {
@@ -665,6 +666,7 @@ OverlayReceiver::ActiveNotification OverlayReceiver::SocketPacketToNotification(
     notification.iconPath = packet.iconPath;
     notification.appIconPath = packet.appIconPath;
     notification.position = static_cast<OverlayNotificationPosition>(packet.notificationPosition);
+    notification.exitAnimation = static_cast<OverlayNotificationExitAnimation>(packet.notificationExitAnimation);
     
     if (packet.hasIconPixels)
     {
@@ -829,6 +831,10 @@ void OverlayReceiver::UpdateNotificationAnimation(float delta)
 {
     constexpr float FADE_SPEED = 4.0f;      // alpha units per second
     constexpr float SLIDE_SPEED = 200.0f;   // pixels per second
+    constexpr float EXIT_SLIDE_SPEED = 1200.0f; // pixels per second
+    constexpr float MARGIN = 40.0f;
+    constexpr float NOTIF_WIDTH = 480.0f;
+    constexpr float NOTIF_HEIGHT = 100.0f;
 
     delta = std::min(delta, 0.1f); 
 
@@ -853,21 +859,49 @@ void OverlayReceiver::UpdateNotificationAnimation(float delta)
     }
     else
     {
-        // Animate exit: fade out and slide away
-        m_alpha = std::max(0.0f, m_alpha - delta * FADE_SPEED);
-        m_slideOffset = std::min(40.0f, m_slideOffset + delta * SLIDE_SPEED);
-
-        // Image animation exit
-        m_iconAlpha = std::max(0.0f, m_alpha);
-        m_iconAnimProgress = 0.0f;
-
-        if (m_alpha <= 0.0f)
+        if (m_currentActiveNotification.exitAnimation == OverlayNotificationExitAnimation::FadeOut)
         {
-            // Animation complete, clear notification
-            m_currentActiveNotification.visible = false;
-            m_fadingOut = false;
-            m_iconAlpha = 0.0f;
-            m_slideOffset = 40.0f;
+            // Animate exit: fade out and slide away.
+            m_alpha = std::max(0.0f, m_alpha - delta * FADE_SPEED);
+            m_slideOffset = std::min(40.0f, m_slideOffset + delta * SLIDE_SPEED);
+            m_iconAlpha = std::max(0.0f, m_alpha);
+            m_iconAnimProgress = 0.0f;
+
+            if (m_alpha <= 0.0f)
+            {
+                // Animation complete, clear notification
+                m_currentActiveNotification.visible = false;
+                m_fadingOut = false;
+                m_iconAlpha = 0.0f;
+                m_slideOffset = 40.0f;
+            }
+        }
+        else
+        {
+            // Animate exit: keep fully opaque and slide outside the framebuffer.
+            const bool centeredPosition = m_currentActiveNotification.position == OverlayNotificationPosition::TopCenter || m_currentActiveNotification.position == OverlayNotificationPosition::BottomCenter;
+            const float exitSlideDistance = centeredPosition
+                ? NOTIF_HEIGHT + MARGIN
+                : NOTIF_WIDTH + MARGIN;
+            const float exitSlideProgress = exitSlideDistance > 0.0f ? std::min(1.0f, m_slideOffset / (exitSlideDistance * 0.10f)) : 1.0f;
+            const float maxSlideSpeed = centeredPosition ? EXIT_SLIDE_SPEED * 0.5f : EXIT_SLIDE_SPEED;
+            const float currentSlideSpeed = SLIDE_SPEED + (maxSlideSpeed - SLIDE_SPEED) * exitSlideProgress * exitSlideProgress;
+            m_alpha = 1.0f;
+            m_slideOffset = std::min(exitSlideDistance, m_slideOffset + delta * currentSlideSpeed);
+
+            // Image stays visible during the exit slide.
+            m_iconAlpha = 1.0f;
+            m_iconAnimProgress = 0.0f;
+
+            if (m_slideOffset >= exitSlideDistance)
+            {
+                // Animation complete, clear notification
+                m_currentActiveNotification.visible = false;
+                m_fadingOut = false;
+                m_alpha = 0.0f;
+                m_iconAlpha = 0.0f;
+                m_slideOffset = 40.0f;
+            }
         }
     }
 }

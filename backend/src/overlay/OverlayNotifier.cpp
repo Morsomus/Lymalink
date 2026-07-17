@@ -134,6 +134,7 @@ void OverlayNotifier::ClearSharedMemoryNotification()
     m_shm->timestamp = 0;
     m_shm->durationMs = 0;
     m_shm->notificationPosition = static_cast<uint32_t>(OverlayNotificationPosition::BottomRight);
+    m_shm->notificationExitAnimation = static_cast<uint32_t>(OverlayNotificationExitAnimation::SlideOut);
     m_shm->hasIconPixels = 0;
     std::memset(m_shm->title, 0, sizeof(m_shm->title));
     std::memset(m_shm->description, 0, sizeof(m_shm->description));
@@ -230,6 +231,7 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
     m_shm->timestamp = nowMs;
     m_shm->durationMs = durationMs;
     m_shm->notificationPosition = static_cast<uint32_t>(ResolveNotificationPosition());
+    m_shm->notificationExitAnimation = static_cast<uint32_t>(ResolveNotificationExitAnimation());
 
     std::strncpy(m_shm->title, notification.achievementName.c_str(), sizeof(m_shm->title) - 1);
     std::strncpy(m_shm->description, notification.achievementDescription.c_str(), sizeof(m_shm->description) - 1);
@@ -728,6 +730,7 @@ OverlaySocketPacket OverlayNotifier::BuildSocketPacket(const AchievementNotifica
     packet.timestamp = Utils::NowMs();
     packet.durationMs = durationMs;
     packet.notificationPosition = static_cast<uint32_t>(ResolveNotificationPosition());
+    packet.notificationExitAnimation = static_cast<uint32_t>(ResolveNotificationExitAnimation());
 
     // Copy string fields into fixed-size buffers
     std::strncpy(packet.title, notification.achievementName.c_str(), sizeof(packet.title) - 1);
@@ -894,6 +897,63 @@ OverlayNotificationPosition OverlayNotifier::ParseNotificationPosition(const std
     }
 
     return OverlayNotificationPosition::BottomRight;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+OverlayNotificationExitAnimation OverlayNotifier::ResolveNotificationExitAnimation() const
+{
+    if (const char* value = std::getenv("LYMALINK_OVERLAY_NOTIFICATION_EXIT_ANIMATION"))
+    {
+        if (*value != '\0')
+        {
+            OverlayNotificationExitAnimation animation = ParseNotificationExitAnimation(value);
+            LOG_BE(Urgency::Info, "Overlay notification exit animation overridden via environment variable: %s", value);
+            return animation;
+        }
+    }
+
+    std::string configuredAnimation = "";
+    const std::string configPath = ResolveConfigPath();
+    if (!configPath.empty())
+    {
+        configuredAnimation = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "OverlayNotificationExitAnimation");
+    }
+
+    if (!configuredAnimation.empty())
+    {
+        OverlayNotificationExitAnimation animation = ParseNotificationExitAnimation(configuredAnimation);
+        LOG_BE(Urgency::Debug, "Overlay notification exit animation loaded from config: %s", configuredAnimation.c_str());
+        return animation;
+    }
+
+    LOG_BE(Urgency::Debug, "No overlay notification exit animation configured. Using default: SlideOut");
+    return OverlayNotificationExitAnimation::SlideOut;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+OverlayNotificationExitAnimation OverlayNotifier::ParseNotificationExitAnimation(const std::string& value) const
+{
+    std::string normalized = value;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '_'), normalized.end());
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '-'), normalized.end());
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), ' '), normalized.end());
+
+    if (normalized == "fade" || normalized == "fadeout")
+    {
+        return OverlayNotificationExitAnimation::FadeOut;
+    }
+
+    if (normalized != "slide" && normalized != "slideout")
+    {
+        LOG_BE(Urgency::Warning, "Unknown notification exit animation value '%s'. Falling back to SlideOut.", value.c_str());
+    }
+
+    return OverlayNotificationExitAnimation::SlideOut;
 }
 
 /////////////////////////////////////////////////////////////////////

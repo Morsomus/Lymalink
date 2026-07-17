@@ -20,6 +20,7 @@ struct WinOverlayNotification
     uint64_t shownAtMs = 0;
     uint32_t durationMs = 6000;
     OverlayNotificationPosition position = OverlayNotificationPosition::BottomRight;
+    OverlayNotificationExitAnimation exitAnimation = OverlayNotificationExitAnimation::SlideOut;
     std::string title;
     std::string description;
     std::vector<uint8_t> iconPixels;

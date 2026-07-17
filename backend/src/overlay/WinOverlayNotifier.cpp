@@ -234,6 +234,7 @@ bool WinOverlayNotifier::ShowAchievementToast(const AchievementNotification& not
         state.timestamp = nowMs;
         state.durationMs = 6000;
         state.notificationPosition = static_cast<uint32_t>(ResolveNotificationPosition());
+        state.notificationExitAnimation = static_cast<uint32_t>(ResolveNotificationExitAnimation());
         state.hasIconPixels = LoadIconPixels(notification, state.iconPixels) ? 1U : 0U;
 
         // Publish only after all payload bytes are visible to the injected reader
@@ -307,6 +308,50 @@ OverlayNotificationPosition WinOverlayNotifier::ParseNotificationPosition(const 
     }
 
     return OverlayNotificationPosition::BottomRight;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+OverlayNotificationExitAnimation WinOverlayNotifier::ResolveNotificationExitAnimation()
+{
+    const std::string configPath = ResolveConfigPath();
+    if (configPath.empty())
+    {
+        return OverlayNotificationExitAnimation::SlideOut;
+    }
+
+    const std::string value = Utils::ReadIniValue(configPath, GROUP_BACKGROUND_SERVICE, "OverlayNotificationExitAnimation");
+    if (!value.empty())
+    {
+        return ParseNotificationExitAnimation(value);
+    }
+
+    return OverlayNotificationExitAnimation::SlideOut;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+OverlayNotificationExitAnimation WinOverlayNotifier::ParseNotificationExitAnimation(const std::string& value)
+{
+    std::string normalized = value;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '_'), normalized.end());
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '-'), normalized.end());
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), ' '), normalized.end());
+
+    if (normalized == "fade" || normalized == "fadeout")
+    {
+        return OverlayNotificationExitAnimation::FadeOut;
+    }
+
+    if (normalized != "slide" && normalized != "slideout")
+    {
+        LOG_BE(Urgency::Warning, "Unknown notification exit animation value '%s'. Falling back to SlideOut.", value.c_str());
+    }
+
+    return OverlayNotificationExitAnimation::SlideOut;
 }
 
 /////////////////////////////////////////////////////////////////////

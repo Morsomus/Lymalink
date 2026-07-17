@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <string>
 
-constexpr uint32_t WIN_OVERLAY_SHM_VERSION = 1;
+constexpr uint32_t WIN_OVERLAY_SHM_VERSION = 2;
 constexpr wchar_t WIN_OVERLAY_SHM_PREFIX[] = L"Local\\LymalinkOverlay.v1.";
 
 #pragma pack(push, 8)
@@ -43,7 +43,7 @@ struct alignas(8) WinOverlaySharedMemoryState
 
     // Optional fixed-size 64x64 RGBA icon payload.
     uint32_t hasIconPixels;
-    uint32_t reserved;
+    uint32_t notificationExitAnimation;
     uint8_t iconPixels[OVERLAY_ICON_DATA_SIZE];
 };
 #pragma pack(pop)

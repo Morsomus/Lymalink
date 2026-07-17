@@ -132,6 +132,7 @@ bool WinOverlayReceiver::TryClaim(WinOverlayNotification& notification)
     notification.shownAtMs = GetTickCount64();
     notification.durationMs = m_state->durationMs == 0 ? 6000 : m_state->durationMs;
     notification.position = static_cast<OverlayNotificationPosition>(m_state->notificationPosition);
+    notification.exitAnimation = static_cast<OverlayNotificationExitAnimation>(m_state->notificationExitAnimation);
     notification.title = m_state->title;
     notification.description = m_state->description;
     if (m_state->hasIconPixels == 1)

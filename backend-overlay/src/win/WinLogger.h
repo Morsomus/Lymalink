@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////
 // File: WinLogger.h
-// Date: 2026-05-26
+// Date: 2026-06-21
 // Author: Morsomus
 // Copyright: see /LICENSE
 // Description: Declares Windows debug-output logger for

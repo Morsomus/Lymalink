@@ -35,6 +35,7 @@ public:
     ~ProcessWatcher();
 
     void SetTargets(const std::vector<WatchTarget>& targets);
+    void SetPollIntervalSec(uint8_t seconds);
     void Start();
     void Stop();
 
@@ -69,7 +70,7 @@ private:
     std::vector<ActiveProcess> m_active;
     std::unordered_set<int> m_activeIds;
     std::atomic<bool> m_running;
-    uint8_t m_pollIntervalSec;
+    std::atomic<uint8_t> m_pollIntervalSec;
 
     void PollLoop();
     void ScanProc();

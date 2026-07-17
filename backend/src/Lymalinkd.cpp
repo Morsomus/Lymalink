@@ -671,6 +671,7 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     {
         std::lock_guard<std::mutex> lock(m_cvMutex);
         m_processActive.store(true);
+        m_processWatcher.SetPollIntervalSec(2);
     }
 
     // Track active target once for state reporting and AppId scans
@@ -763,6 +764,7 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
                 {
                     std::lock_guard<std::mutex> lock(m_cvMutex);
                     m_processActive.store(false);
+                    m_processWatcher.SetPollIntervalSec(5);
                 }
             }
         });

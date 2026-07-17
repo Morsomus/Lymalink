@@ -15,7 +15,7 @@
 #include <cstdint>
 
 constexpr const char* OVERLAY_SHM_NAME = "/lymalink_overlay";
-constexpr uint32_t OVERLAY_SHM_VERSION = 3;
+constexpr uint32_t OVERLAY_SHM_VERSION = 4;
 
 // 64x64 RGBA, matches the scale used by EnsureOpenGLIconTexture / EnsureVulkanIconTexture
 constexpr uint32_t OVERLAY_ICON_SIZE = 64;
@@ -32,6 +32,12 @@ enum class OverlayNotificationPosition : uint32_t
     BottomLeft = 5
 };
 
+enum class OverlayNotificationExitAnimation : uint32_t
+{
+    FadeOut = 0,
+    SlideOut = 1
+};
+
 struct OverlaySharedMemoryState
 {
     uint32_t version = OVERLAY_SHM_VERSION;
@@ -40,6 +46,7 @@ struct OverlaySharedMemoryState
     uint64_t timestamp = 0;
     uint32_t durationMs = 0;
     uint32_t notificationPosition = static_cast<uint32_t>(OverlayNotificationPosition::BottomRight);
+    uint32_t notificationExitAnimation = static_cast<uint32_t>(OverlayNotificationExitAnimation::SlideOut);
     char title[256]{};
     char description[512]{};
     char iconPath[1024]{};

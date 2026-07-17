@@ -26,8 +26,11 @@ Popup {
     property bool p_singleVerificationMode: false
     property bool p_pathSelectionMode: false
     property bool p_pathSelectionFolder: false
+    property bool p_pathSelectionRequired: true
+    property bool p_pathAllowClear: false
     property string p_pathDialogTitle: qsTr("Select Location")
     property string p_pathPlaceholderText: qsTr("Select path")
+    property string p_pathInitialText: ""
     property var p_pathNameFilters: []
     property bool p_confirmDanger: false
     property bool p_shortcutEnabled: false
@@ -36,7 +39,7 @@ Popup {
     readonly property bool verificationRequired: p_verificationMode || p_singleVerificationMode
     readonly property bool verificationValid: !verificationRequired || (id_verificationInput.text.length >= 6
         && (!p_verificationMode || id_verificationInput.text === id_verificationConfirmInput.text))
-    readonly property bool pathSelectionValid: !p_pathSelectionMode || id_pathInput.text.length > 0
+    readonly property bool pathSelectionValid: !p_pathSelectionMode || !p_pathSelectionRequired || id_pathInput.text.length > 0
     readonly property bool canConfirm: verificationValid && pathSelectionValid
 
     signal canceled()
@@ -324,6 +327,17 @@ Popup {
                     onClicked: id_root.p_pathSelectionFolder
                         ? id_pathFolderDialog.open()
                         : id_pathFileDialog.open()
+                }
+
+                C_ActionButton {
+                    Layout.fillWidth: false
+                    Layout.preferredWidth: 82
+                    visible: id_root.p_pathAllowClear
+                    text: qsTr("Clear")
+                    onClicked: {
+                        id_pathInput.text = ""
+                        id_root.confirm()
+                    }
                 }
             }
         }

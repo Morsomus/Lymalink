@@ -46,6 +46,7 @@ class Settings : public QObject
     Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
     Q_PROPERTY(QString overlayNotificationPosition READ GetOverlayNotificationPosition NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString overlayNotificationExitAnimation READ GetOverlayNotificationExitAnimation NOTIFY signalConfigChanged)
     Q_PROPERTY(bool startupNotification READ GetStartupNotification NOTIFY signalConfigChanged)
     Q_PROPERTY(bool customNotificationSound READ GetCustomNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QString customNotificationSoundPath READ GetCustomNotificationSoundPath NOTIFY signalConfigChanged)
@@ -83,6 +84,7 @@ public:
         SteamWebApiKey,
         NotificationSound,
         OverlayNotificationPosition,
+        OverlayNotificationExitAnimation,
         StartupNotification,
         CustomNotificationSound,
         CustomNotificationSoundPath,
@@ -134,6 +136,7 @@ public:
     inline QString GetNotificationSound() const { return m_notificationSound; }
     QStringList GetNotificationSounds() const;
     inline QString GetOverlayNotificationPosition() const { return m_overlayNotificationPosition; }
+    inline QString GetOverlayNotificationExitAnimation() const { return m_overlayNotificationExitAnimation; }
     inline bool GetStartupNotification() const { return m_startupNotification; }
     inline bool GetCustomNotificationSound() const { return m_customNotificationSound; }
     inline QString GetCustomNotificationSoundPath() const { return m_customNotificationSoundPath; }
@@ -178,6 +181,7 @@ private:
     QString m_steamWebApiKey;
     QString m_notificationSound;
     QString m_overlayNotificationPosition;
+    QString m_overlayNotificationExitAnimation;
     bool m_startupNotification;
     bool m_customNotificationSound;
     QString m_customNotificationSoundPath;

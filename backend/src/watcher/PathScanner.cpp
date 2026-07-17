@@ -67,32 +67,36 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             continue;
         }
 
-        // GOG Emu req files handling - Start
-        const std::vector<std::string> gogIds = FindGogIds(target.installationDir);
-        const std::string joinedGogIds = JoinIds(gogIds);
-        if (!joinedGogIds.empty() && joinedGogIds != target.dataOpt)
+        std::string joinedGogIds = "";
+        if (!target.installationDir.empty())
         {
-            results.push_back(AppIdDirPathScanResult{target.targetId, "", "", joinedGogIds, false});
-            LOG_BE(Urgency::Info, "Found GOG ids: targetId=%d ids=%s", target.targetId, joinedGogIds.c_str());
-        }
+            // GOG Emu req files handling - Start
+            const std::vector<std::string> gogIds = FindGogIds(target.installationDir);
+            joinedGogIds = JoinIds(gogIds);
+            if (!joinedGogIds.empty() && joinedGogIds != target.dataOpt)
+            {
+                results.push_back(AppIdDirPathScanResult{target.targetId, "", "", joinedGogIds, false});
+                LOG_BE(Urgency::Info, "Found GOG ids: targetId=%d ids=%s", target.targetId, joinedGogIds.c_str());
+            }
 
-        const std::string nemirtingasDir = FindNemirtingasDir(target);
-        if (!nemirtingasDir.empty())
-        {
-            results.push_back(AppIdDirPathScanResult{target.targetId, nemirtingasDir, "GOG-N", joinedGogIds, true});
-            LOG_BE(Urgency::Info, "Found Nemirtingas dir: targetId=%d path=%s", target.targetId, nemirtingasDir.c_str());
-            continue;
-        }
+            const std::string nemirtingasDir = FindNemirtingasDir(target);
+            if (!nemirtingasDir.empty())
+            {
+                results.push_back(AppIdDirPathScanResult{target.targetId, nemirtingasDir, "GOG-N", joinedGogIds, true});
+                LOG_BE(Urgency::Info, "Found Nemirtingas dir: targetId=%d path=%s", target.targetId, nemirtingasDir.c_str());
+                continue;
+            }
 
-        // TODO: Currently disabled because need to make sure if this structure is even possible, and also contains risk of false positives
-        // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds);
-        // if (!gogPrefixDir.empty())
-        // {
-        //     results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
-        //     LOG_BE(Urgency::Info, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
-        //     continue;
-        // }
-        // GOG Emu req files handling - End
+            // TODO: Currently disabled because need to make sure if this structure is even possible, and also contains risk of false positives
+            // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds);
+            // if (!gogPrefixDir.empty())
+            // {
+            //     results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
+            //     LOG_BE(Urgency::Info, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
+            //     continue;
+            // }
+            // GOG Emu req files handling - End
+        }
 
 #if defined(_WIN32)
         std::string emulatorType;
