@@ -26,8 +26,6 @@ namespace fs = std::filesystem;
 
 #define COMPONENT "PathScanner"
 
-/////////////////////////////////////////////////////////////////////
-
 PathScanner::PathScanner()
 {
     m_targets = {};
@@ -126,6 +124,12 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
                 continue;
             }
 
+            if (ShouldSkipLinuxPrefixScanDirectory(*it, ec))
+            {
+                it.disable_recursion_pending();
+                continue;
+            }
+
             if (it->path().filename().string() != target.appId)
             {
                 continue;
@@ -191,6 +195,22 @@ std::string PathScanner::DetectEmulatorTypeFromFolderName(const std::string& fol
 
     return "UNKNOWN";
 }
+
+/////////////////////////////////////////////////////////////////////
+
+#if !defined(_WIN32)
+bool PathScanner::ShouldSkipLinuxPrefixScanDirectory(const fs::directory_entry& entry, std::error_code& ec) const
+{
+    if (entry.is_symlink(ec))
+    {
+        return true;
+    }
+    ec.clear();
+
+    const std::string name = entry.path().filename().string();
+    return name == "dosdevices" || name == "pfx";
+}
+#endif
 
 /////////////////////////////////////////////////////////////////////
 
@@ -459,6 +479,12 @@ std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& tar
     {
         if (!it->is_directory(ec))
         {
+            continue;
+        }
+
+        if (ShouldSkipLinuxPrefixScanDirectory(*it, ec))
+        {
+            it.disable_recursion_pending();
             continue;
         }
 

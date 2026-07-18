@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 struct AppIdDirPathScanTarget
@@ -45,6 +47,9 @@ private:
 
     std::string DetectEmulatorType(const std::string& appidDirLocation) const;
     std::string DetectEmulatorTypeFromFolderName(const std::string& folderName) const;
+#if !defined(_WIN32)
+    bool ShouldSkipLinuxPrefixScanDirectory(const std::filesystem::directory_entry& entry, std::error_code& ec) const;
+#endif
 #if defined(_WIN32)
     std::string FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType) const;
 #endif

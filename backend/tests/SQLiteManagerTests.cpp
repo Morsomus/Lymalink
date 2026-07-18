@@ -731,6 +731,33 @@ TEST_CASE("pathScanner_skipsGogScanWhenInstallationDirEmpty", "[pathscanner]")
 
 /////////////////////////////////////////////////////////////////////
 
+#if !defined(_WIN32)
+TEST_CASE("pathScanner_skipsLinuxPrefixLoopAndDosdevicesDirs", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_linux_prefix_guards";
+    fs::remove_all(root);
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(prefix / "dosdevices" / "Goldberg" / "123");
+    fs::create_directories(prefix / "drive_c" / "users" / "steamuser" / "Goldberg" / "123");
+    fs::create_directory_symlink(".", prefix / "pfx");
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].targetId == 123);
+    CHECK(results[0].appidDirFound);
+    CHECK(results[0].emulatorType == "GOLDBERG");
+    CHECK(fs::path(results[0].appidDirLocation).string().find("dosdevices") == std::string::npos);
+    CHECK(fs::path(results[0].appidDirLocation).string().find("pfx") == std::string::npos);
+
+    fs::remove_all(root);
+}
+#endif
+
+/////////////////////////////////////////////////////////////////////
+
 // Disabled while FindGogPrefixAppIdDir() is intentionally not used.
 // Current scanner only records GOG IDs; prefix-dir matching was parked due false-positive risk.
 TEST_CASE("pathScanner_collectsGogIdsAndMatchesPrefixAchievementDir", "[pathscanner][.]")
