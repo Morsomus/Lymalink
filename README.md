@@ -12,7 +12,7 @@
 
 ### Implemented Features
 
-- **Tracking Emulator Achievements** - Support achievement files created by Goldberg, Rune/Codex, NemirtingasGalaxyEmulator 1.4.2.
+- **Tracking Emulator Achievements** - Support achievement files created by Goldberg, Rune/Codex, NemirtingasGalaxyEmulator 1.4.2/1.9.2.
 - **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
 - **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions with customizable animation.
 - **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
@@ -24,30 +24,6 @@
 - **System tray support** - Keep Lymalink accessible from the system tray.
 - **Export & Import** - Move your achievement data between devices or back it up in JSON format.
 - **Steam achievement import** - Import your personal Steam achievements to the dashboard.
-
-## Table of Contents
-
-- [Visual Showcase](#visual-showcase)
-- [Installation - Linux](#installation---linux)
-  - [Option 1: Pre-built Release (Recommended for Supported Distros)](#option-1-pre-built-release-recommended-for-supported-distros)
-  - [Option 2: Building from Source](#option-2-building-from-source)
-- [Installation - Windows](#installation---windows)
-  - [Option 1: Pre-built Release](#option-1-pre-built-release)
-  - [Option 2: Building from Source](#option-2-building-from-source-1)
-- [Project Status](#project-status)
-- [Planned Features](#planned-features)
-- [Building](#building)
-  - [Frontend](#frontend)
-  - [Backend](#backend)
-  - [Backend Overlay](#backend-overlay)
-  - [Linux Installer](#linux-installer)
-  - [Windows Installer](#windows-installer)
-- [Credits](#credits)
-- [Disclaimer](#disclaimer)
-  - [General](#general)
-  - [Steam Based Achievement File Support](#steam-based-achievement-file-support)
-  - [Official Steam API / User Data](#official-steam-api--user-data)
-  - [No Warranty](#no-warranty)
 
 ## Visual Showcase
 
@@ -76,6 +52,29 @@
 |  |  |
 |:---:|:---:|
 | <img src="showcase/0.9.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.9.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
+
+## Table of Contents
+
+- [Installation - Linux](#installation---linux)
+  - [Option 1: Pre-built Release (Recommended for Supported Distros)](#option-1-pre-built-release-recommended-for-supported-distros)
+  - [Option 2: Building from Source](#option-2-building-from-source)
+- [Installation - Windows](#installation---windows)
+  - [Option 1: Pre-built Release](#option-1-pre-built-release)
+  - [Option 2: Building from Source](#option-2-building-from-source-1)
+- [Project Status](#project-status)
+- [Planned Features](#planned-features)
+- [Building](#building)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+  - [Backend Overlay](#backend-overlay)
+  - [Linux Installer](#linux-installer)
+  - [Windows Installer](#windows-installer)
+- [Credits](#credits)
+- [Disclaimer](#disclaimer)
+  - [General](#general)
+  - [Steam Based Achievement File Support](#steam-based-achievement-file-support)
+  - [Official Steam API / User Data](#official-steam-api--user-data)
+  - [No Warranty](#no-warranty)
 
 ## Installation - Linux
 

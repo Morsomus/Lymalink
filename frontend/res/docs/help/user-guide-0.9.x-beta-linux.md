@@ -214,7 +214,7 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 - **CODEX**
 - **RUNE**
 - **GOLDBERG**
-- **NemirtingasGalaxyEmulator 1.4.2 (GOG - Requires Steam equivalent achievements)**
+- **NemirtingasGalaxyEmulator 1.4.2/1.9.2 (GOG - Requires Steam equivalent achievements)**
 
 ###
 ### Do I need a Steam API key?
