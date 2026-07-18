@@ -50,7 +50,7 @@ In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses 
 2. Select **Emulator**.
 3. Search for the game and select it from results. You can also enable **enter manually** and enter game ID and name yourself.
 4. Select **Game Executable**. This `.exe` file is used to detect when game is running.
-5. Select **Game Installation Directory**. This directory is used to detect GOG Emulator usage.
+5. Select (optional) **Game Installation Directory**. This directory is used to detect GOG Emulator usage.
 6. Select **Prefix Location**. Choose `drive_c` or equivalent folder inside your Wine, Proton, or Bottle prefix which contains or will contain emulator's achievement file.
 7. Click **Confirm**.
 

@@ -1,19 +1,20 @@
 # Lymalink
 
-**Achievement watcher and tracker for Steam and GOG emulators, Steam/Cloud APIs, and fully custom targets.**
+**An achievement watcher and tracker for personal Steam achievement imports, as well as Steam and GOG emulators.**
 
-- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications. For supported emulator details, see the [Linux User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#which-emulator-created-achievement-files-are-currently-supported) or [Windows User Guide FAQ](frontend/res/docs/help/user-guide-0.9.x-beta-win.md#which-emulator-created-achievement-files-are-currently-supported).
+- Reads local achievement files created by Steam and GOG emulators during gameplay and triggers achievement unlock notifications.
 - Can be configured to run in the background without the user interface.
 - Import your official Steam achievements.
 
-> The **v0.9.*-beta** release is available for Linux and Windows. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
+> The **v0.9.*-beta** release is available for **Linux** and **Windows**. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
 ### Implemented Features
 
+- **Tracking Emulator Achievements** - Support achievement files created by Goldberg, Rune/Codex, NemirtingasGalaxyEmulator 1.4.2.
 - **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
-- **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions.
+- **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions with customizable animation.
 - **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
 - **Playtime tracking** - Track playtime for your targets.
 - **Multiple dashboard layouts** - View tracked targets using several dashboard layout options.
@@ -50,10 +51,12 @@
 
 ## Visual Showcase
 
-| |
-|:---:|
-| <img src="showcase/0.8.0/InAction.gif" width="150%" alt="In Action GIF"/> |
-| *My Summer Car by Amistech Games. Lymalink is not affiliated with Amistech Games. Please support the developers by buying their products.* |
+<img src="showcase/0.9.0/InAction.gif" width="150%" alt="In Action GIF"/>
+
+*Beholder 3 by Paintbucket Games. Lymalink is not affiliated with Paintbucket Games. Please support the developers by buying their products.*
+
+### Achievements
+<img src="showcase/0.9.0/TargetDetails.jpg" width="100%" alt="Target Details"/>
 
 ### Dashboard Layouts
 | Default Card View | Small Card View |
@@ -65,18 +68,14 @@
 | <img src="showcase/0.8.0/3DetailsView.jpg" width="100%" alt="Details View"/> | <img src="showcase/0.8.0/4ListView.jpg" width="100%" alt="List View"/> |
 
 ### Target Management
-| Target Details |
-|:---:|
-| <img src="showcase/0.8.0/TargetDetails.jpg" width="100%" alt="Target Details"/> |
-
 | Add Target | Achievement Progress |
 |:---:|:---:|
-| <img src="showcase/0.8.0/AddTarget.jpg" width="100%" alt="Add Target"/> | <img src="showcase/0.8.0/TargetDetailsProgress.jpg" width="100%" alt="Target Progress"/> |
+| <img src="showcase/0.9.0/AddTarget.jpg" width="100%" alt="Add Target"/> | <img src="showcase/0.8.0/TargetDetailsProgress.jpg" width="100%" alt="Target Progress"/> |
 
 ### Settings
 |  |  |
 |:---:|:---:|
-| <img src="showcase/0.8.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.8.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
+| <img src="showcase/0.9.0/Settings1.jpg" width="100%" alt="Settings Page 1"/> | <img src="showcase/0.9.0/Settings2.jpg" width="100%" alt="Settings Page 2"/> |
 
 ## Installation - Linux
 
@@ -196,12 +195,11 @@ Current progress towards different versions, platform-wise
 
 > The following features are planned and subject to change. Core tracking functionality is not listed here.
 
-- **Custom Targets** - Create and track achievements outside predefined game or platform integrations. Useful for personal milestones, challenge runs, custom game setups, and other progress-tracking workflows.
 - **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
 - **Steam Import Auto-Update** - Selectively refresh imported Steam achievement data to keep tracked progress up to date without user intervention.
-- **Multiple Profiles** - Switch between independent profiles. Useful for tracking a fresh playthrough, a challenge run, or simply keeping accounts separate.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
 - **Localisation** - Languages to choose from.
+- **Custom Targets** - Create and track achievements outside predefined game or platform integrations. Useful for personal milestones, challenge runs, custom game setups, and other progress-tracking workflows.
 
 ---
 
