@@ -10,6 +10,7 @@
 
 #include <QDebug>
 #include <QEventLoop>
+#include <QElapsedTimer>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,6 +19,7 @@
 #include <QStringList>
 #include <QUrl>
 #include <QUrlQuery>
+#include <algorithm>
 #include <cmath>
 
 /////////////////////////////////////////////////////////////////////
@@ -331,7 +333,7 @@ Error SteamApi::GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<Q
 
 /////////////////////////////////////////////////////////////////////
 
-Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls)
+Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls, const QStringList &benchmarkedUrlFormats)
 {
     Error err = Error::NoError;
 
@@ -354,15 +356,30 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
 
     // Use all known Steam community CDN hostnames as fallback sources
     const QString appIdString = QString::number(appId);
-    const QStringList urlFormats = {
-        "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
-        "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
-        "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
-        "https://shared.cloudflare.steamstatic.com/community_assets/images/apps/%1/%2",
-        "https://shared.fastly.steamstatic.com/community_assets/images/apps/%1/%2",
-        "https://shared.akamai.steamstatic.com/community_assets/images/apps/%1/%2",
-        "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/%1/%2"
-    };
+    QStringList urlFormats = AchievementIconUrlFormats();
+    if (!benchmarkedUrlFormats.isEmpty())
+    {
+        QStringList orderedUrlFormats = {};
+        QStringList remainingUrlFormats = urlFormats;
+        QStringList orderedHosts = {};
+        for (const QString &urlFormat : benchmarkedUrlFormats)
+        {
+            const QString normalizedUrlFormat = urlFormat.trimmed();
+            if (!normalizedUrlFormat.isEmpty() && remainingUrlFormats.removeOne(normalizedUrlFormat))
+            {
+                orderedUrlFormats.append(normalizedUrlFormat);
+                orderedHosts.append(QUrl(QString(normalizedUrlFormat).arg(appIdString, "benchmark.jpg")).host());
+            }
+            else if (!normalizedUrlFormat.isEmpty())
+            {
+                qWarning() << "SteamApi::GetAchievementIconUrls: benchmarked achievement icon CDN is not recognized:" << normalizedUrlFormat;
+            }
+        }
+
+        orderedUrlFormats.append(remainingUrlFormats);
+        urlFormats = orderedUrlFormats;
+        qDebug() << "SteamApi::GetAchievementIconUrls: using benchmarked achievement icon CDN order:" << orderedHosts;
+    }
 
     for (const SteamAchievementData &achievement : achievements)
     {
@@ -407,6 +424,125 @@ Error SteamApi::GetAchievementIconUrls(int appId, const QList<SteamAchievementDa
         urls.append(achievementUrls);
     }
 
+    return err;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::BenchmarkAchievementIconCdn(QStringList &benchmarkedUrlFormats)
+{
+    Error err = Error::NoError;
+
+    benchmarkedUrlFormats.clear();
+
+    const int benchmarkTransferTimeoutMs = 3000;
+    const int benchmarkAppId = 292030;
+    const QString appIdString = QString::number(benchmarkAppId);
+    const QStringList normalIconFileNames = {
+        "6078587189483353f06f48d0eefdaaa0791e9e13.jpg",
+        "07bae88f1ee9b856ddfc1d8e28ae7eedd4bcde95.jpg",
+        "652e39d4e750183a390a4e9f2f99018c1b335a20.jpg"
+    };
+    const QStringList grayIconFileNames = {
+        "8246dc3a496e13c058572dab37099e76a6cd0b77.jpg",
+        "cea97617b65ab7d42f37cbb9a77c7290775c789a.jpg",
+        "70ea4796b6417e7789792f8a94cc22072a9a9a3f.jpg"
+    };
+    const QStringList urlFormats = AchievementIconUrlFormats();
+
+    qDebug() << "SteamApi::BenchmarkAchievementIconCdn: starting benchmark for appId:" << benchmarkAppId << "timeoutMs:" << benchmarkTransferTimeoutMs;
+
+    // Track successful CDNs by measured time and failed CDNs by original order
+    QList<QPair<qint64, QString>> successfulUrlFormats = {};
+    QStringList failedUrlFormats = {};
+    for (const QString &urlFormat : urlFormats)
+    {
+        const QString host = QUrl(QString(urlFormat).arg(appIdString, normalIconFileNames.first())).host();
+        QByteArray data;
+
+        // Warm up the connection before measuring actual icon download time
+        const QString warmupUrl = QString(urlFormat).arg(appIdString, normalIconFileNames.first());
+        const Error warmupError = DownloadRawImageUrl(warmupUrl, benchmarkTransferTimeoutMs, data);
+        if (warmupError != Error::NoError)
+        {
+            qWarning() << "SteamApi::BenchmarkAchievementIconCdn: warm-up failed for CDN:" << host << "url:" << warmupUrl;
+            failedUrlFormats.append(urlFormat);
+            continue;
+        }
+        qDebug() << "SteamApi::BenchmarkAchievementIconCdn: warm-up succeeded for CDN:" << host;
+
+        bool cdnOk = true;
+        QElapsedTimer timer;
+        timer.start();
+
+        // Time all normal achievement icon samples for this CDN
+        for (const QString &fileName : normalIconFileNames)
+        {
+            data.clear();
+            const QString url = QString(urlFormat).arg(appIdString, fileName);
+            if (DownloadRawImageUrl(url, benchmarkTransferTimeoutMs, data) != Error::NoError)
+            {
+                qWarning() << "SteamApi::BenchmarkAchievementIconCdn: timed normal icon download failed for CDN:" << host << "url:" << url;
+                cdnOk = false;
+                break;
+            }
+        }
+
+        if (cdnOk)
+        {
+            // Time all grayscale achievement icon samples for this CDN
+            for (const QString &fileName : grayIconFileNames)
+            {
+                data.clear();
+                const QString url = QString(urlFormat).arg(appIdString, fileName);
+                if (DownloadRawImageUrl(url, benchmarkTransferTimeoutMs, data) != Error::NoError)
+                {
+                    qWarning() << "SteamApi::BenchmarkAchievementIconCdn: timed gray icon download failed for CDN:" << host << "url:" << url;
+                    cdnOk = false;
+                    break;
+                }
+            }
+        }
+
+        const qint64 elapsedMs = timer.elapsed();
+        if (!cdnOk)
+        {
+            qWarning() << "SteamApi::BenchmarkAchievementIconCdn: CDN failed benchmark:" << host << "elapsedMs:" << elapsedMs;
+            failedUrlFormats.append(urlFormat);
+            continue;
+        }
+
+        // Store complete benchmark results for fastest-first ordering
+        qDebug() << "SteamApi::BenchmarkAchievementIconCdn: CDN timed result:" << host << elapsedMs << "ms";
+        successfulUrlFormats.append(qMakePair(elapsedMs, urlFormat));
+    }
+
+    std::sort(successfulUrlFormats.begin(), successfulUrlFormats.end(), [](const QPair<qint64, QString> &left, const QPair<qint64, QString> &right) {
+        return left.first < right.first;
+    });
+
+    // Put fast successful CDNs first, then keep failed benchmark CDNs as final fallbacks
+    QStringList orderedHosts = {};
+    for (const QPair<qint64, QString> &result : successfulUrlFormats)
+    {
+        benchmarkedUrlFormats.append(result.second);
+        orderedHosts.append(QUrl(QString(result.second).arg(appIdString, normalIconFileNames.first())).host());
+    }
+    for (const QString &urlFormat : failedUrlFormats)
+    {
+        benchmarkedUrlFormats.append(urlFormat);
+        orderedHosts.append(QUrl(QString(urlFormat).arg(appIdString, normalIconFileNames.first())).host());
+    }
+
+    if (successfulUrlFormats.isEmpty())
+    {
+        qWarning() << "SteamApi::BenchmarkAchievementIconCdn: benchmark had no successful CDN, using default achievement icon CDN order";
+        benchmarkedUrlFormats = urlFormats;
+        err = Error::NotFound;
+        return err;
+    }
+
+    qDebug() << "SteamApi::BenchmarkAchievementIconCdn: benchmarked CDN order:" << orderedHosts;
     return err;
 }
 
@@ -893,6 +1029,70 @@ QString SteamApi::NormalizeSteamImageFileName(const QString &value) const
 
     normalizedFileName = fileName;
     return normalizedFileName;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QStringList SteamApi::AchievementIconUrlFormats() const
+{
+    QStringList urlFormats = {
+        "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
+        "https://shared.fastly.steamstatic.com/community_assets/images/apps/%1/%2",
+        "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
+        "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/%1/%2",
+        "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%1/%2",
+        "https://shared.akamai.steamstatic.com/community_assets/images/apps/%1/%2",
+        "https://shared.cloudflare.steamstatic.com/community_assets/images/apps/%1/%2"
+    };
+
+    return urlFormats;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::DownloadRawImageUrl(const QString &url, int transferTimeoutMs, QByteArray &data)
+{
+    Error err = Error::NoError;
+
+    data.clear();
+    if (url.isEmpty() || transferTimeoutMs <= 0)
+    {
+        qWarning() << "SteamApi::DownloadRawImageUrl: invalid request:" << url << "timeoutMs:" << transferTimeoutMs;
+        err = Error::InvalidParameter;
+        return err;
+    }
+
+    // Build a raw image request without using the asset cache
+    QNetworkRequest request{QUrl(url)};
+    request.setTransferTimeout(transferTimeoutMs);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "image/*,*/*;q=0.8");
+
+    // Wait synchronously because Steam API calls already run in the worker thread
+    QNetworkReply *reply = m_networkManager->get(request);
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        qWarning() << "SteamApi::DownloadRawImageUrl: network error:" << reply->errorString() << url;
+        reply->deleteLater();
+        err = Error::NotFound;
+        return err;
+    }
+
+    // Return only non-empty response data to qualify a benchmark sample
+    data = reply->readAll();
+    reply->deleteLater();
+    if (data.isEmpty())
+    {
+        qWarning() << "SteamApi::DownloadRawImageUrl: empty response:" << url;
+        err = Error::NotFound;
+        return err;
+    }
+
+    return err;
 }
 
 /////////////////////////////////////////////////////////////////////

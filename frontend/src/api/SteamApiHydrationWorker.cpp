@@ -34,6 +34,7 @@ SteamApiHydrationWorker::SteamApiHydrationWorker(QObject *parent) : QObject(pare
     m_taskQueue = {};
     m_cancelled.storeRelease(0);
     m_running = false;
+    m_benchmarkedAchievementIconUrlFormats = {};
 }
 
 SteamApiHydrationWorker::~SteamApiHydrationWorker()
@@ -91,6 +92,7 @@ void SteamApiHydrationWorker::EnqueueTask(int appId, bool reloadAssets, QString 
 
     if (!m_running)
     {
+        m_benchmarkedAchievementIconUrlFormats.clear();
         // Start queue processing immediately when worker is idle
         ProcessNext();
     }
@@ -115,6 +117,11 @@ void SteamApiHydrationWorker::ProcessNext()
     // Finish queue when no pending tasks remain
     if (m_taskQueue.isEmpty())
     {
+        if (!m_benchmarkedAchievementIconUrlFormats.isEmpty())
+        {
+            qDebug() << "SteamApiHydrationWorker::ProcessNext: clearing achievement icon CDN benchmark state";
+        }
+        m_benchmarkedAchievementIconUrlFormats.clear();
         m_running = false;
         emit signalHydrationQueueFinished();
         return;
@@ -149,6 +156,8 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         emit signalHydrationTaskFinished(appId, targetType, false, false);
         return;
     }
+
+    BenchmarkAchievementIconCdn();
 
     // Resolve app data location for target asset folders
     const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -259,7 +268,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
 
     // Resolve active and locked achievement icon URLs
     QList<SteamAchievementIconUrls> achievementIconUrls;
-    const Error iconUrlsError = m_steamApi->GetAchievementIconUrls(appId, achievements, achievementIconUrls);
+    const Error iconUrlsError = m_steamApi->GetAchievementIconUrls(appId, achievements, achievementIconUrls, m_benchmarkedAchievementIconUrlFormats);
     if (iconUrlsError != Error::NoError)
     {
         qWarning() << "SteamApiHydrationWorker::ProcessTask: failed to resolve achievement icon urls for appId:" << appId;
@@ -317,6 +326,26 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     emit signalHydrationTaskFinished(appId, targetType, true, false);
 
     qInfo() << "SteamApiHydrationWorker::ProcessTask: task completed for appId:" << appId << "- achievements:" << achievements.size();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiHydrationWorker::BenchmarkAchievementIconCdn()
+{
+    m_benchmarkedAchievementIconUrlFormats.clear();
+
+    qDebug() << "SteamApiHydrationWorker::BenchmarkAchievementIconCdn: starting achievement icon CDN benchmark for task";
+
+    QStringList benchmarkedUrlFormats = {};
+    const Error benchmarkError = m_steamApi->BenchmarkAchievementIconCdn(benchmarkedUrlFormats);
+    if (benchmarkError != Error::NoError || benchmarkedUrlFormats.isEmpty())
+    {
+        qWarning() << "SteamApiHydrationWorker::BenchmarkAchievementIconCdn: benchmark failed, using default achievement icon CDN order";
+        return;
+    }
+
+    m_benchmarkedAchievementIconUrlFormats = benchmarkedUrlFormats;
+    qDebug() << "SteamApiHydrationWorker::BenchmarkAchievementIconCdn: stored benchmarked achievement icon CDN order:" << m_benchmarkedAchievementIconUrlFormats.size();
 }
 
 /////////////////////////////////////////////////////////////////////

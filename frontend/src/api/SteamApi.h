@@ -10,12 +10,14 @@
 
 #include "../Error.h"
 
+#include <QByteArray>
 #include <QList>
 #include <QMap>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QPair>
 #include <QString>
+#include <QStringList>
 
 enum class SteamAppType {
     Unknown = -1,
@@ -104,7 +106,8 @@ public:
     Error SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale = English);
     Error GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const QString &assetUrlFormat, QList<QString> &urls);
     Error GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<QString> &urls);
-    Error GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls);
+    Error GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls, const QStringList &benchmarkedUrlFormats = QStringList());
+    Error BenchmarkAchievementIconCdn(QStringList &benchmarkedUrlFormats);
     Error FetchAchievementDataPrimary(int appId, QList<SteamAchievementData> &achievements, Locale locale = English);
     Error FetchAchievementDataSecondary(int appId, QList<SteamAchievementData> &achievements, Locale locale, const QString &apiKey);
     Error FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData> &games, const QString &apiKey);
@@ -119,6 +122,8 @@ private:
     bool IsPrivateProfileResponse(const QByteArray &jsonResponse) const;
     bool IncludesExpectedExtension(const QString &value) const;
     QString NormalizeSteamImageFileName(const QString &value) const;
+    QStringList AchievementIconUrlFormats() const;
+    Error DownloadRawImageUrl(const QString &url, int transferTimeoutMs, QByteArray &data);
     QList<SteamSearchResult> ParseSearchResponse(const QByteArray &jsonResponse);
     SteamGameInfo ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage);
     Error ParseOwnedGamesResponse(const QByteArray &jsonResponse, QList<SteamOwnedGameData> &games, QString *errorMessage) const;

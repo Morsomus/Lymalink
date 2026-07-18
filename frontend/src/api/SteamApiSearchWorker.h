@@ -31,6 +31,6 @@ signals:
     void signalSearchAppIdsFinished(bool success, bool cancelled, QVariantList results);
 
 private:
-    QAtomicInt m_cancelled{0};
+    QAtomicInt m_cancelled;
     SteamApi *m_steamApi;
 };

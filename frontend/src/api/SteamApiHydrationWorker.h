@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QQueue>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 class SteamApiHydrationWorker : public QObject
@@ -53,11 +54,12 @@ private:
         QString targetType = "Emulator";
     };
 
-    SteamApi *m_steamApi = nullptr;
-    ImageCacheManager *m_imageCache = nullptr;
+    SteamApi *m_steamApi;
+    ImageCacheManager *m_imageCache;
     QQueue<HydrationTask> m_taskQueue;
-    QAtomicInt m_cancelled{0};
+    QAtomicInt m_cancelled;
     bool m_running = false;
+    QStringList m_benchmarkedAchievementIconUrlFormats;
 
     static const QSize COVER_CARD_TARGET_SIZE;
     static const QSize COVER_CARD_SMALL_TARGET_SIZE;
@@ -68,6 +70,7 @@ private:
 
     void ProcessNext();
     void ProcessTask(const HydrationTask &task);
+    void BenchmarkAchievementIconCdn();
     bool ClearAssetDirectory(const QString &directoryPath, int appId);
     QString TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName = QString());
 };
