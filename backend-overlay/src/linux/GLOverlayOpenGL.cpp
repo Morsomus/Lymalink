@@ -44,6 +44,9 @@ static OverlayReceiver s_overlay;
 static std::once_flag s_overlayInitFlag;
 static std::once_flag s_imguiInitFlag;
 static std::mutex s_renderMtx;
+static uint32_t s_imguiFramebufferWidth = 0;
+static uint32_t s_imguiFramebufferHeight = 0;
+static bool s_imguiBackendReady = false;
 
 /////////////////////////////////////////////////////////////////////
 
@@ -219,11 +222,14 @@ static void InitImGui(uint32_t w, uint32_t h)
         io.IniFilename = nullptr;
 
         ImGui::StyleColorsDark();
-        if (!ImGui_ImplOpenGL3_Init("#version 130"))
+        s_imguiBackendReady = ImGui_ImplOpenGL3_Init("#version 130");
+        if (!s_imguiBackendReady)
         {
             LYMALINK_LOG("[GLOverlayOpenGL] ImGui_ImplOpenGL3_Init failed");
         }
         s_overlay.EnsureOpenGLImGuiContext();
+        s_imguiFramebufferWidth = w;
+        s_imguiFramebufferHeight = h;
 
         LYMALINK_LOG("[GLOverlayOpenGL] ImGui OpenGL3 ready " + std::to_string(w) + "x" + std::to_string(h));
     });
@@ -238,6 +244,23 @@ static void RenderOverlay(uint32_t w, uint32_t h)
 
     // Keep display size in sync with the current drawable dimensions
     ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(w), static_cast<float>(h));
+    if (s_imguiBackendReady && (s_imguiFramebufferWidth != w || s_imguiFramebufferHeight != h))
+    {
+        s_overlay.InvalidateOpenGLResources();
+        ImGui_ImplOpenGL3_DestroyDeviceObjects();
+        if (!ImGui_ImplOpenGL3_CreateDeviceObjects())
+        {
+            LYMALINK_LOG("[GLOverlayOpenGL] ImGui_ImplOpenGL3_CreateDeviceObjects failed after resize.");
+        }
+        s_imguiFramebufferWidth = w;
+        s_imguiFramebufferHeight = h;
+    }
+
+    GLint previousViewport[4]{};
+    GLint previousScissor[4]{};
+    glGetIntegerv(GL_VIEWPORT, previousViewport);
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
 
@@ -283,6 +306,8 @@ static void RenderOverlay(uint32_t w, uint32_t h)
         // Restore game GL state after our draw so the next frame continues normally
         glBindFramebufferFn(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(previousDrawFramebuffer));
     }
+    glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
+    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
 }
 
 /////////////////////////////////////////////////////////////////////

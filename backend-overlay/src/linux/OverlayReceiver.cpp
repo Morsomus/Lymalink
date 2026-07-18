@@ -105,6 +105,13 @@ void OverlayReceiver::InvalidateVulkanResources()
 
 /////////////////////////////////////////////////////////////////////
 
+void OverlayReceiver::InvalidateOpenGLResources()
+{
+    DestroyOpenGLIconTexture();
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeight)
 {
     m_fbWidth = fbWidth;
@@ -176,6 +183,11 @@ void OverlayReceiver::RenderNotificationFrame(uint32_t fbWidth, uint32_t fbHeigh
 
     // Fade/slide animation calculations
     UpdateNotificationAnimation(delta);
+
+    if (!m_currentActiveNotification.visible && !m_fadingOut)
+    {
+        return;
+    }
 
     if (m_imguiReady)
     {
@@ -687,6 +699,11 @@ bool OverlayReceiver::IsRenderApiReady() const
 
 void OverlayReceiver::DrawNotificationWindow()
 {
+    if (!m_currentActiveNotification.visible && !m_fadingOut)
+    {
+        return;
+    }
+
     // LYMALINK_LOG("alpha=" + std::to_string(m_alpha) + " openGLReady=" + std::to_string(m_openGLReady ? 1 : 0) + " vulkanReady=" + std::to_string(m_vulkanReady ? 1 : 0));
 
     // Layout boundaries for the notification window

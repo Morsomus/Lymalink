@@ -630,9 +630,7 @@ Item {
                             text: qsTr("IMPORTANT: Configure Achievement Notifications Overlay (hover to expand)")
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
                             font.bold: true
-                            color: id_notificationBlock.hoverActive
-                                ? Themes.emulatorTarget.colors.labelText
-                                : Themes.emulatorTarget.colors.infoHeaderInactiveText
+                            color: Themes.emulatorTarget.colors.prefixWarningText
 
                             Behavior on color {
                                 ColorAnimation { duration: 120 }
