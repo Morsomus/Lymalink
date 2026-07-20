@@ -1,5 +1,21 @@
 cmake_minimum_required(VERSION 3.21)
-project(lymalink_overlay_win LANGUAGES C CXX)
+
+file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../VERSION" VERSION_DATA)
+list(GET VERSION_DATA 0 LYMALINK_VERSION)
+string(STRIP "${LYMALINK_VERSION}" LYMALINK_VERSION)
+
+project(lymalink_overlay_win VERSION ${LYMALINK_VERSION} LANGUAGES C CXX RC)
+
+set(LYMALINK_VERSION_TWEAK_VALUE ${PROJECT_VERSION_TWEAK})
+if("${LYMALINK_VERSION_TWEAK_VALUE}" STREQUAL "")
+    set(LYMALINK_VERSION_TWEAK_VALUE 0)
+endif()
+
+if(PROJECT_VERSION VERSION_LESS "1.0.0")
+    set(LYMALINK_PRERELEASE_FLAG 0x00000002L)
+else()
+    set(LYMALINK_PRERELEASE_FLAG 0)
+endif()
 
 if(NOT WIN32)
     message(FATAL_ERROR "This CMake entrypoint is for the Windows Overlay.")
@@ -37,6 +53,27 @@ set(IMGUI_SOURCES
     ${IMGUI_DIR}/imgui_widgets.cpp
 )
 
+set(LYMALINK_VERSION_RESOURCE src/win/LymalinkOverlayVersion.rc)
+set(LYMALINK_PROJECT_URL "https://github.com/Morsomus/Lymalink")
+
+function(add_lymalink_version_resource target description internal_name original_filename file_type)
+    target_sources(${target} PRIVATE ${LYMALINK_VERSION_RESOURCE})
+    target_compile_definitions(${target} PRIVATE
+        LYMALINK_FILE_DESCRIPTION="${description}"
+        LYMALINK_INTERNAL_NAME="${internal_name}"
+        LYMALINK_ORIGINAL_FILENAME="${original_filename}"
+        LYMALINK_FILE_TYPE=${file_type}
+        LYMALINK_PROJECT_URL="${LYMALINK_PROJECT_URL}"
+        LYMALINK_LEGAL_COPYRIGHT="Licensed under GNU GPLv3"
+        LYMALINK_PRERELEASE_FLAG=${LYMALINK_PRERELEASE_FLAG}
+        LYMALINK_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        LYMALINK_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+        LYMALINK_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+        LYMALINK_VERSION_TWEAK=${LYMALINK_VERSION_TWEAK_VALUE}
+        LYMALINK_VERSION_STRING="${PROJECT_VERSION}"
+    )
+endfunction()
+
 add_library(lymalink_imgui STATIC ${IMGUI_SOURCES})
 target_include_directories(lymalink_imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
 
@@ -62,6 +99,7 @@ target_include_directories(lymalink-overlay-vulkan PRIVATE include src/win/vulka
 target_compile_definitions(lymalink-overlay-vulkan PRIVATE VK_NO_PROTOTYPES IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
 target_compile_definitions(lymalink-overlay-vulkan PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-vulkan PRIVATE lymalink_imgui)
+add_lymalink_version_resource(lymalink-overlay-vulkan "Lymalink Vulkan Overlay" "lymalink-overlay-vulkan-${LYMALINK_ARCH}" "lymalink-overlay-vulkan-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-vulkan PROPERTIES
     OUTPUT_NAME "lymalink-overlay-vulkan-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -79,6 +117,7 @@ target_include_directories(lymalink-overlay-opengl PRIVATE include src/win/openg
 target_compile_definitions(lymalink-overlay-opengl PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
 target_compile_definitions(lymalink-overlay-opengl PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-opengl PRIVATE lymalink_imgui lymalink_minhook opengl32 gdi32)
+add_lymalink_version_resource(lymalink-overlay-opengl "Lymalink OpenGL Overlay" "lymalink-overlay-opengl-${LYMALINK_ARCH}" "lymalink-overlay-opengl-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-opengl PROPERTIES
     OUTPUT_NAME "lymalink-overlay-opengl-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -96,6 +135,7 @@ target_include_directories(lymalink-overlay-dx9 PRIVATE include src/win/dx9 src/
 target_compile_definitions(lymalink-overlay-dx9 PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
 target_compile_definitions(lymalink-overlay-dx9 PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-dx9 PRIVATE lymalink_imgui lymalink_minhook d3d9 user32 gdi32)
+add_lymalink_version_resource(lymalink-overlay-dx9 "Lymalink Direct3D 9 Overlay" "lymalink-overlay-dx9-${LYMALINK_ARCH}" "lymalink-overlay-dx9-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-dx9 PROPERTIES
     OUTPUT_NAME "lymalink-overlay-dx9-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -114,6 +154,7 @@ target_include_directories(lymalink-overlay-dx10 PRIVATE include src/win/dx10 sr
 target_compile_definitions(lymalink-overlay-dx10 PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
 target_compile_definitions(lymalink-overlay-dx10 PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-dx10 PRIVATE lymalink_imgui lymalink_minhook d3d10 dxgi user32 gdi32)
+add_lymalink_version_resource(lymalink-overlay-dx10 "Lymalink Direct3D 10 Overlay" "lymalink-overlay-dx10-${LYMALINK_ARCH}" "lymalink-overlay-dx10-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-dx10 PROPERTIES
     OUTPUT_NAME "lymalink-overlay-dx10-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -132,6 +173,7 @@ target_include_directories(lymalink-overlay-dx11 PRIVATE include src/win/dx11 sr
 target_compile_definitions(lymalink-overlay-dx11 PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
 target_compile_definitions(lymalink-overlay-dx11 PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-dx11 PRIVATE lymalink_imgui lymalink_minhook d3d11 dxgi user32 gdi32)
+add_lymalink_version_resource(lymalink-overlay-dx11 "Lymalink Direct3D 11 Overlay" "lymalink-overlay-dx11-${LYMALINK_ARCH}" "lymalink-overlay-dx11-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-dx11 PROPERTIES
     OUTPUT_NAME "lymalink-overlay-dx11-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -150,6 +192,7 @@ target_include_directories(lymalink-overlay-dx12 PRIVATE include src/win/dx12 sr
 target_compile_definitions(lymalink-overlay-dx12 PRIVATE LYMALINK_OVERLAY_ATTACH_HOOKS)
 target_compile_definitions(lymalink-overlay-dx12 PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-dx12 PRIVATE lymalink_imgui lymalink_minhook d3d12 dxgi user32 gdi32)
+add_lymalink_version_resource(lymalink-overlay-dx12 "Lymalink Direct3D 12 Overlay" "lymalink-overlay-dx12-${LYMALINK_ARCH}" "lymalink-overlay-dx12-${LYMALINK_ARCH}.dll" VFT_DLL)
 set_target_properties(lymalink-overlay-dx12 PROPERTIES
     OUTPUT_NAME "lymalink-overlay-dx12-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -160,6 +203,7 @@ add_executable(lymalink-overlay-injector
 )
 target_compile_definitions(lymalink-overlay-injector PRIVATE $<$<CONFIG:Release>:LYMALINK_OVERLAY_DISABLE_LOGGING>)
 target_link_libraries(lymalink-overlay-injector PRIVATE advapi32)
+add_lymalink_version_resource(lymalink-overlay-injector "Lymalink Overlay Injector" "lymalink-overlay-injector-${LYMALINK_ARCH}" "lymalink-overlay-injector-${LYMALINK_ARCH}.exe" VFT_APP)
 set_target_properties(lymalink-overlay-injector PROPERTIES
     OUTPUT_NAME "lymalink-overlay-injector-${LYMALINK_ARCH}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

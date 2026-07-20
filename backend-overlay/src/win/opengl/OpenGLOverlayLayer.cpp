@@ -47,7 +47,6 @@ namespace
 using PFN_SwapBuffers = BOOL(WINAPI*)(HDC);
 using PFN_wglSwapLayerBuffers = BOOL(WINAPI*)(HDC, UINT);
 using PFN_wglGetProcAddress = PROC(WINAPI*)(LPCSTR);
-using PFN_GetProcAddress = FARPROC(WINAPI*)(HMODULE, LPCSTR);
 using PFN_glBindFramebuffer = void(APIENTRY*)(GLenum, GLuint);
 using PFN_glBindBuffer = void(APIENTRY*)(GLenum, GLuint);
 
@@ -64,7 +63,6 @@ struct OpenGLContextState
 static PFN_SwapBuffers s_realSwapBuffers = nullptr;
 static PFN_wglSwapLayerBuffers s_realWglSwapLayerBuffers = nullptr;
 static PFN_wglGetProcAddress s_realWglGetProcAddress = nullptr;
-static PFN_GetProcAddress s_realGetProcAddress = nullptr;
 static PFN_glBindFramebuffer s_glBindFramebuffer = nullptr;
 static PFN_glBindBuffer s_glBindBuffer = nullptr;
 
@@ -80,9 +78,6 @@ static std::atomic_bool s_loggedSwapHit{false};
 static std::atomic_bool s_loggedNoContext{false};
 static std::atomic_bool s_loggedWglProcSwap{false};
 static std::atomic_bool s_loggedWglProcLayerSwap{false};
-static std::atomic_bool s_loggedGetProcWglGetProc{false};
-static std::atomic_bool s_loggedGetProcSwap{false};
-static std::atomic_bool s_loggedGetProcLayerSwap{false};
 
 /////////////////////////////////////////////////////////////////////
 
@@ -404,91 +399,49 @@ PROC WINAPI Hook_wglGetProcAddress(LPCSTR name)
 
 /////////////////////////////////////////////////////////////////////
 
-bool IsModule(HMODULE module, const wchar_t* expected)
-{
-    return module && module == GetModuleHandleW(expected);
-}
-
-/////////////////////////////////////////////////////////////////////
-
-FARPROC WINAPI Hook_GetProcAddress(HMODULE module, LPCSTR name)
-{
-    if (!name || IS_INTRESOURCE(name))
-    {
-        return s_realGetProcAddress ? s_realGetProcAddress(module, name) : nullptr;
-    }
-
-    // Legacy 32-bit OpenGL engines often resolve WGL entry points through kernel32!GetProcAddress
-    if (IsModule(module, L"gdi32.dll") && std::strcmp(name, "SwapBuffers") == 0)
-    {
-        LogOnce(s_loggedGetProcSwap, "[OpenGLOverlayLayer][Hook_GetProcAddress] returning SwapBuffers hook.");
-        return reinterpret_cast<FARPROC>(&Hook_SwapBuffers);
-    }
-    if (IsModule(module, L"opengl32.dll"))
-    {
-        if (std::strcmp(name, "wglGetProcAddress") == 0)
-        {
-            LogOnce(s_loggedGetProcWglGetProc, "[OpenGLOverlayLayer][Hook_GetProcAddress] returning wglGetProcAddress hook.");
-            return reinterpret_cast<FARPROC>(&Hook_wglGetProcAddress);
-        }
-        if (std::strcmp(name, "wglSwapLayerBuffers") == 0)
-        {
-            LogOnce(s_loggedGetProcLayerSwap, "[OpenGLOverlayLayer][Hook_GetProcAddress] returning wglSwapLayerBuffers hook.");
-            return reinterpret_cast<FARPROC>(&Hook_wglSwapLayerBuffers);
-        }
-        if (std::strcmp(name, "SwapBuffers") == 0 || std::strcmp(name, "wglSwapBuffers") == 0)
-        {
-            LogOnce(s_loggedGetProcSwap, std::string("[OpenGLOverlayLayer][Hook_GetProcAddress] returning SwapBuffers hook for ") + name);
-            return reinterpret_cast<FARPROC>(&Hook_SwapBuffers);
-        }
-    }
-
-    return s_realGetProcAddress ? s_realGetProcAddress(module, name) : nullptr;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-void CreateHook(void* target, void* detour, void** original, const char* name)
+bool CreateHook(void* target, void* detour, void** original, const char* name)
 {
     if (!target)
     {
         LYMALINK_LOG(std::string("[OpenGLOverlayLayer][CreateHook] missing target ") + name);
-        return;
+        return false;
     }
 
     MH_STATUS status = MH_CreateHook(target, detour, original);
     if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED)
     {
         LYMALINK_LOG("[OpenGLOverlayLayer][CreateHook] " + HookStatus(name, status));
-        return;
+        return false;
     }
 
     status = MH_EnableHook(target);
     if (status != MH_OK && status != MH_ERROR_ENABLED)
     {
         LYMALINK_LOG("[OpenGLOverlayLayer][EnableHook] " + HookStatus(name, status));
+        return false;
     }
+
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 DWORD WINAPI InitThread(LPVOID)
 {
-    // DllMain starts this worker to avoid doing loader-sensitive MinHook work under the loader lock
-    HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+    // DllMain starts this worker to avoid doing MinHook work under the loader lock.
     HMODULE gdi32 = GetModuleHandleW(L"gdi32.dll");
     if (!gdi32)
     {
         gdi32 = LoadLibraryW(L"gdi32.dll");
     }
+
     HMODULE opengl32 = GetModuleHandleW(L"opengl32.dll");
     if (!opengl32)
     {
         opengl32 = LoadLibraryW(L"opengl32.dll");
     }
 
-    // Load OpenGL/GDI exports on demand so injected processes do not need to import OpenGL themselves
-    if (!kernel32 || !gdi32 || !opengl32)
+    if (!gdi32 || !opengl32)
     {
         LYMALINK_LOG("[OpenGLOverlayLayer][InitThread] required modules are missing.");
         return 1;
@@ -501,14 +454,22 @@ DWORD WINAPI InitThread(LPVOID)
         return 1;
     }
 
-    // Patch both direct swap exports and proc-address lookup paths used by legacy engines
-    CreateHook(reinterpret_cast<void*>(GetProcAddress(gdi32, "SwapBuffers")), reinterpret_cast<void*>(&Hook_SwapBuffers), reinterpret_cast<void**>(&s_realSwapBuffers), "SwapBuffers");
-    CreateHook(reinterpret_cast<void*>(GetProcAddress(opengl32, "wglSwapLayerBuffers")), reinterpret_cast<void*>(&Hook_wglSwapLayerBuffers), reinterpret_cast<void**>(&s_realWglSwapLayerBuffers), "wglSwapLayerBuffers");
-    CreateHook(reinterpret_cast<void*>(GetProcAddress(opengl32, "wglGetProcAddress")), reinterpret_cast<void*>(&Hook_wglGetProcAddress), reinterpret_cast<void**>(&s_realWglGetProcAddress), "wglGetProcAddress");
-    CreateHook(reinterpret_cast<void*>(GetProcAddress(kernel32, "GetProcAddress")), reinterpret_cast<void*>(&Hook_GetProcAddress), reinterpret_cast<void**>(&s_realGetProcAddress), "GetProcAddress");
+    const bool swapBuffersReady = CreateHook(reinterpret_cast<void*>(GetProcAddress(gdi32, "SwapBuffers")), reinterpret_cast<void*>(&Hook_SwapBuffers), reinterpret_cast<void**>(&s_realSwapBuffers), "SwapBuffers");
+    const bool layerSwapReady = CreateHook(reinterpret_cast<void*>(GetProcAddress(opengl32, "wglSwapLayerBuffers")), reinterpret_cast<void*>(&Hook_wglSwapLayerBuffers), reinterpret_cast<void**>(&s_realWglSwapLayerBuffers), "wglSwapLayerBuffers");
+    const bool procLoaderReady = CreateHook(reinterpret_cast<void*>(GetProcAddress(opengl32, "wglGetProcAddress")), reinterpret_cast<void*>(&Hook_wglGetProcAddress), reinterpret_cast<void**>(&s_realWglGetProcAddress), "wglGetProcAddress");
+    if (!swapBuffersReady && !layerSwapReady)
+    {
+        LYMALINK_LOG("[OpenGLOverlayLayer][InitThread] no swap hook could be installed.");
+        MH_Uninitialize();
+        return 1;
+    }
 
     s_hooksReady.store(true);
-    LYMALINK_LOG("[OpenGLOverlayLayer][InitThread] hooks installed.");
+    LYMALINK_LOG(
+        std::string("[OpenGLOverlayLayer][InitThread] hooks installed swap=") +
+        (swapBuffersReady ? "1" : "0") +
+        " layerSwap=" + (layerSwapReady ? "1" : "0") +
+        " wglProc=" + (procLoaderReady ? "1" : "0"));
     return 0;
 }
 }
