@@ -37,6 +37,7 @@ public:
     Q_INVOKABLE void CancelSteamAppIdSearch();
     Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false, const QString &targetType = "Emulator");
     Q_INVOKABLE void CancelSteamHydration();
+    Q_INVOKABLE QVariantMap ScanExecutableFolder(const QString &executablePath);
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);

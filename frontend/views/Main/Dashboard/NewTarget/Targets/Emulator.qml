@@ -35,6 +35,8 @@ Item {
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
     property bool gogEmulatorEnabled: false
+    property var detectedSteamAppIds: []
+    property bool detectedGogConfig: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
     readonly property string notificationFlatpakLdPreload: "LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so:/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
@@ -47,6 +49,18 @@ Item {
         : notificationNativeLdPreloadTemplate
     readonly property string notificationWineCommand: "lymalink-overlay wine \"game.exe\""
     readonly property string notificationSteamLaunchOption: "lymalink-overlay %command%"
+    readonly property bool detectedSteamAppIdMismatch: {
+        if (id_root.selectedAppId <= 0 || id_root.detectedSteamAppIds.length === 0) {
+            return false
+        }
+        const selectedId = id_root.selectedAppId.toString()
+        for (let i = 0; i < id_root.detectedSteamAppIds.length; ++i) {
+            if (id_root.detectedSteamAppIds[i].toString() === selectedId) {
+                return false
+            }
+        }
+        return true
+    }
     readonly property bool prefixWarning: {
         if (OS_WIN) return false
 
@@ -157,6 +171,12 @@ Item {
         id_root.targetStatusIsError = false
     }
 
+    function scanSelectedExecutableFolder(executablePath) {
+        const scanResult = ctxLymalink.ScanExecutableFolder(executablePath)
+        id_root.detectedSteamAppIds = scanResult.steamAppIds || []
+        id_root.detectedGogConfig = scanResult.hasGogConfig || false
+    }
+
     function setManualGameEntry(enabled) {
         id_root.cancelSearch(false)
         id_root.manualGameEntry = enabled
@@ -206,7 +226,9 @@ Item {
         fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("Executable files (*.exe)")]
         onAccepted: {
-            id_installLocationField.text = id_root.fileUrlToPath(selectedFile)
+            const executablePath = id_root.fileUrlToPath(selectedFile)
+            id_installLocationField.text = executablePath
+            id_root.scanSelectedExecutableFolder(executablePath)
             id_root.targetStatusText = ""
             id_root.targetStatusIsError = false
         }
@@ -1023,18 +1045,32 @@ Item {
                         }
                     }
 
-                    CustomTextField {
-                        id: id_installLocationField
-
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        readOnly: true
-                        selectByMouse: false
-                        placeholderText: qsTr("Path to game executable (.exe)")
+                        spacing: 4
 
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: id_exeFileDialog.open()
+                        CustomTextField {
+                            id: id_installLocationField
+
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: false
+                            placeholderText: qsTr("Path to game executable (.exe)")
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: id_exeFileDialog.open()
+                            }
+                        }
+
+                        Text {
+                            visible: id_root.detectedSteamAppIdMismatch
+                            Layout.fillWidth: true
+                            text: qsTr("Detected Steam app ID(s) inside executable path: %1. Selected ID is %2. Make sure the ID is correct. Edit manually if needed. You can check IDs on steamdb.info.").arg(id_root.detectedSteamAppIds.join(", ")).arg(id_root.selectedAppId.toString())
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
                         }
                     }
 
@@ -1060,7 +1096,7 @@ Item {
 
                         CustomCheckBox {
                             Layout.topMargin: 4
-                            text: qsTr("GOG Emulator enabled")
+                            text: qsTr("GOG Emulator used")
                             checked: id_root.gogEmulatorEnabled
                             onToggled: {
                                 id_root.gogEmulatorEnabled = checked
@@ -1070,21 +1106,35 @@ Item {
                         }
                     }
 
-                    CustomTextField {
-                        id: id_installDirField
-
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        enabled: id_root.gogEmulatorEnabled
-                        opacity: enabled ? 1.0 : 0.55
-                        readOnly: true
-                        selectByMouse: false
-                        placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
+                        spacing: 4
 
-                        MouseArea {
-                            anchors.fill: parent
+                        CustomTextField {
+                            id: id_installDirField
+
+                            Layout.fillWidth: true
                             enabled: id_root.gogEmulatorEnabled
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: id_installFolderDialog.open()
+                            opacity: enabled ? 1.0 : 0.55
+                            readOnly: true
+                            selectByMouse: false
+                            placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: id_root.gogEmulatorEnabled
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: id_installFolderDialog.open()
+                            }
+                        }
+
+                        Text {
+                            visible: id_root.detectedGogConfig
+                            Layout.fillWidth: true
+                            text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable GOG Emulator usage if needed.")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: Themes.emulatorTarget.colors.prefixWarningText
+                            wrapMode: Text.Wrap
                         }
                     }
 

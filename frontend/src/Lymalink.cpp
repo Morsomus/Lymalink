@@ -14,8 +14,10 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QLocale>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
 #include <QStandardPaths>
@@ -138,6 +140,79 @@ void Lymalink::EnqueueSteamHydrationTask(int appId, bool reloadAssets, const QSt
 void Lymalink::CancelSteamHydration()
 {
     emit signalRequestCancelSteamHydration();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantMap Lymalink::ScanExecutableFolder(const QString &executablePath)
+{
+    QVariantList steamAppIds;
+    QSet<QString> detectedIds;
+    bool hasGogConfig = false;
+
+    const QFileInfo executableInfo(executablePath.trimmed());
+    const QDir installDir = executableInfo.absoluteDir();
+    if (executablePath.trimmed().isEmpty() || !installDir.exists())
+    {
+        return {{"steamAppIds", steamAppIds}, {"hasGogConfig", hasGogConfig}};
+    }
+
+    const auto addSteamAppId = [&detectedIds, &steamAppIds](const QString &rawId) {
+        bool ok = false;
+        const qlonglong appId = rawId.trimmed().toLongLong(&ok);
+        if (!ok || appId <= 0)
+        {
+            return;
+        }
+
+        const QString normalizedId = QString::number(appId);
+        if (!detectedIds.contains(normalizedId))
+        {
+            detectedIds.insert(normalizedId);
+            steamAppIds.append(normalizedId);
+        }
+    };
+
+    const QRegularExpression appIdLineRegex(QStringLiteral("^\\s*AppId\\s*=\\s*(\\d+)\\s*$"), QRegularExpression::MultilineOption);
+    const QRegularExpression numericTextRegex(QStringLiteral("^\\d+$"));
+    const QFileInfoList entries = installDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QFileInfo &entry : entries)
+    {
+        const QString fileName = entry.fileName();
+        const QString lowerName = fileName.toLower();
+        if (lowerName == QStringLiteral("galaxyconfig.json") || lowerName.contains(QStringLiteral("goggame")))
+        {
+            hasGogConfig = true;
+        }
+
+        if (lowerName == QStringLiteral("steam_appid.txt"))
+        {
+            QFile file(entry.absoluteFilePath());
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                const QString text = QString::fromUtf8(file.readAll()).trimmed();
+                if (numericTextRegex.match(text).hasMatch())
+                {
+                    addSteamAppId(text);
+                }
+            }
+        }
+        else if (lowerName == QStringLiteral("steam_api.ini") || lowerName == QStringLiteral("steam_emu.ini"))
+        {
+            QFile file(entry.absoluteFilePath());
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                const QString text = QString::fromUtf8(file.readAll());
+                const QRegularExpressionMatch match = appIdLineRegex.match(text);
+                if (match.hasMatch())
+                {
+                    addSteamAppId(match.captured(1));
+                }
+            }
+        }
+    }
+
+    return {{"steamAppIds", steamAppIds}, {"hasGogConfig", hasGogConfig}};
 }
 
 /////////////////////////////////////////////////////////////////////
