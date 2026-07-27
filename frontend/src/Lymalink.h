@@ -64,6 +64,7 @@ signals:
     void signalSteamHydrationTaskFinished(int appId, QString targetType, bool success, bool cancelled);
     void signalSteamHydrationQueueFinished();
     void signalSteamHydrationBusyChanged();
+    void signalAchievementMetadataReady(int appId, QString targetType, bool success);
     void signalErrorOccurred(QString title, QString message);
 
     // Internal - SteamApiSearchWorker
@@ -90,7 +91,7 @@ private:
     Error DatabaseInit();
     Error FileSystemInit();
     bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef);
-    void ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);
+    bool ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);
     QString PlaytimeText(int hoursPlayed) const;
     QVariantMap LatestUnlockedAchievement(const QVariantList &achievements) const;
     QVariantList BuildAchievementDetails(int appId, const QString &iconsPath, const QString &targetType);

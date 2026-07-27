@@ -34,6 +34,7 @@ Popup {
     property string currentInstallationLocation: ""
     property bool steamUpdateLoading: false
     property bool manualScanLoading: false
+    property bool manualScanCancelVisible: false
     property int manualScanTargetId: 0
     property bool passcodeUnlocked: false
     property bool awaitingUnlockAction: false
@@ -134,7 +135,9 @@ Popup {
         }
 
         id_root.manualScanLoading = true
+        id_root.manualScanCancelVisible = false
         id_root.manualScanTargetId = id_root.p_appId
+        id_manualScanCancelButtonDelayTimer.restart()
         id_manualScanFallbackTimer.restart()
         id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
         ctxBackendService.StartManualAchievementDataScan(id_root.p_appId)
@@ -158,7 +161,9 @@ Popup {
         }
 
         id_manualScanFallbackTimer.stop()
+        id_manualScanCancelButtonDelayTimer.stop()
         id_root.manualScanLoading = false
+        id_root.manualScanCancelVisible = false
         id_root.manualScanTargetId = 0
     }
 
@@ -480,12 +485,23 @@ Popup {
     Timer {
         id: id_manualScanFallbackTimer
 
-        interval: 35000
+        interval: 32000
         repeat: false
         onTriggered: {
             if (id_root.manualScanTargetId > 0) {
                 id_root.finishManualAchievementDataScan(id_root.manualScanTargetId)
             }
+        }
+    }
+
+    // Delay timer before displaying manual scan button and busy indicator to prevent brief flashing
+    Timer {
+        id: id_manualScanCancelButtonDelayTimer
+
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            id_root.manualScanCancelVisible = id_root.manualScanLoading
         }
     }
 
@@ -563,7 +579,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            visible: id_root.p_targetType === "Emulator" && id_root.manualScanLoading
+            visible: id_root.p_targetType === "Emulator" && id_root.manualScanLoading && id_root.manualScanCancelVisible
 
             CustomBusyIndicator {
                 Layout.alignment: Qt.AlignVCenter
@@ -585,10 +601,10 @@ Popup {
             id: id_manualScanCancelPanel
 
             Layout.fillWidth: true
-            Layout.preferredHeight: id_root.manualScanLoading ? implicitHeight : 0
+            Layout.preferredHeight: id_root.manualScanCancelVisible ? implicitHeight : 0
             clip: true
-            opacity: id_root.manualScanLoading ? 1.0 : 0.0
-            visible: id_root.manualScanLoading || Layout.preferredHeight > 0
+            opacity: id_root.manualScanCancelVisible ? 1.0 : 0.0
+            visible: id_root.manualScanCancelVisible || Layout.preferredHeight > 0
             spacing: 8
 
             Behavior on Layout.preferredHeight {

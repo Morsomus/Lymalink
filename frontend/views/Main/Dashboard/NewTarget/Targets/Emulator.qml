@@ -20,6 +20,7 @@ Item {
 
     // Public ________________________________________________
     signal targetAdded(int appId)
+    signal busyChanged(bool busy)
 
     // Internals _____________________________________________
     property var searchResults: []
@@ -30,6 +31,9 @@ Item {
     property string targetStatusText: ""
     property bool targetStatusIsError: false
     property bool isCreatingTarget: false
+    property bool targetCreated: false
+    property int pendingTargetAddAppId: 0
+    property bool manualScanLoading: false
     property int selectedAppId: 0
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
@@ -39,6 +43,10 @@ Item {
     property bool detectedGogConfig: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
+    readonly property bool backendServiceUsable: backendServiceReady && ctxBackendService.serviceAvailable && ctxBackendService.serviceActive
+    readonly property var activeTargetIds: backendServiceReady ? ctxBackendService.activeTargetIds : []
+    readonly property bool anyTargetIsActive: activeTargetIds.length > 0
     readonly property string notificationFlatpakLdPreload: "LD_PRELOAD=/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay-preloader.so:/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
     readonly property string notificationNativeLdPreloadTemplate: "LD_PRELOAD=/home/<user>/.local/lib/lymalink-overlay-preloader.so:/home/<user>/.local/lib/i386-linux-gnu/lymalink-overlay-preloader.so"
     readonly property string notificationHomePath: StandardPaths.writableLocation(StandardPaths.HomeLocation)
@@ -103,9 +111,41 @@ Item {
                         ? qsTr("%1 results - Limited to max 10 results").arg(id_root.searchResults.length)
                         : qsTr("%1 results").arg(id_root.searchResults.length)))
         }
+
+        function onSignalAchievementMetadataReady(appId, targetType, success) {
+            if (id_root.pendingTargetAddAppId !== appId || targetType !== "Emulator") {
+                return
+            }
+            if (!success) {
+                id_root.finishPendingTargetAdd(qsTr("Couldn't load achievement metadata. Achievement data scan was not started."), true, false)
+                return
+            }
+            id_root.beginManualAchievementDataScan(appId)
+        }
+
+        function onSignalSteamHydrationTaskFinished(appId, targetType, success, cancelled) {
+            if (id_root.pendingTargetAddAppId !== appId || targetType !== "Emulator" || id_root.manualScanLoading) {
+                return
+            }
+            id_root.finishPendingTargetAdd(qsTr("Couldn't load achievement metadata. Achievement data scan was not started."), true, false)
+        }
     }
 
-    Component.onDestruction: id_root.cancelSearch(false)
+    Connections {
+        target: typeof ctxBackendService !== "undefined" ? ctxBackendService : null
+
+        function onSignalManualAchievementDataScanFinished(appId, found, reason) {
+            if (id_root.manualScanLoading && id_root.pendingTargetAddAppId === appId) {
+                id_root.finishManualAchievementDataScan(appId, true)
+            }
+        }
+    }
+
+    Component.onDestruction: {
+        id_root.cancelSearch(false)
+        id_root.cancelManualAchievementDataScan(false)
+        id_root.setAddBusy(false)
+    }
 
     function fileUrlToPath(fileUrl) {
         if (OS_WIN) {
@@ -167,6 +207,7 @@ Item {
         id_root.selectedAppId = result.id
         id_root.selectedName = result.name
         id_root.addedDate = Math.floor(Date.now() / 1000)
+        id_root.targetCreated = false
         id_root.targetStatusText = ""
         id_root.targetStatusIsError = false
     }
@@ -180,6 +221,7 @@ Item {
     function setManualGameEntry(enabled) {
         id_root.cancelSearch(false)
         id_root.manualGameEntry = enabled
+        id_root.targetCreated = false
         id_root.searchResults = []
         id_root.statusText = ""
         id_root.statusIsError = false
@@ -187,12 +229,23 @@ Item {
         id_root.targetStatusIsError = false
     }
 
+    function setAddBusy(busy) {
+        if (id_root.isCreatingTarget === busy) {
+            return
+        }
+
+        id_root.isCreatingTarget = busy
+        id_root.busyChanged(busy)
+    }
+
     function createTarget() {
         if (id_root.isCreatingTarget || !id_confirmTarget.canConfirm) {
             return
         }
 
-        id_root.isCreatingTarget = true
+        id_root.setAddBusy(true)
+        id_root.targetCreated = false
+        id_root.pendingTargetAddAppId = 0
         id_root.targetStatusText = qsTr("Creating target...")
         id_root.targetStatusIsError = false
 
@@ -204,14 +257,75 @@ Item {
             id_root.gogEmulatorEnabled ? id_installDirField.text : ""
         )
 
-        id_root.isCreatingTarget = false
         id_root.targetStatusIsError = !success
         id_root.targetStatusText = success
-            ? qsTr("Target created")
+            ? qsTr("Loading achievement metadata...")
             : ctxLymalink.GetLastOperationError()
 
         if (success) {
-            id_root.targetAdded(id_root.selectedAppId)
+            id_root.targetCreated = true
+            id_root.pendingTargetAddAppId = id_root.selectedAppId
+            ctxLymalink.EnqueueSteamHydrationTask(id_root.selectedAppId, true, "Emulator")
+        } else {
+            id_root.setAddBusy(false)
+        }
+    }
+
+    function beginManualAchievementDataScan(appId) {
+        if (appId <= 0 || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+            id_root.finishPendingTargetAdd(qsTr("Target created"), false, true)
+            return
+        }
+
+        id_root.manualScanLoading = true
+        id_root.targetStatusText = qsTr("Scanning for achievement data...")
+        id_root.targetStatusIsError = false
+        id_manualScanFallbackTimer.restart()
+        ctxBackendService.StartManualAchievementDataScan(appId)
+    }
+
+    function cancelManualAchievementDataScan(emitAdded) {
+        if (!id_root.manualScanLoading || id_root.pendingTargetAddAppId <= 0) {
+            return
+        }
+
+        const appId = id_root.pendingTargetAddAppId
+        if (id_root.backendServiceReady) {
+            ctxBackendService.CancelManualAchievementDataScan(appId)
+        }
+        id_root.finishManualAchievementDataScan(appId, emitAdded)
+    }
+
+    function finishManualAchievementDataScan(appId, emitAdded) {
+        if (!id_root.manualScanLoading || id_root.pendingTargetAddAppId !== appId) {
+            return
+        }
+
+        id_manualScanFallbackTimer.stop()
+        id_root.manualScanLoading = false
+        id_root.finishPendingTargetAdd(qsTr("Target created"), false, emitAdded)
+    }
+
+    function finishPendingTargetAdd(message, isError, emitAdded) {
+        const appId = id_root.pendingTargetAddAppId
+        id_root.pendingTargetAddAppId = 0
+        id_root.targetStatusText = message
+        id_root.targetStatusIsError = isError
+        id_root.setAddBusy(false)
+        if (emitAdded && appId > 0) {
+            id_root.targetAdded(appId)
+        }
+    }
+
+    Timer {
+        id: id_manualScanFallbackTimer
+
+        interval: 32000
+        repeat: false
+        onTriggered: {
+            if (id_root.pendingTargetAddAppId > 0) {
+                id_root.finishManualAchievementDataScan(id_root.pendingTargetAddAppId, true)
+            }
         }
     }
 
@@ -1219,6 +1333,13 @@ Item {
                             verticalAlignment: Text.AlignVCenter
                         }
 
+                        CustomBusyIndicator {
+                            Layout.alignment: Qt.AlignVCenter
+                            visible: p_running
+                            p_indicatorSize: 22
+                            p_running: id_root.isCreatingTarget
+                        }
+
                         Rectangle {
                             id: id_confirmTarget
 
@@ -1227,6 +1348,7 @@ Item {
                                 && id_installLocationField.text.trim().length > 0
                                 && (!id_root.gogEmulatorEnabled || id_installDirField.text.trim().length > 0)
                                 && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
+                                && !id_root.targetCreated
                                 && !id_root.isCreatingTarget
 
                             implicitHeight: 32

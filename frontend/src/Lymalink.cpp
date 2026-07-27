@@ -100,7 +100,11 @@ Error Lymalink::Initialize()
         [this](int appId, const QString &title, const QString &message) {
             emit signalErrorOccurred(title, QString("%1\n\nApp ID: %2").arg(message).arg(appId));
         });
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this, &Lymalink::ApplyNewAchievements);
+    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalAchievementsReady, this,
+        [this](int appId, QString targetType, QVariantList achievements) {
+            const bool success = ApplyNewAchievements(appId, targetType, achievements);
+            emit signalAchievementMetadataReady(appId, NormalizeTargetType(targetType), success);
+        });
     m_hydrationWorkerThread.start();
 
     initResult = DatabaseInit();
@@ -1877,17 +1881,17 @@ bool Lymalink::EnsureColumn(const QString &tableName, const QString &columnName,
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList achievements)
+bool Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList achievements)
 {
     if (IsSteamTargetType(targetType))
     {
-        return;
+        return false;
     }
 
     if (appId <= 0 || achievements.isEmpty())
     {
         qDebug() << "Lymalink::ApplyNewAchievements: no achievement payload to merge for appId:" << appId;
-        return;
+        return false;
     }
 
     int validPayloadRows = 0;
@@ -1901,13 +1905,13 @@ void Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList 
     if (validPayloadRows == 0)
     {
         qDebug() << "Lymalink::ApplyNewAchievements: no valid achievement keys to merge for appId:" << appId;
-        return;
+        return false;
     }
 
     if (!m_databaseManager.beginTransaction(m_databaseConnectionName))
     {
         qWarning() << "Lymalink::ApplyNewAchievements: failed to start transaction:" << m_databaseManager.lastError();
-        return;
+        return false;
     }
 
     const qint64 now = QDateTime::currentSecsSinceEpoch();
@@ -2029,11 +2033,12 @@ void Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList 
     if (mergeSucceeded && m_databaseManager.commitTransaction(m_databaseConnectionName))
     {
         qDebug() << "Lymalink::ApplyNewAchievements: inserted" << inserted << "updated" << updated << "achievements for appId:" << appId;
-        return;
+        return true;
     }
 
     m_databaseManager.rollbackTransaction(m_databaseConnectionName);
     qWarning() << "Lymalink::ApplyNewAchievements: failed to merge achievements for appId:" << appId << m_databaseManager.lastError();
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////

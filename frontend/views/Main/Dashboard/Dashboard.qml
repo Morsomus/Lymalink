@@ -629,8 +629,10 @@ Item {
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
                 id_root.reloadBackendTargets()
-                id_root.setTargetLoading(appId, targetType, true)
-                ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
+                if (targetType !== "Emulator") {
+                    id_root.setTargetLoading(appId, targetType, true)
+                    ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
+                }
             }
             onSteamImportsApplied: function(loadingAppIds) {
                 id_root.addTargetBusy = false
@@ -684,14 +686,19 @@ Item {
                 id_root.refreshTargets()
             }
 
-            // Close Target Details
+            // Return from Target Details / Add Target
             onReturnClicked: {
                 if (id_root.addTargetBusy) {
                     return
                 }
+                const wasShowingAddTarget = id_root.showingAddTarget
                 id_root.showingTargetDetails = false
                 id_root.showingAddTarget = false
                 id_root.addTargetBusy = false
+                if (wasShowingAddTarget) {
+                    id_root.refreshTargets()
+                    id_root.reloadBackendTargets()
+                }
             }
 
             // Add target

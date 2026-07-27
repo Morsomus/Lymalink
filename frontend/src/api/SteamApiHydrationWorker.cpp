@@ -266,6 +266,30 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
+    // Package metadata early so callers can use achievements before icon downloads finish.
+    emit signalHydrationTaskProgress(appId, targetType, "PreparingData", 0, 0);
+
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    QVariantList achievementList;
+    for (const SteamAchievementData &achievement : achievements)
+    {
+        QVariantMap entry = {};
+        entry["achievement_key"]   = achievement.achievementKey;
+        entry["achievement_name"] = achievement.achievementName;
+        entry["achievement_description"] = achievement.achievementDescription;
+        entry["achievement_hidden"] = achievement.achievementHidden ? 1 : 0;
+        entry["global_unlock_percentage"] = achievement.globalUnlockPercentage;
+        entry["cur_progress"] = achievement.minProgress;
+        entry["max_progress"] = achievement.maxProgress;
+        entry["date_added"] = now;
+        entry["date_updated"] = now;
+
+        achievementList.append(entry);
+    }
+
+    emit signalAchievementsReady(appId, targetType, achievementList);
+
     // Resolve active and locked achievement icon URLs
     QList<SteamAchievementIconUrls> achievementIconUrls;
     const Error iconUrlsError = m_steamApi->GetAchievementIconUrls(appId, achievements, achievementIconUrls, m_benchmarkedAchievementIconUrlFormats);
@@ -300,29 +324,6 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         return;
     }
 
-    // Package achievement data for DB write
-    emit signalHydrationTaskProgress(appId, targetType, "PreparingData", 0, 0);
-
-    const qint64 now = QDateTime::currentSecsSinceEpoch();
-
-    QVariantList achievementList;
-    for (const SteamAchievementData &achievement : achievements)
-    {
-        QVariantMap entry = {};
-        entry["achievement_key"]   = achievement.achievementKey;
-        entry["achievement_name"] = achievement.achievementName;
-        entry["achievement_description"] = achievement.achievementDescription;
-        entry["achievement_hidden"] = achievement.achievementHidden ? 1 : 0;
-        entry["global_unlock_percentage"] = achievement.globalUnlockPercentage;
-        entry["cur_progress"] = achievement.minProgress;
-        entry["max_progress"] = achievement.maxProgress;
-        entry["date_added"] = now;
-        entry["date_updated"] = now;
-
-        achievementList.append(entry);
-    }
-
-    emit signalAchievementsReady(appId, targetType, achievementList);
     emit signalHydrationTaskFinished(appId, targetType, true, false);
 
     qInfo() << "SteamApiHydrationWorker::ProcessTask: task completed for appId:" << appId << "- achievements:" << achievements.size();

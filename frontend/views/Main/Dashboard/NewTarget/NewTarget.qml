@@ -57,6 +57,7 @@ Item {
         visible: active
         sourceComponent: Component {
             Emulator {
+                onBusyChanged: id_root.busyChanged(busy)
                 onTargetAdded: function(appId) {
                     id_root.targetAdded(appId, "Emulator")
                 }
