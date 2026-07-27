@@ -146,4 +146,5 @@ private:
     bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
     void EmitAchievementUnlocked(int targetId, const std::string& achievementKey);
     void EmitGameStateChanged(const std::vector<int>& targetIds, const std::string& state);
+    void EmitTargetDataChanged(int targetId);
 };

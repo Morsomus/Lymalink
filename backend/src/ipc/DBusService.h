@@ -20,6 +20,7 @@
 // Signals (backend -> frontend):
 //   AchievementUnlocked(int32 appid, string key)
 //   GameStateChanged(array<int32> appids, string state)
+//   TargetDataChanged(int32 appid)
 /////////////////////////////////////////////////////////
 
 #pragma once
@@ -47,6 +48,7 @@ public:
     void EmitAchievementUnlocked(int32_t appid, const std::string& key);
     void EmitGameStateChanged(int32_t appid, const std::string& state);
     void EmitGameStateChanged(const std::vector<int32_t>& appids, const std::string& state);
+    void EmitTargetDataChanged(int32_t appid);
 
     // Callbacks
     std::function<void()> onRequestActiveTargets;

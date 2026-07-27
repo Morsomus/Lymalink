@@ -373,6 +373,16 @@ void WinSocketService::HandleMessage(const QJsonObject &message)
         }
         emit signalActiveTargetIdsChanged();
     }
+
+    if (message.value("event") == "TargetDataChanged")
+    {
+        qDebug() << "WinSocketService::HandleMessage: received TargetDataChanged event";
+        const int targetId = message.value("targetId").toInt();
+        // Emit after delay, so possible unlocked achievements are also updated
+        QTimer::singleShot(3000, this, [this, targetId]() {
+            emit signalTargetDataChanged(targetId);
+        });
+    }
 }
 
 /////////////////////////////////////////////////////////////////////

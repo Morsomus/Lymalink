@@ -1153,6 +1153,11 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
             }
         }
     }
+
+    for (const int targetId : savedTargetIds)
+    {
+        EmitTargetDataChanged(targetId);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2089,5 +2094,18 @@ void Lymalinkd::EmitGameStateChanged(const std::vector<int>& targetIds, const st
 #else
     std::vector<int32_t> ids(targetIds.begin(), targetIds.end());
     m_dbus.EmitGameStateChanged(ids, state);
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::EmitTargetDataChanged(int targetId)
+{
+#if defined(_WIN32)
+    QMetaObject::invokeMethod(&m_ipc, [this, targetId] {
+        m_ipc.EmitTargetDataChanged(targetId);
+    }, Qt::QueuedConnection);
+#else
+    m_dbus.EmitTargetDataChanged(targetId);
 #endif
 }

@@ -376,6 +376,22 @@ void DBusService::OnAchievementUnlocked(int appId, const QString &achievementKey
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::OnTargetDataChanged(int appId)
+{
+    if (appId <= 0)
+    {
+        qWarning() << "DBusService::OnTargetDataChanged: invalid payload:" << appId;
+        return;
+    }
+
+    // Emit after delay, so possible unlocked achievements are also updated
+    QTimer::singleShot(3000, this, [this, appId]() {
+        emit signalTargetDataChanged(appId);
+    });
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -428,6 +444,21 @@ void DBusService::ConnectDaemonSignals()
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to AchievementUnlocked";
         SetLastError(QStringLiteral("Failed to subscribe to AchievementUnlocked signal"));
+    }
+
+    const bool targetDataConnected = sessionBus.connect(
+        QString::fromLatin1(DBUS_BUS_NAME),
+        QString::fromLatin1(DBUS_OBJECT_PATH),
+        QString::fromLatin1(DBUS_INTERFACE),
+        QStringLiteral("TargetDataChanged"),
+        this,
+        SLOT(OnTargetDataChanged(int))
+    );
+
+    if (!targetDataConnected)
+    {
+        qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to TargetDataChanged";
+        SetLastError(QStringLiteral("Failed to subscribe to TargetDataChanged signal"));
     }
 }
 

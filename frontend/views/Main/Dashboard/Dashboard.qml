@@ -560,6 +560,15 @@ Item {
                 id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
             }
         }
+
+        function onSignalTargetDataChanged(appId) {
+            if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
+                id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
+                return
+            }
+
+            id_root.refreshTargets()
+        }
     }
 
     /////////////////////////////////////////////////////////////////////

@@ -56,6 +56,7 @@ signals:
     void signalLastErrorChanged();
     void signalActiveTargetIdsChanged();
     void signalAchievementUnlocked(int appId, const QString &achievementKey);
+    void signalTargetDataChanged(int appId);
 
 private:
     QLocalSocket m_socket;

@@ -29,6 +29,7 @@ public:
     void Stop();
     void EmitAchievementUnlocked(int targetId, const std::string& key);
     void EmitGameStateChanged(const std::vector<int>& targetIds, const std::string& state);
+    void EmitTargetDataChanged(int targetId);
 
     std::function<void(int)> onReloadTarget;
     std::function<void()> onRequestActiveTargets;

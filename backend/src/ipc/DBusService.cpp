@@ -104,7 +104,10 @@ Error DBusService::Init()
                 .withParameters<int32_t, std::string>("targetId", "key"),
 
             sdbus::registerSignal("GameStateChanged")
-                .withParameters<std::vector<int32_t>, std::string>("targetIds", "state")
+                .withParameters<std::vector<int32_t>, std::string>("targetIds", "state"),
+
+            sdbus::registerSignal("TargetDataChanged")
+                .withParameters<int32_t>("targetId")
 
         ).forInterface(DBUS_INTERFACE);
 
@@ -206,6 +209,29 @@ void DBusService::EmitGameStateChanged(const std::vector<int32_t>& targetIds, co
     catch (const sdbus::Error& e)
     {
         LOG_BE(Urgency::Critical, "EmitGameStateChanged failed: %s", e.what());
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::EmitTargetDataChanged(int32_t targetId)
+{
+    if (!m_object)
+    {
+        return;
+    }
+
+    try
+    {
+        m_object->emitSignal(sdbus::SignalName{"TargetDataChanged"})
+            .onInterface(DBUS_INTERFACE)
+            .withArguments(targetId);
+
+        LOG_BE(Urgency::Debug, "TargetDataChanged emitted: targetId=%d", targetId);
+    }
+    catch (const sdbus::Error& e)
+    {
+        LOG_BE(Urgency::Critical, "EmitTargetDataChanged failed: %s", e.what());
     }
 }
 
