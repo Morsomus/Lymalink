@@ -46,8 +46,12 @@ Lymalinkd::Lymalinkd() :
     m_sleepTimerGeneration.store(0);
     m_running.store(true);
     m_startupNotificationEnabled.store(true);
+    m_manualScanActive.store(false);
+    m_manualScanCancelRequested.store(false);
     m_activeTargetsIds = {};
     m_targetIdsRequiringDirScan = {};
+    m_manualScanTargetId = 0;
+    m_manualScanCancelReason = "";
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
     m_databaseEmuGamesTable = DATABASE_TABLE_EMU_GAMES;
@@ -177,6 +181,8 @@ Error Lymalinkd::Init()
     m_ipc.onReloadTarget = [this](int) { OnReloadAllTargets(); };
     m_ipc.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
     m_ipc.onReloadConfig = [this]() { OnReloadConfig(); };
+    m_ipc.onStartManualAchievementDataScan = [this](int targetId) { OnStartManualAchievementDataScan(targetId); };
+    m_ipc.onCancelManualAchievementDataScan = [this](int targetId) { OnCancelManualAchievementDataScan(targetId); };
     m_ipc.onTestToast = [this]() { OnTestToast(); };
     m_ipc.onTestSound = [this]() { OnTestSound(); };
     m_ipc.onShutdown = [this]() { OnShutdown(); };
@@ -189,6 +195,8 @@ Error Lymalinkd::Init()
     m_dbus.onRequestActiveTargets = [this]() { OnRequestActiveTargets(); };
     m_dbus.onReloadAllTargets = [this]() { OnReloadAllTargets(); };
     m_dbus.onReloadConfig = [this]() { OnReloadConfig(); };
+    m_dbus.onStartManualAchievementDataScan = [this](int32_t targetId) { OnStartManualAchievementDataScan(static_cast<int>(targetId)); };
+    m_dbus.onCancelManualAchievementDataScan = [this](int32_t targetId) { OnCancelManualAchievementDataScan(static_cast<int>(targetId)); };
     m_dbus.onTestToast = [this]() { OnTestToast(); };
     m_dbus.onTestSound = [this]() { OnTestSound(); };
 
@@ -457,6 +465,12 @@ void Lymalinkd::Shutdown()
 #endif
 
     // Stop external services before closing database connection
+    RequestManualAchievementDataScanCancel(0, "cancelled");
+    if (m_manualScanThread.joinable())
+    {
+        m_manualScanThread.join();
+    }
+
     m_processWatcher.Stop();
     m_overlayNotifications.Shutdown();
     m_notificationSound.Stop();
@@ -659,6 +673,7 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
 void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid)
 {
     LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
+    RequestManualAchievementDataScanCancel(0, "game_started");
 
 #if defined(_WIN32)
     InjectWindowsOverlayProcessTree(targetId, pid);
@@ -894,6 +909,169 @@ void Lymalinkd::OnReloadConfig()
 
 /////////////////////////////////////////////////////////////////////
 
+void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
+{
+    LOG_BE(Urgency::Debug, "Manual achievement data scan requested: targetId=%d", targetId);
+
+    // Reject invalid or currently active targets before starting manual filesystem traversal
+    if (targetId <= 0)
+    {
+        LOG_BE(Urgency::Warning, "Manual achievement data scan rejected: invalid targetId=%d", targetId);
+        EmitManualAchievementDataScanFinished(targetId, false, "invalid");
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        if (!m_activeTargetsIds.empty())
+        {
+            LOG_BE(Urgency::Info, "Manual achievement data scan rejected because a target is active: targetId=%d", targetId);
+            EmitManualAchievementDataScanFinished(targetId, false, "game_started");
+            return;
+        }
+    }
+
+    // Load current scan metadata after frontend reset cleared cached AppID dir state
+    AppIdDirPathScanTarget target;
+    if (!LoadAppIdDirScanTargetFromDatabase(targetId, target))
+    {
+        LOG_BE(Urgency::Warning, "Manual achievement data scan rejected because target metadata is unavailable: targetId=%d", targetId);
+        EmitManualAchievementDataScanFinished(targetId, false, "invalid");
+        return;
+    }
+
+#if defined(_WIN32)
+    if (target.executableLocation.empty())
+#else
+    if (target.prefixLocation.empty() || target.executableLocation.empty())
+#endif
+    {
+        LOG_BE(Urgency::Warning, "Manual achievement data scan rejected because required paths are missing: targetId=%d prefix=%s executable=%s", targetId, target.prefixLocation.c_str(), target.executableLocation.c_str());
+        EmitManualAchievementDataScanFinished(targetId, false, "invalid");
+        return;
+    }
+
+    {
+        // Only one manual scan is allowed at a time - automatic active-game scans remain separate
+        std::lock_guard<std::mutex> lock(m_manualScanMutex);
+        if (m_manualScanActive.load())
+        {
+            LOG_BE(Urgency::Info, "Manual achievement data scan rejected because another scan is active: targetId=%d activeTargetId=%d", targetId, m_manualScanTargetId);
+            EmitManualAchievementDataScanFinished(targetId, false, "invalid");
+            return;
+        }
+
+        if (m_manualScanThread.joinable())
+        {
+            m_manualScanThread.join();
+        }
+
+        m_manualScanActive.store(true);
+        m_manualScanCancelRequested.store(false);
+        m_manualScanTargetId = targetId;
+        m_manualScanCancelReason = "";
+    }
+
+    // Run one cancellable scan pass off the IPC thread
+    m_manualScanThread = std::thread([this, target]() {
+        const int targetId = target.targetId;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        PathScanner scanner;
+        scanner.SetTargets({target});
+
+        // Cancellation is cooperative so recursive filesystem walks can stop between entries
+        auto shouldStopScanning = [this, targetId, deadline]() {
+            if (!m_running.load())
+            {
+                return true;
+            }
+            if (m_manualScanCancelRequested.load())
+            {
+                return true;
+            }
+            if (std::chrono::steady_clock::now() >= deadline)
+            {
+                RequestManualAchievementDataScanCancel(targetId, "timeout");
+                return true;
+            }
+            return false;
+        };
+
+        const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir(shouldStopScanning);
+        bool found = false;
+        for (const AppIdDirPathScanResult& result : results)
+        {
+            if (result.appidDirFound)
+            {
+                found = true;
+                break;
+            }
+        }
+
+        // If any game starts while scan is finishing, let normal active-game scanning own the result
+        bool anyTargetActive = false;
+        {
+            std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+            anyTargetActive = !m_activeTargetsIds.empty();
+        }
+        if (anyTargetActive)
+        {
+            RequestManualAchievementDataScanCancel(0, "game_started");
+        }
+
+        if (!results.empty() && !m_manualScanCancelRequested.load())
+        {
+            SavePathScanResults(results, false); // Set false - Using EmitManualAchievementDataScanFinished instead of EmitTargetDataChanged
+
+            // After finding AppID data manually, do the initial achievement state sync
+            for (const AppIdDirPathScanResult& result : results)
+            {
+                if (!result.appidDirFound || m_manualScanCancelRequested.load())
+                {
+                    continue;
+                }
+
+                int updatedAchievements = 0;
+                for (const AchievementData& achievement : m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType))
+                {
+                    if (achievement.key.empty())
+                    {
+                        continue;
+                    }
+
+                    // Reuse normal runtime DB update path - unknown parser keys are ignored by SaveAchievementState
+                    if (SaveAchievementState(result.targetId, achievement))
+                    {
+                        ++updatedAchievements;
+                    }
+                }
+
+                LOG_BE(Urgency::Debug, "Manual achievement scan state sync saved: targetId=%d updated=%d", result.targetId, updatedAchievements);
+            }
+        }
+
+        std::string reason = found ? "found" : "not_found";
+        if (m_manualScanCancelRequested.load())
+        {
+            std::lock_guard<std::mutex> lock(m_manualScanMutex);
+            reason = m_manualScanCancelReason.empty() ? "cancelled" : m_manualScanCancelReason;
+            found = false;
+        }
+
+        FinishManualAchievementDataScan(targetId, found, reason);
+    });
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnCancelManualAchievementDataScan(int targetId)
+{
+    LOG_BE(Urgency::Debug, "Manual achievement data scan cancel requested: targetId=%d", targetId);
+    RequestManualAchievementDataScanCancel(targetId, "cancelled");
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Lymalinkd::OnRequestActiveTargets()
 {
     std::vector<int32_t> activeTargetIds;
@@ -1012,6 +1190,43 @@ std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTarge
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalinkd::LoadAppIdDirScanTargetFromDatabase(int targetId, AppIdDirPathScanTarget& target)
+{
+    if (targetId <= 0)
+    {
+        return false;
+    }
+
+    DbRecord row;
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        row = m_database.SelectFirst(
+            m_databaseConnectionName,
+            m_databaseEmuGamesTable,
+            "id = ?",
+            {static_cast<int64_t>(targetId)}
+        );
+    }
+
+    if (row.empty())
+    {
+        LOG_BE(Urgency::Warning, "Manual AppID dir scan target not found: targetId=%d", targetId);
+        return false;
+    }
+
+    target = AppIdDirPathScanTarget{
+        targetId,
+        std::to_string(targetId),
+        SQLiteManager::RowString(row, "prefix_location"),
+        SQLiteManager::RowString(row, "executable_location"),
+        SQLiteManager::RowString(row, "installation_dir"),
+        SQLiteManager::RowString(row, "data_opt")
+    };
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 // Check if any active (currently played) target requires finding missing AppId path
 bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
 {
@@ -1091,7 +1306,7 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
 /////////////////////////////////////////////////////////////////////
 
 // Save AppId path, emulator type to DB for future use 
-void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results)
+void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results, bool emitTargetDataChanged)
 {
     std::vector<int> savedTargetIds;
     savedTargetIds.reserve(results.size());
@@ -1152,6 +1367,13 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
                 it->second.dataOpt = dataOpt;
             }
         }
+    }
+
+    // Manual scan mostly uses this variable - During manual scan everything will be parsed and so
+    // 3000ms delay is not needed for refreshing the view at frontend, which EmitTargetDataChanged adds
+    if (!emitTargetDataChanged)
+    {
+        return;
     }
 
     for (const int targetId : savedTargetIds)
@@ -2072,6 +2294,46 @@ bool Lymalinkd::IsSupportedCustomNotificationSound(const std::filesystem::path& 
 
 /////////////////////////////////////////////////////////////////////
 
+void Lymalinkd::RequestManualAchievementDataScanCancel(int targetId, const std::string& reason)
+{
+    // targetId 0 means cancel whichever manual scan is active
+    std::lock_guard<std::mutex> lock(m_manualScanMutex);
+    if (!m_manualScanActive.load())
+    {
+        return;
+    }
+    if (targetId > 0 && m_manualScanTargetId != targetId)
+    {
+        return;
+    }
+
+    m_manualScanCancelRequested.store(true);
+    m_manualScanCancelReason = reason.empty() ? "cancelled" : reason;
+    LOG_BE(Urgency::Debug, "Manual achievement data scan cancellation marked: targetId=%d reason=%s", m_manualScanTargetId, m_manualScanCancelReason.c_str());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::FinishManualAchievementDataScan(int targetId, bool found, const std::string& reason)
+{
+    {
+        // Clear scan state before notifying frontend so a follow-up scan can start immediately
+        std::lock_guard<std::mutex> lock(m_manualScanMutex);
+        if (m_manualScanTargetId == targetId)
+        {
+            m_manualScanActive.store(false);
+            m_manualScanCancelRequested.store(false);
+            m_manualScanTargetId = 0;
+            m_manualScanCancelReason = "";
+        }
+    }
+
+    EmitManualAchievementDataScanFinished(targetId, found, reason);
+    LOG_BE(Urgency::Debug, "Manual achievement data scan finished: targetId=%d found=%d reason=%s", targetId, found, reason.c_str());
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Lymalinkd::EmitAchievementUnlocked(int targetId, const std::string& achievementKey)
 {
 #if defined(_WIN32)
@@ -2107,5 +2369,18 @@ void Lymalinkd::EmitTargetDataChanged(int targetId)
     }, Qt::QueuedConnection);
 #else
     m_dbus.EmitTargetDataChanged(targetId);
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::EmitManualAchievementDataScanFinished(int targetId, bool found, const std::string& reason)
+{
+#if defined(_WIN32)
+    QMetaObject::invokeMethod(&m_ipc, [this, targetId, found, reason] {
+        m_ipc.EmitManualAchievementDataScanFinished(targetId, found, reason);
+    }, Qt::QueuedConnection);
+#else
+    m_dbus.EmitManualAchievementDataScanFinished(targetId, found, reason);
 #endif
 }

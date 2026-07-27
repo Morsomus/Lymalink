@@ -25,6 +25,8 @@ public:
     virtual bool SetServiceEnabled(bool enabled) = 0;
     virtual bool RefreshServiceStatus() = 0;
     virtual void ReloadAllTargets() = 0;
+    virtual void StartManualAchievementDataScan(int appId) = 0;
+    virtual void CancelManualAchievementDataScan(int appId) = 0;
     virtual void ReloadConfig() = 0;
     virtual void TestToast() = 0;
     virtual void TestSound() = 0;

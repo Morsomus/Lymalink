@@ -193,6 +193,41 @@ std::vector<AchievementData> AchievementHandler::PollUnhandled(int targetId)
 }
 
 /////////////////////////////////////////////////////////////////////
+
+std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
+{
+    std::vector<AchievementData> values;
+
+    // Manual rescan uses the same parser family without adding a persistent polling session
+    AchievementParser* parser = CreateParser(emulatorType);
+    if (!parser)
+    {
+        return values;
+    }
+
+    const fs::path filePath = fs::path(appIdDirPath) / parser->GetFileName();
+    if (!fs::is_regular_file(filePath))
+    {
+        LOG_BE(Urgency::Debug, "Achievement file not present for one-shot read: targetId=%d path=%s", targetId, filePath.string().c_str());
+        delete parser;
+        return values;
+    }
+
+    try
+    {
+        values = parser->Parse(filePath.string());
+    }
+    catch (const std::exception& error)
+    {
+        LOG_BE(Urgency::Warning, "Failed to parse achievement file during one-shot read: targetId=%d path=%s error=%s", targetId, filePath.string().c_str(), error.what());
+    }
+
+    delete parser;
+    LOG_BE(Urgency::Debug, "One-shot achievement read done: targetId=%d count=%zu", targetId, values.size());
+    return values;
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 

@@ -26,6 +26,8 @@ DBusService::DBusService() :
     onRequestActiveTargets = nullptr;
     onReloadAllTargets = nullptr;
     onReloadConfig = nullptr;
+    onStartManualAchievementDataScan = nullptr;
+    onCancelManualAchievementDataScan = nullptr;
     onTestToast = nullptr;
     onTestSound = nullptr;
 }
@@ -82,6 +84,20 @@ Error DBusService::Init()
                     OnReloadConfig();
                 }),
 
+            sdbus::registerMethod("StartManualAchievementDataScan")
+                .withInputParamNames("targetId")
+                .implementedAs([this](int32_t targetId)
+                {
+                    OnStartManualAchievementDataScan(targetId);
+                }),
+
+            sdbus::registerMethod("CancelManualAchievementDataScan")
+                .withInputParamNames("targetId")
+                .implementedAs([this](int32_t targetId)
+                {
+                    OnCancelManualAchievementDataScan(targetId);
+                }),
+
             sdbus::registerMethod("RequestActiveTargets")
                 .implementedAs([this]()
                 {
@@ -107,7 +123,10 @@ Error DBusService::Init()
                 .withParameters<std::vector<int32_t>, std::string>("targetIds", "state"),
 
             sdbus::registerSignal("TargetDataChanged")
-                .withParameters<int32_t>("targetId")
+                .withParameters<int32_t>("targetId"),
+
+            sdbus::registerSignal("ManualAchievementDataScanFinished")
+                .withParameters<int32_t, bool, std::string>("targetId", "found", "reason")
 
         ).forInterface(DBUS_INTERFACE);
 
@@ -236,6 +255,30 @@ void DBusService::EmitTargetDataChanged(int32_t targetId)
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::EmitManualAchievementDataScanFinished(int32_t targetId, bool found, const std::string& reason)
+{
+    // Ignore signal requests before DBus object registration
+    if (!m_object)
+    {
+        return;
+    }
+
+    try
+    {
+        m_object->emitSignal(sdbus::SignalName{"ManualAchievementDataScanFinished"})
+            .onInterface(DBUS_INTERFACE)
+            .withArguments(targetId, found, reason);
+
+        LOG_BE(Urgency::Debug, "ManualAchievementDataScanFinished emitted: targetId=%d found=%d reason=%s", targetId, found, reason.c_str());
+    }
+    catch (const sdbus::Error& e)
+    {
+        LOG_BE(Urgency::Critical, "EmitManualAchievementDataScanFinished failed: %s", e.what());
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -279,6 +322,32 @@ void DBusService::OnReloadConfig()
     if (onReloadConfig)
     {
         onReloadConfig();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::OnStartManualAchievementDataScan(int32_t targetId)
+{
+    LOG_BE(Urgency::Debug, "StartManualAchievementDataScan received: targetId=%d", targetId);
+
+    // Forward target-specific scan request to daemon if callback is connected
+    if (onStartManualAchievementDataScan)
+    {
+        onStartManualAchievementDataScan(targetId);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::OnCancelManualAchievementDataScan(int32_t targetId)
+{
+    LOG_BE(Urgency::Debug, "CancelManualAchievementDataScan received: targetId=%d", targetId);
+
+    // Forward target-specific cancel request to daemon if callback is connected
+    if (onCancelManualAchievementDataScan)
+    {
+        onCancelManualAchievementDataScan(targetId);
     }
 }
 

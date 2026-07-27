@@ -39,6 +39,8 @@ public:
     Q_INVOKABLE bool SetServiceEnabled(bool enabled) override;
     Q_INVOKABLE bool RefreshServiceStatus() override;
     Q_INVOKABLE void ReloadAllTargets() override;
+    Q_INVOKABLE void StartManualAchievementDataScan(int appId) override;
+    Q_INVOKABLE void CancelManualAchievementDataScan(int appId) override;
     Q_INVOKABLE void ReloadConfig() override;
     Q_INVOKABLE void TestToast() override;
     Q_INVOKABLE void TestSound() override;
@@ -57,6 +59,7 @@ signals:
     void signalActiveTargetIdsChanged();
     void signalAchievementUnlocked(int appId, const QString &achievementKey);
     void signalTargetDataChanged(int appId);
+    void signalManualAchievementDataScanFinished(int appId, bool found, const QString &reason);
 
 private:
     QLocalSocket m_socket;

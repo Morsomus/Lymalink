@@ -226,6 +226,47 @@ void DBusService::ReloadAllTargets()
 
 /////////////////////////////////////////////////////////////////////
 
+void DBusService::StartManualAchievementDataScan(int appId)
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        qWarning() << "DBusService::StartManualAchievementDataScan: request skipped, session bus connected:" << sessionBus.isConnected() << "service available:" << m_serviceAvailable;
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("StartManualAchievementDataScan")
+    );
+    message << appId;
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void DBusService::CancelManualAchievementDataScan(int appId)
+{
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.isConnected() || !m_serviceAvailable)
+    {
+        return;
+    }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        DBUS_BUS_NAME,
+        DBUS_OBJECT_PATH,
+        DBUS_INTERFACE,
+        QStringLiteral("CancelManualAchievementDataScan")
+    );
+    message << appId;
+    sessionBus.asyncCall(message, m_pingTimeoutMs);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void DBusService::ReloadConfig()
 {
     // Fire-and-forget config reload; ping loop handles daemon errors
@@ -392,6 +433,19 @@ void DBusService::OnTargetDataChanged(int appId)
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void DBusService::OnManualAchievementDataScanFinished(int appId, bool found, const QString &reason)
+{
+    if (appId <= 0)
+    {
+        qWarning() << "DBusService::OnManualAchievementDataScanFinished: invalid payload:" << appId << found << reason;
+        return;
+    }
+
+    emit signalManualAchievementDataScanFinished(appId, found, reason);
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -459,6 +513,21 @@ void DBusService::ConnectDaemonSignals()
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to TargetDataChanged";
         SetLastError(QStringLiteral("Failed to subscribe to TargetDataChanged signal"));
+    }
+
+    const bool manualScanConnected = sessionBus.connect(
+        QString::fromLatin1(DBUS_BUS_NAME),
+        QString::fromLatin1(DBUS_OBJECT_PATH),
+        QString::fromLatin1(DBUS_INTERFACE),
+        QStringLiteral("ManualAchievementDataScanFinished"),
+        this,
+        SLOT(OnManualAchievementDataScanFinished(int,bool,QString))
+    );
+
+    if (!manualScanConnected)
+    {
+        qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to ManualAchievementDataScanFinished";
+        SetLastError(QStringLiteral("Failed to subscribe to ManualAchievementDataScanFinished signal"));
     }
 }
 

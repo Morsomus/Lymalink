@@ -71,8 +71,10 @@ private:
     std::mutex m_targetIdsRequiringDirScanMutex;
     std::mutex m_databaseMutex;
     std::mutex m_startupNotificationThreadsMutex;
+    std::mutex m_manualScanMutex;
 
     std::thread m_sleepTimerThread;
+    std::thread m_manualScanThread;
 #if defined(_WIN32)
     std::thread m_monitorThread;
 #endif
@@ -88,12 +90,16 @@ private:
     std::atomic_uint64_t m_sleepTimerGeneration;
     std::atomic_bool m_running;
     std::atomic_bool m_startupNotificationEnabled;
+    std::atomic_bool m_manualScanActive;
+    std::atomic_bool m_manualScanCancelRequested;
 
     std::vector<std::pair<int, int>> m_activeTargetsIds; // id, notification (sent to frontend)
 #if defined(_WIN32)
     std::unordered_map<int, std::filesystem::file_time_type> m_processStartedAt;
 #endif
     std::unordered_map<int, AppIdDirPathScanTarget> m_targetIdsRequiringDirScan;
+    int m_manualScanTargetId;
+    std::string m_manualScanCancelReason;
     std::string m_databaseConnectionName;
     std::string m_databasePath;
     std::string m_databaseEmuGamesTable;
@@ -121,12 +127,15 @@ private:
     void  OnRequestActiveTargets();
     void  OnReloadAllTargets();
     void  OnReloadConfig();
+    void  OnStartManualAchievementDataScan(int targetId);
+    void  OnCancelManualAchievementDataScan(int targetId);
 
     std::vector<WatchTarget> LoadExeTargetsFromDatabase();
     std::unordered_map<int, AppIdDirPathScanTarget> LoadAppIdDirScanTargetsFromDatabase();
+    bool LoadAppIdDirScanTargetFromDatabase(int targetId, AppIdDirPathScanTarget& target);
     bool HasCurrentActiveTargetsNeedingAppIdDirScan();
     std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
-    void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results);
+    void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results, bool emitTargetDataChanged = true);
     bool EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef);
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
@@ -144,7 +153,10 @@ private:
     bool LoadStartupNotificationConfig() const;
     bool ParseConfigBool(const std::string& value) const;
     bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
+    void RequestManualAchievementDataScanCancel(int targetId, const std::string& reason);
+    void FinishManualAchievementDataScan(int targetId, bool found, const std::string& reason);
     void EmitAchievementUnlocked(int targetId, const std::string& achievementKey);
     void EmitGameStateChanged(const std::vector<int>& targetIds, const std::string& state);
     void EmitTargetDataChanged(int targetId);
+    void EmitManualAchievementDataScanFinished(int targetId, bool found, const std::string& reason);
 };

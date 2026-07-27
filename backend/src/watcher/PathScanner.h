@@ -10,6 +10,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -41,6 +42,7 @@ public:
 
     void SetTargets(const std::vector<AppIdDirPathScanTarget>& targets);
     std::vector<AppIdDirPathScanResult> ScanOnceForAppIdDir() const;
+    std::vector<AppIdDirPathScanResult> ScanOnceForAppIdDir(const std::function<bool()>& shouldStopScanning) const;
 
 private:
     std::vector<AppIdDirPathScanTarget> m_targets;
@@ -51,11 +53,11 @@ private:
     bool ShouldSkipLinuxPrefixScanDirectory(const std::filesystem::directory_entry& entry, std::error_code& ec) const;
 #endif
 #if defined(_WIN32)
-    std::string FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType) const;
-    std::string FindWindowsReloadedDir(const AppIdDirPathScanTarget& target) const;
+    std::string FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType, const std::function<bool()>& shouldStopScanning) const;
+    std::string FindWindowsReloadedDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
 #endif
-    std::string FindNemirtingasDir(const AppIdDirPathScanTarget& target) const;
-    std::string FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds) const;
+    std::string FindNemirtingasDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
+    std::string FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds, const std::function<bool()>& shouldStopScanning) const;
     std::vector<std::string> FindGogIds(const std::string& installationDir) const;
     std::string JoinIds(const std::vector<std::string>& ids) const;
 };

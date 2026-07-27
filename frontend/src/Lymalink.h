@@ -45,6 +45,7 @@ public:
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
     Q_INVOKABLE bool SetTargetInstallationLocation(int appId, const QString &installationDir);
+    Q_INVOKABLE bool ResetTargetAchievementDataLocation(int appId);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
     Q_INVOKABLE bool DeleteTarget(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QString GetTargetTitle(int appId);

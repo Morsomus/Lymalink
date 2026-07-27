@@ -84,6 +84,7 @@ public:
     // Called by Lymalinkd to collect achievement changes for DB sync.
     // Returns unhandled changes and marks them as handled.
     std::vector<AchievementData> PollUnhandled(int targetId);
+    std::vector<AchievementData> ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType);
 
     // Fired when the stored AppID directory path is no longer watchable.
     std::function<void(int targetId, const std::string& appIdDirPath)> onAppIdDirUnavailable;

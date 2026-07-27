@@ -91,6 +91,14 @@ void WinSocketServer::EmitTargetDataChanged(int targetId)
 }
 
 /////////////////////////////////////////////////////////////////////
+
+void WinSocketServer::EmitManualAchievementDataScanFinished(int targetId, bool found, const std::string& reason)
+{
+    // Broadcast manual scan completion to every connected frontend instance
+    Broadcast({{"type", "event"}, {"event", "ManualAchievementDataScanFinished"}, {"targetId", targetId}, {"found", found}, {"reason", QString::fromStdString(reason)}});
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -152,6 +160,14 @@ void WinSocketServer::HandleRequest(QLocalSocket* socket, const QJsonObject& req
     else if (method == "ReloadConfig" && onReloadConfig)
     {
         onReloadConfig();
+    }
+    else if (method == "StartManualAchievementDataScan" && onStartManualAchievementDataScan)
+    {
+        onStartManualAchievementDataScan(request.value("targetId").toInt());
+    }
+    else if (method == "CancelManualAchievementDataScan" && onCancelManualAchievementDataScan)
+    {
+        onCancelManualAchievementDataScan(request.value("targetId").toInt());
     }
     else if (method == "TestToast" && onTestToast)
     {

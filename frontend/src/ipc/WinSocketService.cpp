@@ -248,6 +248,20 @@ void WinSocketService::ReloadAllTargets()
 
 /////////////////////////////////////////////////////////////////////
 
+void WinSocketService::StartManualAchievementDataScan(int appId)
+{
+    SendRequest(QStringLiteral("StartManualAchievementDataScan"), {{"targetId", appId}});
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void WinSocketService::CancelManualAchievementDataScan(int appId)
+{
+    SendRequest(QStringLiteral("CancelManualAchievementDataScan"), {{"targetId", appId}});
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void WinSocketService::ReloadConfig()
 {
     // Ask daemon to reload its configuration
@@ -382,6 +396,12 @@ void WinSocketService::HandleMessage(const QJsonObject &message)
         QTimer::singleShot(3000, this, [this, targetId]() {
             emit signalTargetDataChanged(targetId);
         });
+    }
+
+    if (message.value("event") == "ManualAchievementDataScanFinished")
+    {
+        qDebug() << "WinSocketService::HandleMessage: received ManualAchievementDataScanFinished event";
+        emit signalManualAchievementDataScanFinished(message.value("targetId").toInt(), message.value("found").toBool(), message.value("reason").toString());
     }
 }
 

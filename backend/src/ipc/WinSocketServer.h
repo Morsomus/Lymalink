@@ -30,11 +30,14 @@ public:
     void EmitAchievementUnlocked(int targetId, const std::string& key);
     void EmitGameStateChanged(const std::vector<int>& targetIds, const std::string& state);
     void EmitTargetDataChanged(int targetId);
+    void EmitManualAchievementDataScanFinished(int targetId, bool found, const std::string& reason);
 
     std::function<void(int)> onReloadTarget;
     std::function<void()> onRequestActiveTargets;
     std::function<void()> onReloadAllTargets;
     std::function<void()> onReloadConfig;
+    std::function<void(int)> onStartManualAchievementDataScan;
+    std::function<void(int)> onCancelManualAchievementDataScan;
     std::function<void()> onTestToast;
     std::function<void()> onTestSound;
     std::function<void()> onShutdown;

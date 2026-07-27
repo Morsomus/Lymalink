@@ -1070,6 +1070,49 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::ResetTargetAchievementDataLocation(int appId)
+{
+    bool targetUpdated = false;
+    m_lastOperationError.clear();
+
+    if (appId <= 0)
+    {
+        m_lastOperationError = tr("Invalid target.");
+        qWarning() << "Lymalink::ResetTargetAchievementDataLocation: invalid target:" << appId;
+        return targetUpdated;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        qCritical() << "Lymalink::ResetTargetAchievementDataLocation: failed to open database:" << m_databaseManager.lastError();
+        return targetUpdated;
+    }
+
+    targetUpdated = m_databaseManager.update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        {
+            {"appid_dir_found", 0},
+            {"appid_dir_location", ""},
+            {"emulator_type", ""},
+            {"date_updated", QDateTime::currentSecsSinceEpoch()}
+        },
+        "id = ?",
+        {appId}
+    );
+
+    if (!targetUpdated)
+    {
+        m_lastOperationError = tr("Couldn't reset achievement data location.");
+        qCritical() << "Lymalink::ResetTargetAchievementDataLocation: failed to update target:" << m_databaseManager.lastError();
+    }
+
+    return targetUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp)
 {
     bool achievementStateUpdated = false;

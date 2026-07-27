@@ -51,11 +51,24 @@ void PathScanner::SetTargets(const std::vector<AppIdDirPathScanTarget>& targets)
 
 std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 {
+    // Preserve existing automatic scan behavior without cancellation callback
+    return ScanOnceForAppIdDir({});
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::function<bool()>& shouldStopScanning) const
+{
     std::vector<AppIdDirPathScanResult> results = {};
 
-    // Scan each active target prefix for matching AppId directory
+    // Scan each target prefix for matching AppId directory, stopping early when requested
     for (const auto& target : m_targets)
     {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
 #if defined(_WIN32)
         if (target.appId.empty())
 #else
@@ -77,7 +90,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
                 LOG_BE(Urgency::Info, "Found GOG ids: targetId=%d ids=%s", target.targetId, joinedGogIds.c_str());
             }
 
-            const std::string nemirtingasDir = FindNemirtingasDir(target);
+            const std::string nemirtingasDir = FindNemirtingasDir(target, shouldStopScanning);
             if (!nemirtingasDir.empty())
             {
                 results.push_back(AppIdDirPathScanResult{target.targetId, nemirtingasDir, "GOG-N", joinedGogIds, true});
@@ -86,7 +99,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
             }
 
             // TODO: Currently disabled because need to make sure if this structure is even possible, and also contains risk of false positives
-            // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds);
+            // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds, shouldStopScanning);
             // if (!gogPrefixDir.empty())
             // {
             //     results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
@@ -98,7 +111,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 
 #if defined(_WIN32)
         // RLD uses fixed ProgramData\Steam storage, separate from AppData/Public Documents emulator folders
-        const std::string reloadedDir = FindWindowsReloadedDir(target);
+        const std::string reloadedDir = FindWindowsReloadedDir(target, shouldStopScanning);
         if (!reloadedDir.empty())
         {
             results.push_back(AppIdDirPathScanResult{target.targetId, reloadedDir, "RLD", joinedGogIds, true});
@@ -107,7 +120,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         }
 
         std::string emulatorType;
-        const std::string appIdDir = FindWindowsAppIdDir(target, emulatorType);
+        const std::string appIdDir = FindWindowsAppIdDir(target, emulatorType, shouldStopScanning);
         if (!appIdDir.empty())
         {
             results.push_back(AppIdDirPathScanResult{target.targetId, appIdDir, emulatorType, joinedGogIds, true});
@@ -128,6 +141,11 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         // Walk prefix tree until exact AppId folder name is found
         for (; it != end && !ec; it.increment(ec))
         {
+            if (shouldStopScanning && shouldStopScanning())
+            {
+                break;
+            }
+
             if (!it->is_directory(ec))
             {
                 continue;
@@ -243,7 +261,7 @@ bool PathScanner::ShouldSkipLinuxPrefixScanDirectory(const fs::directory_entry& 
 /////////////////////////////////////////////////////////////////////
 
 #if defined(_WIN32)
-std::string PathScanner::FindWindowsReloadedDir(const AppIdDirPathScanTarget& target) const
+std::string PathScanner::FindWindowsReloadedDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const
 {
     // Inspect direct user folders under C:\ProgramData\Steam
     const fs::path steamRoot = "C:\\ProgramData\\Steam";
@@ -258,6 +276,11 @@ std::string PathScanner::FindWindowsReloadedDir(const AppIdDirPathScanTarget& ta
     const fs::directory_iterator end;
     for (; it != end && !ec; it.increment(ec))
     {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
         if (!it->is_directory(ec))
         {
             continue;
@@ -284,7 +307,7 @@ std::string PathScanner::FindWindowsReloadedDir(const AppIdDirPathScanTarget& ta
 /////////////////////////////////////////////////////////////////////
 
 #if defined(_WIN32)
-std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType) const
+std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType, const std::function<bool()>& shouldStopScanning) const
 {
     // Check <emulator folder>\\<AppId>
     auto findAppIdBelowEmulatorDir = [&](const fs::path& directory) -> std::string
@@ -330,6 +353,11 @@ std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& targe
         const fs::directory_iterator end;
         for (; it != end && !ec; it.increment(ec))
         {
+            if (shouldStopScanning && shouldStopScanning())
+            {
+                break;
+            }
+
             if (!it->is_directory(ec))
             {
                 continue;
@@ -360,6 +388,11 @@ std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& targe
     const fs::recursive_directory_iterator end;
     for (; it != end && !ec; it.increment(ec))
     {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
         if (!it->is_directory(ec))
         {
             continue;
@@ -383,7 +416,7 @@ std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& targe
 
 /////////////////////////////////////////////////////////////////////
 
-std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target) const
+std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const
 {
 #if defined(_WIN32)
     std::vector<fs::path> scanRoots;
@@ -434,6 +467,11 @@ std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target
         const fs::recursive_directory_iterator end;
         for (; it != end && !ec; it.increment(ec))
         {
+            if (shouldStopScanning && shouldStopScanning())
+            {
+                break;
+            }
+
             if (it->is_directory(ec) && it->path().filename().string() == "ngalaxye_settings")
             {
                 return it->path().string();
@@ -472,6 +510,11 @@ std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target
     fs::recursive_directory_iterator end;
     for (; it != end && !ec; it.increment(ec))
     {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
         if (!it->is_directory(ec))
         {
             continue;
@@ -489,7 +532,7 @@ std::string PathScanner::FindNemirtingasDir(const AppIdDirPathScanTarget& target
 
 /////////////////////////////////////////////////////////////////////
 
-std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds) const
+std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds, const std::function<bool()>& shouldStopScanning) const
 {
 #if defined(_WIN32)
     if (gogIds.empty())
@@ -521,6 +564,11 @@ std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& tar
         const fs::recursive_directory_iterator end;
         for (; it != end && !ec; it.increment(ec))
         {
+            if (shouldStopScanning && shouldStopScanning())
+            {
+                break;
+            }
+
             if (it->is_directory(ec) && idSet.contains(it->path().filename().string()))
             {
                 return it->path().string();
@@ -546,6 +594,11 @@ std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& tar
     fs::recursive_directory_iterator end;
     for (; it != end && !ec; it.increment(ec))
     {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
         if (!it->is_directory(ec))
         {
             continue;
