@@ -22,6 +22,7 @@ private slots:
     void searchAppId_witcher_returnsExpectedGames();
     void searchAppId_simplifiedChinese_returnsExpectedGames();
     void searchGameInfo_arcRaiders_returnsExpectedInfo();
+    void searchGameInfo_dishonored_countryRestrictedFallback_returnsExpectedInfo();
     void getLibraryCapsuleUrls_validInputs_returnsExpectedUrls();
     void getCommunityIconUrls_validCiUrl_returnsExpectedUrls();
     void getAchievementIconUrls_validSuffixes_returnsExpectedUrls();
@@ -108,6 +109,27 @@ void SteamApiTests::searchGameInfo_arcRaiders_returnsExpectedInfo()
     QCOMPARE(gameInfo.appId, 1808500);
     QCOMPARE(gameInfo.type, SteamAppType::Game);
     QCOMPARE(gameInfo.gameName, QString("ARC Raiders"));
+    QVERIFY(!gameInfo.lcSuffix.isEmpty());
+    QVERIFY(!gameInfo.ciSuffix.isEmpty());
+    QVERIFY(!gameInfo.assetUrlFormat.isEmpty());
+
+    debugPrintGameInfo(gameInfo);
+    QThread::msleep(1250);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiTests::searchGameInfo_dishonored_countryRestrictedFallback_returnsExpectedInfo()
+{
+    SteamApi steamApi;
+
+    SteamGameInfo gameInfo;
+    const Error error = steamApi.SearchGameInfo(217980, gameInfo, SteamApi::Finnish);
+    QVERIFY(error == Error::NoError);
+
+    QCOMPARE(gameInfo.appId, 217980);
+    QCOMPARE(gameInfo.type, SteamAppType::Game);
+    QCOMPARE(gameInfo.gameName, QString("Dishonored"));
     QVERIFY(!gameInfo.lcSuffix.isEmpty());
     QVERIFY(!gameInfo.ciSuffix.isEmpty());
     QVERIFY(!gameInfo.assetUrlFormat.isEmpty());

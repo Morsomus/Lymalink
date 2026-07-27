@@ -123,6 +123,9 @@ private:
     bool IncludesExpectedExtension(const QString &value) const;
     QString NormalizeSteamImageFileName(const QString &value) const;
     QStringList AchievementIconUrlFormats() const;
+    QNetworkRequest BuildGameInfoRequest(int appId, const QString &countryCode) const;
+    Error ExecuteGameInfoRequest(const QNetworkRequest &request, QByteArray &data);
+    bool IsCountryRestrictedGameInfoResponse(const QByteArray &jsonResponse) const;
     Error DownloadRawImageUrl(const QString &url, int transferTimeoutMs, QByteArray &data);
     QList<SteamSearchResult> ParseSearchResponse(const QByteArray &jsonResponse);
     SteamGameInfo ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage);

@@ -22,6 +22,8 @@
 #include <algorithm>
 #include <cmath>
 
+static const QStringList GAME_INFO_FALLBACK_COUNTRY_CODES = {"PL", "HU", "CZ", "SK"};
+
 /////////////////////////////////////////////////////////////////////
 
 SteamApi::SteamApi(QObject *parent) : QObject(parent)
@@ -112,51 +114,59 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
     }
 
     const QPair<QString, QString> localeSettings = m_localeMap.value(locale, m_localeMap.value(English));
+    const QString primaryCountryCode = localeSettings.first.toUpper();
 
-    // Build GetItems input_json payload for one app
-    QJsonObject idObject;
-    idObject["appid"] = appId;
-
-    QJsonArray ids;
-    ids.append(idObject);
-
-    QJsonObject context;
-    context["country_code"] = localeSettings.first.toUpper();
-
-    QJsonObject dataRequest;
-    dataRequest["include_assets"] = true;
-
-    QJsonObject input;
-    input["ids"] = ids;
-    input["context"] = context;
-    input["data_request"] = dataRequest;
-
-    QUrl url("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/");
-    QUrlQuery query;
-    query.addQueryItem("input_json", QString::fromUtf8(QJsonDocument(input).toJson(QJsonDocument::Compact)));
-    url.setQuery(query);
-
-    QNetworkRequest request(url);
-    request.setRawHeader("User-Agent", "Mozilla/5.0");
-    request.setRawHeader("Accept", "application/json");
-
-    // Execute request synchronously inside worker thread
-    QNetworkReply *reply = m_networkManager->get(request);
-
-    QEventLoop loop;
-    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec(QEventLoop::ExcludeUserInputEvents);
-    if (reply->error() != QNetworkReply::NoError)
+    QByteArray data;
+    err = ExecuteGameInfoRequest(BuildGameInfoRequest(appId, primaryCountryCode), data);
+    if (err != Error::NoError)
     {
-        qWarning() << "SteamApi::SearchGameInfo: Primary game info search failed:" << reply->errorString();
-        reply->deleteLater();
-        err = Error::NotFound;
         return err;
     }
 
     QString errorMessage;
-    const QByteArray data = reply->readAll();
-    reply->deleteLater();
+    if (IsCountryRestrictedGameInfoResponse(data))
+    {
+        qWarning() << "SteamApi::SearchGameInfo: country restricted response for appId:" << appId << "country:" << primaryCountryCode;
+
+        for (const QString &fallbackCountryCode : GAME_INFO_FALLBACK_COUNTRY_CODES)
+        {
+            if (fallbackCountryCode.compare(primaryCountryCode, Qt::CaseInsensitive) == 0)
+            {
+                continue;
+            }
+
+            qDebug() << "SteamApi::SearchGameInfo: retrying restricted appId:" << appId << "fallback country:" << fallbackCountryCode;
+
+            QByteArray fallbackData;
+            const Error fallbackError = ExecuteGameInfoRequest(BuildGameInfoRequest(appId, fallbackCountryCode), fallbackData);
+            if (fallbackError != Error::NoError)
+            {
+                qWarning() << "SteamApi::SearchGameInfo: fallback game info search failed for appId:" << appId << "country:" << fallbackCountryCode << "error:" << static_cast<int>(fallbackError);
+                continue;
+            }
+
+            if (IsCountryRestrictedGameInfoResponse(fallbackData))
+            {
+                qWarning() << "SteamApi::SearchGameInfo: fallback country still restricted for appId:" << appId << "country:" << fallbackCountryCode;
+                continue;
+            }
+
+            errorMessage.clear();
+            gameInfo = ParseGameInfoResponse(fallbackData, appId, &errorMessage);
+            if (errorMessage.isEmpty())
+            {
+                qDebug() << "SteamApi::SearchGameInfo: fallback succeeded for appId:" << appId << "country:" << fallbackCountryCode;
+                return Error::NoError;
+            }
+
+            qWarning() << "SteamApi::SearchGameInfo: fallback game info parse failed for appId:" << appId << "country:" << fallbackCountryCode << "error:" << errorMessage;
+        }
+
+        qCritical() << "SteamApi::SearchGameInfo: all country fallback attempts failed for appId:" << appId << "primary country:" << primaryCountryCode;
+        gameInfo = SteamGameInfo();
+        err = Error::ParseError;
+        return err;
+    }
 
     // Convert primary response to normalized game info model
     gameInfo = ParseGameInfoResponse(data, appId, &errorMessage);
@@ -1046,6 +1056,87 @@ QStringList SteamApi::AchievementIconUrlFormats() const
     };
 
     return urlFormats;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QNetworkRequest SteamApi::BuildGameInfoRequest(int appId, const QString &countryCode) const
+{
+    QJsonObject idObject;
+    idObject["appid"] = appId;
+
+    QJsonArray ids;
+    ids.append(idObject);
+
+    QJsonObject context;
+    context["country_code"] = countryCode.toUpper();
+
+    QJsonObject dataRequest;
+    dataRequest["include_assets"] = true;
+
+    QJsonObject input;
+    input["ids"] = ids;
+    input["context"] = context;
+    input["data_request"] = dataRequest;
+
+    QUrl url("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/");
+    QUrlQuery query;
+    query.addQueryItem("input_json", QString::fromUtf8(QJsonDocument(input).toJson(QJsonDocument::Compact)));
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "application/json");
+    return request;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Error SteamApi::ExecuteGameInfoRequest(const QNetworkRequest &request, QByteArray &data)
+{
+    data.clear();
+
+    // Execute request synchronously inside worker thread
+    QNetworkReply *reply = m_networkManager->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        qWarning() << "SteamApi::ExecuteGameInfoRequest: game info search failed:" << reply->errorString();
+        reply->deleteLater();
+        return Error::NotFound;
+    }
+
+    data = reply->readAll();
+    reply->deleteLater();
+    return Error::NoError;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SteamApi::IsCountryRestrictedGameInfoResponse(const QByteArray &jsonResponse) const
+{
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonResponse, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+    {
+        return false;
+    }
+
+    const QJsonArray storeItems = doc.object()["response"].toObject()["store_items"].toArray();
+    if (storeItems.isEmpty() || !storeItems.first().isObject())
+    {
+        return false;
+    }
+
+    const QJsonObject storeItem = storeItems.first().toObject();
+    const bool visible = storeItem["visible"].toBool(true);
+    // Yes there is actually typo in steam API response, its not an error here
+    const bool unavailableForCountryRestriction = storeItem["unvailable_for_country_restriction"].toBool(false) || storeItem["unavailable_for_country_restriction"].toBool(false);
+
+    return !visible && unavailableForCountryRestriction;
 }
 
 /////////////////////////////////////////////////////////////////////
