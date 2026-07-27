@@ -39,6 +39,7 @@ qt_add_executable(lymalinkd
     src/tools/parsers/RUNECodexParser.cpp src/tools/parsers/RUNECodexParser.h
     src/tools/parsers/GoldbergParser.cpp src/tools/parsers/GoldbergParser.h
     src/tools/parsers/GoGNParser.cpp src/tools/parsers/GoGNParser.h
+    src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
 )
 target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-overlay/include ${MINIAUDIO_DIR})
 target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Network Qt6::Sql SQLite::SQLite3 ole32 windowscodecs advapi32)

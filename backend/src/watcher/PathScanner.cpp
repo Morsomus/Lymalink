@@ -97,6 +97,15 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
         }
 
 #if defined(_WIN32)
+        // RLD uses fixed ProgramData\Steam storage, separate from AppData/Public Documents emulator folders
+        const std::string reloadedDir = FindWindowsReloadedDir(target);
+        if (!reloadedDir.empty())
+        {
+            results.push_back(AppIdDirPathScanResult{target.targetId, reloadedDir, "RLD", joinedGogIds, true});
+            LOG_BE(Urgency::Info, "Found Reloaded dir: targetId=%d path=%s", target.targetId, reloadedDir.c_str());
+            continue;
+        }
+
         std::string emulatorType;
         const std::string appIdDir = FindWindowsAppIdDir(target, emulatorType);
         if (!appIdDir.empty())
@@ -132,6 +141,25 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir() const
 
             if (it->path().filename().string() != target.appId)
             {
+                continue;
+            }
+
+            const fs::path parent = it->path().parent_path();
+            const fs::path grandParent = parent.parent_path();
+            // RLD Wine path shape: .../ProgramData/Steam/<username>/<AppId>/stats/achievements.ini
+            const bool reloadedShape = grandParent.filename().string() == "Steam" && grandParent.parent_path().filename().string() == "ProgramData";
+            if (reloadedShape)
+            {
+                const fs::path statsDir = it->path() / "stats";
+                const fs::path achievementFile = statsDir / "achievements.ini";
+                std::error_code fileEc;
+                if (fs::is_regular_file(achievementFile, fileEc))
+                {
+                    const std::string foundPath = statsDir.string();
+                    results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, "RLD", joinedGogIds, true});
+                    LOG_BE(Urgency::Info, "Found Reloaded dir: targetId=%d path=%s", target.targetId, foundPath.c_str());
+                    break;
+                }
                 continue;
             }
 
@@ -187,7 +215,7 @@ std::string PathScanner::DetectEmulatorTypeFromFolderName(const std::string& fol
     if (lower == "smartsteamemu" || lower == "sse")     return "SmartSteamEmu";
     if (lower == "creamapi" || lower == "cream api")    return "CreamAPI";
     if (lower == "rld!" || lower == "rld" || 
-        lower.find("reloaded") != std::string::npos)    return "RLD!";
+        lower.find("reloaded") != std::string::npos)    return "RLD";
     if (lower == ".1911" || lower == "1911")            return "1911";
     if (lower == "cpy")                                 return "CPY";
     if (lower == "steampunks" ||
@@ -209,6 +237,47 @@ bool PathScanner::ShouldSkipLinuxPrefixScanDirectory(const fs::directory_entry& 
 
     const std::string name = entry.path().filename().string();
     return name == "dosdevices" || name == "pfx";
+}
+#endif
+
+/////////////////////////////////////////////////////////////////////
+
+#if defined(_WIN32)
+std::string PathScanner::FindWindowsReloadedDir(const AppIdDirPathScanTarget& target) const
+{
+    // Inspect direct user folders under C:\ProgramData\Steam
+    const fs::path steamRoot = "C:\\ProgramData\\Steam";
+
+    std::error_code ec;
+    if (!fs::exists(steamRoot, ec) || !fs::is_directory(steamRoot, ec))
+    {
+        return "";
+    }
+
+    fs::directory_iterator it(steamRoot, fs::directory_options::skip_permission_denied, ec);
+    const fs::directory_iterator end;
+    for (; it != end && !ec; it.increment(ec))
+    {
+        if (!it->is_directory(ec))
+        {
+            continue;
+        }
+
+        const fs::path statsDir = it->path() / target.appId / "stats";
+        const fs::path achievementFile = statsDir / "achievements.ini";
+        std::error_code fileEc;
+        if (fs::is_regular_file(achievementFile, fileEc))
+        {
+            return statsDir.string();
+        }
+    }
+
+    if (ec)
+    {
+        LOG_BE(Urgency::Warning, "Scan error: targetId=%d root=%s error=%s", target.targetId, steamRoot.string().c_str(), ec.message().c_str());
+    }
+
+    return "";
 }
 #endif
 

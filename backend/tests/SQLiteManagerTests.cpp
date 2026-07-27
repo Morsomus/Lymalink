@@ -16,6 +16,7 @@
 
 #include "database/SQLiteManager.h"
 #include "tools/parsers/GoGNParser.h"
+#include "tools/parsers/RLDParser.h"
 #include "watcher/PathScanner.h"
 
 #include <cstddef>
@@ -41,6 +42,7 @@ const std::vector<std::string> COLS = {
 
 void cleanupDb(const std::string &path);
 DbRecord item(const std::string &name, int64_t qty = 1, double price = 0.0);
+fs::path findExampleFile(const fs::path& relativePath);
 
 struct TestDb
 {
@@ -674,6 +676,38 @@ TEST_CASE("gognParser_missingOrInvalidFile_returnsEmpty", "[gogn]")
 
 /////////////////////////////////////////////////////////////////////
 
+TEST_CASE("rldParser_firstAchievementFormat_parsesTimestampProgressUnlock", "[rld]")
+{
+    RLDParser parser;
+    const std::vector<AchievementData> parsed = parser.Parse(findExampleFile("ini_after_first_achievement/achievements.ini").string());
+
+    REQUIRE(parsed.size() == 1);
+    CHECK(parsed[0].key == "ACHIEVEMENT_23");
+    CHECK(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 1785164576);
+    CHECK(parsed[0].hasCurProgress);
+    CHECK(parsed[0].curProgress == 0);
+    CHECK(parsed[0].hasMaxProgress);
+    CHECK(parsed[0].maxProgress == 0);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("rldParser_secondAchievementFormat_parsesBothUnlocks", "[rld]")
+{
+    RLDParser parser;
+    const std::vector<AchievementData> parsed = parser.Parse(findExampleFile("ini_after_2_achievements/achievements.ini").string());
+
+    REQUIRE(parsed.size() == 2);
+    CHECK(parsed[0].key == "ACHIEVEMENT_23");
+    CHECK(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 1785164576);
+    CHECK(parsed[1].key == "ACHIEVEMENT_33");
+    CHECK(parsed[1].achieved);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 TEST_CASE("pathScanner_detectsNemirtingasBelowInstallationDir", "[pathscanner]")
 {
     const fs::path root = "/tmp/lymalink_pathscanner_nemirtingas";
@@ -732,6 +766,64 @@ TEST_CASE("pathScanner_skipsGogScanWhenInstallationDirEmpty", "[pathscanner]")
 /////////////////////////////////////////////////////////////////////
 
 #if !defined(_WIN32)
+TEST_CASE("pathScanner_detectsReloadedWineProgramDataSteamStatsDir", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_rld";
+    fs::remove_all(root);
+    const fs::path scanRoot = root / "selected_root";
+    const fs::path driveC = scanRoot / "things" / "Heroic" / "Prefixes" / "Game123" / "drive_c";
+    const fs::path statsDir = driveC / "ProgramData" / "Steam" / "UserA" / "217980" / "stats";
+    fs::create_directories(statsDir);
+    fs::create_directories(driveC / "ProgramData" / "Steam" / "UserA" / "999999" / "stats");
+    fs::create_directories(driveC / "ProgramData" / "Steam" / "UserB" / "217980" / "stats");
+    {
+        std::ofstream file(statsDir / "achievements.ini");
+        file << "";
+    }
+    {
+        std::ofstream file(driveC / "ProgramData" / "Steam" / "UserA" / "999999" / "stats" / "achievements.ini");
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{217, "217980", scanRoot.string(), "", "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].targetId == 217);
+    CHECK(results[0].appidDirFound);
+    CHECK(results[0].emulatorType == "RLD");
+    CHECK(fs::path(results[0].appidDirLocation) == statsDir);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_ignoresReloadedShapeWithoutAchievementFile", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_rld_missing_file";
+    fs::remove_all(root);
+    const fs::path scanRoot = root / "selected_root";
+    const fs::path driveC = scanRoot / "things" / "Heroic" / "Prefixes" / "Game123" / "drive_c";
+    fs::create_directories(driveC / "ProgramData" / "Steam" / "UserA" / "217980" / "stats");
+    fs::create_directories(driveC / "ProgramData" / "Steam" / "UserA" / "999999" / "stats");
+    {
+        std::ofstream file(driveC / "ProgramData" / "Steam" / "UserA" / "999999" / "stats" / "achievements.ini");
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{217, "217980", scanRoot.string(), "", "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    CHECK(results.empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 TEST_CASE("pathScanner_skipsLinuxPrefixLoopAndDosdevicesDirs", "[pathscanner]")
 {
     const fs::path root = "/tmp/lymalink_pathscanner_linux_prefix_guards";
@@ -850,5 +942,29 @@ DbRecord item(const std::string &name, int64_t qty, double price)
         {"qty", qty},
         {"price", price}
     };
+}
+
+/////////////////////////////////////////////////////////////////////
+
+fs::path findExampleFile(const fs::path& relativePath)
+{
+    const std::vector<fs::path> roots = {
+        "example_files",
+        "../example_files",
+        "../../example_files",
+        "../../../example_files",
+        "../../../../example_files"
+    };
+
+    for (const fs::path& root : roots)
+    {
+        const fs::path candidate = root / relativePath;
+        if (fs::exists(candidate))
+        {
+            return candidate;
+        }
+    }
+
+    return roots.front() / relativePath;
 }
 }

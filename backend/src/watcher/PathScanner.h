@@ -52,6 +52,7 @@ private:
 #endif
 #if defined(_WIN32)
     std::string FindWindowsAppIdDir(const AppIdDirPathScanTarget& target, std::string& emulatorType) const;
+    std::string FindWindowsReloadedDir(const AppIdDirPathScanTarget& target) const;
 #endif
     std::string FindNemirtingasDir(const AppIdDirPathScanTarget& target) const;
     std::string FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds) const;

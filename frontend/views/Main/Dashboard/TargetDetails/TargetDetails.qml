@@ -60,6 +60,8 @@ Item {
             return "Codex"
         case "RUNE":
             return "Rune"
+        case "RLD":
+            return "Reloaded"
         default:
             return "-"
         }

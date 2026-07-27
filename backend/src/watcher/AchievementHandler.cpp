@@ -12,6 +12,7 @@
 #include "../tools/parsers/RUNECodexParser.h"
 #include "../tools/parsers/GoldbergParser.h"
 #include "../tools/parsers/GoGNParser.h"
+#include "../tools/parsers/RLDParser.h"
 #include "../tools/Logger.h"
 
 #include <unistd.h>
@@ -611,6 +612,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating GOG Nemirtingas parser.");
         return new GoGNParser();
+    }
+    else if (emulatorType == "RLD")
+    {
+        LOG_BE(Urgency::Debug, "Creating Reloaded parser.");
+        return new RLDParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());
