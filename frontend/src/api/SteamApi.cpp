@@ -183,6 +183,109 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
 
 /////////////////////////////////////////////////////////////////////
 
+Error SteamApi::FetchAppNames(const QList<int> &appIds, QMap<int, QString> &gameNames)
+{
+    Error err = Error::NoError;
+
+    // Clear caller output before validation and request
+    gameNames.clear();
+
+    if (appIds.isEmpty())
+    {
+        qWarning() << "SteamApi::FetchAppNames: app id list is empty";
+        err = Error::InvalidParameter;
+        return err;
+    }
+
+    QStringList appIdTexts = {};
+    for (const int appId : appIds)
+    {
+        if (appId <= 0)
+        {
+            continue;
+        }
+
+        appIdTexts.append(QString::number(appId));
+    }
+
+    if (appIdTexts.isEmpty())
+    {
+        qWarning() << "SteamApi::FetchAppNames: no valid app ids";
+        err = Error::InvalidParameter;
+        return err;
+    }
+
+    // Comma-separated app ids in one request
+    QUrl url("https://steamhunters.com/api/apps");
+    const QString query = QStringLiteral("appIds=") + appIdTexts.join(",");
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "application/json");
+
+    // Execute request synchronously
+    QNetworkReply *reply = m_networkManager->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        qWarning() << "SteamApi::FetchAppNames: request failed:" << reply->errorString();
+        reply->deleteLater();
+        err = Error::NotFound;
+        return err;
+    }
+
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+
+    // Parse app id/name pairs from array response
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        qWarning() << "SteamApi::FetchAppNames: parse failed:" << parseError.errorString();
+        err = Error::ParseError;
+        return err;
+    }
+
+    if (!doc.isArray())
+    {
+        qWarning() << "SteamApi::FetchAppNames: response is not array";
+        err = Error::ParseError;
+        return err;
+    }
+
+    const QJsonArray appItems = doc.array();
+    for (const QJsonValue &appItem : appItems)
+    {
+        if (!appItem.isObject())
+        {
+            continue;
+        }
+
+        const QJsonObject appObject = appItem.toObject();
+        const int appId = appObject["appId"].toInt(0);
+        const QString gameName = appObject["name"].toString().trimmed();
+        if (appId > 0 && !gameName.isEmpty())
+        {
+            gameNames[appId] = gameName;
+        }
+    }
+
+    if (gameNames.isEmpty())
+    {
+        qDebug() << "SteamApi::FetchAppNames: no names found";
+        err = Error::NoData;
+    }
+
+    return err;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 Error SteamApi::GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const QString &assetUrlFormat, QList<QString> &urls)
 {
     Error err = Error::NoError;

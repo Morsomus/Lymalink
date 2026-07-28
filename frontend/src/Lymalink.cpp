@@ -9,6 +9,7 @@
 
 #include "Lymalink.h"
 #include "Defines.h"
+#include "api/SteamApi.h"
 #include "tools/Utils.h"
 
 #include <QDateTime>
@@ -17,11 +18,14 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLocale>
+#include <QMetaObject>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
 #include <QStandardPaths>
 #include <QVariantMap>
+
+#include <algorithm>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -32,10 +36,17 @@ Lymalink::Lymalink(QObject *parent) : QObject(parent)
     m_steamApiSearchWorker = nullptr;
     m_steamApiHydrationWorker = nullptr;
     m_steamHydrationBusy = false;
+    m_appIdFolderFindThread = nullptr;
+    m_appIdFolderFindBusy = false;
 }
 
 Lymalink::~Lymalink()
 {
+    if (m_appIdFolderFindThread)
+    {
+        m_appIdFolderFindThread->wait();
+    }
+
     m_searchWorkerThread.quit();
     m_searchWorkerThread.wait();
 
@@ -148,7 +159,7 @@ void Lymalink::CancelSteamHydration()
 
 /////////////////////////////////////////////////////////////////////
 
-QVariantMap Lymalink::ScanExecutableFolder(const QString &executablePath)
+QVariantMap Lymalink::InspectExecutableFolder(const QString &executablePath)
 {
     QVariantList steamAppIds;
     QSet<QString> detectedIds;
@@ -217,6 +228,98 @@ QVariantMap Lymalink::ScanExecutableFolder(const QString &executablePath)
     }
 
     return {{"steamAppIds", steamAppIds}, {"hasGogConfig", hasGogConfig}};
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalink::FindEmulatorAppIdFolders(const QString &rootPath)
+{
+    if (m_appIdFolderFindBusy)
+    {
+        qWarning() << "Lymalink::FindEmulatorAppIdFolders: search already running";
+        emit signalEmulatorAppIdFolderFindFinished(false, {}, tr("AppId directory search is already running."));
+        return;
+    }
+
+    m_appIdFolderFindBusy = true;
+    qDebug() << "Lymalink::FindEmulatorAppIdFolders: starting search root=" << rootPath;
+
+    m_appIdFolderFindThread = QThread::create([this, rootPath]() {
+        bool timedOut = false;
+        QString error;
+        AppIdDirectoryFinder finder;
+        QVariantList results = finder.Search(rootPath, &timedOut, &error);
+        const bool success = error.isEmpty() || timedOut;
+        if (timedOut && error.isEmpty())
+        {
+            error = tr("Search stopped after 30 seconds. Displaying partial results.");
+        }
+
+        // Enrich discovered AppIds with names when available
+        if (!results.isEmpty())
+        {
+            QList<int> appIds = {};
+            QSet<int> seenAppIds = {};
+            for (const QVariant &resultValue : results)
+            {
+                const QVariantMap result = resultValue.toMap();
+                bool appIdOk = false;
+                const int appId = result.value(QStringLiteral("appId")).toString().toInt(&appIdOk);
+                if (appIdOk && appId > 0 && !seenAppIds.contains(appId))
+                {
+                    seenAppIds.insert(appId);
+                    appIds.append(appId);
+                }
+            }
+
+            QMap<int, QString> gameNames = {};
+            SteamApi steamApi;
+            const Error namesError = steamApi.FetchAppNames(appIds, gameNames);
+            if (namesError == Error::NoError)
+            {
+                for (QVariant &resultValue : results)
+                {
+                    QVariantMap result = resultValue.toMap();
+                    const int appId = result.value(QStringLiteral("appId")).toString().toInt();
+                    if (gameNames.contains(appId))
+                    {
+                        result[QStringLiteral("gameName")] = gameNames.value(appId);
+                        resultValue = result;
+                    }
+                }
+            }
+            else
+            {
+                qWarning() << "Lymalink::FindEmulatorAppIdFolders: Names unavailable, keeping APPID-only results. error=" << static_cast<int>(namesError);
+            }
+        }
+
+        // Sort by resolved game name when possible, then by AppId
+        std::sort(results.begin(), results.end(), Utils::CreateVariantMapComparator(QStringLiteral("gameName"), QStringLiteral("appId"), QStringLiteral("path")));
+
+        QMetaObject::invokeMethod(this, [this, success, results, error]() mutable {
+            // Mark already-created emulator targets after returning to database thread
+            for (QVariant &resultValue : results)
+            {
+                QVariantMap result = resultValue.toMap();
+                const int appId = result.value(QStringLiteral("appId")).toString().toInt();
+                const int existingRows = m_databaseManager.count(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+                result[QStringLiteral("targetExists")] = existingRows > 0;
+                resultValue = result;
+            }
+
+            qDebug() << "Lymalink::FindEmulatorAppIdFolders: finished count=" << results.size() << "error=" << error;
+            m_appIdFolderFindBusy = false;
+            if (m_appIdFolderFindThread)
+            {
+                m_appIdFolderFindThread->deleteLater();
+                m_appIdFolderFindThread = nullptr;
+            }
+            emit signalEmulatorAppIdFolderFindFinished(success, results, error);
+        }, Qt::QueuedConnection);
+    });
+
+    m_appIdFolderFindThread->start();
 }
 
 /////////////////////////////////////////////////////////////////////

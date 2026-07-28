@@ -34,6 +34,14 @@ Item {
     property bool targetCreated: false
     property int pendingTargetAddAppId: 0
     property bool manualScanLoading: false
+    property bool appIdFolderFindLoading: false
+    property var appIdFolderFindResults: []
+    property string appIdFolderFoundStatusText: ""
+    property bool appIdFolderFindStatusIsError: false
+    property bool hideExistingAppIdFolderResults: false
+    readonly property var visibleAppIdFolderFindResults: appIdFolderFindResults.filter(function(result) {
+        return !id_root.hideExistingAppIdFolderResults || !result.targetExists
+    })
     property int selectedAppId: 0
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
@@ -129,6 +137,32 @@ Item {
             }
             id_root.finishPendingTargetAdd(qsTr("Couldn't load achievement metadata. Achievement data scan was not started."), true, false)
         }
+
+        function onSignalEmulatorAppIdFolderFindFinished(success, results, error) {
+            if (!id_root.appIdFolderFindLoading) {
+                return
+            }
+
+            id_root.appIdFolderFindLoading = false
+            id_root.appIdFolderFindResults = results
+            id_root.appIdFolderFindStatusIsError = !success
+            if (!success && error.length > 0) {
+                id_root.appIdFolderFoundStatusText = error
+                return
+            }
+
+            const resultCount = id_root.appIdFolderFindResults.length
+            if (resultCount === 0) {
+                id_root.appIdFolderFoundStatusText = error.length > 0
+                    ? error
+                    : qsTr("No AppId folders found")
+                return
+            }
+
+            id_root.appIdFolderFoundStatusText = error.length > 0
+                ? qsTr("%1 AppId folder(s) found. %2").arg(resultCount).arg(error)
+                : qsTr("%1 AppId folder(s) found").arg(resultCount)
+        }
     }
 
     Connections {
@@ -212,10 +246,33 @@ Item {
         id_root.targetStatusIsError = false
     }
 
-    function scanSelectedExecutableFolder(executablePath) {
-        const scanResult = ctxLymalink.ScanExecutableFolder(executablePath)
-        id_root.detectedSteamAppIds = scanResult.steamAppIds || []
-        id_root.detectedGogConfig = scanResult.hasGogConfig || false
+    function inspectSelectedExecutableFolder(executablePath) {
+        const inspectResult = ctxLymalink.InspectExecutableFolder(executablePath)
+        id_root.detectedSteamAppIds = inspectResult.steamAppIds || []
+        id_root.detectedGogConfig = inspectResult.hasGogConfig || false
+    }
+
+    function startAppIdFolderFind(rootPath) {
+        if (id_root.appIdFolderFindLoading) {
+            return
+        }
+
+        id_root.appIdFolderFindResults = []
+        id_root.appIdFolderFoundStatusText = qsTr("Searching AppId folders...")
+        id_root.appIdFolderFindStatusIsError = false
+        id_root.appIdFolderFindLoading = true
+        ctxLymalink.FindEmulatorAppIdFolders(rootPath || "")
+    }
+
+    function selectAppIdFolderResult(result) {
+        if (!result.gameName || result.gameName.length === 0) {
+            return
+        }
+
+        id_root.selectGame({
+            id: parseInt(result.appId),
+            name: result.gameName
+        })
     }
 
     function setManualGameEntry(enabled) {
@@ -342,7 +399,7 @@ Item {
         onAccepted: {
             const executablePath = id_root.fileUrlToPath(selectedFile)
             id_installLocationField.text = executablePath
-            id_root.scanSelectedExecutableFolder(executablePath)
+            id_root.inspectSelectedExecutableFolder(executablePath)
             id_root.targetStatusText = ""
             id_root.targetStatusIsError = false
         }
@@ -370,6 +427,13 @@ Item {
         }
     }
 
+    FolderDialog {
+        id: id_appIdFolderFindRootDialog
+
+        title: qsTr("Select Folder to Search")
+        onAccepted: id_root.startAppIdFolderFind(id_root.fileUrlToPath(selectedFolder))
+    }
+
     TextEdit {
         id: id_clipboardProxy
 
@@ -383,213 +447,277 @@ Item {
 
         anchors.fill: parent
         clip: true
-        contentWidth: availableWidth
 
-        ColumnLayout {
-            id: id_content
+        // Flickable for better scroll control
+        Flickable {
+            id: id_parentFlickable
 
-            readonly property int sideMargin: 20
+            width: id_scrollView.availableWidth
+            height: id_scrollView.availableHeight
+            contentWidth: width
+            contentHeight: id_content.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: !id_appIdFolderResultsHover.hovered
 
-            x: Math.max(sideMargin, (id_scrollView.availableWidth - width) / 2)
-            width: Math.max(0, Math.min(id_scrollView.availableWidth - sideMargin * 2, 760))
+            ColumnLayout {
+                id: id_content
 
-            // Info block
-            Rectangle {
-                id: id_infoBlock
+                property int sideMargin: 20
+                x: Math.max(sideMargin, (id_parentFlickable.width - width) / 2)
+                width: Math.max(0, Math.min(id_parentFlickable.width - sideMargin * 2, 760))
 
-                property bool hoverActive: false
-                Layout.fillWidth: true
-                Layout.topMargin: 20
-                radius: 6
-                color: id_infoBlock.hoverActive
-                    ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
-                    : Themes.emulatorTarget.colors.infoBlockBackground
-                border.width: 1
-                border.color: id_infoBlock.hoverActive
-                    ? Themes.emulatorTarget.colors.infoBlockBorderHover
-                    : Themes.emulatorTarget.colors.infoBlockBorder
+                // Info block
+                Rectangle {
+                    id: id_infoBlock
 
-                implicitHeight: id_infoBlock.hoverActive
-                    ? id_infoHeaderRow.implicitHeight + id_infoExpandable.implicitHeight + 32
-                    : id_infoHeaderRow.implicitHeight + 28
+                    property bool hoverActive: false
+                    Layout.fillWidth: true
+                    Layout.topMargin: 20
+                    radius: 6
+                    color: id_infoBlock.hoverActive
+                        ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                        : Themes.emulatorTarget.colors.infoBlockBackground
+                    border.width: 1
+                    border.color: id_infoBlock.hoverActive
+                        ? Themes.emulatorTarget.colors.infoBlockBorderHover
+                        : Themes.emulatorTarget.colors.infoBlockBorder
 
-                Behavior on implicitHeight {
-                    NumberAnimation {
-                        duration: 180
-                        easing.type: Easing.InOutQuad
-                    }
-                }
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
+                    implicitHeight: id_infoBlock.hoverActive
+                        ? id_infoHeaderRow.implicitHeight + id_infoExpandable.implicitHeight + 32
+                        : id_infoHeaderRow.implicitHeight + 28
 
-                Timer {
-                    id: id_infoBlockHoverTimer
-                    interval: 200
-                    repeat: false
-                    onTriggered: id_infoBlock.hoverActive = true
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.ArrowCursor
-                    onEntered: id_infoBlockHoverTimer.start()
-                    onExited: {
-                        id_infoBlockHoverTimer.stop()
-                        id_infoBlock.hoverActive = false
-                    }
-                }
-
-                ColumnLayout {
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        top: parent.top
-                        margins: 14
-                    }
-                    spacing: 0
-
-                    // Info Header row
-                    RowLayout {
-                        id: id_infoHeaderRow
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        Rectangle {
-                            width: 16
-                            height: 16
-                            radius: 8
-                            color: "transparent"
-                            border.width: 1
-                            border.color: Themes.emulatorTarget.colors.infoIconBorder
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "i"
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
-                                font.italic: true
-                                font.bold: true
-                                color: Themes.emulatorTarget.colors.infoIconText
-                            }
+                    Behavior on implicitHeight {
+                        NumberAnimation {
+                            duration: 180
+                            easing.type: Easing.InOutQuad
                         }
-
-                        Text {
-                            text: OS_WIN ? qsTr("How detection works & Supported Emulators (hover to expand)") : qsTr("How detection works & Prefix Location & Supported Emulators (hover to expand)")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                            font.bold: true
-                            color: id_infoBlock.hoverActive
-                                ? Themes.emulatorTarget.colors.labelText
-                                : Themes.emulatorTarget.colors.infoHeaderInactiveText
-
-                            Behavior on color {
-                                ColorAnimation { duration: 120 }
-                            }
+                    }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: 120
                         }
                     }
 
-                    // Expandable content
+                    Timer {
+                        id: id_infoBlockHoverTimer
+                        interval: 200
+                        repeat: false
+                        onTriggered: id_infoBlock.hoverActive = true
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.ArrowCursor
+                        onEntered: id_infoBlockHoverTimer.start()
+                        onExited: {
+                            id_infoBlockHoverTimer.stop()
+                            id_infoBlock.hoverActive = false
+                        }
+                    }
+
                     ColumnLayout {
-                        id: id_infoExpandable
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            top: parent.top
+                            margins: 14
+                        }
+                        spacing: 0
 
-                        Layout.fillWidth: true
-                        Layout.topMargin: 10
-                        spacing: 6
-                        opacity: id_infoBlock.hoverActive ? 1.0 : 0.0
+                        // Info Header row
+                        RowLayout {
+                            id: id_infoHeaderRow
+                            Layout.fillWidth: true
+                            spacing: 8
 
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 140
-                                easing.type: Easing.InOutQuad
+                            Rectangle {
+                                width: 16
+                                height: 16
+                                radius: 8
+                                color: "transparent"
+                                border.width: 1
+                                border.color: Themes.emulatorTarget.colors.infoIconBorder
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "i"
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
+                                    font.italic: true
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.infoIconText
+                                }
+                            }
+
+                            Text {
+                                text: OS_WIN ? qsTr("How detection works & Supported Emulators (hover to expand)") : qsTr("How detection works & Prefix Location & Supported Emulators (hover to expand)")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                font.bold: true
+                                color: id_infoBlock.hoverActive
+                                    ? Themes.emulatorTarget.colors.labelText
+                                    : Themes.emulatorTarget.colors.infoHeaderInactiveText
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 120 }
+                                }
                             }
                         }
 
+                        // Expandable content
                         ColumnLayout {
+                            id: id_infoExpandable
+
                             Layout.fillWidth: true
-                            spacing: 4
+                            Layout.topMargin: 10
+                            spacing: 6
+                            opacity: id_infoBlock.hoverActive ? 1.0 : 0.0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 140
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Game detection")
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.labelText
+                                    wrapMode: Text.Wrap
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Lymalink monitors the selected game executable. Features like playtime tracking, achievement scanning, and the in-game overlay are only active while the game process is running.")
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                    color: Themes.emulatorTarget.colors.descriptionText
+                                    wrapMode: Text.Wrap
+                                }
+                            }
+
+                            ColumnLayout {
+                                visible: !OS_WIN
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                spacing: 4
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Prefix location")
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.labelText
+                                    wrapMode: Text.Wrap
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("The prefix is where the emulator writes achievement data. After Lymalink finds data for the selected game ID, it saves the exact achievement file path and monitors it for changes to detect achievement unlocks.")
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                    color: Themes.emulatorTarget.colors.descriptionText
+                                    wrapMode: Text.Wrap
+                                }
+                            }
 
                             Text {
+                                visible: !OS_WIN
                                 Layout.fillWidth: true
-                                text: qsTr("Game detection")
+                                Layout.topMargin: 4
+                                text: qsTr("Prefix examples")
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.description
                                 font.bold: true
                                 color: Themes.emulatorTarget.colors.labelText
                                 wrapMode: Text.Wrap
                             }
 
-                            Text {
+                            ColumnLayout {
+                                visible: !OS_WIN
                                 Layout.fillWidth: true
-                                text: qsTr("Lymalink monitors the selected game executable. Features like playtime tracking, achievement scanning, and the in-game overlay are only active while the game process is running.")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                color: Themes.emulatorTarget.colors.descriptionText
-                                wrapMode: Text.Wrap
+                                spacing: 4
+
+                                Repeater {
+                                    model: [
+                                        {
+                                            label: qsTr("Wine"),
+                                            value: "/home/<user>/.wine/drive_c"
+                                        },
+                                        {
+                                            label: qsTr("Flatpak Bottles"),
+                                            value: "/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c"
+                                        },
+                                        {
+                                            label: qsTr("Heroic"),
+                                            value: "/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c"
+                                        },
+                                        {
+                                            label: qsTr("Heroic all prefixes"),
+                                            value: "/home/<user>/Games/Heroic/Prefixes"
+                                        }
+                                    ]
+
+                                    delegate: RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Text {
+                                            Layout.preferredWidth: 112
+                                            text: modelData.label
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                            font.bold: true
+                                            color: Themes.emulatorTarget.colors.descriptionText
+                                            wrapMode: Text.Wrap
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.value
+                                            font.family: "monospace"
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                            color: Themes.emulatorTarget.colors.prefixWarningText
+                                            wrapMode: Text.WrapAnywhere
+                                        }
+                                    }
+                                }
                             }
-                        }
-
-                        ColumnLayout {
-                            visible: !OS_WIN
-                            Layout.fillWidth: true
-                            Layout.topMargin: 4
-                            spacing: 4
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("Prefix location")
+                                Layout.topMargin: 4
+                                text: qsTr("Supported Emulators")
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.description
                                 font.bold: true
                                 color: Themes.emulatorTarget.colors.labelText
                                 wrapMode: Text.Wrap
                             }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("The prefix is where the emulator writes achievement data. After Lymalink finds data for the selected game ID, it saves the exact achievement file path and monitors it for changes to detect achievement unlocks.")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                color: Themes.emulatorTarget.colors.descriptionText
-                                wrapMode: Text.Wrap
-                            }
-                        }
-
-                        Text {
-                            visible: !OS_WIN
-                            Layout.fillWidth: true
-                            Layout.topMargin: 4
-                            text: qsTr("Prefix examples")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            font.bold: true
-                            color: Themes.emulatorTarget.colors.labelText
-                            wrapMode: Text.Wrap
-                        }
-
-                        ColumnLayout {
-                            visible: !OS_WIN
-                            Layout.fillWidth: true
-                            spacing: 4
 
                             Repeater {
                                 model: [
                                     {
-                                        label: qsTr("Wine"),
-                                        value: "/home/<user>/.wine/drive_c"
+                                        label: qsTr("CODEX / RUNE"),
+                                        value: "Reads generated 'achievements.ini' file for unlocked achievements"
                                     },
                                     {
-                                        label: qsTr("Flatpak Bottles"),
-                                        value: "/home/<user>/.var/app/com.usebottles.bottles/data/bottles/bottles/games/drive_c"
+                                        label: qsTr("GOLDBERG"),
+                                        value: "Reads generated 'achievements.json' file for unlocked achievements"
                                     },
                                     {
-                                        label: qsTr("Heroic"),
-                                        value: "/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c"
+                                        label: qsTr("RELOADED"),
+                                        value: "Reads generated 'achievements.ini' file for unlocked achievements"
                                     },
                                     {
-                                        label: qsTr("Heroic all prefixes"),
-                                        value: "/home/<user>/Games/Heroic/Prefixes"
+                                        label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
+                                        value: "GOG Games - Reads generated 'achievements.json' file for unlocked achievements"
                                     }
                                 ]
 
@@ -617,783 +745,937 @@ Item {
                                 }
                             }
                         }
+                    }
+                }
 
-                        Text {
+                // Notification overlay note
+                Rectangle {
+                    id: id_notificationBlock
+
+                    property bool hoverActive: false
+                    visible: !OS_WIN
+                    Layout.fillWidth: true
+                    radius: 6
+                    color: id_notificationBlock.hoverActive
+                        ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                        : Themes.emulatorTarget.colors.infoBlockBackground
+                    border.width: 1
+                    border.color: id_notificationBlock.hoverActive
+                        ? Themes.emulatorTarget.colors.infoBlockBorderHover
+                        : Themes.emulatorTarget.colors.infoBlockBorder
+
+                    implicitHeight: id_notificationBlock.hoverActive
+                        ? id_notificationHeaderRow.implicitHeight + id_notificationExpandable.implicitHeight + 32
+                        : id_notificationHeaderRow.implicitHeight + 28
+
+                    Behavior on implicitHeight {
+                        NumberAnimation {
+                            duration: 180
+                            easing.type: Easing.InOutQuad
+                        }
+                    }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    Timer {
+                        id: id_notificationBlockHoverTimer
+                        interval: 200
+                        repeat: false
+                        onTriggered: id_notificationBlock.hoverActive = true
+                    }
+
+                    HoverHandler {
+                        onHoveredChanged: {
+                            if (hovered) {
+                                id_notificationBlockHoverTimer.start()
+                                return
+                            }
+
+                            id_notificationBlockHoverTimer.stop()
+                            id_notificationBlock.hoverActive = false
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: id_notificationInfoColumn
+
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            top: parent.top
+                            margins: 14
+                        }
+                        spacing: 0
+
+                        // Notification header row
+                        RowLayout {
+                            id: id_notificationHeaderRow
                             Layout.fillWidth: true
-                            Layout.topMargin: 4
-                            text: qsTr("Supported Emulators")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            font.bold: true
-                            color: Themes.emulatorTarget.colors.labelText
-                            wrapMode: Text.Wrap
+                            spacing: 8
+
+                            Rectangle {
+                                width: 16
+                                height: 16
+                                radius: 8
+                                color: "transparent"
+                                border.width: 1
+                                border.color: Themes.emulatorTarget.colors.infoIconBorder
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "i"
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
+                                    font.italic: true
+                                    font.bold: true
+                                    color: Themes.emulatorTarget.colors.infoIconText
+                                }
+                            }
+
+                            Text {
+                                text: qsTr("IMPORTANT: Configure Achievement Notifications Overlay (hover to expand)")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                font.bold: true
+                                color: Themes.emulatorTarget.colors.prefixWarningText
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 120 }
+                                }
+                            }
                         }
 
-                        Repeater {
-                            model: [
-                                {
-                                    label: qsTr("CODEX / RUNE"),
-                                    value: "Reads generated 'achievements.ini' file for unlocked achievements"
-                                },
-                                {
-                                    label: qsTr("GOLDBERG"),
-                                    value: "Reads generated 'achievements.json' file for unlocked achievements"
-                                },
-                                {
-                                    label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
-                                    value: "GOG Games - Reads generated 'achievements.json' file for unlocked achievements"
-                                }
-                            ]
+                        // Expandable content
+                        ColumnLayout {
+                            id: id_notificationExpandable
 
-                            delegate: RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 10
+                            spacing: 6
+                            opacity: id_notificationBlock.hoverActive ? 1.0 : 0.0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 140
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+
+                            Text {
+                                id: id_notificationInfoText
+
                                 Layout.fillWidth: true
-                                spacing: 8
+                                text: qsTr("Achievement notifications use an in-game overlay. To make sure notifications appear, configure your launcher/run with correct environment variables / settings listed below:")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                            }
 
-                                Text {
-                                    Layout.preferredWidth: 112
-                                    text: modelData.label
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                    font.bold: true
-                                    color: Themes.emulatorTarget.colors.descriptionText
-                                    wrapMode: Text.Wrap
-                                }
+                            Text {
+                                id: id_notificationBestNoteText
 
-                                Text {
+                                Layout.fillWidth: true
+                                text: id_root.notificationHasHomeUsername
+                                    ? qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nClicking a value copies it to the clipboard.")
+                                    : qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nReplace `<user>` with your home directory username. Clicking a value copies it to the clipboard.")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                            }
+
+                            Repeater {
+                                model: [
+                                    {
+                                        type: qsTr("NATIVE"),
+                                        launcher: qsTr("Wine command line"),
+                                        action: qsTr("Run"),
+                                        value: id_root.notificationWineCommand
+                                    },
+                                    {
+                                        type: qsTr("NATIVE"),
+                                        launcher: qsTr("Steam"),
+                                        action: qsTr("Add launch option"),
+                                        value: id_root.notificationSteamLaunchOption
+                                    },
+                                    {
+                                        type: qsTr("FLATPAK"),
+                                        launcher: qsTr("Heroic / Bottles / Any other Flatpak"),
+                                        action: qsTr("Add environment variable"),
+                                        value: id_root.notificationFlatpakLdPreload
+                                    },
+                                    {
+                                        type: qsTr("NATIVE"),
+                                        launcher: qsTr("Heroic / Lutris / Any other native"),
+                                        action: qsTr("Add environment variable"),
+                                        value: id_root.notificationNativeLdPreload
+                                    }
+                                ]
+
+                                delegate: ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: modelData.value
-                                    font.family: "monospace"
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                    color: Themes.emulatorTarget.colors.prefixWarningText
-                                    wrapMode: Text.WrapAnywhere
+                                    Layout.topMargin: index === 0 ? 4 : 2
+                                    spacing: 4
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 58
+                                            Layout.preferredHeight: 18
+                                            radius: 4
+                                            color: Themes.emulatorTarget.colors.infoBlockBackgroundHover
+                                            border.width: 1
+                                            border.color: Themes.emulatorTarget.colors.infoBlockBorderHover
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.type
+                                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                                font.bold: true
+                                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.launcher + " - " + modelData.action
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                            color: Themes.emulatorTarget.colors.labelText
+                                            wrapMode: Text.Wrap
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: id_notificationValueText.implicitHeight + 12
+                                        radius: 5
+                                        color: id_notificationValueMouseArea.pressed
+                                            ? Themes.emulatorTarget.colors.resultBackgroundPressed
+                                            : (id_notificationValueMouseArea.containsMouse
+                                                ? Themes.emulatorTarget.colors.resultBackgroundHover
+                                                : Themes.emulatorTarget.colors.resultBackground)
+                                        border.width: 1
+                                        border.color: id_notificationValueMouseArea.containsMouse
+                                            ? Themes.emulatorTarget.colors.resultBorderSelected
+                                            : Themes.emulatorTarget.colors.resultBorder
+
+                                        Text {
+                                            id: id_notificationValueText
+
+                                            anchors {
+                                                left: parent.left
+                                                right: parent.right
+                                                verticalCenter: parent.verticalCenter
+                                                margins: 8
+                                            }
+                                            text: modelData.value
+                                            font.family: "monospace"
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                            color: Themes.emulatorTarget.colors.prefixWarningText
+                                            wrapMode: Text.WrapAnywhere
+                                        }
+
+                                        MouseArea {
+                                            id: id_notificationValueMouseArea
+
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: id_root.copyNotificationValue(modelData.value)
+                                        }
+                                    }
                                 }
+                            }
+
+                            Text {
+                                id: id_notificationRestartText
+
+                                Layout.fillWidth: true
+                                text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, Wine (wineserver -k), or any other launcher so the changes take effect.")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
                             }
                         }
                     }
                 }
-            }
 
-            // Notification overlay note
-            Rectangle {
-                id: id_notificationBlock
+                // Section 1: Search game
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
 
-                property bool hoverActive: false
-                visible: !OS_WIN
-                Layout.fillWidth: true
-                radius: 6
-                color: id_notificationBlock.hoverActive
-                    ? Themes.emulatorTarget.colors.infoBlockBackgroundHover
-                    : Themes.emulatorTarget.colors.infoBlockBackground
-                border.width: 1
-                border.color: id_notificationBlock.hoverActive
-                    ? Themes.emulatorTarget.colors.infoBlockBorderHover
-                    : Themes.emulatorTarget.colors.infoBlockBorder
-
-                implicitHeight: id_notificationBlock.hoverActive
-                    ? id_notificationHeaderRow.implicitHeight + id_notificationExpandable.implicitHeight + 32
-                    : id_notificationHeaderRow.implicitHeight + 28
-
-                Behavior on implicitHeight {
-                    NumberAnimation {
-                        duration: 180
-                        easing.type: Easing.InOutQuad
+                    Text {
+                        Layout.topMargin: 20
+                        text: qsTr("1. Search game info")
+                        font.pixelSize: Themes.emulatorTarget.fontSizes.title
+                        font.bold: true
+                        color: Themes.emulatorTarget.colors.titleText
                     }
-                }
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
 
-                Timer {
-                    id: id_notificationBlockHoverTimer
-                    interval: 200
-                    repeat: false
-                    onTriggered: id_notificationBlock.hoverActive = true
-                }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
 
-                HoverHandler {
-                    onHoveredChanged: {
-                        if (hovered) {
-                            id_notificationBlockHoverTimer.start()
-                            return
+                        CustomTextField {
+                            id: id_searchField
+
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("Game name")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.input
+                            onAccepted: {
+                                id_root.searchResults = []
+                                id_root.searchGames()
+                            }
                         }
 
-                        id_notificationBlockHoverTimer.stop()
-                        id_notificationBlock.hoverActive = false
+                        CustomButton {
+                            text: qsTr("Search")
+                            enabled: !id_root.isSearching
+                            onClicked: {
+                                id_root.searchResults = []
+                                id_root.searchGames()
+                            }
+                        }
                     }
-                }
 
-                ColumnLayout {
-                    id: id_notificationInfoColumn
-
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        top: parent.top
-                        margins: 14
-                    }
-                    spacing: 0
-
-                    // Notification header row
                     RowLayout {
-                        id: id_notificationHeaderRow
                         Layout.fillWidth: true
                         spacing: 8
 
-                        Rectangle {
-                            width: 16
-                            height: 16
-                            radius: 8
-                            color: "transparent"
-                            border.width: 1
-                            border.color: Themes.emulatorTarget.colors.infoIconBorder
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "i"
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
-                                font.italic: true
-                                font.bold: true
-                                color: Themes.emulatorTarget.colors.infoIconText
-                            }
-                        }
-
                         Text {
-                            text: qsTr("IMPORTANT: Configure Achievement Notifications Overlay (hover to expand)")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                            font.bold: true
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-
-                            Behavior on color {
-                                ColorAnimation { duration: 120 }
-                            }
+                            Layout.fillWidth: true
+                            text: id_root.statusText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: id_root.statusIsError
+                                ? Themes.emulatorTarget.colors.errorText
+                                : Themes.emulatorTarget.colors.descriptionText
                         }
                     }
 
-                    // Expandable content
+                    CustomBusyIndicator {
+                        Layout.alignment: Qt.AlignHCenter
+                        visible: p_running
+                        p_indicatorSize: 40
+                        p_running: id_root.isSearching
+                    }
+
                     ColumnLayout {
-                        id: id_notificationExpandable
-
                         Layout.fillWidth: true
-                        Layout.topMargin: 10
-                        spacing: 6
-                        opacity: id_notificationBlock.hoverActive ? 1.0 : 0.0
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 140
-                                easing.type: Easing.InOutQuad
-                            }
-                        }
-
-                        Text {
-                            id: id_notificationInfoText
-
-                            Layout.fillWidth: true
-                            text: qsTr("Achievement notifications use an in-game overlay. To make sure notifications appear, configure your launcher/run with correct environment variables / settings listed below:")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            id: id_notificationBestNoteText
-
-                            Layout.fillWidth: true
-                            text: id_root.notificationHasHomeUsername
-                                ? qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nClicking a value copies it to the clipboard.")
-                                : qsTr("Best tested compatibility is currently with the Flatpak version of Heroic Launcher.\nReplace `<user>` with your home directory username. Clicking a value copies it to the clipboard.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                        }
+                        spacing: 8
 
                         Repeater {
-                            model: [
-                                {
-                                    type: qsTr("NATIVE"),
-                                    launcher: qsTr("Wine command line"),
-                                    action: qsTr("Run"),
-                                    value: id_root.notificationWineCommand
-                                },
-                                {
-                                    type: qsTr("NATIVE"),
-                                    launcher: qsTr("Steam"),
-                                    action: qsTr("Add launch option"),
-                                    value: id_root.notificationSteamLaunchOption
-                                },
-                                {
-                                    type: qsTr("FLATPAK"),
-                                    launcher: qsTr("Heroic / Bottles / Any other Flatpak"),
-                                    action: qsTr("Add environment variable"),
-                                    value: id_root.notificationFlatpakLdPreload
-                                },
-                                {
-                                    type: qsTr("NATIVE"),
-                                    launcher: qsTr("Heroic / Lutris / Any other native"),
-                                    action: qsTr("Add environment variable"),
-                                    value: id_root.notificationNativeLdPreload
-                                }
-                            ]
+                            model: id_root.searchResults
 
-                            delegate: ColumnLayout {
+                            delegate: Rectangle {
+                                id: id_resultRow
+
                                 Layout.fillWidth: true
-                                Layout.topMargin: index === 0 ? 4 : 2
-                                spacing: 4
+                                height: 44
+                                radius: 6
+                                color: id_resultRowMouseArea.pressed
+                                    ? Themes.emulatorTarget.colors.resultBackgroundPressed
+                                    : id_resultRowMouseArea.containsMouse
+                                        ? Themes.emulatorTarget.colors.resultBackgroundHover
+                                        : Themes.emulatorTarget.colors.resultBackground
+                                border.width: 1
+                                border.color: id_root.selectedAppId === modelData.id
+                                    ? Themes.emulatorTarget.colors.resultBorderSelected
+                                    : Themes.emulatorTarget.colors.resultBorder
 
                                 RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 8
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    spacing: 12
 
-                                    Rectangle {
-                                        Layout.preferredWidth: 58
-                                        Layout.preferredHeight: 18
-                                        radius: 4
-                                        color: Themes.emulatorTarget.colors.infoBlockBackgroundHover
-                                        border.width: 1
-                                        border.color: Themes.emulatorTarget.colors.infoBlockBorderHover
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: modelData.type
-                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                            font.bold: true
-                                            color: Themes.emulatorTarget.colors.prefixWarningText
-                                        }
+                                    Text {
+                                        text: modelData.id
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        color: Themes.emulatorTarget.colors.descriptionText
                                     }
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: modelData.launcher + " - " + modelData.action
-                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        text: modelData.name
+                                        elide: Text.ElideRight
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
                                         color: Themes.emulatorTarget.colors.labelText
-                                        wrapMode: Text.Wrap
                                     }
                                 }
 
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    implicitHeight: id_notificationValueText.implicitHeight + 12
-                                    radius: 5
-                                    color: id_notificationValueMouseArea.pressed
-                                        ? Themes.emulatorTarget.colors.resultBackgroundPressed
-                                        : (id_notificationValueMouseArea.containsMouse
-                                            ? Themes.emulatorTarget.colors.resultBackgroundHover
-                                            : Themes.emulatorTarget.colors.resultBackground)
-                                    border.width: 1
-                                    border.color: id_notificationValueMouseArea.containsMouse
-                                        ? Themes.emulatorTarget.colors.resultBorderSelected
-                                        : Themes.emulatorTarget.colors.resultBorder
+                                MouseArea {
+                                    id: id_resultRowMouseArea
 
-                                    Text {
-                                        id: id_notificationValueText
-
-                                        anchors {
-                                            left: parent.left
-                                            right: parent.right
-                                            verticalCenter: parent.verticalCenter
-                                            margins: 8
-                                        }
-                                        text: modelData.value
-                                        font.family: "monospace"
-                                        font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                        color: Themes.emulatorTarget.colors.prefixWarningText
-                                        wrapMode: Text.WrapAnywhere
-                                    }
-
-                                    MouseArea {
-                                        id: id_notificationValueMouseArea
-
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: id_root.copyNotificationValue(modelData.value)
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        id_root.selectGame(modelData)
+                                        id_searchField.focus = false
                                     }
                                 }
                             }
                         }
-
-                        Text {
-                            id: id_notificationRestartText
-
-                            Layout.fillWidth: true
-                            text: qsTr("After changing launch options or environment variables, restart Steam, Heroic, Bottles, Wine (wineserver -k), or any other launcher so the changes take effect.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                        }
                     }
                 }
-            }
 
-            // Section 1: Search game
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 10
-
-                Text {
-                    Layout.topMargin: 20
-                    text: qsTr("1. Search game info")
-                    font.pixelSize: Themes.emulatorTarget.fontSizes.title
-                    font.bold: true
-                    color: Themes.emulatorTarget.colors.titleText
-                }
-
-                RowLayout {
+                // Divider
+                Rectangle {
                     Layout.fillWidth: true
-                    spacing: 10
-                    visible: !id_root.manualGameEntry
-
-                    CustomTextField {
-                        id: id_searchField
-
-                        Layout.fillWidth: true
-                        placeholderText: qsTr("Game name")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.input
-                        onAccepted: {
-                            id_root.searchResults = []
-                            id_root.searchGames()
-                        }
-                    }
-
-                    CustomButton {
-                        text: qsTr("Search")
-                        enabled: !id_root.isSearching
-                        onClicked: {
-                            id_root.searchResults = []
-                            id_root.searchGames()
-                        }
-                    }
+                    height: 1
+                    color: Themes.emulatorTarget.colors.divider
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        visible: !id_root.manualGameEntry
-                        Layout.fillWidth: true
-                        text: id_root.statusText
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: id_root.statusIsError
-                            ? Themes.emulatorTarget.colors.errorText
-                            : Themes.emulatorTarget.colors.descriptionText
-                    }
-
-                    Text {
-                        text: qsTr("enter manually")
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                        color: Themes.emulatorTarget.colors.descriptionText
-                    }
-
-                    CustomCheckBox {
-                        checked: id_root.manualGameEntry
-                        onToggled: id_root.setManualGameEntry(checked)
-                    }
-                }
-
-                CustomBusyIndicator {
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: p_running
-                    p_indicatorSize: 40
-                    p_running: !id_root.manualGameEntry && id_root.isSearching
-                }
-
+                // AppId folder finder
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 8
-                    visible: !id_root.manualGameEntry
+                    spacing: 10
 
-                    Repeater {
-                        model: id_root.searchResults
-
-                        delegate: Rectangle {
-                            id: id_resultRow
-
-                            Layout.fillWidth: true
-                            height: 44
-                            radius: 6
-                            color: id_resultRowMouseArea.pressed
-                                ? Themes.emulatorTarget.colors.resultBackgroundPressed
-                                : id_resultRowMouseArea.containsMouse
-                                    ? Themes.emulatorTarget.colors.resultBackgroundHover
-                                    : Themes.emulatorTarget.colors.resultBackground
-                            border.width: 1
-                            border.color: id_root.selectedAppId === modelData.id
-                                ? Themes.emulatorTarget.colors.resultBorderSelected
-                                : Themes.emulatorTarget.colors.resultBorder
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                spacing: 12
-
-                                Text {
-                                    text: modelData.id
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                    color: Themes.emulatorTarget.colors.descriptionText
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: modelData.name
-                                    elide: Text.ElideRight
-                                    font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                                    color: Themes.emulatorTarget.colors.labelText
-                                }
-                            }
-
-                            MouseArea {
-                                id: id_resultRowMouseArea
-
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    id_root.selectGame(modelData)
-                                    id_searchField.focus = false
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: Themes.emulatorTarget.colors.divider
-            }
-
-            // Section 2: Target details
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                enabled: id_root.manualGameEntry || id_root.selectedAppId > 0
-                opacity: enabled ? 1.0 : 0.45
-
-                Text {
-                    Layout.topMargin: 20
-                    text: qsTr("2. Target details")
-                    font.pixelSize: Themes.emulatorTarget.fontSizes.title
-                    font.bold: true
-                    color: Themes.emulatorTarget.colors.titleText
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 14
-                    rowSpacing: 10
-
-                    // ID
                     Text {
-                        Layout.preferredWidth: 180
-                        text: qsTr("ID")
+                        Layout.topMargin: 10
+                        Layout.fillWidth: true
+                        text: qsTr("Scan system (Optional)")
+                        font.pixelSize: Math.round(Themes.emulatorTarget.fontSizes.title * 0.58)
+                        font.bold: true
+                        color: Themes.emulatorTarget.colors.titleText
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Scan your system for existing emulator data that may have already been established.")
+                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
                         color: Themes.emulatorTarget.colors.descriptionText
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
                         wrapMode: Text.Wrap
                     }
 
-                    CustomTextField {
-                        id: id_appIdField
-
-                        Layout.fillWidth: true
-                        readOnly: !id_root.manualGameEntry
-                        selectByMouse: id_root.manualGameEntry
-                        focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
-                        text: id_root.selectedAppId > 0 ? id_root.selectedAppId.toString() : ""
-                        validator: IntValidator { bottom: 1 }
-                        onTextEdited: {
-                            id_root.selectedAppId = text.length > 0 ? parseInt(text) : 0
-                            id_root.targetStatusText = ""
-                            id_root.targetStatusIsError = false
-                        }
-                    }
-
-                    // Name
                     Text {
-                        Layout.preferredWidth: 180
-                        text: qsTr("Name")
+                        Layout.fillWidth: true
+                        text: qsTr("Note: This scanner only detects data created by supported emulators.")
+                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
                         color: Themes.emulatorTarget.colors.descriptionText
-                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
                         wrapMode: Text.Wrap
                     }
 
-                    CustomTextField {
+                    Text {
                         Layout.fillWidth: true
-                        readOnly: !id_root.manualGameEntry
-                        selectByMouse: id_root.manualGameEntry
-                        focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
-                        text: id_root.selectedName
-                        onTextEdited: {
-                            id_root.selectedName = text
-                            id_root.targetStatusText = ""
-                            id_root.targetStatusIsError = false
-                        }
+                        text: qsTr("If expected data is not found, the emulator may not have generated it yet. Try starting the game at least once to create the initial data.")
+                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                        color: Themes.emulatorTarget.colors.descriptionText
+                        wrapMode: Text.Wrap
                     }
 
-                    // Game Executable
-                    ColumnLayout {
-                        Layout.preferredWidth: 180
-                        spacing: 2
-
-                        Text {
-                            text: qsTr("Game Executable")
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: qsTr("Used to track activity")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                            color: Themes.emulatorTarget.colors.descriptionMutedText
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        CustomTextField {
-                            id: id_installLocationField
-
-                            Layout.fillWidth: true
-                            readOnly: true
-                            selectByMouse: false
-                            placeholderText: qsTr("Path to game executable (.exe)")
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: id_exeFileDialog.open()
-                            }
-                        }
-
-                        Text {
-                            visible: id_root.detectedSteamAppIdMismatch
-                            Layout.fillWidth: true
-                            text: qsTr("Detected Steam app ID(s) inside executable path: %1. Selected ID is %2. Make sure the ID is correct. Edit manually if needed. You can check IDs on steamdb.info.").arg(id_root.detectedSteamAppIds.join(", ")).arg(id_root.selectedAppId.toString())
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    // Installation Directory
-                    ColumnLayout {
-                        Layout.preferredWidth: 180
-                        spacing: 2
-
-                        Text {
-                            text: qsTr("Game Installation Directory")
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: qsTr("Used for scanning GOG Emulators")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                            color: Themes.emulatorTarget.colors.descriptionMutedText
-                            wrapMode: Text.Wrap
-                        }
-
-                        CustomCheckBox {
-                            Layout.topMargin: 4
-                            text: qsTr("GOG Emulator used")
-                            checked: id_root.gogEmulatorEnabled
-                            onToggled: {
-                                id_root.gogEmulatorEnabled = checked
-                                id_root.targetStatusText = ""
-                                id_root.targetStatusIsError = false
-                            }
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        CustomTextField {
-                            id: id_installDirField
-
-                            Layout.fillWidth: true
-                            enabled: id_root.gogEmulatorEnabled
-                            opacity: enabled ? 1.0 : 0.55
-                            readOnly: true
-                            selectByMouse: false
-                            placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
-
-                            MouseArea {
-                                anchors.fill: parent
-                                enabled: id_root.gogEmulatorEnabled
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: id_installFolderDialog.open()
-                            }
-                        }
-
-                        Text {
-                            visible: id_root.detectedGogConfig
-                            Layout.fillWidth: true
-                            text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable GOG Emulator usage if needed.")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    // Prefix Location
-                    ColumnLayout {
-                        visible: !OS_WIN
-                        Layout.preferredWidth: 180
-                        spacing: 2
-
-                        Text {
-                            text: qsTr("Prefix Location")
-                            color: Themes.emulatorTarget.colors.descriptionText
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: qsTr("Select the drive_c or equivalent folder\ninside your Wine/Proton/Bottle prefix")
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                            color: Themes.emulatorTarget.colors.descriptionMutedText
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    ColumnLayout {
-                        visible: !OS_WIN
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        CustomTextField {
-                            id: id_prefixLocationField
-
-                            Layout.fillWidth: true
-                            readOnly: true
-                            selectByMouse: false
-                            placeholderText: qsTr("e.g. /home/user/prefix/drive_c")
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: id_prefixFolderDialog.open()
-                            }
-                        }
-
-                        Text {
-                            visible: id_root.prefixWarning
-                            Layout.fillWidth: true
-                            text: qsTr("⚠ Expected a drive_c or equivalent folder. Make sure the selected folder contains or will contain a subdirectory matching the game ID (%1). This is required for achievement detection to work.").arg(id_root.selectedAppId > 0
-                                ? id_root.selectedAppId.toString()
-                                : qsTr("not set"))
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: Themes.emulatorTarget.colors.prefixWarningText
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                    // Confirm row
                     RowLayout {
-                        spacing: 12
-                        Layout.topMargin: 4
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Text {
+                            Layout.maximumWidth: 360
+                            text: id_root.appIdFolderFoundStatusText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                            color: id_root.appIdFolderFindStatusIsError
+                                ? Themes.emulatorTarget.colors.errorText
+                                : Themes.emulatorTarget.colors.descriptionText
+                            elide: Text.ElideRight
+                        }
 
                         Item {
                             Layout.fillWidth: true
                         }
 
-                        Text {
-                            Layout.preferredWidth: 420
-                            Layout.maximumWidth: 420
-                            visible: id_root.targetStatusText.length > 0
-                            text: id_root.targetStatusText
-                            font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                            color: id_root.targetStatusIsError
-                                ? Themes.emulatorTarget.colors.errorText
-                                : Themes.emulatorTarget.colors.descriptionText
-                            wrapMode: Text.Wrap
-                            horizontalAlignment: Text.AlignRight
-                            verticalAlignment: Text.AlignVCenter
+                        CustomBusyIndicator {
+                            visible: p_running
+                            p_indicatorSize: 24
+                            p_running: id_root.appIdFolderFindLoading
                         }
 
-                        CustomBusyIndicator {
-                            Layout.alignment: Qt.AlignVCenter
-                            visible: p_running
-                            p_indicatorSize: 22
-                            p_running: id_root.isCreatingTarget
+                        RowLayout {
+                            visible: id_root.appIdFolderFoundStatusText !== ""
+                            spacing: 8
+
+                            CustomCheckBox {
+                                text: qsTr("hide existing in library")
+                                labelOnLeft: true
+                                checked: id_root.hideExistingAppIdFolderResults
+                                onToggled: id_root.hideExistingAppIdFolderResults = checked
+                            }
                         }
+
+                        CustomButton {
+                            text: OS_WIN ? qsTr("Scan system") : qsTr("Scan prefix")
+                            enabled: !id_root.appIdFolderFindLoading
+                            onClicked: {
+                                if (OS_WIN) {
+                                    id_root.startAppIdFolderFind("")
+                                } else {
+                                    id_appIdFolderFindRootDialog.open()
+                                }
+                            }
+                        }
+                    }
+
+                    // AppId results
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: id_root.visibleAppIdFolderFindResults.length > 0
+                        Layout.preferredHeight: 270
 
                         Rectangle {
-                            id: id_confirmTarget
-
-                            readonly property bool canConfirm: id_root.selectedAppId > 0
-                                && id_root.selectedName.trim().length > 0
-                                && id_installLocationField.text.trim().length > 0
-                                && (!id_root.gogEmulatorEnabled || id_installDirField.text.trim().length > 0)
-                                && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
-                                && !id_root.targetCreated
-                                && !id_root.isCreatingTarget
-
-                            implicitHeight: 32
-                            implicitWidth: id_confirmTargetLabel.implicitWidth + 60
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
                             radius: 6
-                            enabled: canConfirm
-                            opacity: enabled ? 1.0 : 0.45
-
-                            color: id_confirmTargetMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
-                                : id_confirmTargetMouseArea.containsMouse
-                                    ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
-                                    : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.10)
-
+                            color: Themes.emulatorTarget.colors.resultBackground
                             border.width: 1
-                            border.color: id_confirmTargetMouseArea.pressed
-                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
-                                : id_confirmTargetMouseArea.containsMouse
-                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
-                                    : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+                            border.color: Themes.emulatorTarget.colors.resultBorder
 
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
+                            ListView {
+                                id: id_appIdFolderResultsList
+
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                clip: true
+                                model: id_root.visibleAppIdFolderFindResults
+                                spacing: 8
+                                boundsBehavior: Flickable.StopAtBounds
+
+                                HoverHandler {
+                                    id: id_appIdFolderResultsHover
+                                }
+
+                                ScrollBar.vertical: ScrollBar {
+                                    policy: ScrollBar.AsNeeded
+                                }
+
+                                delegate: Rectangle {
+                                    id: id_appIdFolderResultRow
+
+                                    required property var modelData
+                                    readonly property bool canSelect: modelData.gameName && modelData.gameName.length > 0
+
+                                    width: id_appIdFolderResultsList.width
+                                    height: 56
+                                    radius: 6
+                                    opacity: canSelect ? 1.0 : 0.45
+                                    color: id_appIdFolderResultMouseArea.pressed
+                                        ? Themes.emulatorTarget.colors.resultBackgroundPressed
+                                        : (id_appIdFolderResultMouseArea.containsMouse
+                                            ? Themes.emulatorTarget.colors.resultBackgroundHover
+                                            : Themes.emulatorTarget.colors.resultBackground)
+                                    border.width: 1
+                                    border.color: id_root.selectedAppId.toString() === modelData.appId.toString()
+                                        ? Themes.emulatorTarget.colors.resultBorderSelected
+                                        : Themes.emulatorTarget.colors.resultBorder
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 12
+                                        anchors.topMargin: 7
+                                        anchors.bottomMargin: 7
+                                        spacing: 3
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 10
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.gameName && modelData.gameName.length > 0
+                                                    ? qsTr("%1 - %2").arg(modelData.appId).arg(modelData.gameName)
+                                                    : modelData.appId
+                                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                                font.bold: true
+                                                color: Themes.emulatorTarget.colors.labelText
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                text: modelData.targetExists
+                                                    ? qsTr("%1 · in library").arg(modelData.emulatorLabel || "-")
+                                                    : (modelData.emulatorLabel || "-")
+                                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.path
+                                            font.family: "monospace"
+                                            font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                            color: Themes.emulatorTarget.colors.descriptionText
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: id_appIdFolderResultMouseArea
+
+                                        anchors.fill: parent
+                                        enabled: id_appIdFolderResultRow.canSelect
+                                        hoverEnabled: enabled
+                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        onClicked: id_root.selectAppIdFolderResult(modelData)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Divider
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Themes.emulatorTarget.colors.divider
+                }
+
+                // Section 2: Target details
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    RowLayout {
+                        Layout.topMargin: 20
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("2. Target details")
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.title
+                            font.bold: true
+                            color: Themes.emulatorTarget.colors.titleText
+                        }
+
+                        CustomCheckBox {
+                            text: qsTr("enter manually")
+                            labelOnLeft: true
+                            checked: id_root.manualGameEntry
+                            onToggled: id_root.setManualGameEntry(checked)
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 14
+                        rowSpacing: 10
+                        enabled: id_root.manualGameEntry || id_root.selectedAppId > 0
+                        opacity: enabled ? 1.0 : 0.45
+
+                        // ID
+                        Text {
+                            Layout.preferredWidth: 180
+                            text: qsTr("ID")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        CustomTextField {
+                            id: id_appIdField
+
+                            Layout.fillWidth: true
+                            readOnly: !id_root.manualGameEntry
+                            selectByMouse: id_root.manualGameEntry
+                            focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
+                            text: id_root.selectedAppId > 0 ? id_root.selectedAppId.toString() : ""
+                            validator: IntValidator { bottom: 1 }
+                            onTextEdited: {
+                                id_root.selectedAppId = text.length > 0 ? parseInt(text) : 0
+                                id_root.targetStatusText = ""
+                                id_root.targetStatusIsError = false
+                            }
+                        }
+
+                        // Name
+                        Text {
+                            Layout.preferredWidth: 180
+                            text: qsTr("Name")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        CustomTextField {
+                            Layout.fillWidth: true
+                            readOnly: !id_root.manualGameEntry
+                            selectByMouse: id_root.manualGameEntry
+                            focusPolicy: id_root.manualGameEntry ? Qt.StrongFocus : Qt.NoFocus
+                            text: id_root.selectedName
+                            onTextEdited: {
+                                id_root.selectedName = text
+                                id_root.targetStatusText = ""
+                                id_root.targetStatusIsError = false
+                            }
+                        }
+
+                        // Game Executable
+                        ColumnLayout {
+                            Layout.preferredWidth: 180
+                            spacing: 2
+
+                            Text {
+                                text: qsTr("Game Executable")
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Used to track activity")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                color: Themes.emulatorTarget.colors.descriptionMutedText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            CustomTextField {
+                                id: id_installLocationField
+
+                                Layout.fillWidth: true
+                                readOnly: true
+                                selectByMouse: false
+                                placeholderText: qsTr("Path to game executable (.exe)")
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: id_exeFileDialog.open()
                                 }
                             }
 
                             Text {
-                                id: id_confirmTargetLabel
+                                visible: id_root.detectedSteamAppIdMismatch
+                                Layout.fillWidth: true
+                                text: qsTr("Detected Steam app ID(s) inside executable path: %1. Selected ID is %2. Make sure the ID is correct. Edit manually if needed. You can check IDs on steamdb.info.").arg(id_root.detectedSteamAppIds.join(", ")).arg(id_root.selectedAppId.toString())
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                wrapMode: Text.Wrap
+                            }
+                        }
 
-                                anchors.centerIn: parent
-                                text: qsTr("Confirm")
-                                color: id_root.themedCompletionColor
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.confirmButton
+                        // Installation Directory
+                        ColumnLayout {
+                            Layout.preferredWidth: 180
+                            spacing: 2
+
+                            Text {
+                                text: qsTr("Game Installation Directory")
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                wrapMode: Text.Wrap
                             }
 
-                            MouseArea {
-                                id: id_confirmTargetMouseArea
-                                
-                                anchors.fill: parent
-                                enabled: id_confirmTarget.canConfirm
-                                hoverEnabled: enabled
-                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Used for scanning GOG Emulators")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                color: Themes.emulatorTarget.colors.descriptionMutedText
+                                wrapMode: Text.Wrap
+                            }
 
-                                onClicked: id_root.createTarget()
+                            CustomCheckBox {
+                                Layout.topMargin: 4
+                                text: qsTr("GOG Emulator used")
+                                checked: id_root.gogEmulatorEnabled
+                                onToggled: {
+                                    id_root.gogEmulatorEnabled = checked
+                                    id_root.targetStatusText = ""
+                                    id_root.targetStatusIsError = false
+                                }
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            CustomTextField {
+                                id: id_installDirField
+
+                                Layout.fillWidth: true
+                                enabled: id_root.gogEmulatorEnabled
+                                opacity: enabled ? 1.0 : 0.55
+                                readOnly: true
+                                selectByMouse: false
+                                placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: id_root.gogEmulatorEnabled
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: id_installFolderDialog.open()
+                                }
+                            }
+
+                            Text {
+                                visible: id_root.detectedGogConfig
+                                Layout.fillWidth: true
+                                text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable GOG Emulator usage if needed.")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        // Prefix Location
+                        ColumnLayout {
+                            visible: !OS_WIN
+                            Layout.preferredWidth: 180
+                            spacing: 2
+
+                            Text {
+                                text: qsTr("Prefix Location")
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Select the drive_c or equivalent folder\ninside your Wine/Proton/Bottle prefix")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                color: Themes.emulatorTarget.colors.descriptionMutedText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        ColumnLayout {
+                            visible: !OS_WIN
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            CustomTextField {
+                                id: id_prefixLocationField
+
+                                Layout.fillWidth: true
+                                readOnly: true
+                                selectByMouse: false
+                                placeholderText: qsTr("e.g. /home/user/prefix/drive_c")
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: id_prefixFolderDialog.open()
+                                }
+                            }
+
+                            Text {
+                                visible: id_root.prefixWarning
+                                Layout.fillWidth: true
+                                text: qsTr("⚠ Expected a drive_c or equivalent folder. Make sure the selected folder contains or will contain a subdirectory matching the game ID (%1). This is required for achievement detection to work.").arg(id_root.selectedAppId > 0
+                                    ? id_root.selectedAppId.toString()
+                                    : qsTr("not set"))
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        // Confirm row
+                        RowLayout {
+                            spacing: 12
+                            Layout.topMargin: 4
+
+                            Item {
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                Layout.preferredWidth: 420
+                                Layout.maximumWidth: 420
+                                visible: id_root.targetStatusText.length > 0
+                                text: id_root.targetStatusText
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: id_root.targetStatusIsError
+                                    ? Themes.emulatorTarget.colors.errorText
+                                    : Themes.emulatorTarget.colors.descriptionText
+                                wrapMode: Text.Wrap
+                                horizontalAlignment: Text.AlignRight
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            CustomBusyIndicator {
+                                Layout.alignment: Qt.AlignVCenter
+                                visible: p_running
+                                p_indicatorSize: 22
+                                p_running: id_root.isCreatingTarget
+                            }
+
+                            Rectangle {
+                                id: id_confirmTarget
+
+                                readonly property bool canConfirm: id_root.selectedAppId > 0
+                                    && id_root.selectedName.trim().length > 0
+                                    && id_installLocationField.text.trim().length > 0
+                                    && (!id_root.gogEmulatorEnabled || id_installDirField.text.trim().length > 0)
+                                    && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
+                                    && !id_root.targetCreated
+                                    && !id_root.isCreatingTarget
+
+                                implicitHeight: 32
+                                implicitWidth: id_confirmTargetLabel.implicitWidth + 60
+                                radius: 6
+                                enabled: canConfirm
+                                opacity: enabled ? 1.0 : 0.45
+
+                                color: id_confirmTargetMouseArea.pressed
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.35)
+                                    : id_confirmTargetMouseArea.containsMouse
+                                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.26)
+                                        : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.10)
+
+                                border.width: 1
+                                border.color: id_confirmTargetMouseArea.pressed
+                                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.90)
+                                    : id_confirmTargetMouseArea.containsMouse
+                                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.75)
+                                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.62)
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+
+                                Text {
+                                    id: id_confirmTargetLabel
+
+                                    anchors.centerIn: parent
+                                    text: qsTr("Confirm")
+                                    color: id_root.themedCompletionColor
+                                    font.pixelSize: Themes.emulatorTarget.fontSizes.confirmButton
+                                }
+
+                                MouseArea {
+                                    id: id_confirmTargetMouseArea
+                                    
+                                    anchors.fill: parent
+                                    enabled: id_confirmTarget.canConfirm
+                                    hoverEnabled: enabled
+                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+
+                                    onClicked: id_root.createTarget()
+                                }
                             }
                         }
                     }

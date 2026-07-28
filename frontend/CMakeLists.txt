@@ -47,6 +47,8 @@ qt_add_executable(Lymalink
     src/database/SQLiteManager.cpp
     src/tools/Encryption.h
     src/tools/Encryption.cpp
+    src/tools/AppIdDirectoryFinder.h
+    src/tools/AppIdDirectoryFinder.cpp
     src/tools/FileManager.h
     src/tools/FileManager.cpp
     src/tools/ImageCacheManager.h

@@ -104,6 +104,7 @@ public:
 
     Error SearchAppId(const QString &term, QList<SteamSearchResult> &results, Locale locale = English);
     Error SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale = English);
+    Error FetchAppNames(const QList<int> &appIds, QMap<int, QString> &gameNames);
     Error GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const QString &assetUrlFormat, QList<QString> &urls);
     Error GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<QString> &urls);
     Error GetAchievementIconUrls(int appId, const QList<SteamAchievementData> &achievements, QList<SteamAchievementIconUrls> &urls, const QStringList &benchmarkedUrlFormats = QStringList());

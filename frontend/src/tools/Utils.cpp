@@ -14,6 +14,7 @@
 #include <QTimeZone>
 #include <Qt>
 #include <QFile>
+#include <QStringList>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -98,6 +99,90 @@ QString ReadTextResource(const QString& resourcePath)
     }
 
     return QString::fromUtf8(file.readAll());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::function<bool(const QVariant &, const QVariant &)> CreateVariantMapComparator(const QString &primaryKey, const QString &secondaryKey, const QString &tertiaryKey)
+{
+    QStringList keys;
+    for (const QString &key : {primaryKey, secondaryKey, tertiaryKey})
+    {
+        if (!key.isEmpty())
+        {
+            keys.append(key);
+        }
+    }
+
+    return [keys](const QVariant &leftValue, const QVariant &rightValue) {
+        const auto compareStrings = [](const QString &leftValue, const QString &rightValue, bool &handled) {
+            const QString left = leftValue.trimmed();
+            const QString right = rightValue.trimmed();
+            handled = false;
+
+            if (left.isEmpty() && right.isEmpty())
+            {
+                return false;
+            }
+            if (left.isEmpty())
+            {
+                handled = true;
+                return false;
+            }
+            if (right.isEmpty())
+            {
+                handled = true;
+                return true;
+            }
+
+            bool leftNumberOk = false;
+            bool rightNumberOk = false;
+            const int leftNumber = left.toInt(&leftNumberOk);
+            const int rightNumber = right.toInt(&rightNumberOk);
+            if (leftNumberOk && rightNumberOk && leftNumber != rightNumber)
+            {
+                handled = true;
+                return leftNumber < rightNumber;
+            }
+
+            const int textCompare = QString::compare(left, right, Qt::CaseInsensitive);
+            if (textCompare != 0)
+            {
+                handled = true;
+                return textCompare < 0;
+            }
+
+            return false;
+        };
+
+        const QVariantMap left = leftValue.toMap();
+        const QVariantMap right = rightValue.toMap();
+        for (int keyIndex = 0; keyIndex < keys.size(); ++keyIndex)
+        {
+            QString currentLeftValue = left.value(keys.at(keyIndex)).toString();
+            QString currentRightValue = right.value(keys.at(keyIndex)).toString();
+            if (keyIndex == 0 && keys.size() > 1)
+            {
+                if (currentLeftValue.trimmed().isEmpty())
+                {
+                    currentLeftValue = left.value(keys.at(1)).toString();
+                }
+                if (currentRightValue.trimmed().isEmpty())
+                {
+                    currentRightValue = right.value(keys.at(1)).toString();
+                }
+            }
+
+            bool handled = false;
+            const bool result = compareStrings(currentLeftValue, currentRightValue, handled);
+            if (handled)
+            {
+                return result;
+            }
+        }
+
+        return false;
+    };
 }
 
 /////////////////////////////////////////////////////////////////////

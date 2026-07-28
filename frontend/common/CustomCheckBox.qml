@@ -17,6 +17,8 @@ T.CheckBox {
     // Internals _____________________________________________
     readonly property int boxSize: 18
     readonly property int contentSpacing: 8
+    readonly property int labelSpacing: id_root.text.length > 0 ? id_root.spacing : 0
+    property bool labelOnLeft: false
     readonly property bool partiallyChecked: id_root.checkState === Qt.PartiallyChecked
     readonly property color boxColor: !id_root.enabled
         ? Themes.customCheckBox.colors.backgroundDisabled
@@ -39,7 +41,7 @@ T.CheckBox {
         ? Themes.customCheckBox.colors.text
         : Themes.customCheckBox.colors.textDisabled
 
-    implicitWidth: id_indicator.implicitWidth + id_root.spacing + id_label.implicitWidth
+    implicitWidth: id_indicator.implicitWidth + id_root.labelSpacing + id_label.implicitWidth
     implicitHeight: Math.max(id_indicator.implicitHeight, id_label.implicitHeight)
     spacing: contentSpacing
 
@@ -53,7 +55,7 @@ T.CheckBox {
 
         implicitWidth: id_root.boxSize
         implicitHeight: id_root.boxSize
-        x: id_root.leftPadding
+        x: id_root.labelOnLeft ? id_root.width - id_root.rightPadding - width : id_root.leftPadding
         y: id_root.topPadding + (id_root.availableHeight - height) / 2
         radius: 4
         color: id_root.checked || id_root.partiallyChecked
@@ -130,7 +132,9 @@ T.CheckBox {
         font.weight: id_root.font.weight
         font.pixelSize: Themes.customCheckBox.fontSizes.text
         verticalAlignment: Text.AlignVCenter
-        leftPadding: id_root.indicator.width + id_root.spacing
+        horizontalAlignment: id_root.labelOnLeft ? Text.AlignRight : Text.AlignLeft
+        leftPadding: id_root.labelOnLeft ? 0 : id_root.indicator.width + id_root.labelSpacing
+        rightPadding: id_root.labelOnLeft ? id_root.indicator.width + id_root.labelSpacing : 0
         elide: Text.ElideRight
     }
 }

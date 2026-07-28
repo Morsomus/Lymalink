@@ -12,6 +12,7 @@
 #include "api/SteamApiSearchWorker.h"
 #include "api/SteamApiHydrationWorker.h"
 #include "database/SQLiteManager.h"
+#include "tools/AppIdDirectoryFinder.h"
 #include "tools/FileManager.h"
 
 #include <QObject>
@@ -37,7 +38,8 @@ public:
     Q_INVOKABLE void CancelSteamAppIdSearch();
     Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false, const QString &targetType = "Emulator");
     Q_INVOKABLE void CancelSteamHydration();
-    Q_INVOKABLE QVariantMap ScanExecutableFolder(const QString &executablePath);
+    Q_INVOKABLE QVariantMap InspectExecutableFolder(const QString &executablePath);
+    Q_INVOKABLE void FindEmulatorAppIdFolders(const QString &rootPath = QString());
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);
@@ -65,6 +67,7 @@ signals:
     void signalSteamHydrationQueueFinished();
     void signalSteamHydrationBusyChanged();
     void signalAchievementMetadataReady(int appId, QString targetType, bool success);
+    void signalEmulatorAppIdFolderFindFinished(bool success, QVariantList results, QString error);
     void signalErrorOccurred(QString title, QString message);
 
     // Internal - SteamApiSearchWorker
@@ -87,6 +90,8 @@ private:
     QThread m_hydrationWorkerThread;
     SteamApiHydrationWorker *m_steamApiHydrationWorker;
     bool m_steamHydrationBusy;
+    QThread *m_appIdFolderFindThread;
+    bool m_appIdFolderFindBusy;
 
     Error DatabaseInit();
     Error FileSystemInit();
