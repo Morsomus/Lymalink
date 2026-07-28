@@ -385,6 +385,10 @@ bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath, 
                 return directoryCleared;
             }
         }
+        else if (entry.fileName().startsWith("custom_cover_", Qt::CaseInsensitive))
+        {
+            continue;
+        }
         else if (!QFile::remove(entry.absoluteFilePath()))
         {
             qWarning() << "SteamApiHydrationWorker::ClearAssetDirectory: failed to remove asset file for appId" << appId << entry.absoluteFilePath();

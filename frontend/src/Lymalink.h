@@ -20,6 +20,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QString>
+#include <QImage>
+#include <QSize>
 
 class Lymalink : public QObject
 {
@@ -47,6 +49,8 @@ public:
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
     Q_INVOKABLE bool SetTargetInstallationLocation(int appId, const QString &installationDir);
+    Q_INVOKABLE bool SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType = "Emulator");
+    Q_INVOKABLE bool ClearTargetCoverImage(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE bool ResetTargetAchievementDataLocation(int appId);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
     Q_INVOKABLE bool DeleteTarget(int appId, const QString &targetType = "Emulator");
@@ -101,6 +105,8 @@ private:
     QVariantMap LatestUnlockedAchievement(const QVariantList &achievements) const;
     QVariantList BuildAchievementDetails(int appId, const QString &iconsPath, const QString &targetType);
     QString CoverImageFilePath(const QString &coversPath, const QString &fileName) const;
+    QString PreferredCoverImageFilePath(const QString &coversPath, const QString &fileName) const;
+    bool SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize) const;
     QString CommunityIconFilePath(const QString &iconsPath) const;
     QString AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const;
     QString ExecutableInstallationStatus(const QVariantMap &row) const;

@@ -17,8 +17,11 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
+#include <QImageReader>
 #include <QLocale>
 #include <QMetaObject>
+#include <QPair>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
@@ -1177,6 +1180,130 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType)
+{
+    bool coverUpdated = false;
+    m_lastOperationError.clear();
+
+    const QString trimmedSourceImagePath = sourceImagePath.trimmed();
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString assetFolder = AssetFolderForTargetType(normalizedTargetType);
+
+    if (appId <= 0 || trimmedSourceImagePath.isEmpty())
+    {
+        m_lastOperationError = tr("Invalid cover image.");
+        qWarning() << "Lymalink::SetTargetCoverImage: invalid cover image update:" << appId << trimmedSourceImagePath;
+        return coverUpdated;
+    }
+
+    QFileInfo sourceInfo(trimmedSourceImagePath);
+    if (!sourceInfo.exists() || !sourceInfo.isFile())
+    {
+        m_lastOperationError = tr("Cover image file was not found.");
+        qWarning() << "Lymalink::SetTargetCoverImage: source image not found:" << trimmedSourceImagePath;
+        return coverUpdated;
+    }
+
+    QImageReader reader(trimmedSourceImagePath);
+    reader.setAutoTransform(true);
+    reader.setDecideFormatFromContent(true);
+
+    QImage sourceImage = reader.read();
+    if (sourceImage.isNull())
+    {
+        m_lastOperationError = tr("Selected file is not a compatible image.");
+        qWarning() << "Lymalink::SetTargetCoverImage: failed to decode source image:" << reader.errorString() << trimmedSourceImagePath;
+        return coverUpdated;
+    }
+
+    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (appDataPath.isEmpty())
+    {
+        m_lastOperationError = tr("Couldn't resolve application data folder.");
+        qCritical() << "Lymalink::SetTargetCoverImage: failed to resolve app data location";
+        return coverUpdated;
+    }
+
+    const QString coversPath = QDir(appDataPath).filePath(assetFolder + "/" + QString::number(appId) + "/covers");
+    if (!QDir().mkpath(coversPath))
+    {
+        m_lastOperationError = tr("Couldn't create target cover folder.");
+        qWarning() << "Lymalink::SetTargetCoverImage: failed to create covers folder:" << coversPath;
+        return coverUpdated;
+    }
+
+    const QList<QPair<QString, QSize>> coverVariants = {
+        {"custom_cover_200x300.jpg", QSize(200, 300)},
+        {"custom_cover_150x225.jpg", QSize(150, 225)},
+        {"custom_cover_80x120.jpg", QSize(80, 120)},
+        {"custom_cover_240x360.jpg", QSize(240, 360)}
+    };
+
+    for (const auto &variant : coverVariants)
+    {
+        if (!SaveCustomCoverVariant(sourceImage, coversPath, variant.first, variant.second))
+        {
+            m_lastOperationError = tr("Couldn't save custom cover image.");
+            return coverUpdated;
+        }
+    }
+
+    coverUpdated = true;
+    qDebug() << "Lymalink::SetTargetCoverImage: custom cover saved:" << appId << normalizedTargetType << coversPath;
+    return coverUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::ClearTargetCoverImage(int appId, const QString &targetType)
+{
+    bool coverCleared = false;
+    m_lastOperationError.clear();
+
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString assetFolder = AssetFolderForTargetType(normalizedTargetType);
+
+    if (appId <= 0)
+    {
+        m_lastOperationError = tr("Invalid target.");
+        qWarning() << "Lymalink::ClearTargetCoverImage: invalid appId:" << appId;
+        return coverCleared;
+    }
+
+    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (appDataPath.isEmpty())
+    {
+        m_lastOperationError = tr("Couldn't resolve application data folder.");
+        qCritical() << "Lymalink::ClearTargetCoverImage: failed to resolve app data location";
+        return coverCleared;
+    }
+
+    const QString coversPath = QDir(appDataPath).filePath(assetFolder + "/" + QString::number(appId) + "/covers");
+    QDir coversDir(coversPath);
+    if (!coversDir.exists())
+    {
+        coverCleared = true;
+        return coverCleared;
+    }
+
+    const QFileInfoList customCoverFiles = coversDir.entryInfoList({"custom_cover_*.jpg"}, QDir::Files, QDir::Name | QDir::IgnoreCase);
+    for (const QFileInfo &customCoverFile : customCoverFiles)
+    {
+        if (!QFile::remove(customCoverFile.absoluteFilePath()))
+        {
+            m_lastOperationError = tr("Couldn't clear custom cover image.");
+            qWarning() << "Lymalink::ClearTargetCoverImage: failed to remove custom cover:" << customCoverFile.absoluteFilePath();
+            return coverCleared;
+        }
+    }
+
+    coverCleared = true;
+    qDebug() << "Lymalink::ClearTargetCoverImage: custom cover cleared:" << appId << normalizedTargetType;
+    return coverCleared;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::ResetTargetAchievementDataLocation(int appId)
 {
     bool targetUpdated = false;
@@ -1495,10 +1622,10 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QDir emulatorAppDir(QDir(appDataPath).filePath("Emulator/" + appIdText));
         const QString coversPath = emulatorAppDir.filePath("covers");
         const QString iconsPath = emulatorAppDir.filePath("icons");
-        const QString coverSourceCard = CoverImageFilePath(coversPath, "cover_200x300.jpg");
-        const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
-        const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
-        const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceCard = PreferredCoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = PreferredCoverImageFilePath(coversPath, "cover_150x225.jpg");
+        const QString coverSourceRowDetailed = PreferredCoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
         const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath, false);
 
         // Fetch achievements only enough to compute latest unlock preview
@@ -1558,10 +1685,10 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QDir steamAppDir(QDir(appDataPath).filePath("Steam/" + appIdText));
         const QString coversPath = steamAppDir.filePath("covers");
         const QString iconsPath = steamAppDir.filePath("icons");
-        const QString coverSourceCard = CoverImageFilePath(coversPath, "cover_200x300.jpg");
-        const QString coverSourceCardSmall = CoverImageFilePath(coversPath, "cover_150x225.jpg");
-        const QString coverSourceRowDetailed = CoverImageFilePath(coversPath, "cover_80x120.jpg");
-        const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceCard = PreferredCoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = PreferredCoverImageFilePath(coversPath, "cover_150x225.jpg");
+        const QString coverSourceRowDetailed = PreferredCoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
         const QString coverSource = !coverSourceCard.isEmpty() ? coverSourceCard : m_fileManager.FirstImageInDirectory(coversPath, false);
 
         const QVariantList achievements = m_databaseManager.selectWhere(
@@ -1650,7 +1777,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
     const QString iconsPath = targetAppDir.filePath("icons");
 
     // Prefer detail-sized cover, then fallback to first image in covers folder
-    const QString coverSourceTargetDetails = CoverImageFilePath(coversPath, "cover_240x360.jpg");
+    const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
     const QString coverSource = !coverSourceTargetDetails.isEmpty() ? coverSourceTargetDetails : m_fileManager.FirstImageInDirectory(coversPath, false);
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath, normalizedTargetType);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
@@ -2282,6 +2409,59 @@ QString Lymalink::CoverImageFilePath(const QString &coversPath, const QString &f
 
     coverSource = m_fileManager.LocalFileSource(coverPath);
     return coverSource;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Lymalink::PreferredCoverImageFilePath(const QString &coversPath, const QString &fileName) const
+{
+    const QString customFileName = "custom_" + fileName;
+    const QString customCoverSource = CoverImageFilePath(coversPath, customFileName);
+    if (!customCoverSource.isEmpty())
+    {
+        return customCoverSource;
+    }
+
+    return CoverImageFilePath(coversPath, fileName);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize) const
+{
+    if (sourceImage.isNull() || coversPath.isEmpty() || fileName.isEmpty() || !targetSize.isValid())
+    {
+        qWarning() << "Lymalink::SaveCustomCoverVariant: invalid parameters:" << coversPath << fileName << targetSize;
+        return false;
+    }
+
+    QImage result;
+    if (sourceImage.width() > targetSize.width() || sourceImage.height() > targetSize.height())
+    {
+        result = sourceImage.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    else
+    {
+        result = sourceImage;
+    }
+
+    const QString finalPath = QDir(coversPath).filePath(fileName);
+    const QString tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(fileName + ".tmp");
+    if (!result.save(tempPath, "JPG", 90))
+    {
+        qWarning() << "Lymalink::SaveCustomCoverVariant: failed to save temp file:" << tempPath;
+        return false;
+    }
+
+    QFile::remove(finalPath);
+    if (!QFile::rename(tempPath, finalPath))
+    {
+        QFile::remove(tempPath);
+        qWarning() << "Lymalink::SaveCustomCoverVariant: failed to move cover variant:" << tempPath << finalPath;
+        return false;
+    }
+
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

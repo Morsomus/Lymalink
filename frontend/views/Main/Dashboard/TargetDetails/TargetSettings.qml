@@ -212,6 +212,27 @@ Popup {
         }
     }
 
+    function setTargetCoverImage(path) {
+        if (id_root.p_appId <= 0) {
+            return
+        }
+
+        if (path.length === 0) {
+            if (ctxLymalink.ClearTargetCoverImage(id_root.p_appId, id_root.p_targetType)) {
+                id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
+            } else {
+                id_errorPopup.showError(qsTr("Couldn't Clear Cover Image"), ctxLymalink.GetLastOperationError())
+            }
+            return
+        }
+
+        if (ctxLymalink.SetTargetCoverImage(id_root.p_appId, path, id_root.p_targetType)) {
+            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
+        } else {
+            id_errorPopup.showError(qsTr("Couldn't Edit Cover Image"), ctxLymalink.GetLastOperationError())
+        }
+    }
+
     function deleteTarget() {
         if (id_root.p_appId <= 0 || id_deleteConfirmInput.text !== "delete") {
             return
@@ -431,6 +452,25 @@ Popup {
         p_pathPlaceholderText: qsTr("Select Game Installation Directory")
         onConfirmed: function(path) {
             id_root.setInstallationLocation(path)
+        }
+    }
+
+    ConfirmationPopup {
+        id: id_coverImagePopup
+
+        p_title: qsTr("Edit Cover Image")
+        p_description: qsTr("Select a custom cover image for this target.\nClear it to restore the original cover.")
+        p_confirmText: qsTr("Apply")
+        p_popupWidth: 520
+        p_pathSelectionMode: true
+        p_pathSelectionFolder: false
+        p_pathSelectionRequired: false
+        p_pathAllowClear: true
+        p_pathDialogTitle: qsTr("Select Cover Image")
+        p_pathPlaceholderText: qsTr("Select Cover Image")
+        p_pathNameFilters: [qsTr("Image files (*.jpg *.jpeg *.png *.webp *.bmp)")]
+        onConfirmed: function(path) {
+            id_root.setTargetCoverImage(path)
         }
     }
 
@@ -688,6 +728,14 @@ Popup {
             text: qsTr("Edit Prefix Location")
             tooltipText: qsTr("Select Prefix Location (drive_c or equivalent)")
             onClicked: id_prefixLocationPopup.open()
+        }
+
+        C_ActionButton {
+            id: id_editCoverImageButton
+
+            text: qsTr("Edit Cover Image")
+            tooltipText: qsTr("Select custom cover image")
+            onClicked: id_coverImagePopup.open()
         }
         
         C_ActionButton {
