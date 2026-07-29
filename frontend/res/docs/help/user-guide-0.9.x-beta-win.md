@@ -42,7 +42,7 @@
 ###
 ## 🎮 Managing Emulator Targets
 
-In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG and NemirtingasGalaxyEmulator.
+In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED and NemirtingasGalaxyEmulator.
 
 ### ➕ Add an Emulator Target
 
@@ -189,6 +189,7 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 - **CODEX**
 - **RUNE**
 - **GOLDBERG**
+- **RELOADED**
 - **NemirtingasGalaxyEmulator 1.4.2/1.9.2 (GOG - Requires Steam equivalent achievements)**
 
 ###
