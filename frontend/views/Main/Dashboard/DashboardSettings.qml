@@ -44,6 +44,71 @@ Popup {
         border.color: Themes.targetSettings.colors.border
     }
 
+    /////////////////////////////////////////////////////////////////////
+    //////////////////////////// COMPONENTS /////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    component C_ActionButton: CustomButton {
+        id: id_button
+
+        property string tooltipText: ""
+        property bool danger: false
+
+        Layout.fillWidth: true
+        implicitHeight: 40
+
+        contentItem: Label {
+            text: id_button.text
+            color: id_button.danger
+                ? Themes.targetSettings.colors.dangerText
+                : Themes.targetSettings.colors.buttonText
+            font.pixelSize: Themes.targetSettings.fontSizes.button
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+
+        background: Rectangle {
+            radius: 6
+            color: id_button.danger
+                ? id_button.down
+                    ? Themes.targetSettings.colors.dangerBackgroundPressed
+                    : id_button.hovered
+                        ? Themes.targetSettings.colors.dangerBackgroundHover
+                        : Themes.targetSettings.colors.dangerBackground
+                : id_button.down
+                    ? Themes.targetSettings.colors.buttonBackgroundPressed
+                    : id_button.hovered
+                        ? Themes.targetSettings.colors.buttonBackgroundHover
+                        : Themes.targetSettings.colors.buttonBackground
+            border.width: 1
+            border.color: id_button.danger
+                ? id_button.hovered
+                    ? Themes.targetSettings.colors.dangerBorderHover
+                    : Themes.targetSettings.colors.dangerBorder
+                : id_button.hovered
+                    ? Themes.targetSettings.colors.buttonBorderHover
+                    : Themes.targetSettings.colors.buttonBorder
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 120
+                }
+            }
+        }
+
+        CustomTooltip {
+            p_active: id_button.hovered
+            p_delay: 300
+            p_text: id_button.tooltipText
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PUBLIC ///////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
     contentItem: ColumnLayout {
         id: id_content
 
@@ -58,16 +123,20 @@ Popup {
             elide: Text.ElideRight
         }
 
-        CustomButton {
-            Layout.fillWidth: true
-            implicitHeight: 40
+        C_ActionButton {
             text: qsTr("Reload All Missing Metadata")
+            tooltipText: qsTr("Reloads missing image assets and achievements metadata for every dashboard target")
             enabled: !ctxLymalink.steamHydrationBusy
             onClicked: {
                 const targets = ctxLymalink.ReloadAllMissingMetadata()
                 id_root.missingMetadataReloadQueued(targets)
                 id_root.close()
             }
+        }
+
+        C_ActionButton {
+            text: qsTr("Close")
+            onClicked: id_root.close()
         }
     }
 }
