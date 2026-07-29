@@ -59,6 +59,7 @@ public:
     Q_INVOKABLE QString GetTargetExecutableLocation(int appId);
     Q_INVOKABLE QString GetTargetInstallationLocation(int appId);
     Q_INVOKABLE QString GetLastOperationError() const;
+    Q_INVOKABLE QVariantList ReloadAllMissingMetadata();
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QVariantMap FetchSteamOwnedGames(const QString &steamId, const QString &apiKey);
@@ -106,6 +107,9 @@ private:
     QVariantList BuildAchievementDetails(int appId, const QString &iconsPath, const QString &targetType);
     QString CoverImageFilePath(const QString &coversPath, const QString &fileName) const;
     QString PreferredCoverImageFilePath(const QString &coversPath, const QString &fileName) const;
+    bool TargetHasMissingMetadata(int appId, const QString &targetType);
+    bool TargetHasMissingCoverAssets(const QString &coversPath) const;
+    bool TargetHasMissingAchievementIcons(int appId, const QString &iconsPath, const QString &targetType);
     bool SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize) const;
     QString CommunityIconFilePath(const QString &iconsPath) const;
     QString AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const;

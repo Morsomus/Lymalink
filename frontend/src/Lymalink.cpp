@@ -1600,6 +1600,49 @@ QString Lymalink::GetLastOperationError() const
 
 /////////////////////////////////////////////////////////////////////
 
+QVariantList Lymalink::ReloadAllMissingMetadata()
+{
+    QVariantList queuedTargets;
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        qCritical() << "Lymalink::ReloadAllMissingMetadata: failed to open database:" << m_databaseManager.lastError();
+        return queuedTargets;
+    }
+
+    const auto queueMissingTargets = [this, &queuedTargets](const QString &targetType) {
+        const QString gameTable = GameTableForTargetType(targetType);
+        const QVariantList rows = m_databaseManager.selectAll(m_databaseConnectionName, gameTable, QStringList{"id"});
+        if (!m_databaseManager.lastError().isEmpty())
+        {
+            qWarning() << "Lymalink::ReloadAllMissingMetadata: failed to fetch target rows:" << gameTable << m_databaseManager.lastError();
+            return;
+        }
+
+        for (const QVariant &rowValue : rows)
+        {
+            const QVariantMap row = rowValue.toMap();
+            const int appId = Utils::MapIntValue(row, "id");
+            if (appId <= 0 || !TargetHasMissingMetadata(appId, targetType))
+            {
+                continue;
+            }
+
+            EnqueueSteamHydrationTask(appId, true, targetType);
+            queuedTargets.append(QVariantMap{
+                {"id", appId},
+                {"targetType", NormalizeTargetType(targetType)}
+            });
+        }
+    };
+
+    queueMissingTargets("Emulator");
+    queueMissingTargets("Steam");
+    return queuedTargets;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 QVariantList Lymalink::FetchDashboardTargets()
 {
     QVariantList targets;
@@ -2423,6 +2466,84 @@ QString Lymalink::PreferredCoverImageFilePath(const QString &coversPath, const Q
     }
 
     return CoverImageFilePath(coversPath, fileName);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::TargetHasMissingMetadata(int appId, const QString &targetType)
+{
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    const QString appIdText = QString::number(appId);
+    const QDir targetAppDir(QDir(appDataPath).filePath(AssetFolderForTargetType(normalizedTargetType) + "/" + appIdText));
+    const QString coversPath = targetAppDir.filePath("covers");
+    const QString iconsPath = targetAppDir.filePath("icons");
+
+    const bool missingCovers = TargetHasMissingCoverAssets(coversPath);
+    const bool missingAchievementIcons = TargetHasMissingAchievementIcons(appId, iconsPath, normalizedTargetType);
+    return missingCovers || missingAchievementIcons;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::TargetHasMissingCoverAssets(const QString &coversPath) const
+{
+    const QDir coversDir(coversPath);
+    const QStringList coverFiles = {
+        "cover_200x300.jpg",
+        "cover_150x225.jpg",
+        "cover_80x120.jpg",
+        "cover_240x360.jpg"
+    };
+
+    for (const QString &coverFile : coverFiles)
+    {
+        if (!QFileInfo::exists(coversDir.filePath(coverFile)))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::TargetHasMissingAchievementIcons(int appId, const QString &iconsPath, const QString &targetType)
+{
+    const QString achievementTable = AchievementTableForTargetType(targetType);
+    const QVariantList rows = m_databaseManager.selectWhere(
+        m_databaseConnectionName,
+        achievementTable,
+        "id = ?",
+        {appId},
+        {"achievement_key"}
+    );
+    if (!m_databaseManager.lastError().isEmpty())
+    {
+        qWarning() << "Lymalink::TargetHasMissingAchievementIcons: failed to fetch achievements:" << appId << targetType << m_databaseManager.lastError();
+        return false;
+    }
+
+    const QDir iconsDir(iconsPath);
+    for (const QVariant &rowValue : rows)
+    {
+        const QVariantMap row = rowValue.toMap();
+        const QString achievementKey = Utils::MapStringValue(row, "achievement_key");
+        if (achievementKey.isEmpty())
+        {
+            continue;
+        }
+
+        const bool hasIcon = QFileInfo::exists(iconsDir.filePath(achievementKey + "_icon.jpg"));
+        const bool hasGrayIcon = QFileInfo::exists(iconsDir.filePath(achievementKey + "_gray_icon.jpg"));
+        if (!hasIcon || !hasGrayIcon)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////

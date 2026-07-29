@@ -32,6 +32,7 @@ Item {
 
     signal layoutSelected(string size)
     signal returnClicked()
+    signal missingMetadataReloadQueued(var targets)
     signal addTargetClicked()
     signal refreshClicked()
     signal reloadAssetsRequested(int appId, string targetType)
@@ -388,6 +389,15 @@ Item {
         }
     }
 
+    DashboardSettings {
+        id: id_dashboardSettingsPopup
+
+        parent: Overlay.overlay
+        onMissingMetadataReloadQueued: function(targets) {
+            id_root.missingMetadataReloadQueued(targets)
+        }
+    }
+
     // Add New Target Toolbar
     ColumnLayout {
         id: id_addTargetToolbar
@@ -560,10 +570,53 @@ Item {
             }
 
             // Settings Icon for Selected Target
-            Item {
-                Layout.preferredWidth: id_settingsIcon.width
-                Layout.preferredHeight: id_settingsIcon.height
+            Rectangle {
+                id: id_settingsIconPill
+
+                Layout.preferredWidth: implicitWidth
+                Layout.preferredHeight: implicitHeight
                 Layout.alignment: Qt.AlignTop
+
+                implicitWidth: 32
+                implicitHeight: 32
+                radius: 16
+
+                color: id_settingsIconMouseArea.pressed
+                    ? Themes.dashboardToolbar.colors.pillPressed
+                    : id_settingsIconMouseArea.containsMouse
+                        ? Themes.dashboardToolbar.colors.pillHover
+                        : Themes.dashboardToolbar.colors.pillBackground
+                border.width: 1
+                border.color: id_settingsIconMouseArea.pressed
+                    ? Themes.dashboardToolbar.colors.pillBorderPressed
+                    : id_settingsIconMouseArea.containsMouse
+                        ? Themes.dashboardToolbar.colors.pillBorderHover
+                        : Themes.dashboardToolbar.colors.pillBorder
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Image {
+                    id: id_settingsIcon
+
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
+                    width: 24
+                    height: 24
+                    anchors.centerIn: parent
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                    opacity: id_settingsIconMouseArea.containsMouse ? 0.78 : 1.0
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 120
+                        }
+                    }
+                }
 
                 MouseArea {
                     id: id_settingsIconMouseArea
@@ -572,22 +625,8 @@ Item {
                     enabled: p_targetDetailsVisible
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: id_targetSettingsPopup.open()
-
-                    Image {
-                        id: id_settingsIcon
-
-                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
-                        width: 32
-                        height: 32
-                        anchors.centerIn: parent
-                        opacity: id_settingsIconMouseArea.containsMouse ? 0.7 : 1.0
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 120
-                            }
-                        }
+                    onClicked: {
+                        id_targetSettingsPopup.open()
                     }
                 }
             }
@@ -985,6 +1024,62 @@ Item {
                     implicitHeight: 32
                     color: Themes.dashboardToolbar.colors.divider
                     opacity: 0.5
+                }
+
+                Rectangle {
+                    id: id_dashboardSettings
+
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    radius: 16
+
+                    color: id_dashboardSettingsMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillPressed
+                        : id_dashboardSettingsMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillHover
+                            : Themes.dashboardToolbar.colors.pillBackground
+                    border.width: 1
+                    border.color: id_dashboardSettingsMouseArea.pressed
+                        ? Themes.dashboardToolbar.colors.pillBorderPressed
+                        : id_dashboardSettingsMouseArea.containsMouse
+                            ? Themes.dashboardToolbar.colors.pillBorderHover
+                            : Themes.dashboardToolbar.colors.pillBorder
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    Image {
+                        id: id_dashboardSettingsIcon
+
+                        anchors.centerIn: parent
+                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
+                        width: 24
+                        height: 24
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
+                        opacity: id_dashboardSettingsMouseArea.containsMouse ? 0.78 : 1.0
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 120
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: id_dashboardSettingsMouseArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            id_dashboardSettingsPopup.open()
+                        }
+                    }
                 }
 
                 Rectangle {

@@ -708,6 +708,16 @@ Item {
                 id_root.addTargetBusy = false
             }
 
+            onMissingMetadataReloadQueued: function(targets) {
+                for (let i = 0; i < targets.length; ++i) {
+                    const target = targets[i]
+                    const appId = Number(target.id)
+                    const targetType = target.targetType
+                    id_root.setTargetLoading(appId, targetType, true)
+                }
+                id_root.refreshTargets()
+            }
+
             onRefreshClicked: {
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
                     id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)

@@ -395,6 +395,10 @@ function New-NsisWrapperScript {
 function Build-Installer {
     Test-Toolchain
 
+    & (Join-Path $ROOT_DIR "backend-overlay\build.ps1") clean
+    & (Join-Path $ROOT_DIR "backend\build.ps1") clean
+    & (Join-Path $ROOT_DIR "frontend\build.ps1") clean
+
     Invoke-ComponentBuild "frontend\build.ps1" "frontend"
     Invoke-ComponentBuild "backend\build.ps1" "backend"
     Invoke-ComponentBuild "backend-overlay\build.ps1" "backend-overlay"

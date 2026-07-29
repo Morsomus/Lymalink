@@ -147,6 +147,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/TargetDetails/TargetAchievementEditPopup.qml
         views/Main/Dashboard/TargetDetails/TargetSettings.qml
         views/Main/Dashboard/Dashboard.qml
+        views/Main/Dashboard/DashboardSettings.qml
         views/Main/Dashboard/DashboardToolbar.qml
         views/Main/Settings/Settings.qml
         views/Sidebar/Components/BackendServiceElement.qml

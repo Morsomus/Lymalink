@@ -663,6 +663,12 @@ INSTALLER_PATH="$BUILD_DIR/lymalink-installer-${VERSION}-${BUILD_HOST_TAG}-${ARC
 QMAKE_PATH="$(resolve_qmake)"
 check_qt_version "$QMAKE_PATH"
 
+# Clean component build outputs before compiling anything for the installer.
+echo "==> Cleaning release component build artifacts..."
+"$ROOT_DIR/backend-overlay/build.sh" clean
+"$ROOT_DIR/backend/build.sh" clean
+"$ROOT_DIR/frontend/build.sh" clean
+
 # Build release binaries
 echo "==> Building frontend release..."
 "$ROOT_DIR/frontend/build.sh" release
