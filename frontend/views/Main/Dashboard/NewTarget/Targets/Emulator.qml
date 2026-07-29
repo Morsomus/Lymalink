@@ -1209,7 +1209,7 @@ Item {
                         }
 
                         CustomButton {
-                            text: OS_WIN ? qsTr("Scan system") : qsTr("Scan prefix")
+                            text: OS_WIN ? qsTr("Scan system") : qsTr("Scan prefix(es)")
                             enabled: !id_root.appIdFolderFindLoading
                             onClicked: {
                                 if (OS_WIN) {

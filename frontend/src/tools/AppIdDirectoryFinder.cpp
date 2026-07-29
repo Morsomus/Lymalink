@@ -191,7 +191,7 @@ QString AppIdDirectoryFinder::EmulatorLabel(const QString &emulatorType) const
 void AppIdDirectoryFinder::AddResult(QVariantList &results, QSet<QString> &seen, const QString &appId, const QString &emulatorType, const QString &path) const
 {
     // Ignore non-APPID folders before building result payload
-    if (!IsNumericAppId(appId))
+    if (!IsNumericAppId(appId) || emulatorType == QStringLiteral("UNKNOWN"))
     {
         return;
     }
