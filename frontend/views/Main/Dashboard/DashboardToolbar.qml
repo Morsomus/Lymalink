@@ -33,6 +33,7 @@ Item {
     signal layoutSelected(string size)
     signal returnClicked()
     signal missingMetadataReloadQueued(var targets)
+    signal targetsVisibilityChanged()
     signal addTargetClicked()
     signal refreshClicked()
     signal reloadAssetsRequested(int appId, string targetType)
@@ -395,6 +396,9 @@ Item {
         parent: Overlay.overlay
         onMissingMetadataReloadQueued: function(targets) {
             id_root.missingMetadataReloadQueued(targets)
+        }
+        onTargetsVisibilityChanged: {
+            id_root.targetsVisibilityChanged()
         }
     }
 

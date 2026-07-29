@@ -1032,6 +1032,36 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden, const QString &targetType
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalink::SetAllTargetsHidden(bool hidden, const QString &targetType)
+{
+    bool targetsUpdated = false;
+    const QString normalizedTargetType = NormalizeTargetType(targetType);
+    const QString gameTable = GameTableForTargetType(normalizedTargetType);
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    {
+        qCritical() << "Lymalink::SetAllTargetsHidden: failed to open database for target hidden update:" << m_databaseManager.lastError();
+        return targetsUpdated;
+    }
+
+    targetsUpdated = m_databaseManager.update(
+        m_databaseConnectionName,
+        gameTable,
+        {{"target_hidden", hidden ? 1 : 0}},
+        "target_hidden = ?",
+        {hidden ? 0 : 1}
+    );
+
+    if (!targetsUpdated)
+    {
+        qCritical() << "Lymalink::SetAllTargetsHidden: failed to update target hidden states:" << m_databaseManager.lastError();
+    }
+
+    return targetsUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 {
     bool targetUpdated = false;

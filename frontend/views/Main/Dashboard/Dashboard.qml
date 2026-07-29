@@ -718,6 +718,10 @@ Item {
                 id_root.refreshTargets()
             }
 
+            onTargetsVisibilityChanged: {
+                id_root.refreshTargets()
+            }
+
             onRefreshClicked: {
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
                     id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)

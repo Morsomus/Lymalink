@@ -17,6 +17,7 @@ Popup {
     id: id_root
 
     signal missingMetadataReloadQueued(var targets)
+    signal targetsVisibilityChanged()
 
     width: Math.min(340, parent ? parent.width - 48 : 340)
     height: id_content.implicitHeight + topPadding + bottomPadding
@@ -131,6 +132,28 @@ Popup {
                 const targets = ctxLymalink.ReloadAllMissingMetadata()
                 id_root.missingMetadataReloadQueued(targets)
                 id_root.close()
+            }
+        }
+
+        C_ActionButton {
+            text: qsTr("Unhide All Emulator Targets")
+            tooltipText: qsTr("Unhides every hidden Emulator target on the dashboard")
+            onClicked: {
+                if (ctxLymalink.SetAllTargetsHidden(false, "Emulator")) {
+                    id_root.targetsVisibilityChanged()
+                    id_root.close()
+                }
+            }
+        }
+
+        C_ActionButton {
+            text: qsTr("Unhide All Steam Targets")
+            tooltipText: qsTr("Unhides every hidden Steam target on the dashboard")
+            onClicked: {
+                if (ctxLymalink.SetAllTargetsHidden(false, "Steam")) {
+                    id_root.targetsVisibilityChanged()
+                    id_root.close()
+                }
             }
         }
 
