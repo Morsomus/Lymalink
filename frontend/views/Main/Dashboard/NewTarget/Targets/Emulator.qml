@@ -1239,6 +1239,8 @@ Item {
                             ListView {
                                 id: id_appIdFolderResultsList
 
+                                readonly property int rowScrollbarReserve: id_root.visibleAppIdFolderFindResults.length >= 5 ? 25 : 0
+
                                 anchors.fill: parent
                                 anchors.margins: 6
                                 clip: true
@@ -1260,7 +1262,7 @@ Item {
                                     required property var modelData
                                     readonly property bool canSelect: modelData.gameName && modelData.gameName.length > 0
 
-                                    width: id_appIdFolderResultsList.width
+                                    width: id_appIdFolderResultsList.width - id_appIdFolderResultsList.rowScrollbarReserve
                                     height: 56
                                     radius: 6
                                     opacity: canSelect ? 1.0 : 0.45
