@@ -653,14 +653,28 @@ Item {
 
     // Page
     ScrollView {
+        id: id_settingsScrollView
+
         anchors.top: id_fixedHeader.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical: CustomScrollBar {
+            id: id_verticalScrollBar
+
+            policy: ScrollBar.AsNeeded
+            p_rightMargin: 10
+        }
         contentHeight: id_contentLayout.height
         clip: true
+
+        Component.onCompleted: {
+            id_verticalScrollBar.parent = id_settingsScrollView
+            id_verticalScrollBar.anchors.top = id_settingsScrollView.top
+            id_verticalScrollBar.anchors.bottom = id_settingsScrollView.bottom
+            id_verticalScrollBar.anchors.right = id_settingsScrollView.right
+        }
 
         Item {
             width: parent.width

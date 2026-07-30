@@ -163,6 +163,17 @@ QtObject {
         }
     }
 
+    // CustomScrollBar.qml
+    readonly property QtObject customScrollBar: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color track: id_themes.themeColor("#202428", "#edf1f5")
+            readonly property color trackHover: id_themes.themeColor("#252b30", "#d6dbe0")
+            readonly property color thumb: id_themes.themeColor("#69737d", "#8f9daa")
+            readonly property color thumbHover: id_themes.themeColor("#8b98a5", "#6f7f8c")
+            readonly property color thumbPressed: id_themes.themeColor("#2e99d6", "#0f78b7")
+        }
+    }
+
     // Shared backend service status indicator
     readonly property QtObject serviceIndicator: QtObject {
         readonly property QtObject colors: QtObject {

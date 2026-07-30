@@ -195,7 +195,7 @@ Popup {
             model: id_root.p_conflicts
             boundsBehavior: Flickable.StopAtBounds
 
-            ScrollBar.vertical: ScrollBar {
+            ScrollBar.vertical: CustomScrollBar {
                 policy: ScrollBar.AlwaysOn
             }
 

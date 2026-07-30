@@ -76,6 +76,7 @@ Item {
         anchors.fill: parent
         spacing: 6
         clip: true
+        boundsBehavior: Flickable.StopAtBounds
 
         model: id_root.p_targetModel
 
@@ -84,7 +85,7 @@ Item {
             onTapped: id_root.backgroundClicked()
         }
 
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.vertical: CustomScrollBar {
             policy: ScrollBar.AsNeeded
         }
 

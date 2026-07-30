@@ -510,370 +510,395 @@ Item {
     }
 
     // Imports view
-    ScrollView {
+    Item {
         id: id_scrollView
+
+        readonly property real availableWidth: width
+        readonly property real availableHeight: height
 
         anchors.fill: parent
         clip: true
-        contentWidth: availableWidth
 
-        ColumnLayout {
-            readonly property int sideMargin: 20
+        Flickable {
+            id: id_parentFlickable
 
-            x: Math.max(sideMargin, (id_scrollView.availableWidth - width) / 2)
-            width: Math.max(0, Math.min(id_scrollView.availableWidth - sideMargin * 2, 760))
-            spacing: 16
+            width: id_scrollView.availableWidth
+            height: id_scrollView.availableHeight
+            contentWidth: width
+            contentHeight: id_content.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: !id_resultsListHover.hovered
 
-            // Info box
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: 20
-                implicitHeight: id_introText.implicitHeight + id_publicProfileText.implicitHeight + 38
-                radius: 6
-                color: Themes.steamImportTarget.colors.infoBlockBackground
-                border.width: 1
-                border.color: Themes.steamImportTarget.colors.infoBlockBorder
-
-                Text {
-                    id: id_introText
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    anchors.topMargin: 14
-                    text: qsTr("Steam import requires your Steam ID and an encrypted Web API key configured under Settings.")
-                    wrapMode: Text.WordWrap
-                    color: Themes.steamImportTarget.colors.descriptionText
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.description
-                }
-
-                Text {
-                    id: id_publicProfileText
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: id_introText.bottom
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    anchors.topMargin: 8
-                    text: qsTr("Please ensure your Steam profile is set to Public for the import process to succeed.")
-                    wrapMode: Text.WordWrap
-                    color: Themes.steamImportTarget.colors.warningText
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.description
-                }
+            ScrollBar.vertical: CustomScrollBar {
+                policy: ScrollBar.AsNeeded
             }
 
-            // Warning text for missing API credentials
-            Text {
-                visible: !id_root.steamConfigured
-                Layout.fillWidth: true
-                text: qsTr("Please configure both Steam ID and Web API key in Settings to use Steam functions.")
-                wrapMode: Text.WordWrap
-                color: Themes.steamImportTarget.colors.errorText
-                font.pixelSize: Themes.steamImportTarget.fontSizes.label
-            }
-
-            // Update Imports
             ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 10
+                id: id_content
 
-                Text {
-                    text: qsTr("Update")
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.title
-                    font.bold: true
-                    color: Themes.steamImportTarget.colors.titleText
-                }
+                readonly property int sideMargin: 20
 
-                Text {
+                x: Math.max(sideMargin, (id_parentFlickable.width - width) / 2)
+                width: Math.max(0, Math.min(id_parentFlickable.width - sideMargin * 2, 760))
+                spacing: 16
+
+                // Info box
+                Rectangle {
                     Layout.fillWidth: true
-                    text: qsTr("Refresh data and achievements for already imported games.")
-                    wrapMode: Text.WordWrap
-                    color: Themes.steamImportTarget.colors.descriptionText
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.label
-                }
-
-                CustomButton {
-                    text: qsTr("Update")
-                    enabled: id_root.steamConfigured && !id_root.operationLoading
-                    onClicked: id_root.beginOperation("update")
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-                    visible: id_root.updateStatusText.length > 0 || id_root.updateLoading
-
-                    CustomBusyIndicator {
-                        Layout.alignment: Qt.AlignVCenter
-                        p_indicatorSize: 24
-                        p_speed: 900
-                        p_running: id_root.updateLoading
-                    }
+                    Layout.topMargin: 20
+                    implicitHeight: id_introText.implicitHeight + id_publicProfileText.implicitHeight + 38
+                    radius: 6
+                    color: Themes.steamImportTarget.colors.infoBlockBackground
+                    border.width: 1
+                    border.color: Themes.steamImportTarget.colors.infoBlockBorder
 
                     Text {
-                        Layout.fillWidth: true
-                        text: id_root.updateStatusText
-                        wrapMode: Text.WordWrap
-                        color: id_root.updateStatusIsError
-                            ? Themes.steamImportTarget.colors.errorText
-                            : id_root.themedCompletionColor
-                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
-                    }
-                }
-            }
+                        id: id_introText
 
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: Themes.steamImportTarget.colors.divider
-            }
-
-            // Modify Imports (Add, Remove)
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 10
-
-                Text {
-                    text: qsTr("Import / Remove")
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.title
-                    font.bold: true
-                    color: Themes.steamImportTarget.colors.titleText
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: qsTr("Load your library, then select games to import or uncheck to remove.")
-                    wrapMode: Text.WordWrap
-                    color: Themes.steamImportTarget.colors.descriptionText
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.label
-                }
-
-                // Select buttons
-                RowLayout {
-                    visible: id_root.libraryLoaded && !id_root.updateLoading
-                    spacing: 8
-
-                    CustomTextField {
-                        id: id_searchField
-
-                        Layout.fillWidth: true
-                        visible: id_root.libraryLoaded
-                        enabled: !id_root.applyLoading
-                        placeholderText: qsTr("Search game name or App ID")
-                        font.pixelSize: Themes.steamImportTarget.fontSizes.input
-                    }
-
-                    CustomButton {
-                        text: qsTr("Select All")
-                        enabled: !id_root.applyLoading && id_root.selectedCount < id_root.libraryGames.length
-                        onClicked: id_root.setAllGamesSelected(true)
-                    }
-
-                    CustomButton {
-                        text: qsTr("Deselect All")
-                        enabled: !id_root.applyLoading && id_root.selectedCount > 0
-                        onClicked: id_root.setAllGamesSelected(false)
-                    }
-                }
-
-                // Changes information
-                RowLayout {
-                    Layout.fillWidth: true
-                    visible: id_root.libraryLoaded && !id_root.updateLoading
-                    spacing: 12
-
-                    Text {
-                        visible: id_root.libraryLoaded
-                        Layout.fillWidth: true
-                        text: qsTr("%1 selected, %2 new import(s), %3 removal(s)")
-                            .arg(id_root.selectedCount)
-                            .arg(id_root.newImports.length)
-                            .arg(id_root.removals.length)
-                        color: Themes.steamImportTarget.colors.descriptionText
-                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
-                    }
-
-                    Text {
-                        text: id_root.selectionDirty
-                            ? qsTr("Changes detected. Apply selection to confirm imports and removals.")
-                            : qsTr("Selection matches imported games.")
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
+                        anchors.topMargin: 14
+                        text: qsTr("Steam import requires your Steam ID and an encrypted Web API key configured under Settings.")
                         wrapMode: Text.WordWrap
                         color: Themes.steamImportTarget.colors.descriptionText
                         font.pixelSize: Themes.steamImportTarget.fontSizes.description
                     }
+
+                    Text {
+                        id: id_publicProfileText
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: id_introText.bottom
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
+                        anchors.topMargin: 8
+                        text: qsTr("Please ensure your Steam profile is set to Public for the import process to succeed.")
+                        wrapMode: Text.WordWrap
+                        color: Themes.steamImportTarget.colors.warningText
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                    }
                 }
 
+                // Warning text for missing API credentials
                 Text {
-                    visible: id_root.newImports.length > 10
+                    visible: !id_root.steamConfigured
                     Layout.fillWidth: true
-                    text: qsTr("Large Steam import selected. We recommend smaller batches because asset loading may take a long time.")
+                    text: qsTr("Please configure both Steam ID and Web API key in Settings to use Steam functions.")
                     wrapMode: Text.WordWrap
                     color: Themes.steamImportTarget.colors.errorText
-                    font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                    font.pixelSize: Themes.steamImportTarget.fontSizes.label
                 }
 
-                // Game results
+                // Update Imports
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 8
-                    visible: id_root.libraryLoaded && !id_root.updateLoading
-                    Layout.preferredHeight: 270
+                    spacing: 10
 
-                    Rectangle {
+                    Text {
+                        text: qsTr("Update")
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.title
+                        font.bold: true
+                        color: Themes.steamImportTarget.colors.titleText
+                    }
+
+                    Text {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        radius: 6
-                        color: Themes.steamImportTarget.colors.resultBackground
-                        border.width: 1
-                        border.color: Themes.steamImportTarget.colors.resultBorder
+                        text: qsTr("Refresh data and achievements for already imported games.")
+                        wrapMode: Text.WordWrap
+                        color: Themes.steamImportTarget.colors.descriptionText
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.label
+                    }
 
-                        ListView {
-                            id: id_resultsList
+                    CustomButton {
+                        text: qsTr("Update")
+                        enabled: id_root.steamConfigured && !id_root.operationLoading
+                        onClicked: id_root.beginOperation("update")
+                    }
 
-                            anchors.fill: parent
-                            anchors.margins: 6
-                            clip: true
-                            model: id_root.visibleLibraryGames
-                            spacing: 8
-                            boundsBehavior: Flickable.StopAtBounds
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        visible: id_root.updateStatusText.length > 0 || id_root.updateLoading
 
-                            ScrollBar.vertical: ScrollBar {
-                                policy: ScrollBar.AsNeeded
-                            }
+                        CustomBusyIndicator {
+                            Layout.alignment: Qt.AlignVCenter
+                            p_indicatorSize: 24
+                            p_speed: 900
+                            p_running: id_root.updateLoading
+                        }
 
-                            delegate: Rectangle {
-                                id: id_resultRow
+                        Text {
+                            Layout.fillWidth: true
+                            text: id_root.updateStatusText
+                            wrapMode: Text.WordWrap
+                            color: id_root.updateStatusIsError
+                                ? Themes.steamImportTarget.colors.errorText
+                                : id_root.themedCompletionColor
+                            font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                        }
+                    }
+                }
 
-                                required property var modelData
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Themes.steamImportTarget.colors.divider
+                }
 
-                                width: id_resultsList.width
-                                height: 48
-                                radius: 6
-                                color: id_resultMouseArea.containsMouse
-                                    ? Themes.steamImportTarget.colors.resultBackgroundHover
-                                    : Themes.steamImportTarget.colors.resultBackground
-                                border.width: 1
-                                border.color: Themes.steamImportTarget.colors.resultBorder
+                // Modify Imports (Add, Remove)
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
 
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 10
-                                    anchors.rightMargin: 12
-                                    spacing: 10
+                    Text {
+                        text: qsTr("Import / Remove")
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.title
+                        font.bold: true
+                        color: Themes.steamImportTarget.colors.titleText
+                    }
 
-                                    CustomCheckBox {
-                                        id: id_gameCheckBox
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Load your library, then select games to import or uncheck to remove.")
+                        wrapMode: Text.WordWrap
+                        color: Themes.steamImportTarget.colors.descriptionText
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.label
+                    }
 
-                                        checked: id_resultRow.modelData.selected
-                                        enabled: !id_root.applyLoading
-                                        onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, checked, true)
-                                    }
+                    // Select buttons
+                    RowLayout {
+                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        spacing: 8
 
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 1
+                        CustomTextField {
+                            id: id_searchField
 
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: id_resultRow.modelData.name
-                                            elide: Text.ElideRight
-                                            color: Themes.steamImportTarget.colors.labelText
-                                            font.pixelSize: Themes.steamImportTarget.fontSizes.label
-                                        }
+                            Layout.fillWidth: true
+                            visible: id_root.libraryLoaded
+                            enabled: !id_root.applyLoading
+                            placeholderText: qsTr("Search game name or App ID")
+                            font.pixelSize: Themes.steamImportTarget.fontSizes.input
+                        }
 
-                                        Text {
-                                            text: qsTr("App ID: %1").arg(id_resultRow.modelData.appId)
-                                            color: Themes.steamImportTarget.colors.descriptionText
-                                            font.pixelSize: Themes.steamImportTarget.fontSizes.descriptionSubtle
-                                        }
-                                    }
+                        CustomButton {
+                            text: qsTr("Select All")
+                            enabled: !id_root.applyLoading && id_root.selectedCount < id_root.libraryGames.length
+                            onClicked: id_root.setAllGamesSelected(true)
+                        }
 
-                                    Rectangle {
-                                        visible: id_resultRow.modelData.imported
-                                        implicitWidth: id_importedText.implicitWidth + 14
-                                        implicitHeight: 22
-                                        radius: 5
-                                        color: Themes.steamImportTarget.colors.importedBadgeBackground
-                                        border.width: 1
-                                        border.color: Themes.steamImportTarget.colors.importedBadgeBorder
+                        CustomButton {
+                            text: qsTr("Deselect All")
+                            enabled: !id_root.applyLoading && id_root.selectedCount > 0
+                            onClicked: id_root.setAllGamesSelected(false)
+                        }
+                    }
 
-                                        Text {
-                                            id: id_importedText
+                    // Changes information
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        spacing: 12
 
-                                            anchors.centerIn: parent
-                                            text: qsTr("Imported")
-                                            color: Themes.steamImportTarget.colors.importedBadgeText
-                                            font.pixelSize: Themes.steamImportTarget.fontSizes.badge
-                                        }
-                                    }
-                                }
+                        Text {
+                            visible: id_root.libraryLoaded
+                            Layout.fillWidth: true
+                            text: qsTr("%1 selected, %2 new import(s), %3 removal(s)")
+                                .arg(id_root.selectedCount)
+                                .arg(id_root.newImports.length)
+                                .arg(id_root.removals.length)
+                            color: Themes.steamImportTarget.colors.descriptionText
+                            font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                        }
 
-                                MouseArea {
-                                    id: id_resultMouseArea
-
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    enabled: !id_root.applyLoading
-                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, !id_resultRow.modelData.selected, true)
-                                }
-                            }
+                        Text {
+                            text: id_root.selectionDirty
+                                ? qsTr("Changes detected. Apply selection to confirm imports and removals.")
+                                : qsTr("Selection matches imported games.")
+                            wrapMode: Text.WordWrap
+                            color: Themes.steamImportTarget.colors.descriptionText
+                            font.pixelSize: Themes.steamImportTarget.fontSizes.description
                         }
                     }
 
                     Text {
-                        visible: id_root.visibleLibraryGames.length === 0
+                        visible: id_root.newImports.length > 10
                         Layout.fillWidth: true
-                        text: qsTr("No matching games")
-                        color: Themes.steamImportTarget.colors.descriptionText
-                        font.pixelSize: Themes.steamImportTarget.fontSizes.label
+                        text: qsTr("Large Steam import selected. We recommend smaller batches because asset loading may take a long time.")
+                        wrapMode: Text.WordWrap
+                        color: Themes.steamImportTarget.colors.errorText
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                    }
+
+                    // Game results
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        Layout.preferredHeight: 270
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            radius: 6
+                            color: Themes.steamImportTarget.colors.resultBackground
+                            border.width: 1
+                            border.color: Themes.steamImportTarget.colors.resultBorder
+
+                            ListView {
+                                id: id_resultsList
+
+                                readonly property int rowScrollbarReserve: id_root.visibleLibraryGames.length >= 5 ? 25 : 0
+
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                clip: true
+                                model: id_root.visibleLibraryGames
+                                spacing: 8
+                                boundsBehavior: Flickable.StopAtBounds
+
+                                HoverHandler {
+                                    id: id_resultsListHover
+                                }
+
+                                ScrollBar.vertical: CustomScrollBar {
+                                    policy: id_root.visibleLibraryGames.length >= 5 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                }
+
+                                delegate: Rectangle {
+                                    id: id_resultRow
+
+                                    required property var modelData
+
+                                    width: id_resultsList.width - id_resultsList.rowScrollbarReserve
+                                    height: 48
+                                    radius: 6
+                                    color: id_resultMouseArea.containsMouse
+                                        ? Themes.steamImportTarget.colors.resultBackgroundHover
+                                        : Themes.steamImportTarget.colors.resultBackground
+                                    border.width: 1
+                                    border.color: Themes.steamImportTarget.colors.resultBorder
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 12
+                                        spacing: 10
+
+                                        CustomCheckBox {
+                                            id: id_gameCheckBox
+
+                                            checked: id_resultRow.modelData.selected
+                                            enabled: !id_root.applyLoading
+                                            onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, checked, true)
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 1
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: id_resultRow.modelData.name
+                                                elide: Text.ElideRight
+                                                color: Themes.steamImportTarget.colors.labelText
+                                                font.pixelSize: Themes.steamImportTarget.fontSizes.label
+                                            }
+
+                                            Text {
+                                                text: qsTr("App ID: %1").arg(id_resultRow.modelData.appId)
+                                                color: Themes.steamImportTarget.colors.descriptionText
+                                                font.pixelSize: Themes.steamImportTarget.fontSizes.descriptionSubtle
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            visible: id_resultRow.modelData.imported
+                                            implicitWidth: id_importedText.implicitWidth + 14
+                                            implicitHeight: 22
+                                            radius: 5
+                                            color: Themes.steamImportTarget.colors.importedBadgeBackground
+                                            border.width: 1
+                                            border.color: Themes.steamImportTarget.colors.importedBadgeBorder
+
+                                            Text {
+                                                id: id_importedText
+
+                                                anchors.centerIn: parent
+                                                text: qsTr("Imported")
+                                                color: Themes.steamImportTarget.colors.importedBadgeText
+                                                font.pixelSize: Themes.steamImportTarget.fontSizes.badge
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: id_resultMouseArea
+
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        enabled: !id_root.applyLoading
+                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        onClicked: id_root.setGameSelected(id_resultRow.modelData.appId, !id_resultRow.modelData.selected, true)
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            visible: id_root.visibleLibraryGames.length === 0
+                            Layout.fillWidth: true
+                            text: qsTr("No matching games")
+                            color: Themes.steamImportTarget.colors.descriptionText
+                            font.pixelSize: Themes.steamImportTarget.fontSizes.label
+                        }
+                    }
+
+                    // Buttons row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        CustomButton {
+                            text: id_root.libraryLoaded ? qsTr("Reload Steam Library") : qsTr("Load Steam Library")
+                            enabled: id_root.steamConfigured && !id_root.operationLoading
+                            onClicked: id_root.beginOperation("load")
+                        }
+
+                        CustomBusyIndicator {
+                            Layout.alignment: Qt.AlignVCenter
+                            p_indicatorSize: 28
+                            p_speed: 900
+                            p_running: id_root.libraryLoading || id_root.applyLoading
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        CustomButton {
+                            text: qsTr("Apply Selection")
+                            enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.operationLoading && id_root.libraryLoaded
+                            onClicked: id_root.requestApplySelection()
+                        }
                     }
                 }
 
-                // Buttons row
-                RowLayout {
+                // Status text
+                Text {
+                    visible: id_root.statusText.length > 0
                     Layout.fillWidth: true
-                    spacing: 12
-
-                    CustomButton {
-                        text: id_root.libraryLoaded ? qsTr("Reload Steam Library") : qsTr("Load Steam Library")
-                        enabled: id_root.steamConfigured && !id_root.operationLoading
-                        onClicked: id_root.beginOperation("load")
-                    }
-
-                    CustomBusyIndicator {
-                        Layout.alignment: Qt.AlignVCenter
-                        p_indicatorSize: 28
-                        p_speed: 900
-                        p_running: id_root.libraryLoading || id_root.applyLoading
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                    CustomButton {
-                        text: qsTr("Apply Selection")
-                        enabled: id_root.steamConfigured && id_root.selectionDirty && !id_root.operationLoading && id_root.libraryLoaded
-                        onClicked: id_root.requestApplySelection()
-                    }
+                    Layout.bottomMargin: 20
+                    text: id_root.statusText
+                    wrapMode: Text.WordWrap
+                    color: id_root.statusIsError
+                        ? Themes.steamImportTarget.colors.errorText
+                        : id_root.themedCompletionColor
+                    font.pixelSize: Themes.steamImportTarget.fontSizes.label
                 }
-            }
-
-            // Status text
-            Text {
-                visible: id_root.statusText.length > 0
-                Layout.fillWidth: true
-                Layout.bottomMargin: 20
-                text: id_root.statusText
-                wrapMode: Text.WordWrap
-                color: id_root.statusIsError
-                    ? Themes.steamImportTarget.colors.errorText
-                    : id_root.themedCompletionColor
-                font.pixelSize: Themes.steamImportTarget.fontSizes.label
             }
         }
     }

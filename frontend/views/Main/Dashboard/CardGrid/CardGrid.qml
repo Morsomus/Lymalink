@@ -101,9 +101,20 @@ Item {
         
         anchors.fill: parent
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical: CustomScrollBar {
+            id: id_verticalScrollBar
+
+            policy: ScrollBar.AsNeeded
+        }
         contentHeight: id_flowContainer.height  // explicit so ScrollView knows when to show the scrollbar
         clip: true
+
+        Component.onCompleted: {
+            id_verticalScrollBar.parent = id_rootScrollView
+            id_verticalScrollBar.anchors.top = id_rootScrollView.top
+            id_verticalScrollBar.anchors.bottom = id_rootScrollView.bottom
+            id_verticalScrollBar.anchors.right = id_rootScrollView.right
+        }
 
         // Wraps Flow so we can animate implicitHeight changes (Flow's is read-only)
         Item {

@@ -861,13 +861,14 @@ Item {
         }
         spacing: 1
         clip: true
+        boundsBehavior: Flickable.StopAtBounds
 
         TapHandler {
             acceptedButtons: Qt.LeftButton
             onTapped: id_root.backgroundClicked()
         }
 
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.vertical: CustomScrollBar {
             id: id_verticalScrollBar
 
             policy: ScrollBar.AsNeeded

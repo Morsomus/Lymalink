@@ -150,6 +150,7 @@ qt_add_qml_module(Lymalink
         common/CustomButton.qml
         common/CustomCheckBox.qml
         common/CustomComboBox.qml
+        common/CustomScrollBar.qml
         common/CustomSwitch.qml
         common/CustomTextField.qml
         common/CustomTooltip.qml

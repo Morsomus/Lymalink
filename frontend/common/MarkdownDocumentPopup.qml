@@ -90,9 +90,24 @@ Popup {
         }
 
         ScrollView {
+            id: id_documentScrollView
+
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical: CustomScrollBar {
+                id: id_verticalScrollBar
+
+                policy: ScrollBar.AsNeeded
+            }
+
+            Component.onCompleted: {
+                id_verticalScrollBar.parent = id_documentScrollView
+                id_verticalScrollBar.anchors.top = id_documentScrollView.top
+                id_verticalScrollBar.anchors.bottom = id_documentScrollView.bottom
+                id_verticalScrollBar.anchors.right = id_documentScrollView.right
+            }
 
             TextArea {
                 id: id_documentText

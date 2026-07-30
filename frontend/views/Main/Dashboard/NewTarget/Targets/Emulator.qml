@@ -442,8 +442,11 @@ Item {
         opacity: 0
     }
 
-    ScrollView {
+    Item {
         id: id_scrollView
+
+        readonly property real availableWidth: width
+        readonly property real availableHeight: height
 
         anchors.fill: parent
         clip: true
@@ -458,6 +461,10 @@ Item {
             contentHeight: id_content.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             interactive: !id_appIdFolderResultsHover.hovered
+
+            ScrollBar.vertical: CustomScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
 
             ColumnLayout {
                 id: id_content
@@ -1252,7 +1259,7 @@ Item {
                                     id: id_appIdFolderResultsHover
                                 }
 
-                                ScrollBar.vertical: ScrollBar {
+                                ScrollBar.vertical: CustomScrollBar {
                                     policy: ScrollBar.AsNeeded
                                 }
 

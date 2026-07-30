@@ -159,7 +159,9 @@ T.ComboBox {
             model: id_root.popup.visible ? id_root.delegateModel : null
             currentIndex: id_root.highlightedIndex
 
-            ScrollIndicator.vertical: ScrollIndicator {}
+            ScrollBar.vertical: CustomScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
         }
 
         background: Rectangle {
