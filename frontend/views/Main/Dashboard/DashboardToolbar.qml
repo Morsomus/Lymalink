@@ -80,9 +80,19 @@ Item {
 
     Shortcut {
         sequence: "Esc"
-        enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened && !id_root.p_returnLocked
+        enabled: (id_root.activePanel !== ""
+            || id_root.targetDetailsActivePanel !== ""
+            || id_root.p_targetDetailsVisible
+            || id_root.p_addTargetVisible)
+            && !id_targetSettingsPopup.opened
+            && !id_dashboardSettingsPopup.opened
+            && !id_root.p_returnLocked
         onActivated: {
-            id_root.targetDetailsActivePanel = false
+            if (id_root.activePanel !== "" || id_root.targetDetailsActivePanel !== "") {
+                id_root.closeOpenPanels()
+                return
+            }
+
             id_root.returnClicked()
         }
     }
@@ -91,7 +101,6 @@ Item {
         sequence: "Backspace"
         enabled: (id_root.p_targetDetailsVisible || id_root.p_addTargetVisible) && !id_targetSettingsPopup.opened && !id_root.p_returnLocked
         onActivated: {
-            id_root.targetDetailsActivePanel = false
             id_root.returnClicked()
         }
     }
@@ -211,6 +220,46 @@ Item {
         }
 
         setActiveFilters(currentFilters.length > 0 ? currentFilters : [fallback], toolbar)
+    }
+
+    function closeOpenPanels() {
+        activePanel = ""
+        targetDetailsActivePanel = ""
+    }
+
+    function containsToolbarPoint(item, x, y) {
+        if (!item || !item.visible) {
+            return false
+        }
+        const point = item.mapFromItem(id_root, x, y)
+        const withinHorizontalBounds = point.x >= 0 && point.x <= item.width
+        const withinVerticalBounds = point.y >= 0 && point.y <= item.height
+
+        return withinHorizontalBounds && withinVerticalBounds
+    }
+
+    function closeOpenPanelsIfOutsideSelection(x, y) {
+        if (targetDetailsActivePanel === "detailsSort") {
+            if (containsToolbarPoint(id_detailsSelectionArea, x, y) || containsToolbarPoint(id_detailsSortPill, x, y)) {
+                return
+            }
+        } else if (targetDetailsActivePanel === "detailsFilter") {
+            if (containsToolbarPoint(id_detailsSelectionArea, x, y) || containsToolbarPoint(id_detailsFilterPill, x, y)) {
+                return
+            }
+        } else if (activePanel === "sort") {
+            if (containsToolbarPoint(id_selectionArea, x, y) || containsToolbarPoint(id_sortPill, x, y)) {
+                return
+            }
+        } else if (activePanel === "filter") {
+            if (containsToolbarPoint(id_selectionArea, x, y) || containsToolbarPoint(id_filterPill, x, y)) {
+                return
+            }
+        } else {
+            return
+        }
+
+        closeOpenPanels()
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -510,7 +559,6 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        id_root.targetDetailsActivePanel = false
                         id_root.returnClicked()
                     }
 
@@ -743,6 +791,8 @@ Item {
 
                 // Details Sort/Filter chip bar
                 Item {
+                    id: id_detailsSelectionArea
+
                     implicitWidth: id_root.targetDetailsActivePanel === "detailsSort"
                         ? 320
                         : id_root.targetDetailsActivePanel === "detailsFilter"
@@ -1484,6 +1534,8 @@ Item {
 
         // Sort/Filter selection bar
         Item {
+            id: id_selectionArea
+
             Layout.fillWidth: true
             implicitHeight: id_root.activePanel === "sort" 
                 ? id_sortBar.implicitHeight

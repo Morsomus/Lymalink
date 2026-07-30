@@ -23,6 +23,7 @@ Item {
     property real p_scrollLocation: 0
 
     signal openTargetDetails(int appId, string targetType)
+    signal backgroundClicked()
 
     // Internals _____________________________________________
     readonly property string rowLayout: p_listMode === "detailedList" ? "detailedList" : "list"
@@ -77,6 +78,11 @@ Item {
         clip: true
 
         model: id_root.p_targetModel
+
+        TapHandler {
+            acceptedButtons: Qt.LeftButton
+            onTapped: id_root.backgroundClicked()
+        }
 
         ScrollBar.vertical: ScrollBar {
             policy: ScrollBar.AsNeeded

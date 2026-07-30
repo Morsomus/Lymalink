@@ -23,6 +23,7 @@ Item {
     property real p_scrollLocation: 0
 
     signal openTargetDetails(int appId, string targetType)
+    signal backgroundClicked()
 
     // Internals _____________________________________________
     readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 150
@@ -125,6 +126,11 @@ Item {
                 width: parent.width
                 spacing: id_root.cellSpacing
                 topPadding: 6
+
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    onTapped: id_root.backgroundClicked()
+                }
 
                 // Slide cards to new positions on re-wrap
                 move: Transition {

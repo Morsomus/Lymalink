@@ -35,6 +35,7 @@ Item {
     property alias p_achievementModel: id_achievementList.model
 
     signal achievementStateChanged(int appId)
+    signal backgroundClicked()
 
     // Internals _____________________________________________
     readonly property int coverPanelWidth: 240
@@ -860,6 +861,11 @@ Item {
         }
         spacing: 1
         clip: true
+
+        TapHandler {
+            acceptedButtons: Qt.LeftButton
+            onTapped: id_root.backgroundClicked()
+        }
 
         ScrollBar.vertical: ScrollBar {
             id: id_verticalScrollBar

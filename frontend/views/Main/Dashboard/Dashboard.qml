@@ -42,6 +42,9 @@ Item {
     property var targetDetailsActiveFilters: ["all"]
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
 
+    onShowingTargetDetailsChanged: id_dashboardToolbar.closeOpenPanels()
+    onShowingAddTargetChanged: id_dashboardToolbar.closeOpenPanels()
+
     ListModel {
         id: id_targetModel
     }
@@ -67,6 +70,14 @@ Item {
     }
 
     Component.onCompleted: refreshTargets()
+
+    TapHandler {
+        acceptedButtons: Qt.LeftButton
+        onTapped: function(eventPoint) {
+            const toolbarPoint = id_dashboardToolbar.mapFromItem(id_root, eventPoint.position.x, eventPoint.position.y)
+            id_dashboardToolbar.closeOpenPanelsIfOutsideSelection(toolbarPoint.x, toolbarPoint.y)
+        }
+    }
 
     Connections {
         target: ctxSettings
@@ -582,6 +593,8 @@ Item {
             p_gridSize: id_root.activeLayout
             p_targetModel: id_targetModel
             p_scrollLocation: id_root.dashboardScrollLocation
+
+            onBackgroundClicked: id_dashboardToolbar.closeOpenPanels()
         }
     }
 
@@ -592,6 +605,8 @@ Item {
             p_listMode: id_root.activeLayout
             p_targetModel: id_targetModel
             p_scrollLocation: id_root.dashboardScrollLocation
+
+            onBackgroundClicked: id_dashboardToolbar.closeOpenPanels()
         }
     }
 
@@ -617,6 +632,8 @@ Item {
             onAchievementStateChanged: function(appId) {
                 id_root.reloadTargetDetails(appId, "Emulator")
             }
+
+            onBackgroundClicked: id_dashboardToolbar.closeOpenPanels()
         }
     }
 
@@ -665,6 +682,8 @@ Item {
 
         // Dashboard Title and dynamic Toolbar
         DashboardToolbar {
+            id: id_dashboardToolbar
+
             Layout.fillWidth: true
             p_toolbarTitle: id_root.showingAddTarget
                 ? qsTr("Add Target")
