@@ -8,6 +8,17 @@ project(Lymalink VERSION ${LYMALINK_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(LYMALINK_VERSION_TWEAK_VALUE ${PROJECT_VERSION_TWEAK})
+if("${LYMALINK_VERSION_TWEAK_VALUE}" STREQUAL "")
+    set(LYMALINK_VERSION_TWEAK_VALUE 0)
+endif()
+
+if(PROJECT_VERSION VERSION_LESS "1.0.0")
+    set(LYMALINK_PRERELEASE_FLAG 0x00000002L)
+else()
+    set(LYMALINK_PRERELEASE_FLAG 0)
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network)
 find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
@@ -20,6 +31,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         src/ipc/DBusService.cpp
     )
 elseif(WIN32)
+    enable_language(RC)
     find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
     set(PLATFORM_BACKEND_SOURCES
         src/ipc/WinSocketService.h
@@ -68,6 +80,19 @@ qt_add_executable(Lymalink
 target_compile_definitions(Lymalink PRIVATE
     LYMALINK_VERSION="${LYMALINK_VERSION}"
 )
+
+if(WIN32)
+    target_compile_definitions(Lymalink PRIVATE
+        LYMALINK_PROJECT_URL="https://github.com/Morsomus/Lymalink"
+        LYMALINK_LEGAL_COPYRIGHT="Licensed under GNU GPLv3"
+        LYMALINK_PRERELEASE_FLAG=${LYMALINK_PRERELEASE_FLAG}
+        LYMALINK_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        LYMALINK_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+        LYMALINK_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+        LYMALINK_VERSION_TWEAK=${LYMALINK_VERSION_TWEAK_VALUE}
+        LYMALINK_VERSION_STRING="${PROJECT_VERSION}"
+    )
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_options(Lymalink PRIVATE "-Wl,--no-undefined")

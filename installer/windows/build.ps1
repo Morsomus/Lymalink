@@ -225,6 +225,32 @@ function Get-Version {
 
 ##############################################################################
 
+function Get-NsisProductVersion {
+    param([string]$Version)
+
+    $numericVersion = ($Version -split '[-+]')[0]
+    $parts = @($numericVersion -split '\.')
+    if ($parts.Count -gt 4) {
+        throw "VERSION must contain at most four numeric components for NSIS metadata: $Version"
+    }
+
+    $quad = @()
+    foreach ($part in $parts) {
+        if ($part -notmatch '^\d+$') {
+            throw "VERSION contains a non-numeric component for NSIS metadata: $Version"
+        }
+        $quad += $part
+    }
+
+    while ($quad.Count -lt 4) {
+        $quad += "0"
+    }
+
+    return ($quad -join ".")
+}
+
+##############################################################################
+
 function Invoke-ComponentBuild {
     param(
         [string]$RelativeScript,
@@ -378,6 +404,7 @@ function New-NsisWrapperScript {
 
     $defines = @(
         ("!define VERSION ""{0}""" -f (Format-NsisString $Version)),
+        ("!define VERSION_QUAD ""{0}""" -f (Format-NsisString (Get-NsisProductVersion $Version))),
         ("!define PAYLOAD_DIR ""{0}""" -f (Format-NsisString $PayloadDir)),
         ("!define LICENSE_FILE ""{0}""" -f (Format-NsisString $LicenseFile)),
         ("!define ICON_FILE ""{0}""" -f (Format-NsisString $IconFile)),

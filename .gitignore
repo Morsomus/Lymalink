@@ -32,6 +32,8 @@ Thumbs.db
 *.res
 *.rc
 !backend-overlay/src/win/LymalinkOverlayVersion.rc
+!frontend/res/windows/Lymalink.rc
+!backend/res/windows/Lymalinkd.rc
 /.qmake.cache
 /.qmake.stash
 

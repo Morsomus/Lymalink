@@ -1,21 +1,5 @@
 #include <winver.h>
 
-#ifndef LYMALINK_FILE_DESCRIPTION
-#define LYMALINK_FILE_DESCRIPTION "Lymalink Overlay Component"
-#endif
-
-#ifndef LYMALINK_INTERNAL_NAME
-#define LYMALINK_INTERNAL_NAME "lymalink-overlay"
-#endif
-
-#ifndef LYMALINK_ORIGINAL_FILENAME
-#define LYMALINK_ORIGINAL_FILENAME "lymalink-overlay.dll"
-#endif
-
-#ifndef LYMALINK_FILE_TYPE
-#define LYMALINK_FILE_TYPE VFT_DLL
-#endif
-
 #ifndef LYMALINK_PROJECT_URL
 #define LYMALINK_PROJECT_URL "https://github.com/Morsomus/Lymalink"
 #endif
@@ -54,13 +38,15 @@
 #define LYMALINK_DEBUG_FLAG 0
 #endif
 
+IDI_LYMALINK_ICON ICON "../../frontend/res/windows/Lymalink.ico"
+
 1 VERSIONINFO
 FILEVERSION LYMALINK_VERSION_MAJOR,LYMALINK_VERSION_MINOR,LYMALINK_VERSION_PATCH,LYMALINK_VERSION_TWEAK
 PRODUCTVERSION LYMALINK_VERSION_MAJOR,LYMALINK_VERSION_MINOR,LYMALINK_VERSION_PATCH,LYMALINK_VERSION_TWEAK
 FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
 FILEFLAGS (LYMALINK_DEBUG_FLAG | LYMALINK_PRERELEASE_FLAG)
 FILEOS VOS_NT_WINDOWS32
-FILETYPE LYMALINK_FILE_TYPE
+FILETYPE VFT_APP
 FILESUBTYPE 0
 BEGIN
     BLOCK "StringFileInfo"
@@ -69,11 +55,11 @@ BEGIN
         BEGIN
             VALUE "Comments", LYMALINK_PROJECT_URL
             VALUE "CompanyName", "Morsomus"
-            VALUE "FileDescription", LYMALINK_FILE_DESCRIPTION
+            VALUE "FileDescription", "Lymalink Background Service"
             VALUE "FileVersion", LYMALINK_VERSION_STRING
-            VALUE "InternalName", LYMALINK_INTERNAL_NAME
+            VALUE "InternalName", "lymalinkd"
             VALUE "LegalCopyright", LYMALINK_LEGAL_COPYRIGHT
-            VALUE "OriginalFilename", LYMALINK_ORIGINAL_FILENAME
+            VALUE "OriginalFilename", "lymalinkd.exe"
             VALUE "ProductName", "Lymalink"
             VALUE "ProductVersion", LYMALINK_VERSION_STRING
         END

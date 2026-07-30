@@ -5,6 +5,9 @@
 !ifndef VERSION
     !error "VERSION must be defined"
 !endif
+!ifndef VERSION_QUAD
+    !error "VERSION_QUAD must be defined"
+!endif
 !ifndef PAYLOAD_DIR
     !error "PAYLOAD_DIR must be defined"
 !endif
@@ -26,8 +29,20 @@ Unicode true
 
 !define APP_NAME "Lymalink"
 !define APP_PUBLISHER "Morsomus"
+!define APP_PROJECT_URL "https://github.com/Morsomus/Lymalink"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Lymalink"
 !define VULKAN_KEY "Software\Khronos\Vulkan\ImplicitLayers"
+
+VIProductVersion "${VERSION_QUAD}"
+VIAddVersionKey "Comments" "${APP_PROJECT_URL}"
+VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
+VIAddVersionKey "FileDescription" "Lymalink Installer"
+VIAddVersionKey "FileVersion" "${VERSION}"
+VIAddVersionKey "InternalName" "lymalink-installer"
+VIAddVersionKey "LegalCopyright" "Licensed under GNU GPLv3"
+VIAddVersionKey "OriginalFilename" "lymalink-installer-${VERSION}-win-x64.exe"
+VIAddVersionKey "ProductName" "${APP_NAME}"
+VIAddVersionKey "ProductVersion" "${VERSION}"
 
 !define MUI_ABORTWARNING
 !define MUI_ICON "${ICON_FILE}"
