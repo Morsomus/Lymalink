@@ -246,7 +246,7 @@ Rectangle {
                 spacing: 6
 
                 Rectangle {
-                    visible: id_root.p_installationStatus !== ""
+                    visible: id_root.p_installationStatus !== "" && id_root.p_targetType !== "Steam"
                     implicitWidth: id_statusText.implicitWidth + 14
                     implicitHeight: 20
                     radius: 10

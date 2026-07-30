@@ -293,12 +293,14 @@ function Stage-Payload {
     $overlayBuildRoot = Join-Path $ROOT_DIR "backend-overlay\build\windows\Release"
     $licensePath = Join-Path $ROOT_DIR "LICENSE"
     $testIconPath = Join-Path $ROOT_DIR "frontend\res\img\64x64-lymalink-test-icon.png"
+    $trayIconPath = Join-Path $ROOT_DIR "backend\res\img\BlankBackground_MFC_00041_ED.png"
 
     Require-File $frontendBinary
     Require-File $backendBinary
     Require-File $sqliteRuntime
     Require-File $licensePath
     Require-File $testIconPath
+    Require-File $trayIconPath
 
     New-CleanDirectory $RELEASE_DIR
     New-Item -ItemType Directory -Path (Join-Path $RELEASE_DIR "sounds") -Force | Out-Null
@@ -309,6 +311,7 @@ function Stage-Payload {
     Copy-Item -LiteralPath $sqliteRuntime -Destination (Join-Path $RELEASE_DIR "sqlite3.dll") -Force
     Copy-Item -LiteralPath $licensePath -Destination (Join-Path $RELEASE_DIR "LICENSE") -Force
     Copy-Item -LiteralPath $testIconPath -Destination (Join-Path $RELEASE_DIR "64x64-lymalink-test-icon.png") -Force
+    Copy-Item -LiteralPath $trayIconPath -Destination (Join-Path $RELEASE_DIR "lymalinkd-tray-icon.png") -Force
 
     Get-ChildItem -LiteralPath (Join-Path $vcpkg.InstalledDir "bin") -Filter "*.dll" -File |
         Copy-Item -Destination $RELEASE_DIR -Force
@@ -338,6 +341,7 @@ function Stage-Payload {
         (Join-Path $RELEASE_DIR "lymalinkd.exe"),
         (Join-Path $RELEASE_DIR "sqlite3.dll"),
         (Join-Path $RELEASE_DIR "LICENSE"),
+        (Join-Path $RELEASE_DIR "lymalinkd-tray-icon.png"),
         (Join-Path $RELEASE_DIR "overlay\lymalink-overlay-vulkan-x64.dll"),
         (Join-Path $RELEASE_DIR "overlay\lymalink-overlay-vulkan-x86.dll")
     )) {

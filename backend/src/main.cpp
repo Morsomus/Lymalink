@@ -12,7 +12,7 @@
 #include <chrono>
 #include <thread>
 #if defined(_WIN32)
-    #include <QCoreApplication>
+    #include <QApplication>
     #include <windows.h>
 #endif
 
@@ -21,7 +21,7 @@
 int main(int argc, char* argv[])
 {
 #if defined(_WIN32)
-    QCoreApplication app(argc, argv);
+    QApplication app(argc, argv);
     HANDLE instanceMutex = CreateMutexW(nullptr, FALSE, L"Local\\LymalinkdSession");
     if (instanceMutex == nullptr)
     {

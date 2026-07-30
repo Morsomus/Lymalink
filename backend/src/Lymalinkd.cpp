@@ -208,6 +208,9 @@ Error Lymalinkd::Init()
     }
 #endif
 
+    m_trayIcon.onQuitBackend = [this]() { OnShutdown(); };
+    m_trayIcon.Start(ResolveDataPath(LYMALINKD_TRAY_ICON_PATH));
+
     // ProcessWatcher callbacks
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe, uint32_t pid) { OnProcessStarted(targetId, exe, pid); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
@@ -465,6 +468,7 @@ void Lymalinkd::Shutdown()
 #endif
 
     // Stop external services before closing database connection
+    m_trayIcon.Stop();
     RequestManualAchievementDataScanCancel(0, "cancelled");
     if (m_manualScanThread.joinable())
     {
@@ -894,6 +898,8 @@ void Lymalinkd::OnShutdown()
     m_cv.notify_all();
 #if defined(_WIN32)
     QCoreApplication::quit();
+#else
+    kill(getpid(), SIGTERM);
 #endif
 }
 

@@ -1284,6 +1284,7 @@ for payload_file in \
     "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/lymalink.png" \
     "$SCRIPT_DIR/share/applications/lymalink.desktop" \
     "$SCRIPT_DIR/share/Lymalink/64x64-lymalink-test-icon.png" \
+    "$SCRIPT_DIR/share/Lymalink/lymalinkd-tray-icon.png" \
     "$SCRIPT_DIR/systemd/lymalinkd.service"; do
     require_file "$payload_file"
 done
@@ -1334,6 +1335,7 @@ install -m 644 "$SCRIPT_DIR/share/vulkan/implicit_layer.d/lymalink_overlay.x86.j
 install -m 644 "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/lymalink.png" "$ICON_DIR/lymalink.png"
 install -m 644 "$SCRIPT_DIR/share/applications/lymalink.desktop" "$APPLICATION_DIR/lymalink.desktop"
 install -m 644 "$SCRIPT_DIR/share/Lymalink/64x64-lymalink-test-icon.png" "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
+install -m 644 "$SCRIPT_DIR/share/Lymalink/lymalinkd-tray-icon.png" "$APP_DATA_DIR/lymalinkd-tray-icon.png"
 install -m 644 "$SCRIPT_DIR/systemd/lymalinkd.service" "$SERVICE_DIR/lymalinkd.service"
 
 # Deploy sound assets

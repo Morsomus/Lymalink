@@ -340,7 +340,7 @@ Rectangle {
             }
 
             Rectangle {
-                visible: id_root.p_installationStatus !== ""
+                visible: id_root.p_installationStatus !== "" && id_root.p_targetType !== "Steam"
                 implicitWidth: id_installStatusText.implicitWidth + 14
                 implicitHeight: 20
                 radius: 10

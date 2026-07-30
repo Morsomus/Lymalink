@@ -17,7 +17,7 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/nlohmann/json.hpp")
     message(FATAL_ERROR "nlohmann/json is missing. For automatic download of the library - Run '.\\build.ps1 release' build process instead")
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Network Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Sql Widgets)
 find_package(SQLite3 REQUIRED)
 qt_standard_project_setup()
 
@@ -33,6 +33,7 @@ qt_add_executable(lymalinkd
     src/database/SQLiteManager.cpp src/database/SQLiteManager.h
     src/tools/Utils.cpp src/tools/Utils.h
     src/tools/Logger.cpp src/tools/Logger.h
+    src/tray/BackendTrayIcon.cpp src/tray/BackendTrayIcon.h
     src/watcher/PathScanner.cpp src/watcher/PathScanner.h
     src/watcher/ProcessWatcher.cpp src/watcher/ProcessWatcher.h
     src/watcher/AchievementHandlerWin.cpp src/watcher/AchievementHandler.h
@@ -42,7 +43,7 @@ qt_add_executable(lymalinkd
     src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
 )
 target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-overlay/include ${MINIAUDIO_DIR})
-target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Network Qt6::Sql SQLite::SQLite3 ole32 windowscodecs advapi32)
+target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Sql Qt6::Widgets SQLite::SQLite3 ole32 windowscodecs advapi32)
 set_target_properties(lymalinkd PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set_target_properties(lymalinkd PROPERTIES WIN32_EXECUTABLE TRUE)

@@ -126,7 +126,8 @@ rm -f \
     "$VULKAN_DIR/lymalink_overlay.x86.json" \
     "$ICON_DIR/lymalink.png" \
     "$APPLICATION_DIR/lymalink.desktop" \
-    "$APP_DATA_DIR/64x64-lymalink-test-icon.png"
+    "$APP_DATA_DIR/64x64-lymalink-test-icon.png" \
+    "$APP_DATA_DIR/lymalinkd-tray-icon.png"
 
 # Remove overlay library files
 rm -f \

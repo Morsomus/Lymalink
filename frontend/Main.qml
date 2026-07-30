@@ -46,6 +46,17 @@ ApplicationWindow {
         }
     }
 
+    function restoreFromBackground() {
+        if (ctxSettings.closeToTray) {
+            ctxSysTray.SetTrayIconVisibility(false)
+            id_dashboard.restoreVisibleTargetsFromTray()
+        }
+
+        id_root.show()
+        id_root.raise()
+        id_root.requestActivate()
+    }
+
     Binding {
         target: Themes
         property: "activeMode"
@@ -87,13 +98,7 @@ ApplicationWindow {
         target: ctxSysTray
 
         function onSignalOpenWindow() {
-            if (ctxSettings.closeToTray) {
-                ctxSysTray.SetTrayIconVisibility(false)
-                id_dashboard.restoreVisibleTargetsFromTray()
-                id_root.show()
-                id_root.raise()
-                id_root.requestActivate()
-            }
+            id_root.restoreFromBackground()
         }
     }
 

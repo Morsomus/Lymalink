@@ -88,7 +88,9 @@ SERVICE_FILE="$INSTALL_SERVICE_DIR/${SERVICE_NAME}.service"
 INSTALL_SOUND_DIR="$DATA_HOME/Lymalink/sounds"
 INSTALL_DATA_DIR="$DATA_HOME/Lymalink"
 INSTALL_TEST_ICON_PATH="$INSTALL_DATA_DIR/64x64-lymalink-test-icon.png"
+INSTALL_TRAY_ICON_PATH="$INSTALL_DATA_DIR/lymalinkd-tray-icon.png"
 TEST_ICON_SOURCE="$SCRIPT_DIR/../frontend/res/img/64x64-lymalink-test-icon.png"
+TRAY_ICON_SOURCE="$SCRIPT_DIR/res/img/BlankBackground_MFC_00041_ED.png"
 _get_build_root() {
     if [ "$BUILD_TO_TMP" -eq 1 ] 2>/dev/null; then
         echo "/tmp/lymalinkd-build"
@@ -246,6 +248,7 @@ deploy() {
     _install_binary "$MODE_LOWER"
     _install_sounds
     _install_test_icon
+    _install_tray_icon
     _install_service
 
     if _service_is_active; then
@@ -264,6 +267,7 @@ deploy() {
     echo "    Binary:       $INSTALL_BIN_DIR/$SERVICE_NAME"
     echo "    Sounds:       $INSTALL_SOUND_DIR"
     echo "    Test icon:    $INSTALL_TEST_ICON_PATH"
+    echo "    Tray icon:    $INSTALL_TRAY_ICON_PATH"
     echo "    Service:      $SERVICE_FILE"
     echo "    Logs:         journalctl --user -u $SERVICE_NAME -f"
 }
@@ -295,6 +299,20 @@ _install_test_icon() {
         chmod 644 "$INSTALL_TEST_ICON_PATH"
     else
         echo "==> WARNING: Test icon not found at $TEST_ICON_SOURCE"
+    fi
+}
+
+##############################################################################
+
+_install_tray_icon() {
+    echo "==> Installing tray icon to $INSTALL_TRAY_ICON_PATH..."
+    mkdir -p "$INSTALL_DATA_DIR"
+
+    if [ -f "$TRAY_ICON_SOURCE" ]; then
+        cp "$TRAY_ICON_SOURCE" "$INSTALL_TRAY_ICON_PATH"
+        chmod 644 "$INSTALL_TRAY_ICON_PATH"
+    else
+        echo "==> WARNING: Tray icon not found at $TRAY_ICON_SOURCE"
     fi
 }
 
@@ -372,6 +390,13 @@ uninstall_service() {
         rm -f "$INSTALL_TEST_ICON_PATH"
     else
         echo "==> Test icon not found: $INSTALL_TEST_ICON_PATH"
+    fi
+
+    if [ -f "$INSTALL_TRAY_ICON_PATH" ]; then
+        echo "==> Removing tray icon: $INSTALL_TRAY_ICON_PATH"
+        rm -f "$INSTALL_TRAY_ICON_PATH"
+    else
+        echo "==> Tray icon not found: $INSTALL_TRAY_ICON_PATH"
     fi
 
     rmdir "$INSTALL_SOUND_DIR" "$INSTALL_DATA_DIR" >/dev/null 2>&1 || true

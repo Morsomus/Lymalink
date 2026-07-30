@@ -68,6 +68,7 @@
 
 #define LYMALINK_APP_ICON_PATH          "icons/hicolor/256x256/apps/lymalink.png"
 #define LYMALINK_TEST_ICON_PATH         "Lymalink/64x64-lymalink-test-icon.png"
+#define LYMALINKD_TRAY_ICON_PATH        "Lymalink/lymalinkd-tray-icon.png"
 
 /////////////////////////////////////////////////////////////////////
 // Logging

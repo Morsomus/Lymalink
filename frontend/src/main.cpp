@@ -184,12 +184,7 @@ int main(int argc, char *argv[]) {
 
             // Bring existing window to front and raise it above others
             QObject *root = engine.rootObjects().first();
-            QMetaObject::invokeMethod(root, "show");
-            QMetaObject::invokeMethod(root, "raise");
-            QMetaObject::invokeMethod(root, "requestActivate");
-
-            // Hide tray icon
-            sysTray->SetTrayIconVisibility(false);
+            QMetaObject::invokeMethod(root, "restoreFromBackground");
         });
     } else {
         qWarning() << "Failed to create activation server:" << activationServer.errorString();

@@ -21,6 +21,7 @@
     #include "overlay/OverlayNotifier.h"
 #endif
 #include "notification/AchievementNotificationService.h"
+#include "tray/BackendTrayIcon.h"
 #include "database/SQLiteManager.h"
 #include "watcher/PathScanner.h"
 #include "watcher/ProcessWatcher.h"
@@ -62,6 +63,7 @@ private:
 #endif
     SQLiteManager m_database;
     AchievementNotificationService m_achievementNotifications;
+    BackendTrayIcon m_trayIcon;
     PathScanner m_pathScanner;
     ProcessWatcher m_processWatcher;
     AchievementHandler m_achievementHandler;

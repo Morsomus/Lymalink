@@ -37,6 +37,7 @@ SOURCES := \
     src/tools/Utils.cpp \
     src/tools/Logger.cpp \
     src/service/SystemdNotify.cpp \
+    src/tray/BackendTrayIcon.cpp \
     src/notification/AchievementNotificationService.cpp \
     src/notification/CanberraSoundService.cpp \
     src/overlay/OverlayNotifier.cpp \
