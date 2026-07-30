@@ -691,6 +691,7 @@ Item {
                             label: qsTr("Theme")
                             tooltip: qsTr("Controls the application's color theme")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Controls the application's color theme")
                                 model: ["system", "dark", "light"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.theme))
                                 implicitWidth: 140
@@ -726,6 +727,7 @@ Item {
                             label: qsTr("Language")
                             tooltip: qsTr("Sets the application's display language")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Sets the application's display language")
                                 model: ["English"] //, "Finnish", "Svenska"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.language))
                                 implicitWidth: 140
@@ -742,6 +744,7 @@ Item {
                             CustomButton {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset to default")
+                                p_tooltipText: qsTr("Reset the main window size to its default dimensions")
                                 onClicked: {
                                     const win = id_root.Window.window
                                     if (!win) {
@@ -865,6 +868,7 @@ Item {
                             label: qsTr("Color theme")
                             tooltip: qsTr("Select color theme for the application")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Select color theme for the application")
                                 model: [0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
                                 implicitWidth: 150
@@ -937,6 +941,7 @@ Item {
                             label: qsTr("Target type badge")
                             tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
                                 model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.targetTypeBadgeColorStyle))
                                 implicitWidth: 150
@@ -951,6 +956,7 @@ Item {
                             label: qsTr("Progress bar")
                             tooltip: qsTr("Select color theme for the card progress bar, or disable it")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Select color theme for the card progress bar, or disable it")
                                 model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
                                 implicitWidth: 150
@@ -965,6 +971,7 @@ Item {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Select color theme for the card progress frame, grayscale mode, or disable it")
                             CustomComboBox {
+                                p_tooltipText: qsTr("Select color theme for the card progress frame, grayscale mode, or disable it")
                                 model: [-1, -2, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.progressFrameColorStyle))
                                 implicitWidth: 150
@@ -1090,6 +1097,9 @@ Item {
 
                                 CustomButton {
                                     text: id_root.backendServiceStarting ? qsTr("Starting...") : qsTr("Restart")
+                                    p_tooltipText: id_root.backendServiceStarting
+                                        ? qsTr("Background service is already starting")
+                                        : qsTr("Restart the background service")
                                     enabled: id_root.backendServiceReady && !id_root.backendServiceStarting
                                     onClicked: ctxBackendService.RestartService()
                                 }
@@ -1102,6 +1112,7 @@ Item {
 
                             CustomComboBox {
                                 id: id_overlayPositionCombo
+                                p_tooltipText: qsTr("Select where achievement overlay notifications appear")
 
                                 model: id_root.overlayPositionLabels
                                 currentIndex: id_root.overlayPositionIndex(ctxSettings.overlayNotificationPosition)
@@ -1122,6 +1133,7 @@ Item {
 
                             CustomComboBox {
                                 id: id_overlayExitAnimationCombo
+                                p_tooltipText: qsTr("Select how achievement overlay notifications disappear")
 
                                 model: id_root.overlayExitAnimationLabels
                                 currentIndex: id_root.overlayExitAnimationIndex(ctxSettings.overlayNotificationExitAnimation)
@@ -1188,6 +1200,9 @@ Item {
                                 CustomButton {
                                     Layout.preferredWidth: 140
                                     text: qsTr("Send test")
+                                    p_tooltipText: id_root.hasActiveTarget
+                                        ? qsTr("Send a test overlay notification to a running tracked target")
+                                        : qsTr("Start at least one tracked target before sending a test overlay notification")
                                     enabled: id_root.backendServiceReady && id_root.backendServiceHealthy && id_root.hasActiveTarget
                                     onClicked: ctxBackendService.TestToast()
                                 }
@@ -1224,6 +1239,7 @@ Item {
 
                                 CustomButton {
                                     text: qsTr("Test")
+                                    p_tooltipText: qsTr("Play the currently selected notification sound")
                                     enabled: id_root.backendServiceReady && id_root.backendServiceHealthy
                                         && (id_notificationSoundCombo.count > 0 || ctxSettings.customNotificationSound)
                                     onClicked: ctxBackendService.TestSound()
@@ -1231,6 +1247,7 @@ Item {
 
                                 CustomComboBox {
                                     id: id_notificationSoundCombo
+                                    p_tooltipText: qsTr("Select the achievement notification sound")
 
                                     model: ctxSettings.notificationSounds
                                     enabled: count > 0 && !ctxSettings.customNotificationSound
@@ -1292,6 +1309,9 @@ Item {
 
                                 CustomButton {
                                     text: qsTr("Browse")
+                                    p_tooltipText: OS_WIN
+                                        ? qsTr("Choose a custom .ogg, .wav, .mp3, or .flac notification sound file")
+                                        : qsTr("Choose a custom .ogg or .wav notification sound file")
                                     onClicked: id_customNotificationSoundDialog.open()
                                 }
                             }
@@ -1364,11 +1384,13 @@ Item {
 
                                 CustomButton {
                                     text: qsTr("Import")
+                                    p_tooltipText: qsTr("Import Emulator achievement data from a JSON export file")
                                     onClicked: id_achievementImportDialog.open()
                                 }
 
                                 CustomButton {
                                     text: qsTr("Export")
+                                    p_tooltipText: qsTr("Export Emulator achievement data to a JSON file")
                                     onClicked: id_achievementExportDialog.open()
                                 }
                             }
@@ -1426,6 +1448,7 @@ Item {
                             CustomButton {
                                 Layout.preferredWidth: 140
                                 text: qsTr("Reset Defaults")
+                                p_tooltipText: qsTr("Reset all settings and restore the default window size")
 
                                 onClicked: {
                                     if (ctxSettings.ResetDefaults() && id_root.backendServiceReady) {

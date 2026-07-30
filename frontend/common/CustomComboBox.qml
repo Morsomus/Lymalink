@@ -18,6 +18,7 @@ T.ComboBox {
     // Public ________________________________________________
     property int p_visibleRows: 8
     property int p_rowHeight: 32
+    property string p_tooltipText: ""
     property var p_textFromValue: function(value, index) {
         return value
     }
@@ -33,6 +34,16 @@ T.ComboBox {
     topPadding: 0
     bottomPadding: 0
     displayText: currentIndex >= 0 ? optionText(model[currentIndex], currentIndex) : ""
+
+    HoverHandler {
+        id: id_comboBoxHover
+    }
+
+    CustomTooltip {
+        p_active: id_root.p_tooltipText !== "" && id_comboBoxHover.hovered
+        p_delay: 600
+        p_text: id_root.p_tooltipText
+    }
 
     function optionText(value, index) {
         const resolved = p_textFromValue(value, index)
@@ -103,8 +114,9 @@ T.ComboBox {
 
     // Selected value
     contentItem: Text {
-        // leftPadding: id_root.leftPadding
-        rightPadding: id_root.rightPadding
+        x: id_root.leftPadding
+        width: Math.max(0, id_root.width - id_root.leftPadding - id_root.rightPadding)
+        height: id_root.height
         text: id_root.displayText
         color: id_root.textColor
         font.pixelSize: Themes.customComboBox.fontSizes.text

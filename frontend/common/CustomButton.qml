@@ -14,6 +14,8 @@ import QtQuick.Templates as T
 T.Button {
     id: id_root
 
+    property string p_tooltipText: ""
+
     // Internals _____________________________________________
     readonly property color backgroundColor: !id_root.enabled
         ? Themes.customButton.colors.backgroundDisabled
@@ -37,6 +39,16 @@ T.Button {
     rightPadding: 14
     topPadding: 0
     bottomPadding: 0
+
+    HoverHandler {
+        id: id_buttonHover
+    }
+
+    CustomTooltip {
+        p_active: id_root.p_tooltipText !== "" && id_buttonHover.hovered
+        p_delay: 600
+        p_text: id_root.p_tooltipText
+    }
 
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
