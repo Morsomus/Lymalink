@@ -10,8 +10,10 @@
 #include "tools/Encryption.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QTimer>
@@ -93,6 +95,104 @@ QString Settings::GetSteamWebApiKeyPlain() const
 
     Encryption encryption;
     return encryption.Decrypt(encryptedWebApiKey, m_tempEncryptionKey);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Settings::GetSteamImportAutoSyncWebApiKeyPlain()
+{
+    if (!m_steamImportAutoSyncEnabled)
+    {
+        return "";
+    }
+
+    if (m_steamImportAutoSyncExpiresAt <= QDateTime::currentSecsSinceEpoch())
+    {
+        m_settings.beginGroup(GROUP_STEAM_WEB_API);
+        m_settings.setValue("ImportAutoSyncWebApiKey", "");
+        m_settings.endGroup();
+        m_settings.sync();
+        emit signalConfigChanged();
+        return "";
+    }
+
+    const QString encryptedWebApiKey = m_settings.value(QString("%1/ImportAutoSyncWebApiKey").arg(GROUP_STEAM_WEB_API)).toString();
+    if (encryptedWebApiKey.isEmpty())
+    {
+        return "";
+    }
+
+    const QString encryptionKey = SteamImportAutoSyncEncryptionKey();
+    if (encryptionKey.isEmpty())
+    {
+        qWarning() << "Settings::GetSteamImportAutoSyncWebApiKeyPlain() - automatic sync encryption key unavailable";
+        return "";
+    }
+
+    Encryption encryption;
+    return encryption.Decrypt(encryptedWebApiKey, encryptionKey);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Settings::EnableSteamImportAutoSync(const QString &webApiKey, int durationDays, int intervalMinutes)
+{
+    const QString trimmedWebApiKey = webApiKey.trimmed();
+    if (trimmedWebApiKey.isEmpty() || durationDays <= 0 || intervalMinutes <= 0)
+    {
+        qWarning() << "Settings::EnableSteamImportAutoSync - invalid activation data";
+        return false;
+    }
+
+    const qint64 expiresAt = QDateTime::currentSecsSinceEpoch() + static_cast<qint64>(durationDays) * 24 * 60 * 60;
+    if (!SaveSteamImportAutoSyncWebApiKey(trimmedWebApiKey))
+    {
+        return false;
+    }
+
+    m_steamImportAutoSyncEnabled = true;
+    m_steamImportAutoSyncExpiresAt = expiresAt;
+    m_steamImportAutoSyncIntervalMinutes = intervalMinutes;
+
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("ImportAutoSyncEnabled", m_steamImportAutoSyncEnabled);
+    m_settings.setValue("ImportAutoSyncExpiresAt", m_steamImportAutoSyncExpiresAt);
+    m_settings.setValue("ImportAutoSyncIntervalMinutes", m_steamImportAutoSyncIntervalMinutes);
+    m_settings.endGroup();
+    m_settings.sync();
+
+    const bool saved = m_settings.status() == QSettings::NoError;
+    if (saved)
+    {
+        emit signalConfigChanged();
+    }
+
+    return saved;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Settings::DisableSteamImportAutoSync()
+{
+    m_steamImportAutoSyncEnabled = false;
+    m_steamImportAutoSyncExpiresAt = 0;
+    m_steamImportAutoSyncIntervalMinutes = 0;
+
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("ImportAutoSyncEnabled", false);
+    m_settings.setValue("ImportAutoSyncExpiresAt", 0);
+    m_settings.setValue("ImportAutoSyncIntervalMinutes", 0);
+    m_settings.setValue("ImportAutoSyncWebApiKey", "");
+    m_settings.endGroup();
+    m_settings.sync();
+
+    const bool saved = m_settings.status() == QSettings::NoError;
+    if (saved)
+    {
+        emit signalConfigChanged();
+    }
+
+    return saved;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -182,6 +282,9 @@ bool Settings::LoadConfig()
 
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_steamId = m_settings.value("SteamId", m_steamId).toString();
+    m_steamImportAutoSyncEnabled = m_settings.value("ImportAutoSyncEnabled", m_steamImportAutoSyncEnabled).toBool();
+    m_steamImportAutoSyncExpiresAt = m_settings.value("ImportAutoSyncExpiresAt", m_steamImportAutoSyncExpiresAt).toLongLong();
+    m_steamImportAutoSyncIntervalMinutes = m_settings.value("ImportAutoSyncIntervalMinutes", m_steamImportAutoSyncIntervalMinutes).toInt();
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);
@@ -395,6 +498,7 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             if (resetWebApiKey)
             {
                 m_steamWebApiKey = "";
+                DisableSteamImportAutoSync();
                 group = GROUP_STEAM_WEB_API;
                 settingsKey = "WebApiKey";
                 settingsValue = m_steamWebApiKey;
@@ -572,6 +676,9 @@ void Settings::SetDefaults()
     m_windowSizeY = m_windowSizeYDefault;
     m_steamId = "";
     m_steamWebApiKey = "";
+    m_steamImportAutoSyncEnabled = false;
+    m_steamImportAutoSyncExpiresAt = 0;
+    m_steamImportAutoSyncIntervalMinutes = 0;
     m_notificationSound = ResolveDefaultNotificationSound();
     m_overlayNotificationPosition = "bottom-right";
     m_overlayNotificationExitAnimation = "slide-out";
@@ -626,6 +733,58 @@ bool Settings::SaveSteamWebApiKey(const QString &webApiKey)
 
 /////////////////////////////////////////////////////////////////////
 
+bool Settings::SaveSteamImportAutoSyncWebApiKey(const QString &webApiKey)
+{
+    const QString encryptionKey = SteamImportAutoSyncEncryptionKey();
+    if (encryptionKey.isEmpty())
+    {
+        qWarning() << "Settings::SaveSteamImportAutoSyncWebApiKey() - automatic sync encryption key unavailable";
+        return false;
+    }
+
+    Encryption encryption;
+    const QString encryptedWebApiKey = encryption.Encrypt(webApiKey, encryptionKey);
+    if (encryptedWebApiKey.isEmpty())
+    {
+        qWarning() << "Settings::SaveSteamImportAutoSyncWebApiKey() - Creating encryptedWebApiKey failed";
+        return false;
+    }
+
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("ImportAutoSyncWebApiKey", encryptedWebApiKey);
+    m_settings.endGroup();
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Settings::SteamImportAutoSyncEncryptionKey() const
+{
+    QString hostId;
+
+#if defined(Q_OS_WIN)
+    QSettings machineGuidSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography"), QSettings::NativeFormat);
+    hostId = machineGuidSettings.value(QStringLiteral("MachineGuid")).toString().trimmed();
+#elif defined(Q_OS_LINUX)
+    QFile machineIdFile(QStringLiteral("/etc/machine-id"));
+    if (machineIdFile.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        hostId = QString::fromUtf8(machineIdFile.readAll()).trimmed();
+    }
+#endif
+
+    if (hostId.isEmpty())
+    {
+        qWarning() << "Settings::SteamImportAutoSyncEncryptionKey() - host id unavailable";
+        return "";
+    }
+
+    return QStringLiteral("LymalinkSteamImportAutoSync:%1").arg(hostId);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Settings::SavePlainValues()
 {
     m_settings.beginGroup(GROUP_APPLICATION);
@@ -662,6 +821,9 @@ void Settings::SavePlainValues()
 
     m_settings.beginGroup(GROUP_STEAM_WEB_API);
     m_settings.setValue("SteamId", m_steamId);
+    m_settings.setValue("ImportAutoSyncEnabled", m_steamImportAutoSyncEnabled);
+    m_settings.setValue("ImportAutoSyncExpiresAt", m_steamImportAutoSyncExpiresAt);
+    m_settings.setValue("ImportAutoSyncIntervalMinutes", m_steamImportAutoSyncIntervalMinutes);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_BACKGROUND_SERVICE);

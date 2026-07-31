@@ -39,6 +39,8 @@ Lymalink::Lymalink(QObject *parent) : QObject(parent)
     m_steamApiSearchWorker = nullptr;
     m_steamApiHydrationWorker = nullptr;
     m_steamHydrationBusy = false;
+    m_steamImportAutoSyncThread = nullptr;
+    m_steamImportAutoSyncBusy = false;
     m_appIdFolderFindThread = nullptr;
     m_appIdFolderFindBusy = false;
 }
@@ -55,6 +57,12 @@ Lymalink::~Lymalink()
 
     m_hydrationWorkerThread.quit();
     m_hydrationWorkerThread.wait();
+
+    if (m_steamImportAutoSyncThread)
+    {
+        m_steamImportAutoSyncThread->quit();
+        m_steamImportAutoSyncThread->wait();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -130,6 +138,13 @@ Error Lymalink::Initialize()
 bool Lymalink::GetSteamHydrationBusy() const
 {
     return m_steamHydrationBusy;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::GetSteamImportAutoSyncBusy() const
+{
+    return m_steamImportAutoSyncBusy;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -781,6 +796,7 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
         const Error playerError = shouldFetchPlayerAchievements
             ? steamApi.FetchPlayerAchievements(appId, steamId, playerAchievements, apiKey)
             : Error::NoData;
+        const bool hasPlayerAchievements = playerError == Error::NoError;
 
         // Handle player data fetch errors, with special handling for private profiles
         if (shouldFetchPlayerAchievements && playerError != Error::NoError && playerError != Error::NoData)
@@ -861,9 +877,12 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
         if (hasPublicAchievements)
         {
             gameRow["total_amount_achievements"] = fetchedKeys.size();
-            gameRow["total_unlocked_amount_achievements"] = unlockedCount;
+            if (hasPlayerAchievements)
+            {
+                gameRow["total_unlocked_amount_achievements"] = unlockedCount;
+            }
         }
-        else if (playerError == Error::NoError)
+        else if (hasPlayerAchievements)
         {
             // Fallback: use player data counts when public metadata is unavailable
             gameRow["total_unlocked_amount_achievements"] = playerUnlockedCount;
@@ -908,9 +927,12 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
                     {"achievement_description", achievement.achievementDescription.isEmpty() ? playerAchievement.achievementDescription : achievement.achievementDescription},
                     {"achievement_hidden", achievement.achievementHidden ? 1 : 0},
                     {"global_unlock_percentage", achievement.globalUnlockPercentage},
-                    {"date_unlocked", playerAchievement.dateUnlocked},
                     {"date_updated", now}
                 };
+                if (hasPlayerAchievements)
+                {
+                    achievementRow["date_unlocked"] = playerAchievement.dateUnlocked;
+                }
 
                 // Update existing achievement record
                 if (existingKeys.contains(achievement.achievementKey))
@@ -991,6 +1013,66 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
     payload["errors"] = errors;
     m_lastOperationError = errors.isEmpty() ? QString() : errors.first().toString();
     return payload;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalink::StartSteamImportAutoSync(const QString &steamId, const QString &apiKey)
+{
+    if (m_steamImportAutoSyncBusy)
+    {
+        qWarning() << "Lymalink::StartSteamImportAutoSync: Steam progress sync already running";
+        return;
+    }
+
+    if (m_databasePath.trimmed().isEmpty())
+    {
+        emit signalErrorOccurred(tr("Steam progress sync failed"), tr("Target database is unavailable."));
+        emit signalSteamImportAutoSyncFinished({
+            {"success", false},
+            {"errors", QVariantList{tr("Target database is unavailable.")}},
+            {"assetRefreshAppIds", QVariantList()}
+        });
+        return;
+    }
+
+    m_steamImportAutoSyncBusy = true;
+    emit signalSteamImportAutoSyncBusyChanged();
+
+    QThread *workerThread = new QThread(this);
+    SteamImportAutoSyncWorker *worker = new SteamImportAutoSyncWorker();
+    worker->moveToThread(workerThread);
+    m_steamImportAutoSyncThread = workerThread;
+
+    connect(workerThread, &QThread::started, worker,
+        [worker, databasePath = m_databasePath, steamId, apiKey]() {
+            worker->Run(databasePath, steamId, apiKey);
+        });
+    connect(worker, &SteamImportAutoSyncWorker::signalError, this,
+        [this](const QString &title, const QString &message) {
+            emit signalErrorOccurred(title, message);
+        });
+    connect(worker, &SteamImportAutoSyncWorker::signalFinished, this,
+        [this, workerThread](QVariantMap payload) {
+            emit signalSteamImportAutoSyncFinished(payload);
+            if (m_steamImportAutoSyncBusy)
+            {
+                m_steamImportAutoSyncBusy = false;
+                emit signalSteamImportAutoSyncBusyChanged();
+            }
+            workerThread->quit();
+        });
+    connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
+    connect(workerThread, &QThread::finished, this,
+        [this, workerThread]() {
+            if (m_steamImportAutoSyncThread == workerThread)
+            {
+                m_steamImportAutoSyncThread = nullptr;
+            }
+            workerThread->deleteLater();
+        });
+
+    workerThread->start();
 }
 
 /////////////////////////////////////////////////////////////////////

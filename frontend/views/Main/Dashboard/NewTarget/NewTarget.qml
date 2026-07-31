@@ -33,7 +33,7 @@ Item {
         },
         {
             key: "steam",
-            label: qsTr("Steam Import / Update"),
+            label: qsTr("Steam Import / Sync"),
             iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00036_ED.png",
             description: qsTr("Import Steam achievements with Steam Web API."),
             enabled: true
@@ -91,10 +91,10 @@ Item {
             delegate: Rectangle {
                 id: id_targetType
 
-                readonly property bool isEnabled: modelData.enabled && (modelData.key !== "steam" || !ctxLymalink.steamHydrationBusy)
+                readonly property bool isEnabled: modelData.enabled && (modelData.key !== "steam" || (!ctxLymalink.steamHydrationBusy && !ctxLymalink.steamImportAutoSyncBusy))
                 readonly property bool isHovered: id_targetTypeMouseArea.containsMouse
                 readonly property bool isPressed: id_targetTypeMouseArea.pressed
-                readonly property string badgeText: modelData.key === "steam" && ctxLymalink.steamHydrationBusy
+                readonly property string badgeText: modelData.key === "steam" && (ctxLymalink.steamHydrationBusy || ctxLymalink.steamImportAutoSyncBusy)
                     ? qsTr("Importing...")
                     : qsTr("Future")
                 readonly property color defaultBackground: isPressed

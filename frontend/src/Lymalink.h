@@ -11,6 +11,7 @@
 #include "Error.h"
 #include "api/SteamApiSearchWorker.h"
 #include "api/SteamApiHydrationWorker.h"
+#include "api/SteamImportAutoSyncWorker.h"
 #include "database/SQLiteManager.h"
 #include "tools/AppIdDirectoryFinder.h"
 #include "tools/FileManager.h"
@@ -27,6 +28,7 @@ class Lymalink : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool steamHydrationBusy READ GetSteamHydrationBusy NOTIFY signalSteamHydrationBusyChanged)
+    Q_PROPERTY(bool steamImportAutoSyncBusy READ GetSteamImportAutoSyncBusy NOTIFY signalSteamImportAutoSyncBusyChanged)
 
 public:
     explicit Lymalink(QObject *parent = nullptr);
@@ -35,6 +37,7 @@ public:
     Error Initialize();
 
     bool GetSteamHydrationBusy() const;
+    bool GetSteamImportAutoSyncBusy() const;
     
     Q_INVOKABLE void SearchSteamAppIds(const QString &term);
     Q_INVOKABLE void CancelSteamAppIdSearch();
@@ -45,6 +48,7 @@ public:
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);
+    Q_INVOKABLE void StartSteamImportAutoSync(const QString &steamId, const QString &apiKey);
     Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetAllTargetsHidden(bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
@@ -72,6 +76,8 @@ signals:
     void signalSteamHydrationTaskFinished(int appId, QString targetType, bool success, bool cancelled);
     void signalSteamHydrationQueueFinished();
     void signalSteamHydrationBusyChanged();
+    void signalSteamImportAutoSyncBusyChanged();
+    void signalSteamImportAutoSyncFinished(QVariantMap payload);
     void signalAchievementMetadataReady(int appId, QString targetType, bool success);
     void signalEmulatorAppIdFolderFindFinished(bool success, QVariantList results, QString error);
     void signalErrorOccurred(QString title, QString message);
@@ -96,6 +102,8 @@ private:
     QThread m_hydrationWorkerThread;
     SteamApiHydrationWorker *m_steamApiHydrationWorker;
     bool m_steamHydrationBusy;
+    QThread *m_steamImportAutoSyncThread;
+    bool m_steamImportAutoSyncBusy;
     QThread *m_appIdFolderFindThread;
     bool m_appIdFolderFindBusy;
 

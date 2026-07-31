@@ -46,6 +46,15 @@ Item {
         }
     }
 
+    function steamImportAutoSyncExpiryText() {
+        if (!ctxSettings.steamImportAutoSyncEnabled || ctxSettings.steamImportAutoSyncExpiresAt <= 0) {
+            return ""
+        }
+
+        const expires = new Date(ctxSettings.steamImportAutoSyncExpiresAt * 1000)
+        return qsTr("Active until %1.").arg(Qt.formatDateTime(expires, Qt.DefaultLocaleShortDate))
+    }
+
     function fileUrlToPath(fileUrl) {
         if (OS_WIN) {
             return decodeURIComponent(fileUrl.toString().replace(/^file:\/\/\//, ""))
@@ -543,6 +552,12 @@ Item {
             id_root.saveSteamWebApiKey(id_root.pendingSteamWebApiKey, passcode)
             id_root.pendingSteamWebApiKey = ""
         }
+    }
+
+    SteamImportAutoSyncPopup {
+        id: id_steamImportAutoSyncActivationPopup
+
+        onActivationCanceled: ctxSettings.DisableSteamImportAutoSync()
     }
 
     MarkdownDocumentPopup {
@@ -1379,6 +1394,48 @@ Item {
 
                                     id_root.pendingSteamWebApiKey = text
                                     id_apiKeyConfirmationPopup.open()
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Automatic Steam progress sync")
+                            tooltip: qsTr("Periodically sync imported Steam progress from Steam")
+                            fixedWidthInt: 500
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                CustomSwitch {
+                                    id: id_steamImportAutoSyncSwitch
+
+                                    enabled: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
+                                    text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                    Binding on checked {
+                                        value: ctxSettings.steamImportAutoSyncEnabled
+                                    }
+                                    HoverHandler { id: id_steamImportAutoSyncHover }
+                                    CustomTooltip {
+                                        p_active: id_steamImportAutoSyncHover.hovered
+                                        p_delay: 600
+                                        p_text: qsTr("Periodically sync imported Steam progress from Steam")
+                                    }
+                                    onToggled: {
+                                        if (checked) {
+                                            id_steamImportAutoSyncActivationPopup.openActivation()
+                                        } else {
+                                            ctxSettings.DisableSteamImportAutoSync()
+                                        }
+                                    }
+                                }
+
+                                Label {
+                                    visible: ctxSettings.steamImportAutoSyncEnabled && id_root.steamImportAutoSyncExpiryText().length > 0
+                                    Layout.maximumWidth: 360
+                                    text: id_root.steamImportAutoSyncExpiryText()
+                                    color: Themes.settings.colors.sectionInfo
+                                    font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                    wrapMode: Text.WordWrap
                                 }
                             }
                         }

@@ -102,7 +102,7 @@ You can import your official Steam library and sync achievements directly. This 
 Or at Target Details
 1. Open target card from **Dashboard**.
 2. Click **Settings gear**.
-3. Click **Reload Steam Progress**.
+3. Click **Sync Steam Progress**.
 
 ### 🗑️ Remove Steam Import Games
 

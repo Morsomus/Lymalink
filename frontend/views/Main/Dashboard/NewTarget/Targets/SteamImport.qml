@@ -50,7 +50,7 @@ Item {
     readonly property var removals: changedGames(true, false)
     readonly property int selectedCount: countSelectedGames()
     readonly property bool selectionDirty: newImports.length > 0 || removals.length > 0
-    readonly property bool operationLoading: libraryLoading || updateLoading || applyLoading
+    readonly property bool operationLoading: libraryLoading || updateLoading || applyLoading || ctxLymalink.steamImportAutoSyncBusy
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
 
     // Filters the loaded steam library based on search field text (name or appId)
@@ -593,13 +593,13 @@ Item {
                     font.pixelSize: Themes.steamImportTarget.fontSizes.label
                 }
 
-                // Update Imports
+                // Sync Steam progress
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 10
 
                     Text {
-                        text: qsTr("Update")
+                        text: qsTr("Sync Progress")
                         font.pixelSize: Themes.steamImportTarget.fontSizes.title
                         font.bold: true
                         color: Themes.steamImportTarget.colors.titleText
@@ -607,14 +607,14 @@ Item {
 
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Refresh data and achievements for already imported games.")
+                        text: qsTr("Sync playtime and achievements for already imported Steam games.")
                         wrapMode: Text.WordWrap
                         color: Themes.steamImportTarget.colors.descriptionText
                         font.pixelSize: Themes.steamImportTarget.fontSizes.label
                     }
 
                     CustomButton {
-                        text: qsTr("Update")
+                        text: qsTr("Sync Steam Progress")
                         enabled: id_root.steamConfigured && !id_root.operationLoading
                         onClicked: id_root.beginOperation("update")
                     }
@@ -671,7 +671,7 @@ Item {
 
                     // Select buttons
                     RowLayout {
-                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        visible: id_root.libraryLoaded && !id_root.updateLoading && !ctxLymalink.steamImportAutoSyncBusy
                         spacing: 8
 
                         CustomTextField {
@@ -700,7 +700,7 @@ Item {
                     // Changes information
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        visible: id_root.libraryLoaded && !id_root.updateLoading && !ctxLymalink.steamImportAutoSyncBusy
                         spacing: 12
 
                         Text {
@@ -737,7 +737,7 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        visible: id_root.libraryLoaded && !id_root.updateLoading
+                        visible: id_root.libraryLoaded && !id_root.updateLoading && !ctxLymalink.steamImportAutoSyncBusy
                         Layout.preferredHeight: 270
 
                         Rectangle {

@@ -670,12 +670,10 @@ Popup {
         }
 
         C_ActionButton {
-            id: id_updateFromSteamButton
-
             visible: id_root.p_targetType === "Steam"
-            text: qsTr("Reload Steam Progress")
-            tooltipText: qsTr("Reloads your progress on this target from Steam")
-            enabled: !id_root.steamUpdateLoading
+            text: qsTr("Sync Steam Progress")
+            tooltipText: qsTr("Sync your progress on this target from Steam")
+            enabled: !id_root.steamUpdateLoading && !ctxLymalink.steamImportAutoSyncBusy
             opacity: enabled ? 1.0 : 0.55
             onClicked: id_root.beginSteamUpdate()
         }

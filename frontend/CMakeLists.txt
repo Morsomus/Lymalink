@@ -71,6 +71,8 @@ qt_add_executable(Lymalink
     src/tools/Utils.cpp
     src/api/SteamApi.h
     src/api/SteamApi.cpp
+    src/api/SteamImportAutoSyncWorker.h
+    src/api/SteamImportAutoSyncWorker.cpp
     src/api/SteamApiSearchWorker.h
     src/api/SteamApiSearchWorker.cpp
     src/api/SteamApiHydrationWorker.h
@@ -159,6 +161,7 @@ qt_add_qml_module(Lymalink
         common/ErrorImage.qml
         common/ErrorPopup.qml
         common/MarkdownDocumentPopup.qml
+        custom/SteamImportAutoSyncPopup.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
         views/Main/Dashboard/CardGrid/Components/Card.qml
         views/Main/Dashboard/CardGrid/Components/CardSmall.qml

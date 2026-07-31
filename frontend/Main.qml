@@ -44,6 +44,7 @@ ApplicationWindow {
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_MD_TEXT)
         }
+        id_root.scheduleSteamImportAutoSync(5000)
     }
 
     function restoreFromBackground() {
@@ -55,6 +56,29 @@ ApplicationWindow {
         id_root.show()
         id_root.raise()
         id_root.requestActivate()
+    }
+
+    function scheduleSteamImportAutoSync(delayMs) {
+        if (!ctxSettings.steamImportAutoSyncEnabled) {
+            id_steamImportAutoSyncTimer.stop()
+            return
+        }
+
+        id_steamImportAutoSyncTimer.interval = Math.max(1000, delayMs)
+        id_steamImportAutoSyncTimer.restart()
+    }
+
+    function runSteamImportAutoSync() {
+        if (!ctxSettings.steamImportAutoSyncEnabled) {
+            return
+        }
+
+        if (ctxLymalink.steamHydrationBusy || ctxLymalink.steamImportAutoSyncBusy) {
+            id_root.scheduleSteamImportAutoSync(60000)
+            return
+        }
+
+        ctxLymalink.StartSteamImportAutoSync(ctxSettings.steamId, ctxSettings.GetSteamImportAutoSyncWebApiKeyPlain())
     }
 
     Binding {
@@ -82,6 +106,14 @@ ApplicationWindow {
         }
     }
 
+    Timer {
+        id: id_steamImportAutoSyncTimer
+
+        interval: 1000
+        repeat: false
+        onTriggered: id_root.runSteamImportAutoSync()
+    }
+
     background: Rectangle {
         color: Themes.appShell.colors.windowBackground
     }
@@ -107,6 +139,35 @@ ApplicationWindow {
 
         function onSignalErrorOccurred(title, message) {
             id_errorPopup.showError(title, message)
+        }
+
+        function onSignalSteamImportAutoSyncFinished(payload) {
+            const assetRefreshAppIds = payload.assetRefreshAppIds ?? []
+            for (let i = 0; i < assetRefreshAppIds.length; ++i) {
+                id_dashboard.setTargetLoading(assetRefreshAppIds[i], "Steam", true)
+                ctxLymalink.EnqueueSteamHydrationTask(assetRefreshAppIds[i], true, "Steam")
+            }
+
+            id_dashboard.refreshTargets()
+
+            if (ctxSettings.steamImportAutoSyncEnabled && ctxSettings.steamImportAutoSyncIntervalMinutes > 0) {
+                id_root.scheduleSteamImportAutoSync(ctxSettings.steamImportAutoSyncIntervalMinutes * 60 * 1000)
+            }
+        }
+    }
+
+    Connections {
+        target: ctxSettings
+
+        function onSignalConfigChanged() {
+            if (!ctxSettings.steamImportAutoSyncEnabled) {
+                id_steamImportAutoSyncTimer.stop()
+                return
+            }
+
+            if (!id_steamImportAutoSyncTimer.running && !ctxLymalink.steamImportAutoSyncBusy) {
+                id_root.scheduleSteamImportAutoSync(1000)
+            }
         }
     }
 

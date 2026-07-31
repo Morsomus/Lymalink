@@ -174,6 +174,38 @@ Item {
                 Layout.fillHeight: true
             }
 
+            Item {
+                id: id_steamImportAutoSyncStatus
+
+                visible: ctxLymalink.steamImportAutoSyncBusy
+                Layout.fillWidth: true
+                Layout.preferredHeight: id_root.p_collapsed ? 42 : 46
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: id_root.p_collapsed ? 0 : 10
+                    spacing: id_root.p_collapsed ? 0 : 8
+
+                    CustomBusyIndicator {
+                        Layout.fillWidth: id_root.p_collapsed
+                        Layout.preferredWidth: 24
+                        Layout.preferredHeight: 24
+                        p_indicatorSize: 24
+                        p_speed: 900
+                        p_running: id_steamImportAutoSyncStatus.visible
+                    }
+
+                    Label {
+                        visible: !id_root.p_collapsed
+                        Layout.fillWidth: true
+                        text: qsTr("Syncing Steam progress...")
+                        color: Themes.general.colors.bodyText
+                        font.pixelSize: Themes.general.fontSizes.body
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
             Rectangle {
                 id: id_currentlyPlaying
 

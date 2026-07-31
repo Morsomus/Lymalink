@@ -43,6 +43,9 @@ class Settings : public QObject
     Q_PROPERTY(uint16_t windowSizeYDefault READ GetWindowSizeYDefault NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamId READ GetSteamId NOTIFY signalConfigChanged)
     Q_PROPERTY(QString steamWebApiKey READ GetSteamWebApiKey NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool steamImportAutoSyncEnabled READ GetSteamImportAutoSyncEnabled NOTIFY signalConfigChanged)
+    Q_PROPERTY(qint64 steamImportAutoSyncExpiresAt READ GetSteamImportAutoSyncExpiresAt NOTIFY signalConfigChanged)
+    Q_PROPERTY(int steamImportAutoSyncIntervalMinutes READ GetSteamImportAutoSyncIntervalMinutes NOTIFY signalConfigChanged)
     Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
     Q_PROPERTY(QString overlayNotificationPosition READ GetOverlayNotificationPosition NOTIFY signalConfigChanged)
@@ -104,6 +107,9 @@ public:
 
     Q_INVOKABLE void SetTempEncryptionKey(const QString &encryptionKey);
     Q_INVOKABLE QString GetSteamWebApiKeyPlain() const;
+    Q_INVOKABLE QString GetSteamImportAutoSyncWebApiKeyPlain();
+    Q_INVOKABLE bool EnableSteamImportAutoSync(const QString &webApiKey, int durationDays, int intervalMinutes);
+    Q_INVOKABLE bool DisableSteamImportAutoSync();
     Q_INVOKABLE bool ResetDefaults();
     Q_INVOKABLE bool SaveConfig();
     Q_INVOKABLE bool LoadConfig();
@@ -133,6 +139,9 @@ public:
     inline uint16_t GetWindowSizeYDefault() const { return m_windowSizeYDefault; }
     inline QString GetSteamId() const { return m_steamId; }
     inline QString GetSteamWebApiKey() const { return m_steamWebApiKey; }
+    inline bool GetSteamImportAutoSyncEnabled() const { return m_steamImportAutoSyncEnabled; }
+    inline qint64 GetSteamImportAutoSyncExpiresAt() const { return m_steamImportAutoSyncExpiresAt; }
+    inline int GetSteamImportAutoSyncIntervalMinutes() const { return m_steamImportAutoSyncIntervalMinutes; }
     inline QString GetNotificationSound() const { return m_notificationSound; }
     QStringList GetNotificationSounds() const;
     inline QString GetOverlayNotificationPosition() const { return m_overlayNotificationPosition; }
@@ -179,6 +188,9 @@ private:
     uint16_t m_windowSizeYDefault;
     QString m_steamId;
     QString m_steamWebApiKey;
+    bool m_steamImportAutoSyncEnabled;
+    qint64 m_steamImportAutoSyncExpiresAt;
+    int m_steamImportAutoSyncIntervalMinutes;
     QString m_notificationSound;
     QString m_overlayNotificationPosition;
     QString m_overlayNotificationExitAnimation;
@@ -196,6 +208,8 @@ private:
     void SetDefaults();
     QString ResolveDefaultNotificationSound() const;
     bool SaveSteamWebApiKey(const QString &webApiKey);
+    bool SaveSteamImportAutoSyncWebApiKey(const QString &webApiKey);
+    QString SteamImportAutoSyncEncryptionKey() const;
     void SavePlainValues();
     bool SaveEncryptedWebApiKey(const QString &webApiKey);
     void LoadEncryptedValueState();
