@@ -599,7 +599,7 @@ Item {
                     spacing: 10
 
                     Text {
-                        text: qsTr("Sync Progress")
+                        text: qsTr("Sync Steam Progress")
                         font.pixelSize: Themes.steamImportTarget.fontSizes.title
                         font.bold: true
                         color: Themes.steamImportTarget.colors.titleText
@@ -613,8 +613,16 @@ Item {
                         font.pixelSize: Themes.steamImportTarget.fontSizes.label
                     }
 
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Automatic Steam progress sync can be enabled from the Settings page.")
+                        wrapMode: Text.WordWrap
+                        color: Themes.steamImportTarget.colors.descriptionMutedText
+                        font.pixelSize: Themes.steamImportTarget.fontSizes.description
+                    }
+
                     CustomButton {
-                        text: qsTr("Sync Steam Progress")
+                        text: qsTr("Sync")
                         enabled: id_root.steamConfigured && !id_root.operationLoading
                         onClicked: id_root.beginOperation("update")
                     }

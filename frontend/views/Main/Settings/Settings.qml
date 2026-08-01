@@ -36,6 +36,7 @@ Item {
     readonly property var overlayPositionLabels: [qsTr("Top-left"), qsTr("Top-center"), qsTr("Top-right"), qsTr("Bottom-right"), qsTr("Bottom-center"), qsTr("Bottom-left")]
     readonly property var overlayExitAnimationValues: ["slide-out", "fade-out"]
     readonly property var overlayExitAnimationLabels: [qsTr("Slide out"), qsTr("Fade out")]
+    readonly property var steamImportAutoSyncIntervalOptions: [15, 30, 60, 180, 360, 720, 1440]
 
     signal achievementImportCompleted(var addedTargets)
 
@@ -53,6 +54,24 @@ Item {
 
         const expires = new Date(ctxSettings.steamImportAutoSyncExpiresAt * 1000)
         return qsTr("Active until %1.").arg(Qt.formatDateTime(expires, Qt.DefaultLocaleShortDate))
+    }
+
+    function steamImportAutoSyncLastSyncText() {
+        if (!ctxSettings.steamImportAutoSyncEnabled || ctxSettings.steamImportAutoSyncLastSyncedAt <= 0) {
+            return ""
+        }
+
+        const syncedAt = new Date(ctxSettings.steamImportAutoSyncLastSyncedAt * 1000)
+        return qsTr("Last sync %1.").arg(Qt.formatDateTime(syncedAt, Qt.DefaultLocaleShortDate))
+    }
+
+    function steamImportAutoSyncIntervalLabel(value) {
+        if (value < 60) {
+            return qsTr("%1 minutes").arg(value)
+        }
+
+        const hours = value / 60
+        return hours === 1 ? qsTr("1 hour") : qsTr("%1 hours").arg(hours)
     }
 
     function fileUrlToPath(fileUrl) {
@@ -557,7 +576,7 @@ Item {
     SteamImportAutoSyncPopup {
         id: id_steamImportAutoSyncActivationPopup
 
-        onActivationCanceled: ctxSettings.DisableSteamImportAutoSync()
+        onActivationCanceled: ctxSettings.SaveValue(Settings.SteamImportAutoSyncEnabled, false)
     }
 
     MarkdownDocumentPopup {
@@ -1349,7 +1368,6 @@ Item {
 
                     // Steam API
                     C_SettingsSection {
-                        fullRowMode: true
                         title: qsTr("Steam Web API")
 
                         C_InfoBox {
@@ -1364,6 +1382,7 @@ Item {
                         }
 
                         C_SettingRow {
+                            Layout.columnSpan: 2
                             label: qsTr("Steam ID")
                             tooltip: qsTr("Steam ID is a long numeric account identifier - You can find it on your Steam Account page")
                             fixedWidthInt: 500
@@ -1375,6 +1394,7 @@ Item {
                         }
 
                         C_SettingRow {
+                            Layout.columnSpan: 2
                             label: qsTr("Web API Key")
                             tooltip: qsTr("Get your Steam Web API key from https://steamcommunity.com/dev/apikey")
                             fixedWidthInt: 500
@@ -1401,7 +1421,6 @@ Item {
                         C_SettingRow {
                             label: qsTr("Automatic Steam progress sync")
                             tooltip: qsTr("Periodically sync imported Steam progress from Steam")
-                            fixedWidthInt: 500
 
                             ColumnLayout {
                                 spacing: 4
@@ -1424,15 +1443,45 @@ Item {
                                         if (checked) {
                                             id_steamImportAutoSyncActivationPopup.openActivation()
                                         } else {
-                                            ctxSettings.DisableSteamImportAutoSync()
+                                            ctxSettings.SaveValue(Settings.SteamImportAutoSyncEnabled, false)
                                         }
                                     }
                                 }
 
                                 Label {
                                     visible: ctxSettings.steamImportAutoSyncEnabled && id_root.steamImportAutoSyncExpiryText().length > 0
-                                    Layout.maximumWidth: 360
                                     text: id_root.steamImportAutoSyncExpiryText()
+                                    color: Themes.settings.colors.sectionInfo
+                                    font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Sync interval")
+                            tooltip: qsTr("How often automatic Steam progress sync checks for changes")
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                CustomComboBox {
+                                    enabled: ctxSettings.steamImportAutoSyncEnabled
+                                    p_tooltipText: qsTr("How often automatic Steam progress sync checks for changes")
+                                    model: id_root.steamImportAutoSyncIntervalOptions
+                                    currentIndex: Math.max(0, model.indexOf(ctxSettings.steamImportAutoSyncIntervalMinutes))
+                                    implicitWidth: 150
+                                    p_textFromValue: function(value, index) {
+                                        return id_root.steamImportAutoSyncIntervalLabel(value)
+                                    }
+                                    onActivated: function(index) {
+                                        ctxSettings.SaveValue(Settings.SteamImportAutoSyncIntervalMinutes, model[index])
+                                    }
+                                }
+
+                                Label {
+                                    visible: ctxSettings.steamImportAutoSyncEnabled && id_root.steamImportAutoSyncLastSyncText().length > 0
+                                    text: id_root.steamImportAutoSyncLastSyncText()
                                     color: Themes.settings.colors.sectionInfo
                                     font.pixelSize: Themes.settings.fontSizes.sectionInfo
                                     wrapMode: Text.WordWrap

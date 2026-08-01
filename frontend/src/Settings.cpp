@@ -24,7 +24,6 @@
 Settings::Settings(QObject *parent) : QObject(parent),
     m_settings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION)
 {
-    m_tempEncryptionKey = "";
     m_windowSizeXDefault = 1320;
     m_windowSizeYDefault = 900;
     SetDefaults();
@@ -135,64 +134,18 @@ QString Settings::GetSteamImportAutoSyncWebApiKeyPlain()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Settings::EnableSteamImportAutoSync(const QString &webApiKey, int durationDays, int intervalMinutes)
+bool Settings::SetSteamImportAutoSyncLastSyncedAt(qint64 syncedAt)
 {
-    const QString trimmedWebApiKey = webApiKey.trimmed();
-    if (trimmedWebApiKey.isEmpty() || durationDays <= 0 || intervalMinutes <= 0)
+    if (syncedAt <= 0)
     {
-        qWarning() << "Settings::EnableSteamImportAutoSync - invalid activation data";
+        qWarning() << "Settings::SetSteamImportAutoSyncLastSyncedAt - invalid timestamp";
         return false;
     }
 
-    const qint64 expiresAt = QDateTime::currentSecsSinceEpoch() + static_cast<qint64>(durationDays) * 24 * 60 * 60;
-    if (!SaveSteamImportAutoSyncWebApiKey(trimmedWebApiKey))
-    {
-        return false;
-    }
+    m_steamImportAutoSyncLastSyncedAt = syncedAt;
 
-    m_steamImportAutoSyncEnabled = true;
-    m_steamImportAutoSyncExpiresAt = expiresAt;
-    m_steamImportAutoSyncIntervalMinutes = intervalMinutes;
-
-    m_settings.beginGroup(GROUP_STEAM_WEB_API);
-    m_settings.setValue("ImportAutoSyncEnabled", m_steamImportAutoSyncEnabled);
-    m_settings.setValue("ImportAutoSyncExpiresAt", m_steamImportAutoSyncExpiresAt);
-    m_settings.setValue("ImportAutoSyncIntervalMinutes", m_steamImportAutoSyncIntervalMinutes);
-    m_settings.endGroup();
-    m_settings.sync();
-
-    const bool saved = m_settings.status() == QSettings::NoError;
-    if (saved)
-    {
-        emit signalConfigChanged();
-    }
-
-    return saved;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-bool Settings::DisableSteamImportAutoSync()
-{
-    m_steamImportAutoSyncEnabled = false;
-    m_steamImportAutoSyncExpiresAt = 0;
-    m_steamImportAutoSyncIntervalMinutes = 0;
-
-    m_settings.beginGroup(GROUP_STEAM_WEB_API);
-    m_settings.setValue("ImportAutoSyncEnabled", false);
-    m_settings.setValue("ImportAutoSyncExpiresAt", 0);
-    m_settings.setValue("ImportAutoSyncIntervalMinutes", 0);
-    m_settings.setValue("ImportAutoSyncWebApiKey", "");
-    m_settings.endGroup();
-    m_settings.sync();
-
-    const bool saved = m_settings.status() == QSettings::NoError;
-    if (saved)
-    {
-        emit signalConfigChanged();
-    }
-
-    return saved;
+    emit signalConfigChanged();
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -486,6 +439,13 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
         case SteamId:
         {
             m_steamId = value.toString();
+            if (m_steamId.isEmpty())
+            {
+                if (!SaveSteamImportAutoSyncEnabled(false, false))
+                {
+                    return false;
+                }
+            }
             group = GROUP_STEAM_WEB_API;
             settingsKey = "SteamId";
             settingsValue = m_steamId;
@@ -498,7 +458,10 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             if (resetWebApiKey)
             {
                 m_steamWebApiKey = "";
-                DisableSteamImportAutoSync();
+                if (!SaveSteamImportAutoSyncEnabled(false, false))
+                {
+                    return false;
+                }
                 group = GROUP_STEAM_WEB_API;
                 settingsKey = "WebApiKey";
                 settingsValue = m_steamWebApiKey;
@@ -508,6 +471,18 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             {
                 return SaveSteamWebApiKey(val);
             }
+        }
+        case SteamImportAutoSyncEnabled:
+        {
+            return SaveSteamImportAutoSyncEnabled(value, emitSignal);
+        }
+        case SteamImportAutoSyncIntervalMinutes:
+        {
+            m_steamImportAutoSyncIntervalMinutes = value.toInt();
+            group = GROUP_STEAM_WEB_API;
+            settingsKey = "ImportAutoSyncIntervalMinutes";
+            settingsValue = m_steamImportAutoSyncIntervalMinutes;
+            break;
         }
         case NotificationSound:
         {
@@ -678,7 +653,8 @@ void Settings::SetDefaults()
     m_steamWebApiKey = "";
     m_steamImportAutoSyncEnabled = false;
     m_steamImportAutoSyncExpiresAt = 0;
-    m_steamImportAutoSyncIntervalMinutes = 0;
+    m_steamImportAutoSyncIntervalMinutes = 15;
+    m_steamImportAutoSyncLastSyncedAt = 0;
     m_notificationSound = ResolveDefaultNotificationSound();
     m_overlayNotificationPosition = "bottom-right";
     m_overlayNotificationExitAnimation = "slide-out";
@@ -705,6 +681,69 @@ QString Settings::ResolveDefaultNotificationSound() const
         : (notificationSounds.isEmpty()
             ? QString()
             : notificationSounds.first());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Settings::SaveSteamImportAutoSyncEnabled(const QVariant &value, bool emitSignal)
+{
+    const QVariantMap activationData = value.toMap();
+    const bool enabled = !activationData.isEmpty();
+
+    if (!enabled && value.toBool())
+    {
+        qWarning() << "Settings::SaveSteamImportAutoSyncEnabled - invalid activation data";
+        return false;
+    }
+
+    if (enabled)
+    {
+        const QString webApiKey = activationData.value("webApiKey").toString().trimmed();
+        const int durationDays = activationData.value("durationDays").toInt();
+        const int intervalMinutes = activationData.value("intervalMinutes").toInt();
+        if (webApiKey.isEmpty() || durationDays <= 0)
+        {
+            qWarning() << "Settings::SaveSteamImportAutoSyncEnabled - invalid activation data";
+            return false;
+        }
+
+        if (!SaveSteamImportAutoSyncWebApiKey(webApiKey))
+        {
+            return false;
+        }
+
+        m_steamImportAutoSyncEnabled = true;
+        m_steamImportAutoSyncExpiresAt = QDateTime::currentSecsSinceEpoch() + static_cast<qint64>(durationDays) * 24 * 60 * 60;
+        m_steamImportAutoSyncIntervalMinutes = intervalMinutes > 0 ? intervalMinutes : 15;
+        m_steamImportAutoSyncLastSyncedAt = 0;
+    }
+    else
+    {
+        m_steamImportAutoSyncEnabled = false;
+        m_steamImportAutoSyncExpiresAt = 0;
+    }
+
+    m_settings.beginGroup(GROUP_STEAM_WEB_API);
+    m_settings.setValue("ImportAutoSyncEnabled", m_steamImportAutoSyncEnabled);
+    m_settings.setValue("ImportAutoSyncExpiresAt", m_steamImportAutoSyncExpiresAt);
+    if (enabled)
+    {
+        m_settings.setValue("ImportAutoSyncIntervalMinutes", m_steamImportAutoSyncIntervalMinutes);
+    }
+    else
+    {
+        m_settings.setValue("ImportAutoSyncWebApiKey", "");
+    }
+    m_settings.endGroup();
+    m_settings.sync();
+
+    const bool saved = m_settings.status() == QSettings::NoError;
+    if (saved && emitSignal)
+    {
+        emit signalConfigChanged();
+    }
+
+    return saved;
 }
 
 /////////////////////////////////////////////////////////////////////

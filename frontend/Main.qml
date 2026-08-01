@@ -26,6 +26,7 @@ ApplicationWindow {
 
         return ctxSettings.theme === "light" ? "light" : "dark"
     }
+    property int steamImportAutoSyncLastIntervalMinutes: 0
 
     visible: true
     width: ctxSettings.windowSizeX
@@ -41,6 +42,8 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        id_root.steamImportAutoSyncLastIntervalMinutes = ctxSettings.steamImportAutoSyncIntervalMinutes
+
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_MD_TEXT)
         }
@@ -142,13 +145,17 @@ ApplicationWindow {
         }
 
         function onSignalSteamImportAutoSyncFinished(payload) {
+            ctxSettings.SetSteamImportAutoSyncLastSyncedAt(Math.floor(Date.now() / 1000))
+
             const assetRefreshAppIds = payload.assetRefreshAppIds ?? []
             for (let i = 0; i < assetRefreshAppIds.length; ++i) {
                 id_dashboard.setTargetLoading(assetRefreshAppIds[i], "Steam", true)
                 ctxLymalink.EnqueueSteamHydrationTask(assetRefreshAppIds[i], true, "Steam")
             }
 
-            id_dashboard.refreshTargets()
+            if ((payload.updatedCount ?? 0) > 0) {
+                id_dashboard.refreshTargets()
+            }
 
             if (ctxSettings.steamImportAutoSyncEnabled && ctxSettings.steamImportAutoSyncIntervalMinutes > 0) {
                 id_root.scheduleSteamImportAutoSync(ctxSettings.steamImportAutoSyncIntervalMinutes * 60 * 1000)
@@ -160,8 +167,16 @@ ApplicationWindow {
         target: ctxSettings
 
         function onSignalConfigChanged() {
+            const intervalChanged = id_root.steamImportAutoSyncLastIntervalMinutes !== ctxSettings.steamImportAutoSyncIntervalMinutes
+            id_root.steamImportAutoSyncLastIntervalMinutes = ctxSettings.steamImportAutoSyncIntervalMinutes
+
             if (!ctxSettings.steamImportAutoSyncEnabled) {
                 id_steamImportAutoSyncTimer.stop()
+                return
+            }
+
+            if (intervalChanged && !ctxLymalink.steamImportAutoSyncBusy) {
+                id_root.scheduleSteamImportAutoSync(ctxSettings.steamImportAutoSyncIntervalMinutes * 60 * 1000)
                 return
             }
 

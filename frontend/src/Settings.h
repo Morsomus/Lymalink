@@ -46,6 +46,7 @@ class Settings : public QObject
     Q_PROPERTY(bool steamImportAutoSyncEnabled READ GetSteamImportAutoSyncEnabled NOTIFY signalConfigChanged)
     Q_PROPERTY(qint64 steamImportAutoSyncExpiresAt READ GetSteamImportAutoSyncExpiresAt NOTIFY signalConfigChanged)
     Q_PROPERTY(int steamImportAutoSyncIntervalMinutes READ GetSteamImportAutoSyncIntervalMinutes NOTIFY signalConfigChanged)
+    Q_PROPERTY(qint64 steamImportAutoSyncLastSyncedAt READ GetSteamImportAutoSyncLastSyncedAt NOTIFY signalConfigChanged)
     Q_PROPERTY(QString notificationSound READ GetNotificationSound NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList notificationSounds READ GetNotificationSounds NOTIFY signalConfigChanged)
     Q_PROPERTY(QString overlayNotificationPosition READ GetOverlayNotificationPosition NOTIFY signalConfigChanged)
@@ -85,6 +86,8 @@ public:
         WindowSizeY,
         SteamId,
         SteamWebApiKey,
+        SteamImportAutoSyncEnabled,
+        SteamImportAutoSyncIntervalMinutes,
         NotificationSound,
         OverlayNotificationPosition,
         OverlayNotificationExitAnimation,
@@ -108,8 +111,7 @@ public:
     Q_INVOKABLE void SetTempEncryptionKey(const QString &encryptionKey);
     Q_INVOKABLE QString GetSteamWebApiKeyPlain() const;
     Q_INVOKABLE QString GetSteamImportAutoSyncWebApiKeyPlain();
-    Q_INVOKABLE bool EnableSteamImportAutoSync(const QString &webApiKey, int durationDays, int intervalMinutes);
-    Q_INVOKABLE bool DisableSteamImportAutoSync();
+    Q_INVOKABLE bool SetSteamImportAutoSyncLastSyncedAt(qint64 syncedAt);
     Q_INVOKABLE bool ResetDefaults();
     Q_INVOKABLE bool SaveConfig();
     Q_INVOKABLE bool LoadConfig();
@@ -142,6 +144,7 @@ public:
     inline bool GetSteamImportAutoSyncEnabled() const { return m_steamImportAutoSyncEnabled; }
     inline qint64 GetSteamImportAutoSyncExpiresAt() const { return m_steamImportAutoSyncExpiresAt; }
     inline int GetSteamImportAutoSyncIntervalMinutes() const { return m_steamImportAutoSyncIntervalMinutes; }
+    inline qint64 GetSteamImportAutoSyncLastSyncedAt() const { return m_steamImportAutoSyncLastSyncedAt; }
     inline QString GetNotificationSound() const { return m_notificationSound; }
     QStringList GetNotificationSounds() const;
     inline QString GetOverlayNotificationPosition() const { return m_overlayNotificationPosition; }
@@ -191,6 +194,7 @@ private:
     bool m_steamImportAutoSyncEnabled;
     qint64 m_steamImportAutoSyncExpiresAt;
     int m_steamImportAutoSyncIntervalMinutes;
+    qint64 m_steamImportAutoSyncLastSyncedAt;
     QString m_notificationSound;
     QString m_overlayNotificationPosition;
     QString m_overlayNotificationExitAnimation;
@@ -207,6 +211,7 @@ private:
 
     void SetDefaults();
     QString ResolveDefaultNotificationSound() const;
+    bool SaveSteamImportAutoSyncEnabled(const QVariant &value, bool emitSignal);
     bool SaveSteamWebApiKey(const QString &webApiKey);
     bool SaveSteamImportAutoSyncWebApiKey(const QString &webApiKey);
     QString SteamImportAutoSyncEncryptionKey() const;

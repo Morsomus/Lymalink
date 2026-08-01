@@ -136,6 +136,7 @@ qt_add_qml_module(Lymalink
         res/img/BlankBackground_MFC_Glow_00004_ED.png
         res/img/BlankBackground_MFC_Glow_00006_ED.png
         res/img/BlankBackground_MFC_Glow_00006_.png
+        res/img/BlankBackground_MFC_Glow_00007_ED.png
         res/img/BlankBackground_MFC_Glow_00032_ED.png
         res/img/BlankBackground_MFC_Glow_00033_ED.png
         res/img/BlankBackground_MFC_Glow_00034_ED.png

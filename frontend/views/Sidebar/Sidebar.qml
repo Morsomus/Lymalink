@@ -183,16 +183,27 @@ Item {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: id_root.p_collapsed ? 0 : 10
+                    anchors.margins: id_root.p_collapsed ? 0 : 3
                     spacing: id_root.p_collapsed ? 0 : 8
 
                     CustomBusyIndicator {
                         Layout.fillWidth: id_root.p_collapsed
-                        Layout.preferredWidth: 24
-                        Layout.preferredHeight: 24
-                        p_indicatorSize: 24
+                        Layout.preferredWidth: 38
+                        Layout.preferredHeight: 38
+                        p_indicatorSize: 38
                         p_speed: 900
                         p_running: id_steamImportAutoSyncStatus.visible
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: parent.width * 0.5
+                            height: parent.height * 0.5
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00036_ED.png"
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            smooth: true
+                            mipmap: true
+                        }
                     }
 
                     Label {
@@ -200,7 +211,7 @@ Item {
                         Layout.fillWidth: true
                         text: qsTr("Syncing Steam progress...")
                         color: Themes.general.colors.bodyText
-                        font.pixelSize: Themes.general.fontSizes.body
+                        font.pixelSize: Themes.general.fontSizes.title
                         elide: Text.ElideRight
                     }
                 }

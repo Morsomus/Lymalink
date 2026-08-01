@@ -7,6 +7,7 @@
 /////////////////////////////////////////////////////////
 
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -17,17 +18,14 @@ Popup {
 
     // Internals _____________________________________________
     property int selectedDurationDays: 0
-    property int selectedIntervalMinutes: 0
     property string activationStatus: ""
     property bool activationCompleted: false
 
     signal activationCanceled()
 
-    readonly property var durationOptions: [7, 14, 30, 60, 90]
-    readonly property var intervalOptions: [15, 30, 60, 360, 720, 1440]
+    readonly property var durationOptions: [1, 3, 7, 14, 30, 60]
     readonly property bool canConfirm: id_passcodeInput.text.length >= 6
         && id_durationCombo.currentIndex >= 0
-        && id_intervalCombo.currentIndex >= 0
 
     parent: Overlay.overlay
     width: Math.min(420, parent ? parent.width - 48 : 420)
@@ -41,11 +39,9 @@ Popup {
 
     function openActivation() {
         selectedDurationDays = 0
-        selectedIntervalMinutes = 0
         activationStatus = ""
         activationCompleted = false
         id_durationCombo.currentIndex = -1
-        id_intervalCombo.currentIndex = -1
         id_passcodeInput.text = ""
         open()
         id_passcodeInput.forceActiveFocus()
@@ -53,15 +49,6 @@ Popup {
 
     function durationLabel(value) {
         return qsTr("%1 days").arg(value)
-    }
-
-    function intervalLabel(value) {
-        if (value < 60) {
-            return qsTr("%1 minutes").arg(value)
-        }
-
-        const hours = value / 60
-        return hours === 1 ? qsTr("1 hour") : qsTr("%1 hours").arg(hours)
     }
 
     function confirmActivation() {
@@ -78,7 +65,7 @@ Popup {
             return
         }
 
-        if (!ctxSettings.EnableSteamImportAutoSync(unlockedKey, selectedDurationDays, selectedIntervalMinutes)) {
+        if (!ctxSettings.SaveValue(Settings.SteamImportAutoSyncEnabled, { "webApiKey": unlockedKey, "durationDays": selectedDurationDays, "intervalMinutes": ctxSettings.steamImportAutoSyncIntervalMinutes })) {
             activationStatus = qsTr("Automatic Steam progress sync could not be enabled.")
             return
         }
@@ -124,16 +111,53 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: qsTr("Unlock the saved Steam Web API key, then choose the sync duration and check interval.")
+            text: qsTr("To enable automatic sync for your imported Steam targets, enter the passcode for your Steam Web API key and choose how long sync stays enabled.")
             color: Themes.steamImportAutoSyncPopup.colors.bodyText
             font.pixelSize: Themes.steamImportAutoSyncPopup.fontSizes.body
             wrapMode: Text.WordWrap
             lineHeight: 1.35
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 54
+            spacing: 10
+
+            Image {
+                Layout.preferredWidth: 42
+                Layout.preferredHeight: 42
+                source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00007_ED.png"
+                fillMode: Image.PreserveAspectCrop
+                smooth: true
+                mipmap: true
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Syncing Steam progress...")
+                    color: Themes.steamImportAutoSyncPopup.colors.titleText
+                    font.pixelSize: Themes.steamImportAutoSyncPopup.fontSizes.body
+                    elide: Text.ElideRight
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("This appears in the sidebar while automatic sync is in progress.")
+                    color: Themes.steamImportAutoSyncPopup.colors.bodyText
+                    font.pixelSize: Themes.steamImportAutoSyncPopup.fontSizes.sectionInfo
+                    wrapMode: Text.WordWrap
+                    lineHeight: 1.25
+                }
+            }
+        }
+
         Label {
             Layout.fillWidth: true
-            text: qsTr("Security note: Creates a temporary encrypted copy of the API key for the selected duration. This is not secure for long-term storage.")
+            text: qsTr("Security note: Automatic sync temporarily stores an encrypted copy of your API key for the selected duration. It is used to unlock the API key during automatic sync. This is not secure for long-term storage if your device has been compromised or accessed without authorization.")
             color: Themes.steamImportAutoSyncPopup.colors.warningText
             font.pixelSize: Themes.steamImportAutoSyncPopup.fontSizes.body
             wrapMode: Text.WordWrap
@@ -149,34 +173,16 @@ Popup {
             onTextChanged: id_root.activationStatus = ""
         }
 
-        RowLayout {
+        CustomComboBox {
+            id: id_durationCombo
+
             Layout.fillWidth: true
-            spacing: 10
-
-            CustomComboBox {
-                id: id_durationCombo
-
-                Layout.fillWidth: true
-                model: id_root.durationOptions
-                currentIndex: -1
-                displayText: currentIndex >= 0 ? id_root.durationLabel(model[currentIndex]) : qsTr("Duration")
-                p_textFromValue: function(value, index) { return id_root.durationLabel(value) }
-                onActivated: function(index) {
-                    id_root.selectedDurationDays = model[index]
-                }
-            }
-
-            CustomComboBox {
-                id: id_intervalCombo
-
-                Layout.fillWidth: true
-                model: id_root.intervalOptions
-                currentIndex: -1
-                displayText: currentIndex >= 0 ? id_root.intervalLabel(model[currentIndex]) : qsTr("Interval")
-                p_textFromValue: function(value, index) { return id_root.intervalLabel(value) }
-                onActivated: function(index) {
-                    id_root.selectedIntervalMinutes = model[index]
-                }
+            model: id_root.durationOptions
+            currentIndex: -1
+            displayText: currentIndex >= 0 ? id_root.durationLabel(model[currentIndex]) : qsTr("Duration")
+            p_textFromValue: function(value, index) { return id_root.durationLabel(value) }
+            onActivated: function(index) {
+                id_root.selectedDurationDays = model[index]
             }
         }
 
