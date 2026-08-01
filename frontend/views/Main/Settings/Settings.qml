@@ -704,6 +704,7 @@ Item {
         clip: true
 
         Component.onCompleted: {
+            contentItem.boundsBehavior = Flickable.StopAtBounds
             id_verticalScrollBar.parent = id_settingsScrollView
             id_verticalScrollBar.anchors.top = id_settingsScrollView.top
             id_verticalScrollBar.anchors.bottom = id_settingsScrollView.bottom

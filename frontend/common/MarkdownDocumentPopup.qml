@@ -103,6 +103,7 @@ Popup {
             }
 
             Component.onCompleted: {
+                contentItem.boundsBehavior = Flickable.StopAtBounds
                 id_verticalScrollBar.parent = id_documentScrollView
                 id_verticalScrollBar.anchors.top = id_documentScrollView.top
                 id_verticalScrollBar.anchors.bottom = id_documentScrollView.bottom
