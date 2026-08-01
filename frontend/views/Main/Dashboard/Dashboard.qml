@@ -40,7 +40,13 @@ Item {
     property string targetDetailsActiveSort: "unlockDate"
     property bool targetDetailsSortDescending: false
     property var targetDetailsActiveFilters: ["all"]
+    property var pendingLocalAchievementScanAppIds: []
+    property bool localAchievementScanActive: false
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
+    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
+    readonly property bool backendServiceUsable: backendServiceReady && ctxBackendService.serviceAvailable && ctxBackendService.serviceActive
+    readonly property var activeTargetIds: backendServiceReady ? ctxBackendService.activeTargetIds : []
+    readonly property bool anyTargetIsActive: activeTargetIds.length > 0
 
     onShowingTargetDetailsChanged: id_dashboardToolbar.closeOpenPanels()
     onShowingAddTargetChanged: id_dashboardToolbar.closeOpenPanels()
@@ -67,6 +73,14 @@ Item {
         interval: 250
         repeat: false
         onTriggered: id_root.recalculatePaging(false)
+    }
+
+    Timer {
+        id: id_localAchievementScanTimer
+
+        interval: 1000
+        repeat: false
+        onTriggered: id_root.processPendingLocalAchievementScan()
     }
 
     Component.onCompleted: refreshTargets()
@@ -520,6 +534,36 @@ Item {
         }
     }
 
+    function scheduleLocalAchievementScan(appId, targetType) {
+        if (targetType !== "Emulator" || appId <= 0) {
+            return
+        }
+
+        if (id_root.pendingLocalAchievementScanAppIds.indexOf(appId) === -1) {
+            id_root.pendingLocalAchievementScanAppIds = id_root.pendingLocalAchievementScanAppIds.concat([appId])
+        }
+        id_root.processPendingLocalAchievementScan()
+    }
+
+    function processPendingLocalAchievementScan() {
+        if (id_root.localAchievementScanActive || id_root.pendingLocalAchievementScanAppIds.length === 0) {
+            return
+        }
+
+        if (!id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+            id_localAchievementScanTimer.restart()
+            return
+        }
+
+        const appId = id_root.pendingLocalAchievementScanAppIds[0]
+        const remaining = id_root.pendingLocalAchievementScanAppIds.slice()
+        remaining.shift()
+        id_root.pendingLocalAchievementScanAppIds = remaining
+
+        id_root.localAchievementScanActive = true
+        ctxBackendService.StartManualAchievementDataScan(appId)
+    }
+
     function applyAchievementImportResult(addedTargets) {
         id_root.showingTargetDetails = false
         id_root.showingAddTarget = false
@@ -559,7 +603,12 @@ Item {
             id_root.refreshTargets()
             if (success && !cancelled) {
                 id_root.reloadBackendTargets()
+                id_root.scheduleLocalAchievementScan(appId, targetType)
             }
+        }
+
+        function onSignalSteamHydrationQueueFinished() {
+            id_root.processPendingLocalAchievementScan()
         }
     }
 
@@ -579,6 +628,20 @@ Item {
             }
 
             id_root.refreshTargets()
+        }
+
+        function onSignalManualAchievementDataScanFinished(appId, found, reason) {
+            id_root.localAchievementScanActive = false
+
+            if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
+                id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
+            } else {
+                id_root.refreshTargets()
+            }
+
+            if (id_root.pendingLocalAchievementScanAppIds.length > 0) {
+                id_localAchievementScanTimer.restart()
+            }
         }
     }
 
@@ -646,8 +709,8 @@ Item {
                 id_root.showingTargetDetails = false
                 id_root.refreshTargets()
                 id_root.reloadBackendTargets()
+                id_root.setTargetLoading(appId, targetType, true)
                 if (targetType !== "Emulator") {
-                    id_root.setTargetLoading(appId, targetType, true)
                     ctxLymalink.EnqueueSteamHydrationTask(appId, true, targetType)
                 }
             }
