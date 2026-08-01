@@ -39,6 +39,7 @@
 /////////////////////////////////////////////////////////////////////
 
 Lymalinkd::Lymalinkd() :
+    m_achievementKeyResolver(m_database, DATABASE_CONNECTION_NAME),
     m_achievementNotifications(m_database, m_overlayNotifications, m_notificationSound)
 {
     m_processActive.store(false);
@@ -334,11 +335,25 @@ void Lymalinkd::Monitor()
                 const std::vector<AchievementData> unhandled = m_achievementHandler.PollUnhandled(activeTarget.first);
                 for (const AchievementData& achievement : unhandled)
                 {
-                    const bool saved = SaveAchievementState(activeTarget.first, achievement);
-                    if (saved && achievement.newlyUnlocked && achievement.achieved)
+                    // SmartSteamEmu stores achievement keys as CRC32 values, so resolve them before DB updates
+                    AchievementData resolvedAchievement = achievement;
+                    bool shouldIgnoreUnresolvedKey = false;
+                    {
+                        std::lock_guard<std::mutex> lock(m_databaseMutex);
+                        resolvedAchievement.key = m_achievementKeyResolver.ResolveKey(activeTarget.first, achievement.key);
+                        shouldIgnoreUnresolvedKey = resolvedAchievement.key == achievement.key && m_achievementKeyResolver.ShouldIgnoreUnresolvedKey(activeTarget.first, achievement.key);
+                    }
+                    if (shouldIgnoreUnresolvedKey)
+                    {
+                        LOG_BE(Urgency::Debug, "Ignoring unresolved CRC entry: targetId=%d key=%s", activeTarget.first, achievement.key.c_str());
+                        continue;
+                    }
+
+                    const bool saved = SaveAchievementState(activeTarget.first, resolvedAchievement);
+                    if (saved && resolvedAchievement.newlyUnlocked && resolvedAchievement.achieved)
                     {
                         // OnAchievementUnlocked is only done IF achievement is actually new AND it was marked as achieved
-                        OnAchievementUnlocked(activeTarget.first, achievement.key);
+                        OnAchievementUnlocked(activeTarget.first, resolvedAchievement.key);
                     }
                 }
             }
@@ -364,6 +379,20 @@ void Lymalinkd::Monitor()
                             {
                                 if (result.appidDirFound)
                                 {
+                                    if (result.emulatorType == "SmartSteamEmu")
+                                    {
+                                        // SmartSteamEmu stat rows cannot be mapped safely, so hide stale DB progress
+                                        bool progressChanged = false;
+                                        {
+                                            std::lock_guard<std::mutex> lock(m_databaseMutex);
+                                            progressChanged = DisableAchievementProgress(result.targetId);
+                                            m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                                        }
+                                        if (progressChanged)
+                                        {
+                                            EmitTargetDataChanged(result.targetId);
+                                        }
+                                    }
 #if defined(_WIN32)
                                     std::filesystem::file_time_type processStartedAt{};
                                     bool hasProcessStartTime = false;
@@ -720,6 +749,20 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     const std::string gameName = SQLiteManager::RowString(target, "game_name");
     if (!appIdDirPath.empty() && !emulatorType.empty())
     {
+        if (emulatorType == "SmartSteamEmu")
+        {
+            // Prepare CRC key matching before the achievement watcher starts polling stats.bin
+            bool progressChanged = false;
+            {
+                std::lock_guard<std::mutex> lock(m_databaseMutex);
+                progressChanged = DisableAchievementProgress(targetId);
+                m_achievementKeyResolver.PrepareTargetKeys(targetId);
+            }
+            if (progressChanged)
+            {
+                EmitTargetDataChanged(targetId);
+            }
+        }
         m_achievementHandler.AddTarget(targetId, appIdDirPath, emulatorType);
     }
 
@@ -1038,7 +1081,22 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 }
 
                 int updatedAchievements = 0;
-                for (const AchievementData& achievement : m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType))
+                if (result.emulatorType == "SmartSteamEmu")
+                {
+                    // Manual scans use the same CRC resolving and progress hiding rules as runtime polling
+                    bool progressChanged = false;
+                    {
+                        std::lock_guard<std::mutex> lock(m_databaseMutex);
+                        progressChanged = DisableAchievementProgress(result.targetId);
+                        m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                    }
+                    if (progressChanged)
+                    {
+                        EmitTargetDataChanged(result.targetId);
+                    }
+                }
+                const std::vector<AchievementData> achievements = m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType);
+                for (const AchievementData& achievement : achievements)
                 {
                     if (achievement.key.empty())
                     {
@@ -1046,7 +1104,20 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                     }
 
                     // Reuse normal runtime DB update path - unknown parser keys are ignored by SaveAchievementState
-                    if (SaveAchievementState(result.targetId, achievement))
+                    // CRC-only SmartSteamEmu keys must resolve first so notifications can find the real DB row
+                    AchievementData resolvedAchievement = achievement;
+                    bool shouldIgnoreUnresolvedKey = false;
+                    {
+                        std::lock_guard<std::mutex> lock(m_databaseMutex);
+                        resolvedAchievement.key = m_achievementKeyResolver.ResolveKey(result.targetId, achievement.key);
+                        shouldIgnoreUnresolvedKey = resolvedAchievement.key == achievement.key && m_achievementKeyResolver.ShouldIgnoreUnresolvedKey(result.targetId, achievement.key);
+                    }
+                    if (shouldIgnoreUnresolvedKey)
+                    {
+                        LOG_BE(Urgency::Debug, "Ignoring unresolved CRC entry during manual scan: targetId=%d key=%s", result.targetId, achievement.key.c_str());
+                        continue;
+                    }
+                    if (SaveAchievementState(result.targetId, resolvedAchievement))
                     {
                         ++updatedAchievements;
                     }
@@ -1420,6 +1491,48 @@ bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& co
     }
 
     LOG_BE(Urgency::Info, "EnsureColumn altered table=%s added column=%s", tableName.c_str(), columnName.c_str());
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalinkd::DisableAchievementProgress(int targetId)
+{
+    if (targetId <= 0)
+    {
+        return false;
+    }
+
+    const DbRecord progressRow = m_database.SelectFirst(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        "id = ? AND (cur_progress != 0 OR max_progress != 0)",
+        {static_cast<int64_t>(targetId)}
+    );
+    if (progressRow.empty())
+    {
+        return false;
+    }
+
+    const bool updated = m_database.Update(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_ACHIEVEMENTS,
+        {
+            {"cur_progress", int64_t{0}},
+            {"max_progress", int64_t{0}},
+            {"date_updated", Utils::NowEpoch()}
+        },
+        "id = ?",
+        {static_cast<int64_t>(targetId)}
+    );
+
+    if (!updated)
+    {
+        LOG_BE(Urgency::Warning, "Failed to disable achievement progress: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+        return false;
+    }
+
+    LOG_BE(Urgency::Debug, "Disabled achievement progress: targetId=%d", targetId);
     return true;
 }
 

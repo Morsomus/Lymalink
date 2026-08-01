@@ -26,5 +26,7 @@ std::string ReadProcessCmdline();
 std::string ReadIniValue(const std::string& configPath, const std::string& section, const std::string& key);
 bool IsHexLeUint32(const std::string& val);
 uint32_t ParseHexLeUint32(const std::string& val);
+uint32_t Crc32(const std::string& value);
+std::string ToUpperHexUint32(uint32_t value);
 
 }

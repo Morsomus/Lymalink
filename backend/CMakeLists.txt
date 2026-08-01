@@ -51,6 +51,7 @@ qt_add_executable(lymalinkd
     src/overlay/WinOverlayNotifier.cpp src/overlay/WinOverlayNotifier.h
     src/database/SQLiteManager.cpp src/database/SQLiteManager.h
     src/tools/Utils.cpp src/tools/Utils.h
+    src/tools/AchievementKeyResolver.cpp src/tools/AchievementKeyResolver.h
     src/tools/Logger.cpp src/tools/Logger.h
     src/tray/BackendTrayIcon.cpp src/tray/BackendTrayIcon.h
     src/watcher/PathScanner.cpp src/watcher/PathScanner.h
@@ -60,6 +61,7 @@ qt_add_executable(lymalinkd
     src/tools/parsers/GoldbergParser.cpp src/tools/parsers/GoldbergParser.h
     src/tools/parsers/GoGNParser.cpp src/tools/parsers/GoGNParser.h
     src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
+    src/tools/parsers/SSEParser.cpp src/tools/parsers/SSEParser.h
 )
 target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-overlay/include ${MINIAUDIO_DIR})
 target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Sql Qt6::Widgets SQLite::SQLite3 ole32 windowscodecs advapi32)

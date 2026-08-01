@@ -628,6 +628,10 @@ Item {
                                         value: "Reads generated 'achievements.ini' file for unlocked achievements"
                                     },
                                     {
+                                        label: qsTr("SmartSteamEmu"),
+                                        value: "Reads generated 'stats.bin' file for unlocked achievements"
+                                    },
+                                    {
                                         label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
                                         value: "GOG Games - Reads generated 'achievements.json' file for unlocked achievements"
                                     }

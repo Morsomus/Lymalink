@@ -23,6 +23,7 @@
 #include "notification/AchievementNotificationService.h"
 #include "tray/BackendTrayIcon.h"
 #include "database/SQLiteManager.h"
+#include "tools/AchievementKeyResolver.h"
 #include "watcher/PathScanner.h"
 #include "watcher/ProcessWatcher.h"
 #include "watcher/AchievementHandler.h"
@@ -62,6 +63,7 @@ private:
     CanberraSoundService m_notificationSound;
 #endif
     SQLiteManager m_database;
+    AchievementKeyResolver m_achievementKeyResolver;
     AchievementNotificationService m_achievementNotifications;
     BackendTrayIcon m_trayIcon;
     PathScanner m_pathScanner;
@@ -139,6 +141,7 @@ private:
     std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
     void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results, bool emitTargetDataChanged = true);
     bool EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef);
+    bool DisableAchievementProgress(int targetId);
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
     void ScheduleStartupNotification(int targetId, std::string gameName);

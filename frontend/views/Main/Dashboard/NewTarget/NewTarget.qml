@@ -57,7 +57,9 @@ Item {
         visible: active
         sourceComponent: Component {
             Emulator {
-                onBusyChanged: id_root.busyChanged(busy)
+                onBusyChanged: function(busy) {
+                    id_root.busyChanged(busy)
+                }
                 onTargetAdded: function(appId) {
                     id_root.targetAdded(appId, "Emulator")
                 }
@@ -71,7 +73,9 @@ Item {
         visible: active
         sourceComponent: Component {
             SteamImport {
-                onOperationLoadingChanged: id_root.busyChanged(operationLoading)
+                onOperationLoadingChanged: function(operationLoading) {
+                    id_root.busyChanged(operationLoading)
+                }
                 onImportsApplied: function(loadingAppIds) {
                     id_root.steamImportsApplied(loadingAppIds)
                 }

@@ -13,6 +13,7 @@
 #include "../tools/parsers/GoGNParser.h"
 #include "../tools/parsers/RLDParser.h"
 #include "../tools/parsers/RUNECodexParser.h"
+#include "../tools/parsers/SSEParser.h"
 
 #include <filesystem>
 #include <exception>
@@ -464,6 +465,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating Reloaded parser.");
         return new RLDParser();
+    }
+    if (emulatorType == "SmartSteamEmu")
+    {
+        LOG_BE(Urgency::Debug, "Creating SmartSteamEmu parser.");
+        return new SSEParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());

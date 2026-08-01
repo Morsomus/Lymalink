@@ -63,6 +63,8 @@ Item {
             return "Rune"
         case "RLD":
             return "Reloaded"
+        case "SMARTSTEAMEMU":
+            return "SmartSteamEmu"
         default:
             return "-"
         }

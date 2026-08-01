@@ -12,6 +12,7 @@
 #include <cctype>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 
@@ -193,6 +194,32 @@ uint32_t ParseHexLeUint32(const std::string& val)
         result |= static_cast<uint32_t>(byte) << (i * 8);
     }
     return result;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+uint32_t Crc32(const std::string& value)
+{
+    uint32_t crc = 0xFFFFFFFF;
+    for (const unsigned char c : value)
+    {
+        crc ^= static_cast<uint32_t>(c);
+        for (int bit = 0; bit < 8; ++bit)
+        {
+            const uint32_t mask = 0U - (crc & 1U);
+            crc = (crc >> 1U) ^ (0xEDB88320U & mask);
+        }
+    }
+    return ~crc;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string ToUpperHexUint32(uint32_t value)
+{
+    std::ostringstream stream;
+    stream << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << value;
+    return stream.str();
 }
 
 }

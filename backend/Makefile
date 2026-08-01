@@ -35,6 +35,7 @@ SOURCES := \
     src/main.cpp \
     src/Lymalinkd.cpp \
     src/tools/Utils.cpp \
+    src/tools/AchievementKeyResolver.cpp \
     src/tools/Logger.cpp \
     src/service/SystemdNotify.cpp \
     src/tray/BackendTrayIcon.cpp \
@@ -49,7 +50,8 @@ SOURCES := \
     src/tools/parsers/RUNECodexParser.cpp \
     src/tools/parsers/GoldbergParser.cpp \
     src/tools/parsers/GoGNParser.cpp \
-    src/tools/parsers/RLDParser.cpp
+    src/tools/parsers/RLDParser.cpp \
+    src/tools/parsers/SSEParser.cpp
 
 OBJECTS := $(SOURCES:src/%.cpp=$(OBJ_DIR)/%.o)
 
@@ -57,10 +59,12 @@ TEST_SOURCES := \
     tests/SQLiteManagerTests.cpp \
     src/database/SQLiteManager.cpp \
     src/tools/Utils.cpp \
+    src/tools/AchievementKeyResolver.cpp \
     src/tools/Logger.cpp \
     src/watcher/PathScanner.cpp \
     src/tools/parsers/GoGNParser.cpp \
-    src/tools/parsers/RLDParser.cpp
+    src/tools/parsers/RLDParser.cpp \
+    src/tools/parsers/SSEParser.cpp
 
 .PHONY: all clean test
 

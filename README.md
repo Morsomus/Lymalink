@@ -12,7 +12,7 @@
 
 ### Implemented Features
 
-- **Tracking Emulator Achievements** - Support achievement files created by Goldberg, Rune/Codex, RELOADED, NemirtingasGalaxyEmulator 1.4.2/1.9.2.
+- **Tracking Emulator Achievements** - Support achievement files created by Goldberg, Rune/Codex, RELOADED, SmartSteamEmu, NemirtingasGalaxyEmulator 1.4.2/1.9.2.
 - **Background tracking** - Track achievements in the background when enabled, without requiring the frontend UI to stay open.
 - **Overlay notifications** - Display achievement notifications as overlays with six configurable screen positions with customizable animation.
 - **Custom notification sounds** - Choose from multiple notification sound tracks or add your own.
