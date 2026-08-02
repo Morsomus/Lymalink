@@ -723,6 +723,7 @@ QtObject {
             readonly property color dangerBorder: Qt.rgba(0.85, 0.22, 0.22, 0.28)
             readonly property color dangerBorderHover: Qt.rgba(0.85, 0.22, 0.22, 0.45)
             readonly property color dangerText: id_themes.themeColor("#f0b8b8", "#b42318")
+            readonly property color warningText: id_themes.themeColor("#e8a838", "#9a5a00")
         }
 
         readonly property QtObject fontSizes: QtObject {

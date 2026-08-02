@@ -255,6 +255,15 @@ Popup {
             wrapMode: Text.WordWrap
         }
 
+        Label {
+            visible: !id_root.unlockAction
+            Layout.fillWidth: true
+            text: qsTr("To prevent automatically unlocking this achievement on refresh, update your emulator's achievement file.")
+            color: Themes.targetAchievementEditPopup.colors.warningText
+            font.pixelSize: Themes.targetAchievementEditPopup.fontSizes.body
+            wrapMode: Text.WordWrap
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 6

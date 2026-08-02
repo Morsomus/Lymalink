@@ -1140,6 +1140,7 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
         }
         if (!found && !m_manualScanCancelRequested.load())
         {
+            LOG_BE(Urgency::Debug, "Not found appIdDir: targetId=%d", targetId);
             std::lock_guard<std::mutex> lock(m_databaseMutex);
             DbRecord data{
                 {"appid_dir_found", int64_t{0}},
