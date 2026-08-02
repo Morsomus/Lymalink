@@ -438,7 +438,7 @@ Popup {
         id: id_installationLocationPopup
 
         p_title: qsTr("Edit Installation Directory")
-        p_description: qsTr("Adding an installation directory enables scanning for GOG Emulator.\nClear it to disable scanning for GOG Emulator.\n\nCurrent path:\n%1").arg(id_root.currentInstallationLocation.length > 0
+        p_description: qsTr("Adding an installation directory enables scanning for install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke.\n\nClear it to disable install-dir scanning.\n\nCurrent path:\n%1").arg(id_root.currentInstallationLocation.length > 0
             ? id_root.currentInstallationLocation
             : qsTr("Not set"))
         p_confirmText: qsTr("Apply")

@@ -184,6 +184,8 @@ QString AppIdDirectoryFinder::EmulatorLabel(const QString &emulatorType) const
         return QStringLiteral("Reloaded");
     else if (normalized == QStringLiteral("SMARTSTEAMEMU"))
         return QStringLiteral("SmartSteamEmu");
+    else if (normalized == QStringLiteral("TENOKE"))
+        return QStringLiteral("Tenoke");
 
     return QStringLiteral("-");
 }

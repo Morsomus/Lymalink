@@ -44,7 +44,7 @@ Item {
     property string selectedName: ""
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
-    property bool gogEmulatorEnabled: false
+    property bool installationDirScanEnabled: false
     property var detectedSteamAppIds: []
     property bool detectedGogConfig: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
@@ -202,6 +202,12 @@ Item {
         }
     }
 
+    function scrollToBottom() {
+        Qt.callLater(function() {
+            id_parentFlickable.contentY = Math.max(0, id_parentFlickable.contentHeight - id_parentFlickable.height)
+        })
+    }
+
     function selectGame(result) {
         id_root.selectedAppId = result.id
         id_root.selectedName = result.name
@@ -209,6 +215,7 @@ Item {
         id_root.targetCreated = false
         id_root.targetStatusText = ""
         id_root.targetStatusIsError = false
+        id_root.scrollToBottom()
     }
 
     function inspectSelectedExecutableFolder(executablePath) {
@@ -275,7 +282,7 @@ Item {
             id_root.selectedName,
             id_installLocationField.text,
             id_prefixLocationField.text,
-            id_root.gogEmulatorEnabled ? id_installDirField.text : ""
+            id_root.installationDirScanEnabled ? id_installDirField.text : ""
         )
 
         id_root.targetStatusIsError = !success
@@ -630,6 +637,10 @@ Item {
                                     {
                                         label: qsTr("SmartSteamEmu"),
                                         value: "Reads generated 'stats.bin' file for unlocked achievements"
+                                    },
+                                    {
+                                        label: qsTr("Tenoke"),
+                                        value: "Reads generated 'user_stats.ini' file for unlocked achievements"
                                     },
                                     {
                                         label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
@@ -1074,7 +1085,7 @@ Item {
 
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Note: This scanner only detects data created by supported emulators.")
+                        text: qsTr("Note: This scanner only detects data created by supported emulators. Emulators that store data in game installation directory are not supported by this scanner.")
                         font.pixelSize: Themes.emulatorTarget.fontSizes.description
                         color: Themes.emulatorTarget.colors.descriptionText
                         wrapMode: Text.Wrap
@@ -1292,7 +1303,7 @@ Item {
 
                         // ID
                         Text {
-                            Layout.preferredWidth: 180
+                            Layout.preferredWidth: 200
                             text: qsTr("ID")
                             color: Themes.emulatorTarget.colors.descriptionText
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
@@ -1317,7 +1328,7 @@ Item {
 
                         // Name
                         Text {
-                            Layout.preferredWidth: 180
+                            Layout.preferredWidth: 200
                             text: qsTr("Name")
                             color: Themes.emulatorTarget.colors.descriptionText
                             font.pixelSize: Themes.emulatorTarget.fontSizes.label
@@ -1337,9 +1348,31 @@ Item {
                             }
                         }
 
+                        // Prefix Location
+                        ColumnLayout {
+                            visible: !OS_WIN
+                            Layout.preferredWidth: 200
+                            spacing: 2
+
+                            Text {
+                                text: qsTr("Prefix Location")
+                                color: Themes.emulatorTarget.colors.descriptionText
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("Select the drive_c or equivalent folder\ninside your Wine/Proton/Bottle prefix")
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                color: Themes.emulatorTarget.colors.descriptionMutedText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
                         // Game Executable
                         ColumnLayout {
-                            Layout.preferredWidth: 180
+                            Layout.preferredWidth: 200
                             spacing: 2
 
                             Text {
@@ -1389,7 +1422,7 @@ Item {
 
                         // Installation Directory
                         ColumnLayout {
-                            Layout.preferredWidth: 180
+                            Layout.preferredWidth: 200
                             spacing: 2
 
                             Text {
@@ -1401,7 +1434,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("Used for scanning GOG Emulators")
+                                text: qsTr("Used for scanning install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke")
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
                                 color: Themes.emulatorTarget.colors.descriptionMutedText
                                 wrapMode: Text.Wrap
@@ -1409,10 +1442,10 @@ Item {
 
                             CustomCheckBox {
                                 Layout.topMargin: 4
-                                text: qsTr("GOG Emulator used")
-                                checked: id_root.gogEmulatorEnabled
+                                text: qsTr("Install-dir emulator used")
+                                checked: id_root.installationDirScanEnabled
                                 onToggled: {
-                                    id_root.gogEmulatorEnabled = checked
+                                    id_root.installationDirScanEnabled = checked
                                     id_root.targetStatusText = ""
                                     id_root.targetStatusIsError = false
                                 }
@@ -1427,7 +1460,7 @@ Item {
                                 id: id_installDirField
 
                                 Layout.fillWidth: true
-                                enabled: id_root.gogEmulatorEnabled
+                                enabled: id_root.installationDirScanEnabled
                                 opacity: enabled ? 1.0 : 0.55
                                 readOnly: true
                                 selectByMouse: false
@@ -1435,7 +1468,7 @@ Item {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    enabled: id_root.gogEmulatorEnabled
+                                    enabled: id_root.installationDirScanEnabled
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: id_installFolderDialog.open()
                                 }
@@ -1444,31 +1477,9 @@ Item {
                             Text {
                                 visible: id_root.detectedGogConfig
                                 Layout.fillWidth: true
-                                text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable GOG Emulator usage if needed.")
+                                text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable 'Install-dir emulator used' if needed.")
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.description
                                 color: Themes.emulatorTarget.colors.prefixWarningText
-                                wrapMode: Text.Wrap
-                            }
-                        }
-
-                        // Prefix Location
-                        ColumnLayout {
-                            visible: !OS_WIN
-                            Layout.preferredWidth: 180
-                            spacing: 2
-
-                            Text {
-                                text: qsTr("Prefix Location")
-                                color: Themes.emulatorTarget.colors.descriptionText
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.label
-                                wrapMode: Text.Wrap
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("Select the drive_c or equivalent folder\ninside your Wine/Proton/Bottle prefix")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
-                                color: Themes.emulatorTarget.colors.descriptionMutedText
                                 wrapMode: Text.Wrap
                             }
                         }
@@ -1545,7 +1556,7 @@ Item {
                                 readonly property bool canConfirm: id_root.selectedAppId > 0
                                     && id_root.selectedName.trim().length > 0
                                     && id_installLocationField.text.trim().length > 0
-                                    && (!id_root.gogEmulatorEnabled || id_installDirField.text.trim().length > 0)
+                                    && (!id_root.installationDirScanEnabled || id_installDirField.text.trim().length > 0)
                                     && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
                                     && !id_root.targetCreated
                                     && !id_root.isCreatingTarget

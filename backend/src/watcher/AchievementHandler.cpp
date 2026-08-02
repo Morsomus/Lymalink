@@ -14,6 +14,7 @@
 #include "../tools/parsers/GoGNParser.h"
 #include "../tools/parsers/RLDParser.h"
 #include "../tools/parsers/SSEParser.h"
+#include "../tools/parsers/TenokeParser.h"
 #include "../tools/Logger.h"
 
 #include <unistd.h>
@@ -658,6 +659,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating SmartSteamEmu parser.");
         return new SSEParser();
+    }
+    else if (emulatorType == "Tenoke")
+    {
+        LOG_BE(Urgency::Debug, "Creating Tenoke parser.");
+        return new TenokeParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());

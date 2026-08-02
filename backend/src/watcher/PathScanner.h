@@ -57,6 +57,7 @@ private:
     std::string FindWindowsReloadedDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
 #endif
     std::string FindNemirtingasDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
+    std::string FindTenokeDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
     std::string FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds, const std::function<bool()>& shouldStopScanning) const;
     std::vector<std::string> FindGogIds(const std::string& installationDir) const;
     std::string JoinIds(const std::vector<std::string>& ids) const;

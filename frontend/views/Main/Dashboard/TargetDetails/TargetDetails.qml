@@ -76,6 +76,8 @@ Item {
             return "Reloaded"
         case "SMARTSTEAMEMU":
             return "SmartSteamEmu"
+        case "TENOKE":
+            return "Tenoke"
         default:
             return "-"
         }

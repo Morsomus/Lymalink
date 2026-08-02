@@ -390,14 +390,17 @@ void Lymalinkd::Monitor()
                             {
                                 if (result.appidDirFound)
                                 {
-                                    if (result.emulatorType == "SmartSteamEmu")
+                                    if (EmulatorAchievementProgressNotImplemented(result.emulatorType))
                                     {
-                                        // SmartSteamEmu stat rows cannot be mapped safely, so hide stale DB progress
+                                        // These emulators do not expose usable achievement progress, so hide stale DB progress
                                         bool progressChanged = false;
                                         {
                                             std::lock_guard<std::mutex> lock(m_databaseMutex);
                                             progressChanged = DisableAchievementProgress(result.targetId);
-                                            m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                                            if (result.emulatorType == "SmartSteamEmu")
+                                            {
+                                                m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                                            }
                                         }
                                         if (progressChanged)
                                         {
@@ -760,14 +763,16 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     const std::string gameName = SQLiteManager::RowString(target, "game_name");
     if (!appIdDirPath.empty() && !emulatorType.empty())
     {
-        if (emulatorType == "SmartSteamEmu")
+        if (EmulatorAchievementProgressNotImplemented(emulatorType))
         {
-            // Prepare CRC key matching before the achievement watcher starts polling stats.bin
             bool progressChanged = false;
             {
                 std::lock_guard<std::mutex> lock(m_databaseMutex);
                 progressChanged = DisableAchievementProgress(targetId);
-                m_achievementKeyResolver.PrepareTargetKeys(targetId);
+                if (emulatorType == "SmartSteamEmu") // Prepare CRC key matching before SmartSteamEmu starts polling stats.bin
+                {
+                    m_achievementKeyResolver.PrepareTargetKeys(targetId);
+                }
             }
             if (progressChanged)
             {
@@ -1093,14 +1098,17 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 }
 
                 int updatedAchievements = 0;
-                if (result.emulatorType == "SmartSteamEmu")
+                if (EmulatorAchievementProgressNotImplemented(result.emulatorType))
                 {
-                    // Manual scans use the same CRC resolving and progress hiding rules as runtime polling
+                    // Manual scans use the same no-progress rules as runtime polling
                     bool progressChanged = false;
                     {
                         std::lock_guard<std::mutex> lock(m_databaseMutex);
                         progressChanged = DisableAchievementProgress(result.targetId);
-                        m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                        if (result.emulatorType == "SmartSteamEmu")  // Manual scans use the same CRC resolving rules as runtime polling
+                        {
+                            m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
+                        }
                     }
                     if (progressChanged)
                     {
@@ -1581,6 +1589,13 @@ bool Lymalinkd::DisableAchievementProgress(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
+bool Lymalinkd::EmulatorAchievementProgressNotImplemented(const std::string& emulatorType) const
+{
+    return emulatorType == "SmartSteamEmu" || emulatorType == "Tenoke";
+}
+
+/////////////////////////////////////////////////////////////////////
+
 void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 {
     std::lock_guard<std::mutex> lock(m_databaseMutex);
@@ -1623,7 +1638,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     const DbRecord existingAchievement = m_database.SelectFirst(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
-        "id = ? AND achievement_key = ?",
+        "id = ? AND achievement_key = ? COLLATE NOCASE",
         {static_cast<int64_t>(targetId), achievement.key}
     );
 
@@ -1702,7 +1717,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
         achievementUpdate,
-        "id = ? AND achievement_key = ?",
+        "id = ? AND achievement_key = ? COLLATE NOCASE",
         {static_cast<int64_t>(targetId), achievement.key}))
     {
         LOG_BE(Urgency::Critical, "Failed to update achievement state: targetId=%d key=%s error=%s", targetId, achievement.key.c_str(), m_database.LastError().c_str());

@@ -62,6 +62,7 @@ qt_add_executable(lymalinkd
     src/tools/parsers/GoGNParser.cpp src/tools/parsers/GoGNParser.h
     src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
     src/tools/parsers/SSEParser.cpp src/tools/parsers/SSEParser.h
+    src/tools/parsers/TenokeParser.cpp src/tools/parsers/TenokeParser.h
 )
 target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-overlay/include ${MINIAUDIO_DIR})
 target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Sql Qt6::Widgets SQLite::SQLite3 ole32 windowscodecs advapi32)

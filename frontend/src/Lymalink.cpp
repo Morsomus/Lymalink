@@ -207,6 +207,7 @@ QVariantMap Lymalink::InspectExecutableFolder(const QString &executablePath)
     };
 
     const QRegularExpression appIdLineRegex(QStringLiteral("^\\s*AppId\\s*=\\s*(\\d+)\\s*$"), QRegularExpression::MultilineOption);
+    const QRegularExpression tenokeIdLineRegex(QStringLiteral("^\\s*id\\s*=\\s*(\\d+)\\s*(?:#.*)?$"), QRegularExpression::MultilineOption);
     const QRegularExpression numericTextRegex(QStringLiteral("^\\d+$"));
     const QFileInfoList entries = installDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     for (const QFileInfo &entry : entries)
@@ -237,6 +238,19 @@ QVariantMap Lymalink::InspectExecutableFolder(const QString &executablePath)
             {
                 const QString text = QString::fromUtf8(file.readAll());
                 const QRegularExpressionMatch match = appIdLineRegex.match(text);
+                if (match.hasMatch())
+                {
+                    addSteamAppId(match.captured(1));
+                }
+            }
+        }
+        else if (lowerName == QStringLiteral("tenoke.ini"))
+        {
+            QFile file(entry.absoluteFilePath());
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                const QString text = QString::fromUtf8(file.readAll());
+                const QRegularExpressionMatch match = tenokeIdLineRegex.match(text);
                 if (match.hasMatch())
                 {
                     addSteamAppId(match.captured(1));

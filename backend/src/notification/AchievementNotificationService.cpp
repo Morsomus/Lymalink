@@ -95,7 +95,7 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
     const DbRecord achievement = m_database.SelectFirst(
         m_connectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
-        "id = ? AND achievement_key = ?",
+        "id = ? AND achievement_key = ? COLLATE NOCASE",
         {static_cast<int64_t>(targetId), achievementKey}
     );
 

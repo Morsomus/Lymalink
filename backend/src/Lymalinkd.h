@@ -141,6 +141,7 @@ private:
     std::vector<AppIdDirPathScanTarget> LoadCurrentActivePrefixPaths();
     void SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results, bool emitTargetDataChanged = true);
     bool EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef, bool *columnAdded = nullptr);
+    bool EmulatorAchievementProgressNotImplemented(const std::string& emulatorType) const;
     bool DisableAchievementProgress(int targetId);
     void SavePlaytime(int targetId, long secondsPlayed);
     bool SaveAchievementState(int targetId, const AchievementData& achievement);

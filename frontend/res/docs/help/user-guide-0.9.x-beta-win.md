@@ -42,7 +42,7 @@
 ###
 ## 🎮 Managing Emulator Targets
 
-In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED, SmartSteamEmu and NemirtingasGalaxyEmulator.
+In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED, SmartSteamEmu, Tenoke and NemirtingasGalaxyEmulator.
 
 ### ➕ Add an Emulator Target
 
@@ -50,7 +50,7 @@ In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses 
 2. Select **Emulator**.
 3. Search for the game and select it from results. You can also enable **enter manually** and enter game ID and name yourself.
 4. Select **Game Executable**. This `.exe` file is used to detect when game is running.
-5. Select (optional) **Game Installation Directory**. This directory is used to detect GOG Emulator usage.
+5. Select (optional) **Game Installation Directory**. This directory is used to detect install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke.
 6. Click **Confirm**.
 
 ### 🗑️ Remove an Emulator Target
@@ -145,7 +145,7 @@ If notification popups cause crashes or other issues, please open an issue.
 ### How do achievements appear on the Dashboard?
 They update automatically when `lymalinkd` is running and the game executable and installation directory paths are correctly configured.
 - The executable path **MUST** be set correctly. The background service only scans when a game is actively being played; otherwise, it sleeps and only checks for the presence of the configured executables.
-- The installation directory path **MUST** be set correctly. Path is used to detect GOG Emulator based achievement files.
+- The installation directory path **MUST** be set correctly. Path is used to detect install-dir based achievement files, including NemirtingasGalaxyEmulator and Tenoke.
 
 ###
 ### How do I check if I have configured my target correctly?
@@ -191,6 +191,7 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 - **GOLDBERG**
 - **RELOADED**
 - **SmartSteamEmu**
+- **Tenoke**
 - **NemirtingasGalaxyEmulator 1.4.2/1.9.2 (GOG - Requires Steam equivalent achievements)**
 
 ###

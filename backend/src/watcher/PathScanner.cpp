@@ -98,6 +98,14 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
                 continue;
             }
 
+            const std::string tenokeDir = FindTenokeDir(target, shouldStopScanning);
+            if (!tenokeDir.empty())
+            {
+                results.push_back(AppIdDirPathScanResult{target.targetId, tenokeDir, "Tenoke", joinedGogIds, true});
+                LOG_BE(Urgency::Info, "Found Tenoke dir: targetId=%d path=%s", target.targetId, tenokeDir.c_str());
+                continue;
+            }
+
             // TODO: Currently disabled because need to make sure if this structure is even possible, and also contains risk of false positives
             // const std::string gogPrefixDir = FindGogPrefixAppIdDir(target, gogIds, shouldStopScanning);
             // if (!gogPrefixDir.empty())
@@ -620,6 +628,56 @@ std::string PathScanner::FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& tar
 
     return "";
 #endif
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string PathScanner::FindTenokeDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const
+{
+    if (target.installationDir.empty())
+    {
+        return "";
+    }
+
+    std::error_code ec;
+    if (!fs::exists(target.installationDir, ec) || !fs::is_directory(target.installationDir, ec))
+    {
+        return "";
+    }
+
+    fs::recursive_directory_iterator it(target.installationDir, fs::directory_options::skip_permission_denied, ec);
+    const fs::recursive_directory_iterator end;
+    for (; it != end && !ec; it.increment(ec))
+    {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            break;
+        }
+
+        if (!it->is_directory(ec))
+        {
+            continue;
+        }
+
+        if (it->path().filename().string() != "SteamData")
+        {
+            continue;
+        }
+
+        const fs::path achievementFile = it->path() / "user_stats.ini";
+        std::error_code fileEc;
+        if (fs::is_regular_file(achievementFile, fileEc))
+        {
+            return it->path().string();
+        }
+    }
+
+    if (ec)
+    {
+        LOG_BE(Urgency::Warning, "Scan error: targetId=%d installDir=%s error=%s", target.targetId, target.installationDir.c_str(), ec.message().c_str());
+    }
+
+    return "";
 }
 
 /////////////////////////////////////////////////////////////////////
