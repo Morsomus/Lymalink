@@ -23,7 +23,7 @@
 - **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
 - **System tray support** - Keep Lymalink accessible from the system tray.
 - **Export & Import** - Move your achievement data between devices or back it up in JSON format.
-- **Steam achievement import** - Import your personal Steam achievements to the dashboard.
+- **Steam achievement import** - Import and sync your personal Steam achievements to the dashboard.
 
 ## Visual Showcase
 
@@ -195,7 +195,6 @@ Current progress towards different versions, platform-wise
 > The following features are planned and subject to change. Core tracking functionality is not listed here.
 
 - **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
-- **Steam Import Auto-Update** - Selectively refresh imported Steam achievement data to keep tracked progress up to date without user intervention.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
 - **Localisation** - Languages to choose from.
 - **Custom Targets** - Create and track achievements outside predefined game or platform integrations. Useful for personal milestones, challenge runs, custom game setups, and other progress-tracking workflows.
