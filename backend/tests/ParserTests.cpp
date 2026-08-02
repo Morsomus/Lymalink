@@ -25,11 +25,6 @@
 
 namespace fs = std::filesystem;
 
-namespace
-{
-fs::path findExampleFile(const fs::path& relativePath);
-}
-
 /////////////////////////////////////////////////////////////////////
 
 TEST_CASE("gognParser_arrayFormat_parsesUnlockedAchievements", "[gogn]")
@@ -244,8 +239,21 @@ malformed = true
 
 TEST_CASE("rldParser_firstAchievementFormat_parsesTimestampProgressUnlock", "[rld]")
 {
+    const fs::path root = "/tmp/lymalink_rld_parser_first";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.ini";
+    {
+        std::ofstream file(filePath);
+        file << R"([ACHIEVEMENT_23]
+Time=2073676A00
+CurProgress=0000000000
+MaxProgress=0000000000
+)";
+    }
+
     RLDParser parser;
-    const std::vector<AchievementData> parsed = parser.Parse(findExampleFile("ini_after_first_achievement/achievements.ini").string());
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
 
     REQUIRE(parsed.size() == 1);
     CHECK(parsed[0].key == "ACHIEVEMENT_23");
@@ -255,14 +263,34 @@ TEST_CASE("rldParser_firstAchievementFormat_parsesTimestampProgressUnlock", "[rl
     CHECK(parsed[0].curProgress == 0);
     CHECK(parsed[0].hasMaxProgress);
     CHECK(parsed[0].maxProgress == 0);
+
+    fs::remove_all(root);
 }
 
 /////////////////////////////////////////////////////////////////////
 
 TEST_CASE("rldParser_secondAchievementFormat_parsesBothUnlocks", "[rld]")
 {
+    const fs::path root = "/tmp/lymalink_rld_parser_second";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.ini";
+    {
+        std::ofstream file(filePath);
+        file << R"([ACHIEVEMENT_23]
+Time=2073676A00
+CurProgress=0000000000
+MaxProgress=0000000000
+
+[ACHIEVEMENT_33]
+Time=2073676A00
+CurProgress=0000000000
+MaxProgress=0000000000
+)";
+    }
+
     RLDParser parser;
-    const std::vector<AchievementData> parsed = parser.Parse(findExampleFile("ini_after_2_achievements/achievements.ini").string());
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
 
     REQUIRE(parsed.size() == 2);
     CHECK(parsed[0].key == "ACHIEVEMENT_23");
@@ -270,6 +298,8 @@ TEST_CASE("rldParser_secondAchievementFormat_parsesBothUnlocks", "[rld]")
     CHECK(parsed[0].unlockTime == 1785164576);
     CHECK(parsed[1].key == "ACHIEVEMENT_33");
     CHECK(parsed[1].achieved);
+
+    fs::remove_all(root);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -410,33 +440,4 @@ TEST_CASE("sseParser_missingOrMalformedFile_returnsEmpty", "[ste]")
     CHECK(parser.Parse((root / "truncated.bin").string()).empty());
 
     fs::remove_all(root);
-}
-
-/////////////////////////////////////////////////////////////////////
-///////////////////////////// PRIVATE ///////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
-namespace
-{
-fs::path findExampleFile(const fs::path& relativePath)
-{
-    const std::vector<fs::path> roots = {
-        "example_files",
-        "../example_files",
-        "../../example_files",
-        "../../../example_files",
-        "../../../../example_files"
-    };
-
-    for (const fs::path& root : roots)
-    {
-        const fs::path candidate = root / relativePath;
-        if (fs::exists(candidate))
-        {
-            return candidate;
-        }
-    }
-
-    return roots.front() / relativePath;
-}
 }

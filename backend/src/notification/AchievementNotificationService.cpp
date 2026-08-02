@@ -120,7 +120,9 @@ bool AchievementNotificationService::BuildNotification(int32_t targetId, const s
     notification.achievementDescription = SQLiteManager::RowString(achievement, "achievement_description");
     notification.gameName = SQLiteManager::RowString(target, "game_name");
 
-    const fs::path iconPath = iconsPath / (achievementKey + "_icon.jpg");
+    const std::string storedAchievementKey = SQLiteManager::RowString(achievement, "achievement_key");
+    const std::string iconAchievementKey = storedAchievementKey.empty() ? achievementKey : storedAchievementKey;
+    const fs::path iconPath = iconsPath / (iconAchievementKey + "_icon.jpg");
 
     // Attach achievement image if scraper stored it locally
     if (fs::exists(iconPath))

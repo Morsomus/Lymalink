@@ -1370,6 +1370,38 @@ Item {
                             }
                         }
 
+                        ColumnLayout {
+                            visible: !OS_WIN
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            CustomTextField {
+                                id: id_prefixLocationField
+
+                                Layout.fillWidth: true
+                                readOnly: true
+                                selectByMouse: false
+                                placeholderText: qsTr("e.g. /home/user/prefix/drive_c")
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: id_prefixFolderDialog.open()
+                                }
+                            }
+
+                            Text {
+                                visible: id_root.prefixWarning
+                                Layout.fillWidth: true
+                                text: qsTr("⚠ Expected a drive_c or equivalent folder. Make sure the selected folder contains or will contain a subdirectory matching the game ID (%1). This is required for achievement detection to work.").arg(id_root.selectedAppId > 0
+                                    ? id_root.selectedAppId.toString()
+                                    : qsTr("not set"))
+                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                color: Themes.emulatorTarget.colors.prefixWarningText
+                                wrapMode: Text.Wrap
+                            }
+                        }
+
                         // Game Executable
                         ColumnLayout {
                             Layout.preferredWidth: 200
@@ -1478,38 +1510,6 @@ Item {
                                 visible: id_root.detectedGogConfig
                                 Layout.fillWidth: true
                                 text: qsTr("GOG files detected inside executable path. If you use a GOG emulator, enable 'Install-dir emulator used' if needed.")
-                                font.pixelSize: Themes.emulatorTarget.fontSizes.description
-                                color: Themes.emulatorTarget.colors.prefixWarningText
-                                wrapMode: Text.Wrap
-                            }
-                        }
-
-                        ColumnLayout {
-                            visible: !OS_WIN
-                            Layout.fillWidth: true
-                            spacing: 4
-
-                            CustomTextField {
-                                id: id_prefixLocationField
-
-                                Layout.fillWidth: true
-                                readOnly: true
-                                selectByMouse: false
-                                placeholderText: qsTr("e.g. /home/user/prefix/drive_c")
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: id_prefixFolderDialog.open()
-                                }
-                            }
-
-                            Text {
-                                visible: id_root.prefixWarning
-                                Layout.fillWidth: true
-                                text: qsTr("⚠ Expected a drive_c or equivalent folder. Make sure the selected folder contains or will contain a subdirectory matching the game ID (%1). This is required for achievement detection to work.").arg(id_root.selectedAppId > 0
-                                    ? id_root.selectedAppId.toString()
-                                    : qsTr("not set"))
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.description
                                 color: Themes.emulatorTarget.colors.prefixWarningText
                                 wrapMode: Text.Wrap
