@@ -1152,6 +1152,11 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
             {
                 LOG_BE(Urgency::Critical, "Failed to save missing APPID dir result: targetId=%d error=%s", targetId, m_database.LastError().c_str());
             }
+            else
+            {
+                std::lock_guard<std::mutex> scanLock(m_targetIdsRequiringDirScanMutex);
+                m_targetIdsRequiringDirScan[targetId] = target;
+            }
         }
 
         std::string reason = found ? "found" : "not_found";
