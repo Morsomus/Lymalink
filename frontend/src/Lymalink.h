@@ -109,7 +109,7 @@ private:
 
     Error DatabaseInit();
     Error FileSystemInit();
-    bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef);
+    bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef, bool *columnAdded = nullptr);
     bool ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);
     QString PlaytimeText(int hoursPlayed) const;
     QVariantMap LatestUnlockedAchievement(const QVariantList &achievements) const;

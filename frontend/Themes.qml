@@ -649,6 +649,7 @@ QtObject {
             readonly property color progressBarTrack: id_themes.themeColor("#2a2a3a", "#e9edf2")
             readonly property color progressBarText: id_themes.themeColor("white", "#1f2933")
             readonly property color hiddenHoverOverlay: id_themes.themeColor("white", "#1f2933")
+            readonly property color warningText: id_themes.themeColor("#e8a838", "#9a5a00")
             readonly property color errorText: id_themes.themeColor("#f0b8b8", "#b42318")
         }
 

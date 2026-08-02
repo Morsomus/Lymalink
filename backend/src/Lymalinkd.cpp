@@ -264,12 +264,23 @@ Error Lymalinkd::DatabaseInit()
     }
 
     // Execute migrates for updated version of Lymalink
+    bool achievementDataStatusColumnAdded = false;
     if (!EnsureColumn(m_databaseEmuGamesTable, "installation_dir", "installation_dir TEXT") ||
-        !EnsureColumn(m_databaseEmuGamesTable, "data_opt", "data_opt TEXT"))
+        !EnsureColumn(m_databaseEmuGamesTable, "data_opt", "data_opt TEXT") ||
+        !EnsureColumn(m_databaseEmuGamesTable, "achievement_data_status", "achievement_data_status INTEGER DEFAULT 0", &achievementDataStatusColumnAdded))
     {
         LOG_BE(Urgency::Critical, "Database migration failed: %s", m_database.LastError().c_str());
         err = Error::DatabaseError;
         return err;
+    }
+    if (achievementDataStatusColumnAdded)
+    {
+        if (!m_database.ExecuteSql(m_databaseConnectionName, std::format("UPDATE {} SET achievement_data_status = 1 WHERE appid_dir_found = 1 AND achievement_data_status = 0", m_databaseEmuGamesTable)))
+        {
+            LOG_BE(Urgency::Critical, "Database achievement data status sync failed: %s", m_database.LastError().c_str());
+            err = Error::DatabaseError;
+            return err;
+        }
     }
 
     LOG_BE(Urgency::Debug, "Database opened: %s", m_databasePath.c_str());
@@ -865,6 +876,7 @@ void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirP
         std::lock_guard<std::mutex> lock(m_databaseMutex);
         DbRecord data{
             {"appid_dir_found", int64_t{0}},
+            {"achievement_data_status", int64_t{0}},
             {"appid_dir_location", std::string{}},
             {"date_updated", Utils::NowEpoch()}
         };
@@ -1124,6 +1136,21 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 }
 
                 LOG_BE(Urgency::Debug, "Manual achievement scan state sync saved: targetId=%d updated=%d", result.targetId, updatedAchievements);
+            }
+        }
+        if (!found && !m_manualScanCancelRequested.load())
+        {
+            std::lock_guard<std::mutex> lock(m_databaseMutex);
+            DbRecord data{
+                {"appid_dir_found", int64_t{0}},
+                {"achievement_data_status", int64_t{0}},
+                {"appid_dir_location", std::string{}},
+                {"emulator_type", std::string{}},
+                {"date_updated", Utils::NowEpoch()}
+            };
+            if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
+            {
+                LOG_BE(Urgency::Critical, "Failed to save missing APPID dir result: targetId=%d error=%s", targetId, m_database.LastError().c_str());
             }
         }
 
@@ -1407,6 +1434,7 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
             if (result.appidDirFound)
             {
                 data.emplace("appid_dir_found", int64_t{1});
+                data.emplace("achievement_data_status", int64_t{1});
                 data.emplace("appid_dir_location", result.appidDirLocation);
                 data.emplace("emulator_type", result.emulatorType);
             }
@@ -1461,8 +1489,13 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef)
+bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& columnName, const std::string& columnDef, bool *columnAdded)
 {
+    if (columnAdded)
+    {
+        *columnAdded = false;
+    }
+
     std::string escapedTableName;
     escapedTableName.reserve(tableName.size());
     for (const char c : tableName)
@@ -1491,6 +1524,10 @@ bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& co
     }
 
     LOG_BE(Urgency::Info, "EnsureColumn altered table=%s added column=%s", tableName.c_str(), columnName.c_str());
+    if (columnAdded)
+    {
+        *columnAdded = true;
+    }
     return true;
 }
 
@@ -1593,6 +1630,13 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
     if (achievement.achieved && existingUnlockTime > 0)
     {
+        m_database.Update(m_databaseConnectionName,
+            m_databaseEmuGamesTable,
+            {{"achievement_data_status", int64_t{2}},
+            {"date_updated", now}},
+            "id = ? AND achievement_data_status != 2",
+            {static_cast<int64_t>(targetId)}
+        );
         LOG_BE(Urgency::Debug, "Achievement already unlocked in DB, skipping update and notification: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
@@ -1683,6 +1727,10 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         {"total_unlocked_amount_achievements", unlockedCount},
         {"date_updated", now}
     };
+    if (achievement.achieved)
+    {
+        targetUpdate["achievement_data_status"] = int64_t{2};
+    }
 
     achievementStateUpdated = m_database.Update(
         m_databaseConnectionName,

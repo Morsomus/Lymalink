@@ -507,6 +507,10 @@ Item {
     function onTargetSelected(appId, targetType) {
         id_root.saveDashboardScrollLocation()
 
+        if (id_root.backendServiceUsable) {
+            id_root.scheduleLocalAchievementScan(appId, targetType)
+        }
+
         const details = ctxLymalink.FetchTargetDetails(appId, targetType)
 
         id_root.targetDetailsAchievements = details.achievements ?? []
@@ -688,6 +692,7 @@ Item {
             p_recentUnlock: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.recentUnlock : ""
             p_playtime: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.playtime : ""
             p_appIdDirFound: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.appIdDirFound) : false
+            p_achievementDataStatus: id_root.pendingTargetDetails ? Number(id_root.pendingTargetDetails.achievementDataStatus || 0) : 0
             p_emulatorType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.emulatorType : ""
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel

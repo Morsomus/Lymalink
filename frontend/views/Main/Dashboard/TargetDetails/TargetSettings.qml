@@ -139,7 +139,6 @@ Popup {
         id_root.manualScanTargetId = id_root.p_appId
         id_manualScanCancelButtonDelayTimer.restart()
         id_manualScanFallbackTimer.restart()
-        id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
         ctxBackendService.StartManualAchievementDataScan(id_root.p_appId)
     }
 
@@ -553,9 +552,6 @@ Popup {
         }
 
         function onSignalManualAchievementDataScanFinished(appId, found, reason) {
-            if (id_root.manualScanLoading && id_root.manualScanTargetId === appId) {
-                id_root.targetDataUpdated(appId, id_root.p_targetType)
-            }
             id_root.finishManualAchievementDataScan(appId)
         }
     }

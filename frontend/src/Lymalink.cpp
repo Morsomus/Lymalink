@@ -1172,6 +1172,7 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
         {
             {"prefix_location", trimmedPrefixPath},
             {"appid_dir_found", 0},
+            {"achievement_data_status", 0},
             {"appid_dir_location", ""},
             {"emulator_type", ""},
             {"date_updated", QDateTime::currentSecsSinceEpoch()}
@@ -1273,6 +1274,7 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
         {
             {"installation_dir", trimmedInstallationDir},
             {"appid_dir_found", 0},
+            {"achievement_data_status", 0},
             {"appid_dir_location", ""},
             {"emulator_type", ""},
             {"date_updated", QDateTime::currentSecsSinceEpoch()}
@@ -1440,6 +1442,7 @@ bool Lymalink::ResetTargetAchievementDataLocation(int appId)
         DATABASE_TABLE_EMU_GAMES,
         {
             {"appid_dir_found", 0},
+            {"achievement_data_status", 0},
             {"appid_dir_location", ""},
             {"emulator_type", ""},
             {"date_updated", QDateTime::currentSecsSinceEpoch()}
@@ -1957,6 +1960,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
         {"recentUnlock", Utils::LocalDate(latestAchievement.value("date_unlocked").toLongLong())},
         {"playtime", PlaytimeText(Utils::MapIntValue(row, "total_seconds_played"))},
         {"appIdDirFound", IsSteamTargetType(normalizedTargetType) ? false : row.value("appid_dir_found").toInt() == 1},
+        {"achievementDataStatus", IsSteamTargetType(normalizedTargetType) ? 0 : Utils::MapIntValue(row, "achievement_data_status")},
         {"emulatorType", emulatorType},
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
@@ -2098,6 +2102,7 @@ Error Lymalink::DatabaseInit()
             "data_opt TEXT",
             "target_hidden INTEGER DEFAULT 0",
             "appid_dir_found INTEGER DEFAULT 0",
+            "achievement_data_status INTEGER DEFAULT 0",
             "appid_dir_location TEXT",
             "total_amount_achievements INTEGER",
             "total_unlocked_amount_achievements INTEGER",
@@ -2116,11 +2121,23 @@ Error Lymalink::DatabaseInit()
     }
 
     // Execute migrates for updated version of Lymalink
-    if (!EnsureColumn(DATABASE_TABLE_EMU_GAMES, "installation_dir", "installation_dir TEXT") || !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "data_opt", "data_opt TEXT"))
+    bool achievementDataStatusColumnAdded = false;
+    if (!EnsureColumn(DATABASE_TABLE_EMU_GAMES, "installation_dir", "installation_dir TEXT") ||
+        !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "data_opt", "data_opt TEXT") ||
+        !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "achievement_data_status", "achievement_data_status INTEGER DEFAULT 0", &achievementDataStatusColumnAdded))
     {
         qCritical() << "Lymalink::DatabaseInit: failed to migrate" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
         databaseResult = Error::DatabaseError;
         return databaseResult;
+    }
+    if (achievementDataStatusColumnAdded)
+    {
+        if (!m_databaseManager.executeSql(m_databaseConnectionName, QString("UPDATE %1 SET achievement_data_status = 1 WHERE appid_dir_found = 1 AND achievement_data_status = 0").arg(DATABASE_TABLE_EMU_GAMES)))
+        {
+            qCritical() << "Lymalink::DatabaseInit: failed to sync achievement data status:" << m_databaseManager.lastError();
+            databaseResult = Error::DatabaseError;
+            return databaseResult;
+        }
     }
 
     // Ensure achievements table exists with cascade delete from game rows
@@ -2238,8 +2255,13 @@ Error Lymalink::FileSystemInit()
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef)
+bool Lymalink::EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef, bool *columnAdded)
 {
+    if (columnAdded)
+    {
+        *columnAdded = false;
+    }
+
     QString escapedTableName = tableName;
     escapedTableName.replace("'", "''");
 
@@ -2261,6 +2283,10 @@ bool Lymalink::EnsureColumn(const QString &tableName, const QString &columnName,
     }
 
     qInfo() << "Lymalink::EnsureColumn: altered table" << tableName << "added column" << columnName;
+    if (columnAdded)
+    {
+        *columnAdded = true;
+    }
     return true;
 }
 

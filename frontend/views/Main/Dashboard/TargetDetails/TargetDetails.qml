@@ -29,6 +29,7 @@ Item {
     property string p_installationStatus: ""
     property string p_emulatorType: ""
     property bool p_appIdDirFound: false
+    property int p_achievementDataStatus: 0
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
     property int p_globalColorStyle: 1
@@ -50,6 +51,16 @@ Item {
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
         : 0.0
+    readonly property string achievementDataState: p_achievementDataStatus <= 0
+        ? "missing"
+        : p_achievementDataStatus === 1
+            ? "initial"
+            : "found"
+    readonly property color achievementDataColor: achievementDataState === "found"
+        ? Themes.targetDetails.colors.text
+        : achievementDataState === "initial"
+            ? Themes.targetDetails.colors.warningText
+            : Themes.targetDetails.colors.errorText
 
     function emulatorLabel(emulatorType) {
         switch ((emulatorType || "").trim().toUpperCase()) {
@@ -70,7 +81,25 @@ Item {
         }
     }
 
+    function achievementDataLabel() {
+        switch (achievementDataState) {
+        case "found":
+            return qsTr("Found")
+        case "initial":
+            return qsTr("Initial")
+        default:
+            return qsTr("Missing")
+        }
+    }
+
     function achievementDataTooltip(emulatorType) {
+        if (achievementDataState === "found") {
+            return ""
+        }
+        if (achievementDataState === "initial") {
+            return qsTr("Initial achievement data was found, but no unlocked achievements have been detected yet. If achievement data does not update after an unlock, the game may not support achievements in this emulator.")
+        }
+
         switch ((emulatorType || "").trim().toUpperCase()) {
         default:
             return qsTr("Some emulators create the initial achievement data when the game first starts; others create it after the first achievement unlocks.")
@@ -144,6 +173,7 @@ Item {
                 p_alwaysVisible: true
                 p_delay: 600
                 p_text: tooltip
+                p_maxLineCount: 5
             }
         }
 
@@ -831,9 +861,9 @@ Item {
                 C_MetaRow {
                     label: qsTr("Achievement data")
                     tooltip: id_root.achievementDataTooltip(id_root.p_emulatorType)
-                    showInfoMarker: !id_root.p_appIdDirFound
-                    value: id_root.p_appIdDirFound ? qsTr("Found") : qsTr("Missing")
-                    valueColor: id_root.p_appIdDirFound ? Themes.targetDetails.colors.text : Themes.targetDetails.colors.errorText
+                    showInfoMarker: id_root.achievementDataState !== "found"
+                    value: id_root.achievementDataLabel()
+                    valueColor: id_root.achievementDataColor
                     visible: id_root.p_targetType !== "Steam"
                 }
 

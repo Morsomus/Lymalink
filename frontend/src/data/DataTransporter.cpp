@@ -701,6 +701,7 @@ bool DataTransporter::RefreshImportedGameCounts(const ImportedGame &game, qint64
         {
             {"emulator_type", ""},
             {"appid_dir_found", 0},
+            {"achievement_data_status", 0},
             {"appid_dir_location", ""},
             {"data_opt", ""},
             {"target_hidden", game.hidden ? 1 : 0},
@@ -733,6 +734,7 @@ QVariantMap DataTransporter::ImportedGameRow(const ImportedGame &game, qint64 no
         {"data_opt", ""},
         {"target_hidden", game.hidden ? 1 : 0},
         {"appid_dir_found", 0},
+        {"achievement_data_status", 0},
         {"appid_dir_location", ""},
         {"total_amount_achievements", game.achievements.size()},
         {"total_unlocked_amount_achievements", 0},
