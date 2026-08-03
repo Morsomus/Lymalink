@@ -191,8 +191,12 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
 
             const std::string foundPath = it->path().string();
 
-            // Store discovered path and inferred emulator type
-            std::string emuType = DetectEmulatorType(foundPath);
+            const std::string emuType = DetectEmulatorType(foundPath);
+            if (emuType == "UNKNOWN" || HasSpecialAppIdPathShape(emuType))
+            {
+                continue;
+            }
+
             results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, emuType, joinedGogIds, true});
             
             LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
@@ -248,6 +252,20 @@ std::string PathScanner::DetectEmulatorTypeFromFolderName(const std::string& fol
         lower == "steam punks")                         return "STEAMPUNKS";
 
     return "UNKNOWN";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool PathScanner::HasSpecialAppIdPathShape(const std::string& emulatorType) const
+{
+    // These Emulators are not following typical /<Emulator>/<AppID> structure
+    bool hasSpecialAppIdPathShape = false;
+    if (emulatorType == "RLD")
+    {
+        hasSpecialAppIdPathShape = true;
+    }
+
+    return hasSpecialAppIdPathShape;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -321,7 +339,7 @@ std::string PathScanner::FindWindowsAppIdDir(const AppIdDirPathScanTarget& targe
     auto findAppIdBelowEmulatorDir = [&](const fs::path& directory) -> std::string
     {
         const std::string foundEmulatorType = DetectEmulatorTypeFromFolderName(directory.filename().string());
-        if (foundEmulatorType == "UNKNOWN")
+        if (foundEmulatorType == "UNKNOWN" || HasSpecialAppIdPathShape(foundEmulatorType))
         {
             return "";
         }

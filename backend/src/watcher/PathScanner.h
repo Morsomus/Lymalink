@@ -49,6 +49,7 @@ private:
 
     std::string DetectEmulatorType(const std::string& appidDirLocation) const;
     std::string DetectEmulatorTypeFromFolderName(const std::string& folderName) const;
+    bool HasSpecialAppIdPathShape(const std::string& emulatorType) const;
 #if !defined(_WIN32)
     bool ShouldSkipLinuxPrefixScanDirectory(const std::filesystem::directory_entry& entry, std::error_code& ec) const;
 #endif

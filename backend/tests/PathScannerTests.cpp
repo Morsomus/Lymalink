@@ -267,6 +267,46 @@ TEST_CASE("pathScanner_ignoresReloadedShapeWithoutAchievementFile", "[pathscanne
 
 /////////////////////////////////////////////////////////////////////
 
+TEST_CASE("pathScanner_ignoresAppIdDirBelowUnknownParent", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_unknown_parent";
+    fs::remove_all(root);
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(prefix / "SomeOtherFolder" / "123");
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    CHECK(results.empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_ignoresReloadedNamedGenericAppIdDir", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_reloaded_generic";
+    fs::remove_all(root);
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(prefix / "RELOADED" / "217980" / "stats");
+    {
+        std::ofstream file(prefix / "RELOADED" / "217980" / "stats" / "achievements.ini");
+        file << "";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{217, "217980", prefix.string(), "", "", ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    CHECK(results.empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 TEST_CASE("pathScanner_skipsLinuxPrefixLoopAndDosdevicesDirs", "[pathscanner]")
 {
     const fs::path root = "/tmp/lymalink_pathscanner_linux_prefix_guards";
