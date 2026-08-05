@@ -594,10 +594,6 @@ Item {
     Connections {
         target: ctxLymalink
 
-        function onSignalErrorOccurred(title, message) {
-            id_errorPopup.showError(title, message)
-        }
-
         function onSignalSteamHydrationTaskStarted(appId, targetType) {
             id_root.setTargetLoading(appId, targetType, true)
         }
@@ -737,10 +733,6 @@ Item {
     /////////////////////////////////////////////////////////////////////
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
-
-    ErrorPopup {
-        id: id_errorPopup
-    }
 
     ColumnLayout {
         anchors.fill: parent
