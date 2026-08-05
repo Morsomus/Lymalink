@@ -48,7 +48,7 @@ public:
     Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);
-    Q_INVOKABLE void StartSteamImportAutoSync(const QString &steamId, const QString &apiKey);
+    Q_INVOKABLE void StartSteamImportAutoSync(const QString &steamId, const QString &apiKey, qint64 expiresAt);
     Q_INVOKABLE bool SetTargetHidden(int appId, bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetAllTargetsHidden(bool hidden, const QString &targetType = "Emulator");
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);

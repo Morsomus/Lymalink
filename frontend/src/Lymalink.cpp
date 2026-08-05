@@ -1031,11 +1031,23 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::StartSteamImportAutoSync(const QString &steamId, const QString &apiKey)
+void Lymalink::StartSteamImportAutoSync(const QString &steamId, const QString &apiKey, qint64 expiresAt)
 {
     if (m_steamImportAutoSyncBusy)
     {
         qWarning() << "Lymalink::StartSteamImportAutoSync: Steam progress sync already running";
+        return;
+    }
+
+
+    if (expiresAt <= QDateTime::currentSecsSinceEpoch())
+    {
+        emit signalErrorOccurred(tr("Steam progress sync failed"), tr("Automatic Steam progress sync activation expired. Re-enable it in Settings."));
+        emit signalSteamImportAutoSyncFinished({
+            {"success", false},
+            {"errors", QVariantList{tr("Automatic Steam progress sync activation expired.")}},
+            {"assetRefreshAppIds", QVariantList()}
+        });
         return;
     }
 

@@ -81,7 +81,7 @@ ApplicationWindow {
             return
         }
 
-        ctxLymalink.StartSteamImportAutoSync(ctxSettings.steamId, ctxSettings.GetSteamImportAutoSyncWebApiKeyPlain())
+        ctxLymalink.StartSteamImportAutoSync(ctxSettings.steamId, ctxSettings.GetSteamImportAutoSyncWebApiKeyPlain(), ctxSettings.steamImportAutoSyncExpiresAt)
     }
 
     Binding {
@@ -145,7 +145,9 @@ ApplicationWindow {
         }
 
         function onSignalSteamImportAutoSyncFinished(payload) {
-            ctxSettings.SetSteamImportAutoSyncLastSyncedAt(Math.floor(Date.now() / 1000))
+            if (payload.success) {
+                ctxSettings.SetSteamImportAutoSyncLastSyncedAt(Math.floor(Date.now() / 1000))
+            }
 
             const assetRefreshAppIds = payload.assetRefreshAppIds ?? []
             for (let i = 0; i < assetRefreshAppIds.length; ++i) {
