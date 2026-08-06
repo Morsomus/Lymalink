@@ -28,7 +28,7 @@
     #include <unistd.h>
 #endif
 
-#define OPEN_UI_LABEL       "Open UI"
+#define START_UI_LABEL      "Start UI"
 #define QUIT_BACKEND_LABEL  "Quit Background Service"
 
 #define COMPONENT "BackendTrayIcon"
@@ -70,7 +70,7 @@ bool BackendTrayIcon::Start(const std::string& iconPath)
 
     m_menu = new QMenu();
 
-    QAction* openAction = m_menu->addAction(OPEN_UI_LABEL);
+    QAction* openAction = m_menu->addAction(START_UI_LABEL);
     QAction* quitAction = m_menu->addAction(QUIT_BACKEND_LABEL);
     QObject::connect(openAction, &QAction::triggered, &m_trayIcon, [this]() { OpenUi(); });
     QObject::connect(quitAction, &QAction::triggered, &m_trayIcon, [this]() { QuitBackend(); });
@@ -245,59 +245,30 @@ void BackendTrayIcon::OpenUi()
         LOG_BE(Urgency::Warning, "Failed to start frontend: %s", frontendPath.toStdString().c_str());
     }
 #else
-    std::vector<std::string> candidates;
-
-    if (const char* xdgBinHome = std::getenv("XDG_BIN_HOME"); xdgBinHome && *xdgBinHome)
-    {
-        candidates.push_back((std::filesystem::path(xdgBinHome) / "Lymalink").string());
-    }
-
-    if (const char* home = std::getenv("HOME"); home && *home)
-    {
-        candidates.push_back((std::filesystem::path(home) / ".local" / "bin" / "Lymalink").string());
-    }
-
-    candidates.push_back("Lymalink");
-
-    // Double-fork detaches frontend so daemon is not tied to its lifetime
-    const pid_t firstChild = fork();
-    if (firstChild < 0)
+    const pid_t child = fork();
+    if (child < 0)
     {
         LOG_BE(Urgency::Warning, "fork failed while starting frontend: %s", strerror(errno));
         return;
     }
 
-    if (firstChild == 0)
+    if (child == 0)
     {
-        const pid_t secondChild = fork();
-        if (secondChild < 0)
-        {
-            _exit(1);
-        }
-        if (secondChild > 0)
-        {
-            _exit(0);
-        }
-
-        for (const std::string& candidate : candidates)
-        {
-            if (candidate.find('/') != std::string::npos)
-            {
-                execl(candidate.c_str(), candidate.c_str(), static_cast<char*>(nullptr));
-            }
-            else
-            {
-                execlp(candidate.c_str(), candidate.c_str(), static_cast<char*>(nullptr));
-            }
-        }
-
-        // All candidates failed, leave child without running parent cleanup
-        _exit(1);
+        execlp("systemctl", "systemctl", "--user", "start", "lymalink-ui.service", static_cast<char*>(nullptr));
+        _exit(127);
     }
 
-    // Reap intermediate child, detached grandchild continues independently
     int status = 0;
-    waitpid(firstChild, &status, 0);
+    if (waitpid(child, &status, 0) < 0)
+    {
+        LOG_BE(Urgency::Warning, "waitpid failed while starting frontend: %s", strerror(errno));
+        return;
+    }
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        LOG_BE(Urgency::Warning, "systemctl failed while starting frontend service.");
+    }
 #endif
 }
 
@@ -400,7 +371,7 @@ BackendTrayIcon::MenuProperties BackendTrayIcon::BuildMenuProperties(int32_t id)
     const char* label = nullptr;
     if (id == 1)
     {
-        label = OPEN_UI_LABEL;
+        label = START_UI_LABEL;
     }
     else if (id == 2)
     {

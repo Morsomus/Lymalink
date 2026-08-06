@@ -108,6 +108,7 @@ echo "==> Removing Lymalink..."
 
 # Stop and disable the user-level systemd service if systemctl is available
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user stop lymalink-ui.service >/dev/null 2>&1 || true
     systemctl --user stop lymalinkd.service >/dev/null 2>&1 || true
     systemctl --user disable lymalinkd.service >/dev/null 2>&1 || true
 fi
@@ -121,6 +122,7 @@ rm -f \
     "$LIB_DIR/lymalink-overlay-opengl.so" \
     "$LIB_DIR/lymalink-overlay-preloader.so" \
     "$SERVICE_DIR/lymalinkd.service" \
+    "$SERVICE_DIR/lymalink-ui.service" \
     "$VULKAN_DIR/lymalink_overlay.json" \
     "$VULKAN_DIR/lymalink_overlay.x86_64.json" \
     "$VULKAN_DIR/lymalink_overlay.x86.json" \

@@ -871,6 +871,17 @@ StandardError=journal
 WantedBy=default.target
 EOF
 
+cat > "$RELEASE_DIR/systemd/lymalink-ui.service" <<'EOF'
+[Unit]
+Description=Lymalink Frontend
+
+[Service]
+Type=exec
+ExecStart=HOME_PLACEHOLDER/.local/bin/Lymalink
+StandardOutput=journal
+StandardError=journal
+EOF
+
 # Stage Flatpak VulkanLayer extension
 echo "==> Building Flatpak VulkanLayer extension bundle..."
 mkdir -p \
