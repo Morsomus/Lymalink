@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <filesystem>
 #include <stdexcept>
 #include <climits>
 
@@ -540,12 +541,32 @@ void AchievementHandler::ReadInitial(WatchSession& session)
         return;
     }
 
+    std::error_code error;
+    const auto fileAge = std::filesystem::file_time_type::clock::now() - std::filesystem::last_write_time(filePath, error);
+    const bool notifyInitialUnlock = !error && fileAge >= std::chrono::seconds(0) && fileAge <= std::chrono::minutes(2);
+
+    size_t achievedCount = 0;
+    int64_t newestUnlockTime = 0;
+    std::string newestUnlockKey;
+    for (const auto& ach : parsed)
+    {
+        if (ach.achieved)
+        {
+            achievedCount++;
+            if (ach.unlockTime > newestUnlockTime)
+            {
+                newestUnlockTime = ach.unlockTime;
+                newestUnlockKey = ach.key;
+            }
+        }
+    }
+
     for (const auto& ach : parsed)
     {
         // Store current state and let daemon silently sync DB without notification.
         AchievementData entry = ach;
         entry.handled = false;
-        entry.newlyUnlocked = false; // Override with false, so we prevent notification spam on game/software startup
+        entry.newlyUnlocked = notifyInitialUnlock && entry.achieved && ((!newestUnlockKey.empty() && entry.key == newestUnlockKey) || (newestUnlockKey.empty() && achievedCount == 1));
         session.achievements[ach.key] = entry;
     }
 
