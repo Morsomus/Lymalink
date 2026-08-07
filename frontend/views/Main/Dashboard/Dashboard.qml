@@ -42,6 +42,7 @@ Item {
     property var targetDetailsActiveFilters: ["all"]
     property var pendingLocalAchievementScanAppIds: []
     property bool localAchievementScanActive: false
+    property int detailsRefreshScanAppId: 0
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
     readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
     readonly property bool backendServiceUsable: backendServiceReady && ctxBackendService.serviceAvailable && ctxBackendService.serviceActive
@@ -81,6 +82,14 @@ Item {
         interval: 1000
         repeat: false
         onTriggered: id_root.processPendingLocalAchievementScan()
+    }
+
+    Timer {
+        id: id_detailsRefreshScanFallbackTimer
+
+        interval: 32000
+        repeat: false
+        onTriggered: id_root.finishDetailsRefreshScan(id_root.detailsRefreshScanAppId)
     }
 
     Component.onCompleted: refreshTargets()
@@ -538,6 +547,25 @@ Item {
         }
     }
 
+    function startDetailsRefreshScan(appId) {
+        if (appId <= 0 || id_root.detailsRefreshScanAppId > 0) {
+            return
+        }
+
+        id_root.detailsRefreshScanAppId = appId
+        id_detailsRefreshScanFallbackTimer.restart()
+        ctxBackendService.StartManualAchievementDataScan(appId)
+    }
+
+    function finishDetailsRefreshScan(appId) {
+        if (id_root.detailsRefreshScanAppId !== appId) {
+            return
+        }
+
+        id_detailsRefreshScanFallbackTimer.stop()
+        id_root.detailsRefreshScanAppId = 0
+    }
+
     function scheduleLocalAchievementScan(appId, targetType) {
         if (targetType !== "Emulator" || appId <= 0) {
             return
@@ -622,6 +650,8 @@ Item {
         }
 
         function onSignalTargetDataChanged(appId) {
+            id_root.finishDetailsRefreshScan(appId)
+
             if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
                 id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
                 return
@@ -632,6 +662,7 @@ Item {
 
         function onSignalManualAchievementDataScanFinished(appId, found, reason) {
             id_root.localAchievementScanActive = false
+            id_root.finishDetailsRefreshScan(appId)
 
             if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
                 id_root.reloadTargetDetails(appId, id_root.pendingTargetDetails.targetType)
@@ -757,6 +788,7 @@ Item {
             p_targetHidden: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.targetHidden) : false
             p_activeLayout: id_root.activeLayout
             p_returnLocked: id_root.addTargetBusy
+            p_detailsRefreshBusy: id_root.detailsRefreshScanAppId > 0
 
             // Layout selection
             onLayoutSelected: function(size) {
@@ -804,7 +836,7 @@ Item {
             onRefreshClicked: {
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
                     if (id_root.pendingTargetDetails.targetType === "Emulator" && id_root.backendServiceUsable) {
-                        ctxBackendService.StartManualAchievementDataScan(id_root.pendingTargetDetails.id)
+                        id_root.startDetailsRefreshScan(id_root.pendingTargetDetails.id)
                     } else {
                         id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)
                     }

@@ -194,11 +194,17 @@ Item {
         id: id_sectionHeader
 
         property real leftInset: 0
+        property bool leftInsetAnimationEnabled: false
 
         width: ListView.view.width
         height: 36
 
+        Component.onCompleted: Qt.callLater(function() {
+            id_sectionHeader.leftInsetAnimationEnabled = true
+        })
+
         Behavior on leftInset {
+            enabled: id_sectionHeader.leftInsetAnimationEnabled
             NumberAnimation {
                 duration: 180
                 easing.type: Easing.OutQuad
@@ -262,6 +268,7 @@ Item {
         property real contentRevealOpacity: 0.0
         property real contentRevealOffset: 8.0
         property real hiddenPlaceholderOpacity: 0.0
+        property bool leftInsetAnimationEnabled: false
 
         height: 82
 
@@ -290,7 +297,12 @@ Item {
         onRevealedChanged: concealedHidden && (revealed ? animateReveal() : snapToHidden())
         onAchievementHiddenChanged: contentRevealed ? snapToRevealed() : snapToHidden()
         onUnlockedChanged: contentRevealed ? snapToRevealed() : snapToHidden()
-        Component.onCompleted: contentRevealed ? snapToRevealed() : snapToHidden()
+        Component.onCompleted: {
+            contentRevealed ? snapToRevealed() : snapToHidden()
+            Qt.callLater(function() {
+                id_row.leftInsetAnimationEnabled = true
+            })
+        }
 
         SequentialAnimation {
             id: id_contentRevealAnimation
@@ -321,6 +333,7 @@ Item {
         }
 
         Behavior on leftInset {
+            enabled: id_row.leftInsetAnimationEnabled
             NumberAnimation {
                 duration: 100
                 easing.type: Easing.OutQuad

@@ -29,6 +29,7 @@ Item {
     property string p_toolbarTitle: ""
     property string p_activeLayout: "defaultCardGrid"
     property bool p_returnLocked: false
+    property bool p_detailsRefreshBusy: false
 
     signal layoutSelected(string size)
     signal returnClicked()
@@ -879,6 +880,7 @@ Item {
                 radius: 16
 
                 property real refreshRotation: 0
+                property bool initialRefreshSpinRunning: false
 
                 color: id_detailsRefreshMouseArea.pressed
                     ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
@@ -930,13 +932,38 @@ Item {
                     to: 360
                     duration: 300
                     easing.type: Easing.Linear
+
+                    onStarted: id_detailsRefresh.initialRefreshSpinRunning = true
+                    onStopped: {
+                        id_detailsRefresh.initialRefreshSpinRunning = false
+                        if (!id_root.p_detailsRefreshBusy) {
+                            id_detailsRefresh.refreshRotation = 0
+                        }
+                    }
+                }
+
+                NumberAnimation {
+                    target: id_detailsRefresh
+                    property: "refreshRotation"
+                    from: 0
+                    to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                    running: id_root.p_detailsRefreshBusy && !id_detailsRefresh.initialRefreshSpinRunning
+                    easing.type: Easing.Linear
+
+                    onStopped: {
+                        if (!id_root.p_detailsRefreshBusy) {
+                            id_detailsRefresh.refreshRotation = 0
+                        }
+                    }
                 }
 
                 MouseArea {
                     id: id_detailsRefreshMouseArea
 
                     anchors.fill: parent
-                    enabled: p_targetDetailsVisible
+                    enabled: p_targetDetailsVisible && !id_root.p_detailsRefreshBusy
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
