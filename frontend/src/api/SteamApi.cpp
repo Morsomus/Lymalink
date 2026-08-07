@@ -99,7 +99,7 @@ Error SteamApi::SearchAppId(const QString &term, QList<SteamSearchResult> &resul
 /////////////////////////////////////////////////////////////////////
 
 
-Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale)
+Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale, bool suppressParseFailureLogs)
 {
     Error err = Error::NoError;
 
@@ -152,27 +152,48 @@ Error SteamApi::SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale
             }
 
             errorMessage.clear();
-            gameInfo = ParseGameInfoResponse(fallbackData, appId, &errorMessage);
+            gameInfo = ParseGameInfoResponse(fallbackData, appId, &errorMessage, suppressParseFailureLogs);
             if (errorMessage.isEmpty())
             {
                 qDebug() << "SteamApi::SearchGameInfo: fallback succeeded for appId:" << appId << "country:" << fallbackCountryCode;
                 return Error::NoError;
             }
 
-            qWarning() << "SteamApi::SearchGameInfo: fallback game info parse failed for appId:" << appId << "country:" << fallbackCountryCode << "error:" << errorMessage;
+            if (suppressParseFailureLogs)
+            {
+                qDebug() << "SteamApi::SearchGameInfo: fallback game info parse failed for appId:" << appId << "country:" << fallbackCountryCode << "error:" << errorMessage;
+            }
+            else
+            {
+                qWarning() << "SteamApi::SearchGameInfo: fallback game info parse failed for appId:" << appId << "country:" << fallbackCountryCode << "error:" << errorMessage;
+            }
         }
 
-        qCritical() << "SteamApi::SearchGameInfo: all country fallback attempts failed for appId:" << appId << "primary country:" << primaryCountryCode;
+        if (suppressParseFailureLogs)
+        {
+            qDebug() << "SteamApi::SearchGameInfo: all country fallback attempts failed for appId:" << appId << "primary country:" << primaryCountryCode;
+        }
+        else
+        {
+            qCritical() << "SteamApi::SearchGameInfo: all country fallback attempts failed for appId:" << appId << "primary country:" << primaryCountryCode;
+        }
         gameInfo = SteamGameInfo();
         err = Error::ParseError;
         return err;
     }
 
     // Convert primary response to normalized game info model
-    gameInfo = ParseGameInfoResponse(data, appId, &errorMessage);
+    gameInfo = ParseGameInfoResponse(data, appId, &errorMessage, suppressParseFailureLogs);
     if (!errorMessage.isEmpty())
     {
-        qCritical() << "SteamApi::SearchGameInfo: Primary game info parse failed:" << errorMessage;
+        if (suppressParseFailureLogs)
+        {
+            qDebug() << "SteamApi::SearchGameInfo: Primary game info parse failed:" << errorMessage;
+        }
+        else
+        {
+            qCritical() << "SteamApi::SearchGameInfo: Primary game info parse failed:" << errorMessage;
+        }
         gameInfo = SteamGameInfo();
         err = Error::ParseError;
         return err;
@@ -1335,10 +1356,20 @@ QList<SteamSearchResult> SteamApi::ParseSearchResponse(const QByteArray &jsonRes
 
 /////////////////////////////////////////////////////////////////////
 
-SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage)
+SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage, bool suppressParseFailureLogs)
 {
     SteamGameInfo gameInfo = {};
     gameInfo.appId = appId;
+    const auto logParseError = [suppressParseFailureLogs](const QString &message) {
+        if (suppressParseFailureLogs)
+        {
+            qDebug() << message;
+        }
+        else
+        {
+            qCritical() << message;
+        }
+    };
 
     // Parse GetItems JSON root
     QJsonParseError parseError;
@@ -1346,14 +1377,14 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (parseError.error != QJsonParseError::NoError)
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Failed to parse primary game info response";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
     if (!doc.isObject())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info response is not an object";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
@@ -1362,7 +1393,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (storeItems.isEmpty() || !storeItems.first().isObject())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info response has no store item";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
@@ -1370,7 +1401,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (storeItem["success"].toInt() != 1)
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info store item failed";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
@@ -1378,13 +1409,13 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (responseAppId <= 0)
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing app id";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
     if (responseAppId != appId)
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info app id mismatch";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
     gameInfo.appId = responseAppId;
@@ -1395,7 +1426,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (gameInfo.gameName.isEmpty())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing game name";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
@@ -1413,7 +1444,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (gameInfo.lcSuffix.isEmpty())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing library capsule";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 
@@ -1421,7 +1452,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (gameInfo.ciSuffix.isEmpty())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing community icon";
-        qCritical() << *errorMessage;
+        qDebug() << *errorMessage << "appId:" << appId;
         return gameInfo;
     }
 
@@ -1433,7 +1464,7 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
     if (gameInfo.assetUrlFormat.isEmpty())
     {
         *errorMessage = "SteamApi::ParseGameInfoResponse: Primary game info missing asset url format";
-        qCritical() << *errorMessage;
+        logParseError(*errorMessage);
         return gameInfo;
     }
 

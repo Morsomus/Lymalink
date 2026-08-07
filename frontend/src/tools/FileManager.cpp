@@ -272,7 +272,10 @@ QString FileManager::FirstImageInDirectory(const QString &directoryPath, bool lo
         return imagePath;
     }
 
-    qWarning() << "FileManager::FirstImageInDirectory: no image files found in directory:" << directoryPath;
+    if (logMissingDir)
+    {
+        qWarning() << "FileManager::FirstImageInDirectory: no image files found in directory:" << directoryPath;
+    }
     return imagePath;
 }
 

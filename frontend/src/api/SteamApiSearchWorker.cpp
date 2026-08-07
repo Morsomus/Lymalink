@@ -77,7 +77,7 @@ void SteamApiSearchWorker::SearchAppIds(const QString &term)
 
         // Hydrate each candidate enough to filter non-game app types
         SteamGameInfo gameInfo = {};
-        const Error gameInfoError = m_steamApi->SearchGameInfo(result.appId, gameInfo);
+        const Error gameInfoError = m_steamApi->SearchGameInfo(result.appId, gameInfo, SteamApi::English, true);
         if (gameInfoError != Error::NoError)
         {
             if (gameInfoError != Error::ParseError)

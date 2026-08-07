@@ -103,7 +103,7 @@ public:
     ~SteamApi();
 
     Error SearchAppId(const QString &term, QList<SteamSearchResult> &results, Locale locale = English);
-    Error SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale = English);
+    Error SearchGameInfo(int appId, SteamGameInfo &gameInfo, Locale locale = English, bool suppressParseFailureLogs = false);
     Error FetchAppNames(const QList<int> &appIds, QMap<int, QString> &gameNames);
     Error GetLibraryCapsuleUrls(int appId, const QString &lcSuffix, const QString &assetUrlFormat, QList<QString> &urls);
     Error GetCommunityIconUrls(int appId, const QString &ciSuffix, QList<QString> &urls);
@@ -129,7 +129,7 @@ private:
     bool IsCountryRestrictedGameInfoResponse(const QByteArray &jsonResponse) const;
     Error DownloadRawImageUrl(const QString &url, int transferTimeoutMs, QByteArray &data);
     QList<SteamSearchResult> ParseSearchResponse(const QByteArray &jsonResponse);
-    SteamGameInfo ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage);
+    SteamGameInfo ParseGameInfoResponse(const QByteArray &jsonResponse, int appId, QString *errorMessage, bool suppressParseFailureLogs);
     Error ParseOwnedGamesResponse(const QByteArray &jsonResponse, QList<SteamOwnedGameData> &games, QString *errorMessage) const;
     Error ParsePlayerAchievementsResponse(const QByteArray &jsonResponse, int appId, QList<SteamPlayerAchievementData> &achievements, QString *errorMessage) const;
     QMap<QString, double> ParseGlobalAchievementPercentagesResponse(const QByteArray &jsonResponse, QString *errorMessage);
