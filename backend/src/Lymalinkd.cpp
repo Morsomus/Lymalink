@@ -1964,7 +1964,7 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
         if (filename == "lymalink_overlay.x86_64.json" || filename == "lymalink_overlay.x86.json")
         {
             manifestPaths.push_back(entry.path().string());
-            LOG_BE(Urgency::Info, "Found Flatpak Vulkan overlay manifest: %s", entry.path().string().c_str());
+            LOG_BE(Urgency::Debug, "Found Flatpak Vulkan overlay manifest: %s", entry.path().string().c_str());
         }
 
         it.increment(ec);
@@ -1991,7 +1991,7 @@ std::vector<std::string> Lymalinkd::ResolveInstalledVulkanOverlayManifestPaths()
         if (std::filesystem::exists(manifestPath))
         {
             manifestPaths.push_back(manifestPath.string());
-            LOG_BE(Urgency::Info, "Found host Vulkan overlay manifest: %s", manifestPath.string().c_str());
+            LOG_BE(Urgency::Debug, "Found host Vulkan overlay manifest: %s", manifestPath.string().c_str());
         }
     }
 
