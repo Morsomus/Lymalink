@@ -87,14 +87,14 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
             if (!joinedGogIds.empty() && joinedGogIds != target.dataOpt)
             {
                 results.push_back(AppIdDirPathScanResult{target.targetId, "", "", joinedGogIds, false});
-                LOG_BE(Urgency::Info, "Found GOG ids: targetId=%d ids=%s", target.targetId, joinedGogIds.c_str());
+                LOG_BE(Urgency::Debug, "Found GOG ids: targetId=%d ids=%s", target.targetId, joinedGogIds.c_str());
             }
 
             const std::string nemirtingasDir = FindNemirtingasDir(target, shouldStopScanning);
             if (!nemirtingasDir.empty())
             {
                 results.push_back(AppIdDirPathScanResult{target.targetId, nemirtingasDir, "GOG-N", joinedGogIds, true});
-                LOG_BE(Urgency::Info, "Found Nemirtingas dir: targetId=%d path=%s", target.targetId, nemirtingasDir.c_str());
+                LOG_BE(Urgency::Debug, "Found Nemirtingas dir: targetId=%d path=%s", target.targetId, nemirtingasDir.c_str());
                 continue;
             }
 
@@ -102,7 +102,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
             if (!tenokeDir.empty())
             {
                 results.push_back(AppIdDirPathScanResult{target.targetId, tenokeDir, "Tenoke", joinedGogIds, true});
-                LOG_BE(Urgency::Info, "Found Tenoke dir: targetId=%d path=%s", target.targetId, tenokeDir.c_str());
+                LOG_BE(Urgency::Debug, "Found Tenoke dir: targetId=%d path=%s", target.targetId, tenokeDir.c_str());
                 continue;
             }
 
@@ -111,7 +111,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
             // if (!gogPrefixDir.empty())
             // {
             //     results.push_back(AppIdDirPathScanResult{target.targetId, gogPrefixDir, "GOG-N", joinedGogIds, true});
-            //     LOG_BE(Urgency::Info, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
+            //     LOG_BE(Urgency::Debug, "Found GOG prefix dir: targetId=%d path=%s", target.targetId, gogPrefixDir.c_str());
             //     continue;
             // }
             // GOG Emu req files handling - End
@@ -123,7 +123,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
         if (!reloadedDir.empty())
         {
             results.push_back(AppIdDirPathScanResult{target.targetId, reloadedDir, "RLD", joinedGogIds, true});
-            LOG_BE(Urgency::Info, "Found Reloaded dir: targetId=%d path=%s", target.targetId, reloadedDir.c_str());
+            LOG_BE(Urgency::Debug, "Found Reloaded dir: targetId=%d path=%s", target.targetId, reloadedDir.c_str());
             continue;
         }
 
@@ -132,7 +132,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
         if (!appIdDir.empty())
         {
             results.push_back(AppIdDirPathScanResult{target.targetId, appIdDir, emulatorType, joinedGogIds, true});
-            LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, appIdDir.c_str(), emulatorType.c_str());
+            LOG_BE(Urgency::Debug, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, appIdDir.c_str(), emulatorType.c_str());
         }
 #else
         // Validate prefix before recursive traversal
@@ -183,7 +183,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
                 {
                     const std::string foundPath = statsDir.string();
                     results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, "RLD", joinedGogIds, true});
-                    LOG_BE(Urgency::Info, "Found Reloaded dir: targetId=%d path=%s", target.targetId, foundPath.c_str());
+                    LOG_BE(Urgency::Debug, "Found Reloaded dir: targetId=%d path=%s", target.targetId, foundPath.c_str());
                     break;
                 }
                 continue;
@@ -199,7 +199,7 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
 
             results.push_back(AppIdDirPathScanResult{target.targetId, foundPath, emuType, joinedGogIds, true});
             
-            LOG_BE(Urgency::Info, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
+            LOG_BE(Urgency::Debug, "Found APPID dir: targetId=%d path=%s emu=%s", target.targetId, foundPath.c_str(), emuType.c_str());
             break;
         }
 

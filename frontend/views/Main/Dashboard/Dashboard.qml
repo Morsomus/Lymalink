@@ -803,7 +803,11 @@ Item {
 
             onRefreshClicked: {
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
-                    id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)
+                    if (id_root.pendingTargetDetails.targetType === "Emulator" && id_root.backendServiceUsable) {
+                        ctxBackendService.StartManualAchievementDataScan(id_root.pendingTargetDetails.id)
+                    } else {
+                        id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)
+                    }
                 } else {
                     id_root.refreshTargets()
                 }
