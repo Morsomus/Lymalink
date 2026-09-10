@@ -25,8 +25,8 @@
 Settings::Settings(QObject *parent) : QObject(parent),
     m_settings(QSettings::IniFormat, QSettings::UserScope, ORGANIZATION, APPLICATION)
 {
-    m_windowSizeXDefault = 1320;
-    m_windowSizeYDefault = 900;
+    m_windowSizeXDefault = 1600;
+    m_windowSizeYDefault = 1000;
     SetDefaults();
 
     if (!QFileInfo::exists(m_settings.fileName()))

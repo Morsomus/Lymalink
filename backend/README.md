@@ -1,6 +1,6 @@
 # Backend Build
 
-Build information for the Linux backend daemon.
+Build information for the backend daemon on Linux and Windows.
 
 ## Linux
 

@@ -360,7 +360,7 @@ QtObject {
         readonly property QtObject fontSizes: QtObject {
             readonly property int titleText: 28
             readonly property int labelText: 14
-            readonly property int sectionTitle: 15
+            readonly property int sectionTitle: 18
             readonly property int sectionInfo: 11
         }
     }

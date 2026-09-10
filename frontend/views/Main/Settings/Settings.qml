@@ -281,7 +281,7 @@ Item {
             visible: !id_sectionRoot.fullRowMode
             Layout.fillWidth: true
             columns: 2
-            columnSpacing: 32
+            columnSpacing: 64
             rowSpacing: 12
         }
 
@@ -782,7 +782,7 @@ Item {
                 anchors.left: parent.left
                 anchors.leftMargin: 40
                 anchors.right: parent.right
-                anchors.rightMargin: Math.max(60, parent.width - 40 - 920)
+                anchors.rightMargin: Math.max(60, parent.width - 40 - 1020)
 
                 Item {
                     Layout.preferredHeight: 24
@@ -790,7 +790,7 @@ Item {
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 28
+                    spacing: 36
 
                     // Appearance
                     C_SettingsSection {
@@ -1048,9 +1048,11 @@ Item {
 
                         C_SettingRow {
                             label: qsTr("Target type badge")
-                            tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                            // tooltip: qsTr("Show a badge on cards indicating whether the target is Custom, Steam Import, or Emulator")
+                            tooltip: qsTr("Show a badge on cards indicating whether the target is Steam Import or Emulator")
                             CustomComboBox {
-                                p_tooltipText: qsTr("Show a badge on cards indicating whether the target is Custom, Steam, or Emulator")
+                                // p_tooltipText: qsTr("Show a badge on cards indicating whether the target is Custom, Steam Import, or Emulator")
+                                p_tooltipText: qsTr("Show a badge on cards indicating whether the target is Steam Import or Emulator")
                                 model: [-1, 0, 1, 2, 3, 4, 5]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.targetTypeBadgeColorStyle))
                                 implicitWidth: 150

@@ -901,7 +901,7 @@ Item {
         anchors {
             fill: parent
 
-            rightMargin: Math.max(0, parent.width - 1152) // Width cap for wider window
+            rightMargin: Math.max(0, parent.width - 1252) // Width cap for wider window
             leftMargin: id_root.p_enabledAchievementRowDynamicWidth ? 0 : id_root.coverPanelWidth + 24
             topMargin: 28
             bottomMargin: 28

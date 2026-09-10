@@ -59,6 +59,9 @@ Item {
         : notificationNativeLdPreloadTemplate
     readonly property string notificationWineCommand: "lymalink-overlay wine \"game.exe\""
     readonly property string notificationSteamLaunchOption: "lymalink-overlay %command%"
+    readonly property string installDirectoryPlaceholder: OS_WIN
+        ? qsTr("e.g. C:\\Games\\GwentTheWitcherCardGame")
+        : qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
     readonly property bool detectedSteamAppIdMismatch: {
         if (id_root.selectedAppId <= 0 || id_root.detectedSteamAppIds.length === 0) {
             return false
@@ -1496,7 +1499,7 @@ Item {
                                 opacity: enabled ? 1.0 : 0.55
                                 readOnly: true
                                 selectByMouse: false
-                                placeholderText: qsTr("e.g. /home/user/Games/GwentTheWitcherCardGame")
+                                placeholderText: id_root.installDirectoryPlaceholder
 
                                 MouseArea {
                                     anchors.fill: parent

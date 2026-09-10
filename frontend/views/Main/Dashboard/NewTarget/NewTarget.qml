@@ -38,13 +38,13 @@ Item {
             description: qsTr("Import Steam achievements with Steam Web API."),
             enabled: true
         },
-        {
-            key: "custom",
-            label: qsTr("Custom"),
-            iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00034_ED.png",
-            description: qsTr("Track logs, saves, or text files with your own rules."),
-            enabled: false
-        }
+        // {
+        //     key: "custom",
+        //     label: qsTr("Custom"),
+        //     iconSource: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00034_ED.png",
+        //     description: qsTr("Track logs, saves, or text files with your own rules."),
+        //     enabled: false
+        // }
     ]
 
     /////////////////////////////////////////////////////////////////////

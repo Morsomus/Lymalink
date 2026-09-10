@@ -49,7 +49,12 @@ Item {
     readonly property var activeTargetIds: backendServiceReady ? ctxBackendService.activeTargetIds : []
     readonly property bool anyTargetIsActive: activeTargetIds.length > 0
 
-    onShowingTargetDetailsChanged: id_dashboardToolbar.closeOpenPanels()
+    onShowingTargetDetailsChanged: {
+        id_dashboardToolbar.closeOpenPanels()
+        if (!showingTargetDetails) {
+            id_root.cancelDetailsRefreshScan()
+        }
+    }
     onShowingAddTargetChanged: id_dashboardToolbar.closeOpenPanels()
 
     ListModel {
@@ -90,6 +95,10 @@ Item {
         interval: 32000
         repeat: false
         onTriggered: id_root.finishDetailsRefreshScan(id_root.detailsRefreshScanAppId)
+    }
+
+    ErrorPopup {
+        id: id_errorPopup
     }
 
     Component.onCompleted: refreshTargets()
@@ -556,7 +565,12 @@ Item {
     }
 
     function startDetailsRefreshScan(appId) {
-        if (appId <= 0 || id_root.detailsRefreshScanAppId > 0) {
+        if (appId <= 0 || id_root.detailsRefreshScanAppId > 0 || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+            return
+        }
+
+        if (!ctxLymalink.ResetTargetAchievementDataLocation(appId)) {
+            id_errorPopup.showError(qsTr("Couldn't Rescan Achievement Data"), ctxLymalink.GetLastOperationError())
             return
         }
 
@@ -572,6 +586,18 @@ Item {
 
         id_detailsRefreshScanFallbackTimer.stop()
         id_root.detailsRefreshScanAppId = 0
+    }
+
+    function cancelDetailsRefreshScan() {
+        if (id_root.detailsRefreshScanAppId <= 0) {
+            return
+        }
+
+        const appId = id_root.detailsRefreshScanAppId
+        if (id_root.backendServiceReady) {
+            ctxBackendService.CancelManualAchievementDataScan(appId)
+        }
+        id_root.finishDetailsRefreshScan(appId)
     }
 
     function scheduleLocalAchievementScan(appId, targetType) {
@@ -939,7 +965,7 @@ Item {
 
                 CustomBusyIndicator {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    p_indicatorSize: 280
+                    p_indicatorSize: 80
                     p_speed: 8400
                     p_running: id_root.noTargetsAvailable
                     opacity: 0.5

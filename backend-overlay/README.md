@@ -1,6 +1,6 @@
 # Backend Overlay Build
 
-Build information for the Linux Vulkan and OpenGL overlay libraries.
+Build information for the overlay libraries on Linux and Windows.
 
 ## Linux
 

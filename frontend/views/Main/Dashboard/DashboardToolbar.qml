@@ -63,7 +63,7 @@ Item {
     readonly property var targetDetailsSortModel: ["name", "unlockDate", "globalPercentage"]
     readonly property var targetDetailsFilterModel: ["all", "unlocked", "locked", "hidden"]
     readonly property var sortModel: ["title", "progress", "recentUnlock", "playtime", "lastPlayed", "dateAdded"]
-    readonly property var filterModel: ["none", "completed", "uncompleted", "custom", "emulator", "steam", "hidden", "installed", "notInstalled"]
+    readonly property var filterModel: ["none", "completed", "uncompleted", /*"custom",*/ "emulator", "steam", "hidden", "installed", "notInstalled"]
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
     readonly property var controlModel: [
@@ -899,6 +899,12 @@ Item {
                     ColorAnimation {
                         duration: 120
                     }
+                }
+
+                CustomTooltip {
+                    p_active: id_detailsRefreshMouseArea.containsMouse
+                    p_delay: 1000
+                    p_text: qsTr("Rescan this target's achievement files and reload achievements")
                 }
 
                 Image {

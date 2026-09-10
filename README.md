@@ -197,7 +197,6 @@ Current progress towards different versions, platform-wise
 - **Additional Emulator Support** - Expand support for more emulator achievement formats and related local achievement file structures.
 - **Achievement Reports (Multiple file formats)** - Generate shareable summaries for a single title or a selection of titles. A clean, exportable snapshot of your achievements.
 - **Localisation** - Languages to choose from.
-- **Custom Targets** - Create and track achievements outside predefined game or platform integrations. Useful for personal milestones, challenge runs, custom game setups, and other progress-tracking workflows.
 
 ---
 

@@ -33,9 +33,6 @@ Popup {
     property string currentExecutableLocation: ""
     property string currentInstallationLocation: ""
     property bool steamUpdateLoading: false
-    property bool manualScanLoading: false
-    property bool manualScanCancelVisible: false
-    property int manualScanTargetId: 0
     property bool passcodeUnlocked: false
     property bool awaitingUnlockAction: false
     property string unlockedSteamWebApiKey: ""
@@ -43,11 +40,6 @@ Popup {
     property bool steamUpdateStatusIsError: false
 
     readonly property bool steamConfigured: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
-    readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
-    readonly property bool backendServiceUsable: backendServiceReady && ctxBackendService.serviceAvailable && ctxBackendService.serviceActive
-    readonly property var activeTargetIds: backendServiceReady ? ctxBackendService.activeTargetIds : []
-    readonly property bool anyTargetIsActive: activeTargetIds.length > 0
-    readonly property bool manualScanAvailable: p_targetType === "Emulator" && backendServiceUsable && !anyTargetIsActive && !manualScanLoading
 
     width: Math.min(340, parent ? parent.width - 48 : 340)
     height: id_content.implicitHeight + topPadding + bottomPadding
@@ -59,7 +51,6 @@ Popup {
     y: parent ? Math.round((parent.height - height) / 2) : 0
 
     onClosed: {
-        id_root.cancelManualAchievementDataScan()
         deleteConfirmVisible = false
         id_deleteConfirmInput.text = ""
     }
@@ -70,7 +61,6 @@ Popup {
         id_root.steamUpdateStatusIsError = false
     }
     onP_targetHiddenChanged: targetHiddenState = p_targetHidden
-    onP_appIdChanged: id_root.cancelManualAchievementDataScan()
 
     onDeleteConfirmVisibleChanged: {
         if (!deleteConfirmVisible) {
@@ -109,61 +99,6 @@ Popup {
         if (typeof ctxBackendService !== "undefined" && ctxBackendService !== null) {
             ctxBackendService.ReloadAllTargets()
         }
-    }
-
-    function manualScanTooltipText() {
-        if (id_root.manualScanLoading) {
-            return qsTr("Achievement data scan is already running")
-        }
-        if (!id_root.backendServiceUsable) {
-            return qsTr("Background service must be running to rescan achievement data")
-        }
-        if (id_root.anyTargetIsActive) {
-            return qsTr("Close all running games before rescanning achievement data")
-        }
-        return qsTr("Rescan for achievement and emulator data")
-    }
-
-    function beginManualAchievementDataScan() {
-        if (id_root.p_appId <= 0 || !id_root.manualScanAvailable) {
-            return
-        }
-
-        if (!ctxLymalink.ResetTargetAchievementDataLocation(id_root.p_appId)) {
-            id_errorPopup.showError(qsTr("Couldn't Rescan Achievement Data"), ctxLymalink.GetLastOperationError())
-            return
-        }
-
-        id_root.manualScanLoading = true
-        id_root.manualScanCancelVisible = false
-        id_root.manualScanTargetId = id_root.p_appId
-        id_manualScanCancelButtonDelayTimer.restart()
-        id_manualScanFallbackTimer.restart()
-        ctxBackendService.StartManualAchievementDataScan(id_root.p_appId)
-    }
-
-    function cancelManualAchievementDataScan() {
-        if (!id_root.manualScanLoading || id_root.manualScanTargetId <= 0) {
-            return
-        }
-
-        const appId = id_root.manualScanTargetId
-        if (id_root.backendServiceReady) {
-            ctxBackendService.CancelManualAchievementDataScan(appId)
-        }
-        id_root.finishManualAchievementDataScan(appId)
-    }
-
-    function finishManualAchievementDataScan(appId) {
-        if (!id_root.manualScanLoading || id_root.manualScanTargetId !== appId) {
-            return
-        }
-
-        id_manualScanFallbackTimer.stop()
-        id_manualScanCancelButtonDelayTimer.stop()
-        id_root.manualScanLoading = false
-        id_root.manualScanCancelVisible = false
-        id_root.manualScanTargetId = 0
     }
 
     function setPrefixLocation(path) {
@@ -521,41 +456,6 @@ Popup {
         onTriggered: id_root.updateSelectedSteamTarget()
     }
 
-    Timer {
-        id: id_manualScanFallbackTimer
-
-        interval: 32000
-        repeat: false
-        onTriggered: {
-            if (id_root.manualScanTargetId > 0) {
-                id_root.finishManualAchievementDataScan(id_root.manualScanTargetId)
-            }
-        }
-    }
-
-    // Delay timer before displaying manual scan button and busy indicator to prevent brief flashing
-    Timer {
-        id: id_manualScanCancelButtonDelayTimer
-
-        interval: 1000
-        repeat: false
-        onTriggered: {
-            id_root.manualScanCancelVisible = id_root.manualScanLoading
-        }
-    }
-
-    Connections {
-        target: typeof ctxBackendService !== "undefined" ? ctxBackendService : null
-
-        function onSignalTargetDataChanged(appId) {
-            id_root.finishManualAchievementDataScan(appId)
-        }
-
-        function onSignalManualAchievementDataScanFinished(appId, found, reason) {
-            id_root.finishManualAchievementDataScan(appId)
-        }
-    }
-
     background: Rectangle {
         radius: 8
         color: Themes.targetSettings.colors.background
@@ -598,70 +498,6 @@ Popup {
                     id_root.reloadAssetsRequested(id_root.p_appId, id_root.p_targetType)
                     id_root.close()
                 }
-            }
-        }
-
-        C_ActionButton {
-            id: id_rescanAchievementDataButton
-
-            visible: id_root.p_targetType === "Emulator"
-            text: qsTr("Rescan Achievement Data")
-            tooltipText: id_root.manualScanTooltipText()
-            enabled: id_root.manualScanAvailable
-            opacity: enabled ? 1.0 : 0.55
-            onClicked: id_root.beginManualAchievementDataScan()
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            visible: id_root.p_targetType === "Emulator" && id_root.manualScanLoading && id_root.manualScanCancelVisible
-
-            CustomBusyIndicator {
-                Layout.alignment: Qt.AlignVCenter
-                p_indicatorSize: 22
-                p_speed: 900
-                p_running: id_root.manualScanLoading
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("Scanning for achievement data...")
-                color: Themes.targetSettings.colors.bodyText
-                font.pixelSize: Themes.targetSettings.fontSizes.body
-                wrapMode: Text.WordWrap
-            }
-        }
-
-        ColumnLayout {
-            id: id_manualScanCancelPanel
-
-            Layout.fillWidth: true
-            Layout.preferredHeight: id_root.manualScanCancelVisible ? implicitHeight : 0
-            clip: true
-            opacity: id_root.manualScanCancelVisible ? 1.0 : 0.0
-            visible: id_root.manualScanCancelVisible || Layout.preferredHeight > 0
-            spacing: 8
-
-            Behavior on Layout.preferredHeight {
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutQuad
-                }
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 120
-                }
-            }
-
-            C_ActionButton {
-                id: id_manualScanCancelButton
-
-                text: qsTr("Cancel")
-                danger: true
-                onClicked: id_root.cancelManualAchievementDataScan()
             }
         }
 
