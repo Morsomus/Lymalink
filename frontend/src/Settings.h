@@ -61,6 +61,8 @@ class Settings : public QObject
     Q_PROPERTY(QString currentVersion READ GetCurrentVersion NOTIFY signalConfigChanged)
     Q_PROPERTY(QString welcomeHelpText READ GetWelcomeHelpText NOTIFY signalConfigChanged)
     Q_PROPERTY(QString targetDetailsHelpText READ GetTargetDetailsHelpText NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString databaseCustomPath READ GetDatabaseCustomPath NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString activeDatabasePath READ GetActiveDatabasePath NOTIFY signalConfigChanged)
 
 public:
     enum Key
@@ -99,7 +101,8 @@ public:
         DashboardToolbarSortDescending,
         DashboardToolbarLayout,
         WelcomeHelpText,
-        TargetDetailsHelpText
+        TargetDetailsHelpText,
+        DatabaseCustomPath
     };
     Q_ENUM(Key)
 
@@ -117,6 +120,11 @@ public:
     Q_INVOKABLE bool LoadConfig();
     Q_INVOKABLE bool SaveValue(Key key, const QVariant &value, bool emitSignal = true);
     Q_INVOKABLE QString GetConfigFilePath() const;
+    Q_INVOKABLE QVariantMap VerifyCustomDatabasePath(const QString &dbPath) const;
+    Q_INVOKABLE bool SaveCustomDatabasePath(const QString &dbPath);
+
+    QString GetActiveDatabasePath() const;
+    QStringList GetNotificationSounds() const;
 
     inline QString GetTheme() const { return m_theme; }
     inline bool GetShowLymalinkLogo() const { return m_showLymalinkLogo; }
@@ -146,7 +154,6 @@ public:
     inline int GetSteamImportAutoSyncIntervalMinutes() const { return m_steamImportAutoSyncIntervalMinutes; }
     inline qint64 GetSteamImportAutoSyncLastSyncedAt() const { return m_steamImportAutoSyncLastSyncedAt; }
     inline QString GetNotificationSound() const { return m_notificationSound; }
-    QStringList GetNotificationSounds() const;
     inline QString GetOverlayNotificationPosition() const { return m_overlayNotificationPosition; }
     inline QString GetOverlayNotificationExitAnimation() const { return m_overlayNotificationExitAnimation; }
     inline bool GetStartupNotification() const { return m_startupNotification; }
@@ -159,6 +166,7 @@ public:
     inline QString GetCurrentVersion() const { return m_currentVersion; }
     inline QString GetWelcomeHelpText() const { return m_welcomeHelpText; }
     inline QString GetTargetDetailsHelpText() const { return m_targetDetailsHelpText; }
+    inline QString GetDatabaseCustomPath() const { return m_databaseCustomPath; }
 
 signals:
     void signalConfigChanged();
@@ -208,6 +216,7 @@ private:
     QString m_currentVersion;
     QString m_welcomeHelpText;
     QString m_targetDetailsHelpText;
+    QString m_databaseCustomPath;
 
     void SetDefaults();
     QString ResolveDefaultNotificationSound() const;

@@ -30,6 +30,7 @@ DBusService::DBusService() :
     onCancelManualAchievementDataScan = nullptr;
     onTestToast = nullptr;
     onTestSound = nullptr;
+    onIsFaulted = nullptr;
 }
 
 DBusService::~DBusService()
@@ -284,7 +285,7 @@ void DBusService::EmitManualAchievementDataScanFinished(int32_t targetId, bool f
 
 std::string DBusService::OnPing()
 {
-    std::string result = "pong";
+    std::string result = onIsFaulted && onIsFaulted() ? "fault" : "pong";
 
     // Return health-check response to DBus caller
     return result;

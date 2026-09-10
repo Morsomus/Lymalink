@@ -420,6 +420,7 @@ function Deploy {
     Get-ChildItem -LiteralPath (Join-Path $SCRIPT_DIR "res") -Filter "*.ogg" -File | Copy-Item -Destination $soundDir
     Copy-Item -LiteralPath (Join-Path $SCRIPT_DIR "..\frontend\res\img\64x64-lymalink-test-icon.png") -Destination (Join-Path $installDir "64x64-lymalink-test-icon.png") -Force
     Copy-Item -LiteralPath (Join-Path $SCRIPT_DIR "res\img\BlankBackground_MFC_00041_ED.png") -Destination (Join-Path $installDir "lymalinkd-tray-icon.png") -Force
+    Copy-Item -LiteralPath (Join-Path $SCRIPT_DIR "res\img\BlankBackground_MFC_00041_ED_ERR.png") -Destination (Join-Path $installDir "lymalinkd-tray-icon-error.png") -Force
 
     foreach ($path in @((Join-Path $installDir "lymalinkd.exe"), (Join-Path $installDir "sqlite3.dll"), (Join-Path $installDir "64x64-lymalink-test-icon.png"), (Join-Path $installDir "lymalinkd-tray-icon.png"))) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

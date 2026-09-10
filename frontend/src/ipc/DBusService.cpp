@@ -18,7 +18,9 @@
 #include <QDBusReply>
 #include <QTimer>
 #include <QVariant>
+#include <QThread>
 
+#define STARTUP_TIMEOUT_MS 10000
 #define STARTUP_PING_DELAY_MS 6000
 
 /////////////////////////////////////////////////////////////////////
@@ -27,6 +29,7 @@ DBusService::DBusService(QObject *parent) : BackendControl(parent)
 {
     m_pingTimer = nullptr;
     m_activeTargetsRequestTimer = nullptr;
+    m_startTimeoutTimer = nullptr;
     m_pingInFlight = false;
     m_pingIntervalMs = 5000;
     m_pingTimeoutMs = 1000;
@@ -48,6 +51,21 @@ DBusService::DBusService(QObject *parent) : BackendControl(parent)
     m_activeTargetsRequestTimer->setInterval(m_systemdTimeoutMs + 1000);
     m_activeTargetsRequestTimer->setSingleShot(true);
     connect(m_activeTargetsRequestTimer, &QTimer::timeout, this, &DBusService::RequestActiveTargets);
+
+    // Do not leave UI in "Starting" state forever if lymalinkd never answers
+    m_startTimeoutTimer = new QTimer(this);
+    m_startTimeoutTimer->setSingleShot(true);
+    connect(m_startTimeoutTimer, &QTimer::timeout, this, [this] {
+        if (!m_serviceStarting)
+        {
+            return;
+        }
+
+        SetServiceStarting(false);
+        SetServiceActive(false);
+        SetServiceAvailable(false);
+        SetLastError(QStringLiteral("Background service did not respond after startup."));
+    });
 
     // Subscribe and bootstrap daemon state immediately for first UI paint
     ConnectDaemonSignals();
@@ -84,6 +102,7 @@ bool DBusService::StopServiceIfNotEnabled()
     }
 
     // Stop transient daemon only when autostart is disabled
+    m_startTimeoutTimer->stop();
     SetServiceStarting(false);
     serviceStopped = CallSystemdUnitMethod(QStringLiteral("StopUnit"));
     return serviceStopped;
@@ -104,7 +123,7 @@ void DBusService::PingBackend()
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::PingBackend: D-Bus session bus unavailable";
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to the desktop session bus. Background tracking is unavailable."));
         SetServiceAvailable(false);
         return;
     }
@@ -131,11 +150,13 @@ bool DBusService::StartService()
     // Show starting state while systemd processes StartUnit
     SetServiceActive(false);
     SetServiceStarting(true);
+    m_startTimeoutTimer->start(STARTUP_TIMEOUT_MS);
     m_pingTimer->start(STARTUP_PING_DELAY_MS);
     serviceStarted = CallSystemdUnitMethod(QStringLiteral("StartUnit"));
     if (!serviceStarted)
     {
         qWarning() << "DBusService::StartService: failed to call StartUnit";
+        m_startTimeoutTimer->stop();
         SetServiceStarting(false);
         ResetPingTimer();
     }
@@ -144,11 +165,12 @@ bool DBusService::StartService()
 
 /////////////////////////////////////////////////////////////////////
 
-bool DBusService::StopService()
+bool DBusService::StopService(bool endWaitDelay)
 {
     bool serviceStopped = false;
 
     // Clear active state immediately so UI does not wait for next ping
+    m_startTimeoutTimer->stop();
     ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(false);
@@ -156,6 +178,10 @@ bool DBusService::StopService()
     if (!serviceStopped)
     {
         qWarning() << "DBusService::StopService: failed to call StopUnit";
+    }
+    else if (endWaitDelay)
+    {
+        QThread::msleep(1000);
     }
     return serviceStopped;
 }
@@ -170,10 +196,12 @@ bool DBusService::RestartService()
     ResetPingTimer();
     SetServiceActive(false);
     SetServiceStarting(true);
+    m_startTimeoutTimer->start(STARTUP_TIMEOUT_MS);
     serviceRestarted = CallSystemdUnitMethod(QStringLiteral("RestartUnit"));
     if (!serviceRestarted)
     {
         qWarning() << "DBusService::RestartService: failed to call RestartUnit";
+        m_startTimeoutTimer->stop();
         SetServiceStarting(false);
     }
     return serviceRestarted;
@@ -345,15 +373,26 @@ void DBusService::OnPingFinished(QDBusPendingCallWatcher *watcher)
         if (!m_serviceStarting || error.type() != QDBusError::ServiceUnknown)
         {
             qWarning() << "DBusService::OnPingFinished: ping failed:" << error.message();
-            SetLastError(error.message());
+            SetLastError(QStringLiteral("Background service does not respond"));
         }
         SetServiceAvailable(false);
         return;
     }
 
-    const bool available = (reply.value() == QStringLiteral("pong"));
-    SetLastError(available ? QString() : QStringLiteral("Unexpected PingBackend response"));
+    const QString pingResult = reply.value();
+    const bool available = (pingResult == QStringLiteral("pong"));
     SetServiceAvailable(available);
+    if (available)
+    {
+        SetLastError(QString());
+        m_startTimeoutTimer->stop();
+    }
+    else
+    {
+        SetServiceStarting(false);
+        SetServiceActive(false);
+        qWarning() << "Background service returned an unexpected response:" << pingResult;
+    }
 
     // Refresh systemd state once daemon responds again
     if (GetServiceAvailable() == true && GetServiceActive() == false)
@@ -482,7 +521,7 @@ void DBusService::ConnectDaemonSignals()
     if (!connected)
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to GameStateChanged";
-        SetLastError(QStringLiteral("Failed to subscribe to GameStateChanged signal"));
+        SetLastError(QStringLiteral("Could not listen for background service game-state updates."));
     }
 
     const bool achievementConnected = sessionBus.connect(
@@ -497,7 +536,7 @@ void DBusService::ConnectDaemonSignals()
     if (!achievementConnected)
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to AchievementUnlocked";
-        SetLastError(QStringLiteral("Failed to subscribe to AchievementUnlocked signal"));
+        SetLastError(QStringLiteral("Could not listen for background service achievement updates."));
     }
 
     const bool targetDataConnected = sessionBus.connect(
@@ -512,7 +551,7 @@ void DBusService::ConnectDaemonSignals()
     if (!targetDataConnected)
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to TargetDataChanged";
-        SetLastError(QStringLiteral("Failed to subscribe to TargetDataChanged signal"));
+        SetLastError(QStringLiteral("Could not listen for background service target updates."));
     }
 
     const bool manualScanConnected = sessionBus.connect(
@@ -527,7 +566,7 @@ void DBusService::ConnectDaemonSignals()
     if (!manualScanConnected)
     {
         qWarning() << "DBusService::ConnectDaemonSignals: failed to subscribe to ManualAchievementDataScanFinished";
-        SetLastError(QStringLiteral("Failed to subscribe to ManualAchievementDataScanFinished signal"));
+        SetLastError(QStringLiteral("Could not listen for background service scan results."));
     }
 }
 
@@ -577,7 +616,7 @@ bool DBusService::EnableService()
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::EnableService: D-Bus session bus unavailable";
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to the desktop session bus. Background startup could not be enabled."));
         return serviceEnabled;
     }
 
@@ -593,7 +632,7 @@ bool DBusService::EnableService()
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
         qWarning() << "DBusService::EnableService: EnableUnitFiles failed:" << reply.errorMessage();
-        SetLastError(reply.errorMessage());
+        SetLastError(QStringLiteral("Could not enable background startup: %1").arg(reply.errorMessage()));
         RefreshServiceStatus();
         return serviceEnabled;
     }
@@ -615,7 +654,7 @@ bool DBusService::DisableService()
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::DisableService: D-Bus session bus unavailable";
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to the desktop session bus. Background startup could not be disabled."));
         return serviceDisabled;
     }
 
@@ -631,7 +670,7 @@ bool DBusService::DisableService()
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
         qWarning() << "DBusService::DisableService: DisableUnitFiles failed:" << reply.errorMessage();
-        SetLastError(reply.errorMessage());
+        SetLastError(QStringLiteral("Could not disable background startup: %1").arg(reply.errorMessage()));
         RefreshServiceStatus();
         return serviceDisabled;
     }
@@ -653,7 +692,7 @@ bool DBusService::CallSystemdUnitMethod(const QString &method)
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::CallSystemdUnitMethod: D-Bus session bus unavailable for method:" << method;
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to systemd. Background service control is unavailable."));
         return methodCalled;
     }
 
@@ -669,7 +708,7 @@ bool DBusService::CallSystemdUnitMethod(const QString &method)
     if (reply.type() == QDBusMessage::ErrorMessage)
     {
         qWarning() << "DBusService::CallSystemdUnitMethod: method failed:" << method << reply.errorMessage();
-        SetLastError(reply.errorMessage());
+        SetLastError(QStringLiteral("Could not control the background service: %1").arg(reply.errorMessage()));
         return methodCalled;
     }
 
@@ -689,8 +728,9 @@ bool DBusService::FetchServiceActiveStatus()
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::FetchServiceActiveStatus: D-Bus session bus unavailable";
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to the desktop session bus. Background service status is unavailable."));
         SetServiceActive(false);
+        m_startTimeoutTimer->stop();
         SetServiceStarting(false);
         return statusFetched;
     }
@@ -708,6 +748,7 @@ bool DBusService::FetchServiceActiveStatus()
     {
         qWarning() << "DBusService::FetchServiceActiveStatus: GetUnit failed";
         SetServiceActive(false);
+        m_startTimeoutTimer->stop();
         SetServiceStarting(false);
         return statusFetched;
     }
@@ -725,12 +766,17 @@ bool DBusService::FetchServiceActiveStatus()
     {
         qWarning() << "DBusService::FetchServiceActiveStatus: failed to read ActiveState";
         SetServiceActive(false);
+        m_startTimeoutTimer->stop();
         SetServiceStarting(false);
         return statusFetched;
     }
 
     const QString activeState = activeStateReply.value().toString();
     SetServiceStarting(activeState == QStringLiteral("activating"));
+    if (activeState != QStringLiteral("activating"))
+    {
+        m_startTimeoutTimer->stop();
+    }
     SetServiceActive(activeState == QStringLiteral("active"));
     statusFetched = true;
     return statusFetched;
@@ -747,7 +793,7 @@ bool DBusService::FetchServiceEnabledStatus()
     if (!sessionBus.isConnected())
     {
         qWarning() << "DBusService::FetchServiceEnabledStatus: D-Bus session bus unavailable";
-        SetLastError(QStringLiteral("D-Bus session bus unavailable"));
+        SetLastError(QStringLiteral("Could not connect to the desktop session bus. Background startup status is unavailable."));
         SetServiceEnabledState(false);
         return statusFetched;
     }

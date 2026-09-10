@@ -3,21 +3,19 @@
 // Date: 2026-05-25
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares sending native desktop
-//              notifications over D-Bus
-//              NOTE: Not used in project currently, left for future use
+// Description: Declares native Linux desktop notifications
+//              over D-Bus
 /////////////////////////////////////////////////////////
 
 #pragma once
 
 #include "Error.h"
-#include "notification/AchievementNotificationService.h"
-
 #include <cstdint>
 #include <memory>
 #include <sdbus-c++/sdbus-c++.h>
+#include <string>
 
-class FreedesktopNotificationService : public IDesktopNotificationService
+class FreedesktopNotificationService
 {
 public:
     FreedesktopNotificationService();
@@ -26,7 +24,7 @@ public:
     Error Init();
     void Stop();
 
-    bool ShowAchievementToast(const AchievementNotification& notification) override;
+    bool ShowErrorToast(const std::string& summary, const std::string& body, const std::string& iconPath);
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;

@@ -11,6 +11,7 @@
 #include "Error.h"
 #if defined(_WIN32)
     #include "ipc/WinSocketServer.h"
+    #include "notification/WinNotificationService.h"
     #include "notification/WinSoundService.h"
     #include "overlay/WinOverlayInjector.h"
     #include "overlay/WinOverlayNotifier.h"
@@ -18,10 +19,12 @@
     #include "service/SystemdNotify.h"
     #include "ipc/DBusService.h"
     #include "notification/CanberraSoundService.h"
+    #include "notification/FreedesktopNotificationService.h"
     #include "overlay/OverlayNotifier.h"
 #endif
 #include "notification/AchievementNotificationService.h"
 #include "tray/BackendTrayIcon.h"
+#include "database/DatabaseUtils.h"
 #include "database/SQLiteManager.h"
 #include "tools/AchievementKeyResolver.h"
 #include "watcher/PathScanner.h"
@@ -53,6 +56,7 @@ public:
 private:
 #if defined(_WIN32)
     WinSocketServer m_ipc;
+    WinNotificationService m_desktopNotifications;
     WinSoundService m_notificationSound;
     WinOverlayNotifier m_overlayNotifications;
     WinOverlayInjector m_overlayInjector;
@@ -60,9 +64,11 @@ private:
     SystemdNotify m_notify;
     DBusService m_dbus;
     OverlayNotifier m_overlayNotifications;
+    FreedesktopNotificationService m_desktopNotifications;
     CanberraSoundService m_notificationSound;
 #endif
     SQLiteManager m_database;
+    DatabaseUtils m_databaseUtils;
     AchievementKeyResolver m_achievementKeyResolver;
     AchievementNotificationService m_achievementNotifications;
     BackendTrayIcon m_trayIcon;
@@ -79,6 +85,7 @@ private:
 
     std::thread m_sleepTimerThread;
     std::thread m_manualScanThread;
+    std::thread m_databaseLockThread;
 #if defined(_WIN32)
     std::thread m_monitorThread;
 #endif
@@ -92,7 +99,8 @@ private:
     std::atomic_bool m_processActive;
     std::atomic_int m_activeCount;
     std::atomic_uint64_t m_sleepTimerGeneration;
-    std::atomic_bool m_running;
+    std::atomic_bool m_backendRunning;
+    std::atomic_bool m_backendFaulted;
     std::atomic_bool m_startupNotificationEnabled;
     std::atomic_bool m_manualScanActive;
     std::atomic_bool m_manualScanCancelRequested;
@@ -107,14 +115,18 @@ private:
     std::string m_databaseConnectionName;
     std::string m_databasePath;
     std::string m_databaseEmuGamesTable;
+    bool m_customDatabasePathUsed;
+    bool m_databaseLockAcquired;
 
     Error Init();
-    Error DatabaseInit();
+    Error DatabaseInit(std::string& res);
     void  Monitor();
 #if !defined(_WIN32)
     void  SignalThread(sigset_t mask);
 #endif
     void  Shutdown();
+    void  EnterFaultState(const std::string& error);
+    void  HandleDatabaseError(const std::string& context);
 
 #if defined(_WIN32)
     void  InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid);
@@ -147,7 +159,8 @@ private:
     bool SaveAchievementState(int targetId, const AchievementData& achievement);
     void ScheduleStartupNotification(int targetId, std::string gameName);
     bool IsTargetActive(int targetId);
-    std::string ResolveDatabasePath() const;
+    bool IsProcessAlive(uint64_t processId) const;
+    void DatabaseLockHeartbeat();
     std::vector<std::string> ResolveInstalledVulkanOverlayManifestPaths() const;
     std::vector<std::string> ResolveInstalledFlatpakVulkanOverlayManifestPaths() const;
     void SetVulkanOverlayManifestEnableEnvironment(bool enabled);

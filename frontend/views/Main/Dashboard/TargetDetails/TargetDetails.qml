@@ -20,7 +20,7 @@ Item {
 
     // Public ________________________________________________
     property int p_appId: 0
-    property string p_title: "Aethelwald III"
+    property string p_title: "MISSING"
     property string p_coverSource: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""

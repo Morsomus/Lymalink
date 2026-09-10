@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,8 @@ public:
 
     bool Start(const std::string& iconPath);
     void Stop();
+    bool SetIcon(const std::string& iconPath);
+    void SetToolTip(const std::string& message);
 
     std::function<void()> onQuitBackend;
 
@@ -47,7 +50,9 @@ private:
     std::unique_ptr<sdbus::IObject> m_itemObject;
     std::unique_ptr<sdbus::IObject> m_menuObject;
     std::string m_serviceName;
+    std::string m_toolTipMessage;
     IconPixmap m_iconPixmap;
+    mutable std::mutex m_stateMutex;
     uint32_t m_menuRevision;
 #endif
 

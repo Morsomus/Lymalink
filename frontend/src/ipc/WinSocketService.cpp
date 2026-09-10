@@ -17,6 +17,7 @@
 #include <QProcess>
 #include <QSettings>
 #include <QTimer>
+#include <QThread>
 
 #define STARTUP_TIMEOUT_MS 10000
 
@@ -30,6 +31,7 @@ WinSocketService::WinSocketService(QObject *parent) : BackendControl(parent)
     m_serviceActive = false;
     m_serviceStarting = false;
     m_serviceEnabled = false;
+    m_serviceDisconnectExpected = false;
     m_lastError = "";
     m_activeTargetIds = {};
 
@@ -47,7 +49,7 @@ WinSocketService::WinSocketService(QObject *parent) : BackendControl(parent)
         SetServiceStarting(false);
         SetServiceActive(false);
         SetServiceAvailable(false);
-        SetLastError(QStringLiteral("lymalinkd.exe did not become available."));
+        SetLastError(QStringLiteral("Background service did not respond after startup."));
     });
     connect(&m_socket, &QLocalSocket::connected, this, [this] {
         qDebug() << "WinSocketService::WinSocketService: connected to lymalinkd socket.";
@@ -69,6 +71,20 @@ WinSocketService::WinSocketService(QObject *parent) : BackendControl(parent)
         if (m_socket.state() == QLocalSocket::UnconnectedState)
         {
             SetServiceAvailable(false);
+        }
+    });
+    connect(&m_socket, &QLocalSocket::disconnected, this, [this] {
+        const bool wasRunning = m_serviceAvailable || m_serviceActive;
+        const bool disconnectExpected = m_serviceDisconnectExpected;
+        m_serviceDisconnectExpected = false;
+
+        SetServiceStarting(false);
+        SetServiceActive(false);
+        SetServiceAvailable(false);
+
+        if (!disconnectExpected && wasRunning)
+        {
+            SetLastError(QStringLiteral("Background service stopped unexpectedly. Achievement tracking is unavailable."));
         }
     });
 
@@ -140,7 +156,7 @@ bool WinSocketService::StartService()
     const QString executable = GetDaemonExecutablePath();
     if (!QFileInfo::exists(executable))
     {
-        SetLastError(QStringLiteral("lymalinkd.exe is missing beside Lymalink.exe."));
+        SetLastError(QStringLiteral("Could not start the background service - Background service executable is missing beside Lymalink.exe."));
         return false;
     }
     SetServiceStarting(true);
@@ -151,7 +167,7 @@ bool WinSocketService::StartService()
     if (!QProcess::startDetached(executable, {}, QCoreApplication::applicationDirPath()))
     {
         SetServiceStarting(false);
-        SetLastError(QStringLiteral("Could not start lymalinkd.exe."));
+        SetLastError(QStringLiteral("Could not start the background service."));
         return false;
     }
 
@@ -162,26 +178,37 @@ bool WinSocketService::StartService()
 
 /////////////////////////////////////////////////////////////////////
 
-bool WinSocketService::StopService()
+bool WinSocketService::StopService(bool endWaitDelay)
 {
     // Connect to daemon before requesting orderly shutdown
     m_startTimeoutTimer.stop();
     if (!ConnectExistingBackend(1000))
     {
-        SetLastError(QStringLiteral("lymalinkd.exe is not responding."));
+        if (!m_serviceDisconnectExpected)
+        {
+            SetLastError(QStringLiteral("Background service is not responding."));
+        }
         return false;
     }
 
     SendRequest(QStringLiteral("Shutdown"));
-    if (!m_socket.waitForDisconnected(3000))
+    if (!m_socket.waitForDisconnected(6000)) // Set as high that backend is able to shutdown in time
     {
-        SetLastError(QStringLiteral("lymalinkd.exe did not stop within timeout."));
+        if (!m_serviceDisconnectExpected)
+        {
+            SetLastError(QStringLiteral("Background service did not stop in time."));
+        }
         return false;
     }
 
     SetServiceStarting(false);
     SetServiceActive(false);
     SetServiceAvailable(false);
+
+    if (endWaitDelay)
+    {
+        QThread::msleep(1000);
+    }
 
     return true;
 }
@@ -190,7 +217,8 @@ bool WinSocketService::StopService()
 
 bool WinSocketService::RestartService()
 {
-    // Restart daemon through existing shutdown and startup flows
+    // Restart owns the shutdown transition; suppress stop-phase popups.
+    m_serviceDisconnectExpected = true;
     StopService();
     return StartService();
 }
@@ -206,7 +234,7 @@ bool WinSocketService::SetServiceEnabled(bool enabled)
         const QString executable = GetDaemonExecutablePath();
         if (!QFileInfo::exists(executable))
         {
-            SetLastError(QStringLiteral("lymalinkd.exe is missing beside Lymalink.exe."));
+            SetLastError(QStringLiteral("Could not enable autostart - Background service executable is missing beside Lymalink.exe."));
             return false;
         }
 
@@ -221,7 +249,7 @@ bool WinSocketService::SetServiceEnabled(bool enabled)
     autostartSettings.sync();
     if (autostartSettings.status() != QSettings::NoError)
     {
-        SetLastError(QStringLiteral("Could not update Windows startup registration."));
+        SetLastError(QStringLiteral("Could not update Windows startup settings for the background service."));
         return false;
     }
 
@@ -350,15 +378,27 @@ void WinSocketService::HandleMessage(const QJsonObject &message)
     {
         if (!message.value("ok").toBool())
         {
-            SetLastError(message.value("error").toString());
+            const QString error = message.value("error").toString();
+            SetLastError(error.isEmpty()
+                ? QStringLiteral("Background service reported an unknown error.")
+                : QStringLiteral("Background service reported an error: %1").arg(error));
         }
         else if (message.value("result").toString() == "pong")
         {
             m_startTimeoutTimer.stop();
+            SetLastError(QString());
             SetServiceStarting(false);
             SetServiceActive(true);
             SetServiceAvailable(true);
             FetchServiceEnabledStatus();
+        }
+        else if (message.contains("result"))
+        {
+            const QString result = message.value("result").toString();
+            SetServiceStarting(false);
+            SetServiceActive(false);
+            SetServiceAvailable(false);
+            qWarning() << "Background service returned an unexpected response:" << result;
         }
         return;
     }
@@ -414,7 +454,7 @@ bool WinSocketService::FetchServiceEnabledStatus()
     const bool enabled = autostartSettings.contains(QStringLiteral(WIN_AUTOSTART_VALUE_NAME));
     if (autostartSettings.status() != QSettings::NoError)
     {
-        SetLastError(QStringLiteral("Could not read Windows startup registration."));
+        SetLastError(QStringLiteral("Could not read Windows startup settings for the background service."));
         SetServiceEnabledState(false);
         return false;
     }

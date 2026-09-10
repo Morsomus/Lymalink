@@ -26,6 +26,7 @@ ApplicationWindow {
 
         return ctxSettings.theme === "light" ? "light" : "dark"
     }
+    property bool fatalErrorOccurred: false
     property int steamImportAutoSyncLastIntervalMinutes: 0
 
     visible: true
@@ -47,7 +48,7 @@ ApplicationWindow {
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_MD_TEXT)
         }
-        id_root.scheduleSteamImportAutoSync(5000)
+        id_root.scheduleSteamImportAutoSync(10000)
     }
 
     function restoreFromBackground() {
@@ -141,6 +142,9 @@ ApplicationWindow {
         target: ctxLymalink
 
         function onSignalErrorOccurred(title, message) {
+            if (title === "Database Error" || title === qsTr("Database Error")) {
+                id_root.fatalErrorOccurred = true
+            }
             id_errorPopup.showError(title, message)
         }
 
@@ -162,6 +166,19 @@ ApplicationWindow {
             if (ctxSettings.steamImportAutoSyncEnabled && ctxSettings.steamImportAutoSyncIntervalMinutes > 0) {
                 id_root.scheduleSteamImportAutoSync(ctxSettings.steamImportAutoSyncIntervalMinutes * 60 * 1000)
             }
+        }
+    }
+
+    Connections {
+        target: typeof ctxBackendService !== "undefined" ? ctxBackendService : null
+
+        function onSignalLastErrorChanged() {
+            const message = (ctxBackendService.lastError || "").trim()
+            if (message.length === 0) {
+                return
+            }
+
+            id_errorPopup.showError(qsTr("Background Service Error"), message)
         }
     }
 
@@ -230,6 +247,7 @@ ApplicationWindow {
 
                 Dashboard {
                     id: id_dashboard
+                    enabled: !id_root.fatalErrorOccurred
                 }
                 Settings {
                     onAchievementImportCompleted: function(addedTargets) {

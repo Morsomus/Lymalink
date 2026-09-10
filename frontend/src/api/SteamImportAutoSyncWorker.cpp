@@ -8,6 +8,7 @@
 
 #include "SteamImportAutoSyncWorker.h"
 #include "../Defines.h"
+#include "../database/DatabaseUtils.h"
 
 #include <QDateTime>
 #include <QDebug>
@@ -31,7 +32,7 @@ SteamImportAutoSyncWorker::~SteamImportAutoSyncWorker()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void SteamImportAutoSyncWorker::Run(const QString &databasePath, const QString &steamId, const QString &apiKey)
+void SteamImportAutoSyncWorker::Run(const QString &databasePath, const QString &steamId, const QString &apiKey, bool useCustomDatabasePath)
 {
     // Payload is consumed by QML to update scheduling and surface summary state
     QVariantMap payload = {
@@ -71,9 +72,10 @@ void SteamImportAutoSyncWorker::Run(const QString &databasePath, const QString &
     qDebug() << "SteamImportAutoSyncWorker::Run: fetched owned games:" << ownedGames.size();
 
     // Use a thread-specific connection name because the worker runs outside the UI thread
-    SQLiteManager databaseManager;
+    DatabaseUtils databaseUtils;
+    SQLiteManager databaseManager(useCustomDatabasePath ? &databaseUtils : nullptr);
     const QString connectionName = QStringLiteral("steam_auto_sync_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
-    if (!databaseManager.openDatabase(connectionName, databasePath))
+    if (!databaseManager.openDatabase(connectionName, databasePath, !useCustomDatabasePath))
     {
         const QString errorText = tr("Steam progress sync failed: couldn't open target database.");
         payload["errors"] = QVariantList{errorText};

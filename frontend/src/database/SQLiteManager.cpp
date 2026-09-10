@@ -17,9 +17,16 @@
 
 /////////////////////////////////////////////////////////////////////
 
-SQLiteManager::SQLiteManager(QObject *parent) : QObject(parent)
+SQLiteManager::SQLiteManager(QObject *parent) : SQLiteManager(nullptr, parent)
 {
-    // Constructor
+    m_databaseUtils = nullptr;
+    m_lastError = "";
+}
+
+SQLiteManager::SQLiteManager(DatabaseUtils *databaseUtils, QObject *parent) : QObject(parent)
+{
+    m_databaseUtils = databaseUtils;
+    m_lastError = "";
 }
 
 SQLiteManager::~SQLiteManager()
@@ -35,13 +42,21 @@ SQLiteManager::~SQLiteManager()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath)
+bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb)
 {
     const QString conn = resolveConn(connectionName);
+    if (!createMissingDb && !QFileInfo::exists(dbPath))
+    {
+        setLastError("Database file is not available: " + dbPath);
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+
     if (m_dbConnections.contains(conn))
     {
-        if (m_dbConnections[conn].isOpen())
+        if (isDatabaseOpen(conn) && m_dbConnections.value(conn).databaseName() == dbPath)
         {
+            m_lastError.clear();
             return true;
         }
         closeDatabase(conn);
@@ -51,8 +66,10 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
     db.setDatabaseName(dbPath);
     if (!db.open())
     {
-        setLastError("openDatabase: " + db.lastError().text());
+        setLastError(db.lastError().text());
         emit signalDatabaseError(m_lastError);
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(conn);
         return false;
     }
 
@@ -100,7 +117,38 @@ void SQLiteManager::closeDatabase(const QString &connectionName)
 bool SQLiteManager::isDatabaseOpen(const QString &connectionName) const
 {
     const QString conn = resolveConn(connectionName);
-    return m_dbConnections.contains(conn) && m_dbConnections[conn].isOpen();
+    auto it = m_dbConnections.constFind(conn);
+    return it != m_dbConnections.constEnd() && it.value().isOpen();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::databaseAvailable(const QString &connectionName)
+{
+    const QString path = getDb(connectionName).databaseName();
+    if (path.isEmpty())
+    {
+        setLastError("Database path is empty");
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+
+    if (!QFileInfo::exists(path))
+    {
+        setLastError("Database file is not available: " + path);
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+
+    if (isDatabaseOpen(connectionName))
+    {
+        m_lastError.clear();
+        return true;
+    }
+
+    setLastError("Database not open");
+    emit signalDatabaseError(m_lastError);
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -114,7 +162,7 @@ bool SQLiteManager::createDatabase(const QString &connectionName, const QString 
     {
         if (!dir.mkpath("."))
         {
-            setLastError("createDatabase: failed to create directory: " + dir.absolutePath());
+            setLastError("Failed to create directory: " + dir.absolutePath());
             emit signalDatabaseError(m_lastError);
             return false;
         }
@@ -147,7 +195,7 @@ bool SQLiteManager::deleteDatabase(const QString &connectionName, const QString 
     {
         if (!QFile::remove(dbPath))
         {
-            setLastError("deleteDatabase: failed to remove file: " + dbPath);
+            setLastError("Failed to remove file: " + dbPath);
             emit signalDatabaseError(m_lastError);
             allRemoved = false;
         }
@@ -187,20 +235,43 @@ bool SQLiteManager::createTable(const QString &connectionName, const QString &ta
 {
     // columnDefs example: {"id INTEGER PRIMARY KEY AUTOINCREMENT", "name TEXT NOT NULL"}
     const QString sql = QString("CREATE TABLE IF NOT EXISTS %1 (%2)").arg(tableName, columnDefs.join(", "));
-    return executeSql(connectionName, sql);
+    return executeSql(connectionName, sql, true);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::tableExists(const QString &connectionName, const QString &tableName) const
+bool SQLiteManager::tableExists(const QString &connectionName, const QString &tableName)
 {
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        qWarning() << "SQLiteManager::tableExists: database not open:" << connectionName;
+        setLastError("Database not open");
         return false;
     }
-    return db.tables().contains(tableName, Qt::CaseInsensitive);
+
+    QSqlQuery q(db);
+    q.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1");
+    q.addBindValue(tableName);
+    if (!q.exec())
+    {
+        setLastError(q.lastError().text());
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+    if (q.next())
+    {
+        m_lastError.clear();
+        return true;
+    }
+    if (q.lastError().isValid())
+    {
+        setLastError(q.lastError().text());
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+
+    m_lastError.clear();
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -212,19 +283,34 @@ bool SQLiteManager::dropTable(const QString &connectionName, const QString &tabl
 
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::executeSql(const QString &connectionName, const QString &sql)
+bool SQLiteManager::executeSql(const QString &connectionName, const QString &sql, bool allowUnlockedInitWrite)
 {
+    if (!databaseAvailable(connectionName))
+    {
+        return false;
+    }
+
+    const QString trimmedSql = sql.trimmed().toUpper();
+    const bool writeSql = trimmedSql.startsWith("INSERT") || trimmedSql.startsWith("UPDATE") ||
+        trimmedSql.startsWith("DELETE") || trimmedSql.startsWith("CREATE") ||
+        trimmedSql.startsWith("DROP") || trimmedSql.startsWith("ALTER") ||
+        trimmedSql.startsWith("REPLACE");
+    if (writeSql && !isDatabaseWriteAllowed(connectionName, allowUnlockedInitWrite))
+    {
+        return false;
+    }
+
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("executeSql: database not open");
+        setLastError("Database not open");
         return false;
     }
 
     QSqlQuery q(db);
     if (!q.exec(sql))
     {
-        setLastError("executeSql: " + q.lastError().text() + " | SQL: " + sql);
+        setLastError(q.lastError().text() + " | SQL: " + sql);
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -236,16 +322,21 @@ bool SQLiteManager::executeSql(const QString &connectionName, const QString &sql
 
 bool SQLiteManager::insert(const QString &connectionName, const QString &tableName, const QVariantMap &data)
 {
+    if (!databaseAvailable(connectionName) || !isDatabaseWriteAllowed(connectionName))
+    {
+        return false;
+    }
+
     if (data.isEmpty())
     {
-        setLastError("insert: data map is empty");
+        setLastError("Data map is empty");
         return false;
     }
 
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("insert: database not open");
+        setLastError("Database not open");
         return false;
     }
 
@@ -261,7 +352,7 @@ bool SQLiteManager::insert(const QString &connectionName, const QString &tableNa
         {
             errorText = QString("driver='%1' database='%2'").arg(q.lastError().driverText(), q.lastError().databaseText());
         }
-        setLastError(QString("prepare insert into %1 failed: %2 | SQL: %3").arg(tableName, errorText, sql));
+        setLastError(QString("Prepare insert into %1 failed: %2 | SQL: %3").arg(tableName, errorText, sql));
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -272,7 +363,7 @@ bool SQLiteManager::insert(const QString &connectionName, const QString &tableNa
         
     if (!q.exec())
     {
-        setLastError("insert: " + q.lastError().databaseText());
+        setLastError(q.lastError().databaseText());
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -284,16 +375,21 @@ bool SQLiteManager::insert(const QString &connectionName, const QString &tableNa
 
 bool SQLiteManager::update(const QString &connectionName, const QString &tableName, const QVariantMap &data, const QString &whereClause, const QVariantList &whereValues)
 {
+    if (!databaseAvailable(connectionName) || !isDatabaseWriteAllowed(connectionName))
+    {
+        return false;
+    }
+
     if (data.isEmpty())
     {
-        setLastError("update: data map is empty");
+        setLastError("Data map is empty");
         return false;
     }
 
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("update: database not open");
+        setLastError("Database not open");
         return false;
     }
 
@@ -322,7 +418,7 @@ bool SQLiteManager::update(const QString &connectionName, const QString &tableNa
 
     if (!q.exec())
     {
-        setLastError("update: " + q.lastError().text());
+        setLastError(q.lastError().text());
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -334,10 +430,15 @@ bool SQLiteManager::update(const QString &connectionName, const QString &tableNa
 
 bool SQLiteManager::remove(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues)
 {
+    if (!databaseAvailable(connectionName) || !isDatabaseWriteAllowed(connectionName))
+    {
+        return false;
+    }
+
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("remove: database not open");
+        setLastError("Database not open");
         return false;
     }
 
@@ -356,7 +457,7 @@ bool SQLiteManager::remove(const QString &connectionName, const QString &tableNa
 
     if (!q.exec())
     {
-        setLastError("remove: " + q.lastError().text());
+        setLastError(q.lastError().text());
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -375,10 +476,8 @@ QVariantList SQLiteManager::selectAll(const QString &connectionName, const QStri
 
 QVariantList SQLiteManager::selectWhere(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues, const QStringList &columns)
 {
-    QSqlDatabase db = getDb(connectionName);
-    if (!db.isOpen())
+    if (!databaseAvailable(connectionName))
     {
-        setLastError("selectWhere: database not open");
         return {};
     }
 
@@ -388,32 +487,47 @@ QVariantList SQLiteManager::selectWhere(const QString &connectionName, const QSt
     {
         sql += " WHERE " + whereClause;
     }
-        
+
+    QSqlDatabase db = getDb(connectionName);
+    if (!db.isOpen())
+    {
+        setLastError("Database not open");
+        emit signalDatabaseError(m_lastError);
+        return {};
+    }
+
     QSqlQuery q(db);
     q.prepare(sql);
     for (const QVariant &v : whereValues)
     {
         q.addBindValue(v);
-    } 
+    }
 
     if (!q.exec())
     {
-        setLastError("selectWhere: " + q.lastError().text());
+        setLastError(q.lastError().text());
         emit signalDatabaseError(m_lastError);
         return {};
     }
+
+    QVariantList rows = fetchRows(q);
+    if (q.lastError().isValid())
+    {
+        setLastError(q.lastError().text());
+        emit signalDatabaseError(m_lastError);
+        return {};
+    }
+
     m_lastError.clear();
-    return fetchRows(q);
+    return rows;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues)
 {
-    QSqlDatabase db = getDb(connectionName);
-    if (!db.isOpen())
+    if (!databaseAvailable(connectionName))
     {
-        setLastError("selectFirst: database not open");
         return {};
     }
 
@@ -424,24 +538,37 @@ QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QStr
     }
     sql += " LIMIT 1";
 
+    QSqlDatabase db = getDb(connectionName);
+    if (!db.isOpen())
+    {
+        setLastError("Database not open");
+        emit signalDatabaseError(m_lastError);
+        return {};
+    }
+
     QSqlQuery q(db);
     q.prepare(sql);
     for (const QVariant &v : whereValues)
     {
         q.addBindValue(v);
     }
-        
-    if (!q.exec() || !q.next())
+
+    if (!q.exec())
+    {
+        setLastError(q.lastError().text());
+        emit signalDatabaseError(m_lastError);
+        return {};
+    }
+
+    if (!q.next())
     {
         if (q.lastError().isValid())
         {
-            setLastError("selectFirst: " + q.lastError().text());
+            setLastError(q.lastError().text());
             emit signalDatabaseError(m_lastError);
+            return {};
         }
-        else
-        {
-            m_lastError.clear();
-        }
+        m_lastError.clear();
         return {};
     }
 
@@ -459,10 +586,8 @@ QVariantMap SQLiteManager::selectFirst(const QString &connectionName, const QStr
 
 int SQLiteManager::count(const QString &connectionName, const QString &tableName, const QString &whereClause, const QVariantList &whereValues)
 {
-    QSqlDatabase db = getDb(connectionName);
-    if (!db.isOpen())
+    if (!databaseAvailable(connectionName))
     {
-        setLastError("count: database not open");
         return -1;
     }
 
@@ -470,6 +595,14 @@ int SQLiteManager::count(const QString &connectionName, const QString &tableName
     if (!whereClause.isEmpty())
     {
         sql += " WHERE " + whereClause;
+    }
+
+    QSqlDatabase db = getDb(connectionName);
+    if (!db.isOpen())
+    {
+        setLastError("Database not open");
+        emit signalDatabaseError(m_lastError);
+        return -1;
     }
 
     QSqlQuery q(db);
@@ -481,28 +614,35 @@ int SQLiteManager::count(const QString &connectionName, const QString &tableName
 
     if (!q.exec() || !q.next())
     {
-        setLastError("count: " + q.lastError().text());
+        setLastError(q.lastError().text());
         emit signalDatabaseError(m_lastError);
         return -1;
     }
+
+    const int result = q.value(0).toInt();
     m_lastError.clear();
-    return q.value(0).toInt();
+    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 bool SQLiteManager::beginTransaction(const QString &connectionName)
 {
+    if (!databaseAvailable(connectionName) || !isDatabaseWriteAllowed(connectionName))
+    {
+        return false;
+    }
+
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("beginTransaction: not open");
+        setLastError("Database not open");
         return false;
     }
     
     if (!db.transaction())
     {
-        setLastError("beginTransaction: " + db.lastError().text());
+        setLastError(db.lastError().text());
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -514,16 +654,21 @@ bool SQLiteManager::beginTransaction(const QString &connectionName)
 
 bool SQLiteManager::commitTransaction(const QString &connectionName)
 {
+    if (!databaseAvailable(connectionName))
+    {
+        return false;
+    }
+
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("commitTransaction: not open");
+        setLastError("Database not open");
         return false;
     }
     
     if (!db.commit())
     {
-        setLastError("commitTransaction: " + db.lastError().text());
+        setLastError(db.lastError().text());
         emit signalDatabaseError(m_lastError);
         return false;
     }
@@ -535,17 +680,23 @@ bool SQLiteManager::commitTransaction(const QString &connectionName)
 
 bool SQLiteManager::rollbackTransaction(const QString &connectionName)
 {
+    if (!databaseAvailable(connectionName))
+    {
+        return false;
+    }
+
     QSqlDatabase db = getDb(connectionName);
     if (!db.isOpen())
     {
-        setLastError("rollbackTransaction: not open");
+        setLastError("Database not open");
         return false;
     }
 
     if (!db.rollback())
     {
-        setLastError("rollbackTransaction: " + db.lastError().text());
-        emit signalDatabaseError(m_lastError);
+        // setLastError(db.lastError().text());
+        qCritical() << "SQLiteManager::rollbackTransaction:" << db.lastError().text();
+        // emit signalDatabaseError(m_lastError);
         return false;
     }
     m_lastError.clear();
@@ -596,6 +747,27 @@ QVariantList SQLiteManager::fetchRows(QSqlQuery &query) const
         rows << row;
     }
     return rows;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::isDatabaseWriteAllowed(const QString &connectionName, bool allowUnlockedInitWrite)
+{
+    if (m_databaseUtils == nullptr)
+    {
+        return true;
+    }
+
+    QSqlDatabase db = getDb(connectionName);
+    QString error;
+    if (!m_databaseUtils->IsDatabaseWriteAllowed(db.databaseName(), &error, allowUnlockedInitWrite))
+    {
+        setLastError(error);
+        emit signalDatabaseError(m_lastError);
+        return false;
+    }
+
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -48,7 +48,7 @@ public:
 
     // Schema / initialization
     bool CreateTable(const std::string &connectionName, const std::string &tableName, const std::vector<std::string> &columnDefs);
-    bool TableExists(const std::string &connectionName, const std::string &tableName) const;
+    bool TableExists(const std::string &connectionName, const std::string &tableName);
     bool DropTable(const std::string &connectionName, const std::string &tableName);
     bool ExecuteSql(const std::string &connectionName, const std::string &sql);
 
@@ -70,6 +70,7 @@ public:
 
     // Error handling
     [[nodiscard]] std::string LastError() const { return m_lastError; }
+    [[nodiscard]] int LastErrorCode() const { return m_lastErrorCode; }
 
     // Helpers
     static int64_t RowInt(const DbRow &row, const std::string &key, int64_t fallback = 0);
@@ -78,17 +79,19 @@ public:
 private:
     struct Conn {
         sqlite3 *db = nullptr;
+        std::string dbPath;
         bool isOpen() const { return db != nullptr; }
     };
 
     std::unordered_map<std::string, Conn> m_dbConnections;
     std::string m_lastError;
+    int m_lastErrorCode;
 
     std::string ResolveConn(const std::string &name) const;
     sqlite3 *GetDb(const std::string &name) const;  // nullptr if not open
     void SetLastError(const std::string &err);
     bool BindValues(sqlite3_stmt *stmt, const std::vector<DbValue> &vals, int startIdx = 1);
-    DbRows FetchRows(sqlite3_stmt *stmt) const;
+    DbRows FetchRows(sqlite3_stmt *stmt);
     DbValue ColumnValue(sqlite3_stmt *stmt, int col) const;
     static std::string Join(const std::vector<std::string> &v, const std::string &sep);
 };

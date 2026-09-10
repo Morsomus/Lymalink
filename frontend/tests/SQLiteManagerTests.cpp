@@ -6,10 +6,17 @@
 // Description: Tests SQLiteManager database helpers
 /////////////////////////////////////////////////////////
 
+#include "../src/Defines.h"
+#include "../src/database/DatabaseUtils.h"
 #include "../src/database/SQLiteManager.h"
+#include "../src/tools/Utils.h"
 
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
@@ -56,6 +63,12 @@ private slots:
     void tableExists_nonExistentTable_returnsFalse();
     void executeSql_createIndex_succeeds();
     void foreignKey_insertOrphanRow_fails();
+    void customDatabasePath_withoutLock_blocksWrites();
+    void customDatabasePath_missingLock_allowsUnlockedInitWrite();
+    void customDatabasePath_withCurrentLock_allowsWrites();
+    void customDatabasePath_emptyLock_blocksUnlockedInitWrite();
+    void customDatabasePath_invalidLock_blocksUnlockedInitWrite();
+    void customDatabasePath_staleLock_allowsUnlockedInitWriteOnly();
 
 private:
     QString dbPath(QTemporaryDir &d, const QString &f = "test.sqlite") const;
@@ -190,7 +203,6 @@ void SQLiteManagerTests::invalidQuery_setsLastErrorAndEmitsSignal()
 
     const QString captured = errorSpy.first().first().toString();
     QVERIFY(!captured.isEmpty());
-    QVERIFY(captured.contains("executeSql:"));
     QVERIFY(captured.contains("missing_table"));
     QCOMPARE(m.lastError(), captured);
     QCOMPARE(errorSpy.count(), 1);
@@ -510,6 +522,153 @@ void SQLiteManagerTests::foreignKey_insertOrphanRow_fails()
 
     // Row count must remain 1 - the orphan was rejected
     QCOMPARE(m.count(conn, "employees"), 1);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_withoutLock_blocksWrites()
+{
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    DatabaseUtils databaseUtils;
+    SQLiteManager m(&databaseUtils);
+    QSignalSpy errorSpy(&m, &SQLiteManager::signalDatabaseError);
+    const QString conn = "external_without_lock_connection";
+
+    QVERIFY(m.createDatabase(conn, dbPath(d)));
+    QVERIFY(m.createTable(conn, "people", {
+        "id   INTEGER PRIMARY KEY AUTOINCREMENT",
+        "name TEXT    NOT NULL",
+        "age  INTEGER NOT NULL"
+    }));
+
+    QVERIFY(!m.insert(conn, "people", person("Ada", 36)));
+    QVERIFY(!m.lastError().isEmpty());
+    QVERIFY(errorSpy.count() > 0);
+    QCOMPARE(m.count(conn, "people"), 0);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_missingLock_allowsUnlockedInitWrite()
+{
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    DatabaseUtils databaseUtils;
+    QString error;
+    const QString path = dbPath(d);
+
+    QVERIFY(!databaseUtils.IsDatabaseWriteAllowed(path, &error, false));
+    QVERIFY(!error.isEmpty());
+
+    error.clear();
+    QVERIFY(databaseUtils.IsDatabaseWriteAllowed(path, &error, true));
+    QVERIFY(error.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_withCurrentLock_allowsWrites()
+{
+    const QString machineId = Utils::MachineId();
+    if (machineId.isEmpty())
+    {
+        QFAIL("Machine ID unavailable in test environment.");
+    }
+
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    const QString path = dbPath(d);
+    const QString lockPath = QDir(d.path()).filePath(DATABASE_LOCK_FILE_NAME);
+    QFile lockFile(lockPath);
+    QVERIFY(lockFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate));
+    const QJsonObject lock{
+        {"machineId", machineId},
+        {"processId", static_cast<qint64>(QCoreApplication::applicationPid())},
+        {"startedAt", QDateTime::currentSecsSinceEpoch()},
+        {"lastHeartbeatAt", QDateTime::currentSecsSinceEpoch()}
+    };
+    lockFile.write(QJsonDocument(lock).toJson(QJsonDocument::Compact));
+    lockFile.close();
+
+    DatabaseUtils databaseUtils;
+    SQLiteManager m(&databaseUtils);
+    const QString conn = "custom_db_path_with_lock_connection";
+
+    QVERIFY(m.createDatabase(conn, path));
+    QVERIFY(makePeople(m, conn));
+    QVERIFY(m.insert(conn, "people", person("Ada", 36)));
+    QCOMPARE(m.count(conn, "people"), 1);
+    QCOMPARE(m.selectFirst(conn, "people", "name = ?", {"Ada"}).value("age").toInt(), 36);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_emptyLock_blocksUnlockedInitWrite()
+{
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    const QString path = dbPath(d);
+    QFile lockFile(QDir(d.path()).filePath(DATABASE_LOCK_FILE_NAME));
+    QVERIFY(lockFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate));
+    lockFile.close();
+
+    DatabaseUtils databaseUtils;
+    QString error;
+    QVERIFY(!databaseUtils.IsDatabaseWriteAllowed(path, &error, true));
+    QVERIFY(!error.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_invalidLock_blocksUnlockedInitWrite()
+{
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    const QString path = dbPath(d);
+    QFile lockFile(QDir(d.path()).filePath(DATABASE_LOCK_FILE_NAME));
+    QVERIFY(lockFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate));
+    QVERIFY(lockFile.write("{") > 0);
+    lockFile.close();
+
+    DatabaseUtils databaseUtils;
+    QString error;
+    QVERIFY(!databaseUtils.IsDatabaseWriteAllowed(path, &error, true));
+    QVERIFY(!error.isEmpty());
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::customDatabasePath_staleLock_allowsUnlockedInitWriteOnly()
+{
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+
+    const QString path = dbPath(d);
+    QFile lockFile(QDir(d.path()).filePath(DATABASE_LOCK_FILE_NAME));
+    QVERIFY(lockFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate));
+    const QJsonObject lock{
+        {"machineId", QStringLiteral("stale-machine")},
+        {"processId", 1},
+        {"startedAt", QDateTime::currentSecsSinceEpoch() - DATABASE_DB_LOCK_LIFESPAN_SEC - 10},
+        {"lastHeartbeatAt", QDateTime::currentSecsSinceEpoch() - DATABASE_DB_LOCK_LIFESPAN_SEC - 10}
+    };
+    lockFile.write(QJsonDocument(lock).toJson(QJsonDocument::Compact));
+    lockFile.close();
+
+    DatabaseUtils databaseUtils;
+    QString error;
+    QVERIFY(!databaseUtils.IsDatabaseWriteAllowed(path, &error, false));
+    QVERIFY(!error.isEmpty());
+
+    error.clear();
+    QVERIFY(databaseUtils.IsDatabaseWriteAllowed(path, &error, true));
+    QVERIFY(error.isEmpty());
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -34,7 +34,7 @@ public:
 
     Q_INVOKABLE void PingBackend() override;
     Q_INVOKABLE bool StartService() override;
-    Q_INVOKABLE bool StopService() override;
+    Q_INVOKABLE bool StopService(bool endWaitDelay = false) override;
     Q_INVOKABLE bool RestartService() override;
     Q_INVOKABLE bool SetServiceEnabled(bool enabled) override;
     Q_INVOKABLE bool RefreshServiceStatus() override;
@@ -71,6 +71,7 @@ private:
     bool m_serviceActive;
     bool m_serviceStarting;
     bool m_serviceEnabled;
+    bool m_serviceDisconnectExpected;
     QString m_lastError;
     QVariantList m_activeTargetIds;
 

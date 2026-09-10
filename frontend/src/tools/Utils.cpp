@@ -11,6 +11,7 @@
 #include <QDateTime>
 #include <QLocale>
 #include <QObject>
+#include <QSettings>
 #include <QTimeZone>
 #include <Qt>
 #include <QFile>
@@ -85,6 +86,23 @@ int MapIntValue(const QVariantMap &row, const QString &key)
 {
     const QVariant value = row.value(key);
     return value.isNull() ? 0 : value.toInt();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString MachineId()
+{
+#if defined(Q_OS_WIN)
+    QSettings machineGuidSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography"), QSettings::NativeFormat);
+    return machineGuidSettings.value(QStringLiteral("MachineGuid")).toString().trimmed();
+#elif defined(Q_OS_LINUX)
+    QFile machineIdFile(QStringLiteral("/etc/machine-id"));
+    if (machineIdFile.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        return QString::fromUtf8(machineIdFile.readAll()).trimmed();
+    }
+#endif
+    return QString();
 }
 
 /////////////////////////////////////////////////////////////////////

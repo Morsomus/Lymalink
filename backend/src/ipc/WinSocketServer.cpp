@@ -143,7 +143,7 @@ void WinSocketServer::HandleRequest(QLocalSocket* socket, const QJsonObject& req
 
     if (method == "Ping")
     {
-        response.insert("result", "pong");
+        response.insert("result", onIsFaulted && onIsFaulted() ? "fault" : "pong");
     }
     else if (method == "ReloadTarget" && onReloadTarget)
     {

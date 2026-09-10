@@ -726,8 +726,8 @@ cp "$OVERLAY_BUILD_BIN_DIR_I386/lymalink-overlay-preloader.so" "$RELEASE_DIR/lib
 cp "$ROOT_DIR/backend/res/"*.ogg "$RELEASE_DIR/share/Lymalink/sounds/"
 cp "$ROOT_DIR/frontend/res/img/64x64-lymalink-test-icon.png" "$RELEASE_DIR/share/Lymalink/"
 cp "$ROOT_DIR/backend/res/img/BlankBackground_MFC_00041_ED.png" "$RELEASE_DIR/share/Lymalink/lymalinkd-tray-icon.png"
-cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" \
-    "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
+cp "$ROOT_DIR/backend/res/img/BlankBackground_MFC_00041_ED_ERR.png" "$RELEASE_DIR/share/Lymalink/lymalinkd-tray-icon-error.png"
+cp "$ROOT_DIR/frontend/res/img/BlankBackground_MFC_00002_E_256x256.png" "$RELEASE_DIR/share/icons/hicolor/256x256/apps/lymalink.png"
 
 # Bundle frontend runtime
 cp "$FRONTEND_BINARY" "$FRONTEND_BUNDLE_DIR/bin/Lymalink"

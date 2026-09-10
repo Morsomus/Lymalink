@@ -24,6 +24,7 @@ Item {
     property string pendingSteamWebApiKey: ""
     property string achievementTransportStatus: ""
     property string pendingAchievementImportPath: ""
+    property string customDatabasePathStatus: ""
     property var achievementImportConflicts: []
     readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
     readonly property bool backendServiceStarting: backendServiceReady && ctxBackendService.serviceStarting
@@ -92,6 +93,40 @@ Item {
 
     function setAchievementTransportStatus(message) {
         achievementTransportStatus = message
+    }
+
+    function setCustomDatabasePathStatus(message) {
+        customDatabasePathStatus = message
+    }
+
+    function verifyCustomDatabasePath() {
+        const path = id_customDatabasePathInput.text.trim()
+        const result = ctxSettings.VerifyCustomDatabasePath(path)
+        if (result.success) {
+            setCustomDatabasePathStatus(result.databaseExists ? qsTr("Database found at the custom location and verified successfully.") : qsTr("Custom database location is valid and ready for a new database."))
+        } else {
+            setCustomDatabasePathStatus(qsTr("Database verification failed: %1").arg(result.error))
+        }
+        return result.success
+    }
+
+    function applyCustomDatabasePath() {
+        const path = id_customDatabasePathInput.text.trim()
+        if (path.length > 0 && !verifyCustomDatabasePath()) {
+            return
+        }
+
+        if (path.length > 0 && !ctxLymalink.InitializeCustomDatabasePath(path)) {
+            setCustomDatabasePathStatus(qsTr("Couldn't initialize database location: %1").arg(ctxLymalink.GetLastOperationError()))
+            return
+        }
+
+        if (ctxSettings.SaveCustomDatabasePath(path)) {
+            setCustomDatabasePathStatus(qsTr("Database location saved. Restarting Lymalink and the background service..."))
+            id_customDatabaseRestartTimer.restart()
+        } else {
+            setCustomDatabasePathStatus(qsTr("Couldn't save database location."))
+        }
     }
 
     function exportAchievements(filePath) {
@@ -623,6 +658,31 @@ Item {
             const soundPath = id_root.fileUrlToPath(selectedFile)
             if (ctxSettings.SaveValue(Settings.CustomNotificationSoundPath, soundPath) && id_root.backendServiceReady) {
                 ctxBackendService.ReloadConfig()
+            }
+        }
+    }
+
+    FolderDialog {
+        id: id_customDatabasePathDialog
+
+        title: qsTr("Select folder for custom database location")
+        onAccepted: {
+            id_customDatabasePathInput.text = id_root.fileUrlToPath(selectedFolder)
+            id_root.setCustomDatabasePathStatus("")
+        }
+    }
+
+    Timer {
+        id: id_customDatabaseRestartTimer
+
+        interval: 800
+        repeat: false
+        onTriggered: {
+            if (id_root.backendServiceReady) {
+                ctxBackendService.StopService(true)
+            }
+            if (!ctxLymalink.RestartApplication()) {
+                id_root.setCustomDatabasePathStatus(qsTr("Database location saved, but Lymalink could not restart automatically. Please restart Lymalink and the background service manually."))
             }
         }
     }
@@ -1349,7 +1409,6 @@ Item {
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 120
                                     readOnly: true
-                                    selectByMouse: true
                                     text: ctxSettings.customNotificationSoundPath
                                     placeholderText: OS_WIN
                                         ? qsTr("Select .ogg, .wav, .mp3, or .flac file")
@@ -1487,6 +1546,109 @@ Item {
                                     font.pixelSize: Themes.settings.fontSizes.sectionInfo
                                     wrapMode: Text.WordWrap
                                 }
+                            }
+                        }
+                    }
+
+                    // Database Location
+                    C_SettingsSection {
+                        title: qsTr("Database Location")
+
+                        C_InfoBox {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            text: qsTr(
+                                "Choose where Lymalink stores its database. Feature can be used for sharing the same achievement progress between operating systems or computers, for example from a shared drive or external device.\n" +
+                                "If the selected path already contains a database named 'lymalink_database', Lymalink will use that database. Otherwise, Apply checks write access and creates a new initialized database before restart.\n" +
+                                "NOTE: Only one Lymalink instance should access the database at a time."
+                            )
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+                            label: qsTr("Current DB path")
+                            tooltip: qsTr("Currently active database path")
+
+                            CustomTextField {
+                                Layout.fillWidth: true
+                                readOnly: true
+                                text: ctxSettings.activeDatabasePath
+                            }
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+                            label: qsTr("Custom location")
+                            tooltip: qsTr("Choose a custom location for the database")
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                CustomTextField {
+                                    id: id_customDatabasePathInput
+
+                                    Layout.fillWidth: true
+                                    text: ctxSettings.databaseCustomPath
+                                    placeholderText: qsTr("Use default database location")
+                                    onTextEdited: id_root.setCustomDatabasePathStatus("")
+                                }
+
+                                CustomButton {
+                                    text: qsTr("Browse")
+                                    p_tooltipText: qsTr("Choose a custom location for the database")
+                                    onClicked: id_customDatabasePathDialog.open()
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            RowLayout {
+                                spacing: 8
+
+                                CustomButton {
+                                    text: qsTr("Verify")
+                                    p_tooltipText: qsTr("Verify selected database path")
+                                    enabled: id_customDatabasePathInput.text.trim().length > 0
+                                    onClicked: id_root.verifyCustomDatabasePath()
+                                }
+
+                                CustomButton {
+                                    text: qsTr("Apply")
+                                    p_tooltipText: qsTr("Save custom database location")
+                                    enabled: id_customDatabasePathInput.text.trim().length > 0 && id_customDatabasePathInput.text.trim() !== ctxSettings.databaseCustomPath.trim()
+                                    onClicked: id_root.applyCustomDatabasePath()
+                                }
+
+                                CustomButton {
+                                    text: qsTr("Reset to default")
+                                    p_tooltipText: qsTr("Use the default database location")
+                                    enabled: ctxSettings.databaseCustomPath.trim().length > 0
+                                    onClicked: {
+                                        id_customDatabasePathInput.text = ""
+                                        id_root.applyCustomDatabasePath()
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            visible: id_root.customDatabasePathStatus !== ""
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: id_root.customDatabasePathStatus
+                                color: Themes.settings.colors.sectionInfo
+                                font.pixelSize: Themes.settings.fontSizes.sectionInfo
+                                wrapMode: Text.WordWrap
                             }
                         }
                     }

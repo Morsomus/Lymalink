@@ -49,6 +49,7 @@ qt_add_executable(lymalinkd
     src/notification/WinSoundService.cpp src/notification/WinSoundService.h
     src/overlay/WinOverlayInjector.cpp src/overlay/WinOverlayInjector.h
     src/overlay/WinOverlayNotifier.cpp src/overlay/WinOverlayNotifier.h
+    src/database/DatabaseUtils.cpp src/database/DatabaseUtils.h
     src/database/SQLiteManager.cpp src/database/SQLiteManager.h
     src/tools/Utils.cpp src/tools/Utils.h
     src/tools/AchievementKeyResolver.cpp src/tools/AchievementKeyResolver.h
@@ -63,6 +64,11 @@ qt_add_executable(lymalinkd
     src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
     src/tools/parsers/SSEParser.cpp src/tools/parsers/SSEParser.h
     src/tools/parsers/TenokeParser.cpp src/tools/parsers/TenokeParser.h
+)
+qt_add_resources(lymalinkd "lymalinkd_resources"
+    PREFIX /qt/qml/Lymalink
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/../frontend"
+    FILES "${CMAKE_CURRENT_SOURCE_DIR}/../frontend/res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf"
 )
 target_include_directories(lymalinkd PRIVATE src ../frontend/src ../backend-overlay/include ${MINIAUDIO_DIR})
 target_link_libraries(lymalinkd PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Sql Qt6::Widgets SQLite::SQLite3 ole32 windowscodecs advapi32)

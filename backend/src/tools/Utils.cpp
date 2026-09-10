@@ -11,10 +11,15 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#if defined(_WIN32)
+    #include <QSettings>
+#endif
 
 /////////////////////////////////////////////////////////////////////
 
@@ -117,6 +122,57 @@ std::string ReadProcessCmdline()
     std::string cmdline = ReadTextFile("/proc/self/cmdline");
     std::replace(cmdline.begin(), cmdline.end(), '\0', ' ');
     return TrimTrailingWhitespace(cmdline);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string ResolveMachineId() 
+{ 
+#if defined(_WIN32) 
+    QSettings machineGuidSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography"), QSettings::NativeFormat); 
+    const QVariant guidValue = machineGuidSettings.value(QStringLiteral("MachineGuid"));
+    const QString trimmedGuid = guidValue.toString().trimmed();
+    return trimmedGuid.toStdString(); 
+#else 
+    const std::string rawId = ReadTextFile("/etc/machine-id");
+    return TrimWhitespace(rawId); 
+#endif 
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string ResolveAppDataPath(const std::string organization)
+{
+#if defined(_WIN32)
+    const char* appData = std::getenv("APPDATA");
+    if (!appData || *appData == '\0')
+    {
+        return {};
+    }
+
+    return (std::filesystem::path(appData) / organization).string();
+#else
+    std::filesystem::path dataHome;
+    if (const char* xdgDataHome = std::getenv("XDG_DATA_HOME"))
+    {
+        if (*xdgDataHome != '\0')
+        {
+            dataHome = xdgDataHome;
+        }
+    }
+
+    if (dataHome.empty())
+    {
+        const char* home = std::getenv("HOME");
+        if (!home || *home == '\0')
+        {
+            return {};
+        }
+        dataHome = std::filesystem::path(home) / ".local" / "share";
+    }
+
+    return (dataHome / organization).string();
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////

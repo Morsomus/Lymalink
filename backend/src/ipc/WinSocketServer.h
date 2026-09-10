@@ -41,6 +41,7 @@ public:
     std::function<void()> onTestToast;
     std::function<void()> onTestSound;
     std::function<void()> onShutdown;
+    std::function<bool()> onIsFaulted;
 
 private:
     QLocalServer m_server;

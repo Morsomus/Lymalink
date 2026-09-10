@@ -45,7 +45,8 @@ Lymalinkd::Lymalinkd() :
     m_processActive.store(false);
     m_activeCount.store(0);
     m_sleepTimerGeneration.store(0);
-    m_running.store(true);
+    m_backendRunning.store(true);
+    m_backendFaulted.store(false);
     m_startupNotificationEnabled.store(true);
     m_manualScanActive.store(false);
     m_manualScanCancelRequested.store(false);
@@ -56,6 +57,8 @@ Lymalinkd::Lymalinkd() :
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
     m_databaseEmuGamesTable = DATABASE_TABLE_EMU_GAMES;
+    m_customDatabasePathUsed = false;
+    m_databaseLockAcquired = false;
 }
 
 Lymalinkd::~Lymalinkd()
@@ -79,11 +82,11 @@ Error Lymalinkd::Main()
         return err;
     }
 
-    m_running.store(true);
+    m_backendRunning.store(true);
     m_monitorThread = std::thread(&Lymalinkd::Monitor, this);
 
     QCoreApplication::exec();
-    m_running.store(false);
+    m_backendRunning.store(false);
     m_cv.notify_all();
 
     if (m_monitorThread.joinable())
@@ -114,7 +117,7 @@ Error Lymalinkd::Main()
         return err;
     }
 
-    m_running.store(true);
+    m_backendRunning.store(true);
     m_signalThread = std::thread(&Lymalinkd::SignalThread, this, mask);
 
     Monitor();  // Main Monitor Loop
@@ -140,15 +143,17 @@ Error Lymalinkd::Init()
     SetVulkanOverlayManifestEnableEnvironment(false);
 #endif
 
-    err = DatabaseInit();
-    if (err != Error::NoError)
-    {
-        return err;
-    }
+    std::string dbInitErrRes = "";
+    Error dbErr = DatabaseInit(dbInitErrRes);
 
-    // Configure notification backends from resolved database/data paths
-    std::filesystem::path databaseParent = std::filesystem::path(m_databasePath).parent_path();
-    m_achievementNotifications.Configure(m_databaseConnectionName, databaseParent.string());
+    m_achievementNotifications.Configure(m_databaseConnectionName, Utils::ResolveAppDataPath(ORGANIZATION));
+
+#if !defined(_WIN32)
+    if (m_desktopNotifications.Init() != Error::NoError)
+    {
+        LOG_BE(Urgency::Warning, "Desktop notifications unavailable.");
+    }
+#endif
 
     if (!m_overlayNotifications.Init())
     {
@@ -187,8 +192,10 @@ Error Lymalinkd::Init()
     m_ipc.onTestToast = [this]() { OnTestToast(); };
     m_ipc.onTestSound = [this]() { OnTestSound(); };
     m_ipc.onShutdown = [this]() { OnShutdown(); };
+    m_ipc.onIsFaulted = [this]() { return m_backendFaulted.load(); };
     if (!m_ipc.Start())
     {
+        m_databaseUtils.ReleaseDatabaseLock();
         return Error::UnknownError;
     }
 #else
@@ -200,17 +207,24 @@ Error Lymalinkd::Init()
     m_dbus.onCancelManualAchievementDataScan = [this](int32_t targetId) { OnCancelManualAchievementDataScan(static_cast<int>(targetId)); };
     m_dbus.onTestToast = [this]() { OnTestToast(); };
     m_dbus.onTestSound = [this]() { OnTestSound(); };
+    m_dbus.onIsFaulted = [this]() { return m_backendFaulted.load(); };
 
     err = m_dbus.Init();
     if (err != Error::NoError)
     {
         LOG_BE(Urgency::Critical, "DBusService init failed.");
+        m_databaseUtils.ReleaseDatabaseLock();
         return err;
     }
 #endif
 
     m_trayIcon.onQuitBackend = [this]() { OnShutdown(); };
     m_trayIcon.Start(ResolveDataPath(LYMALINKD_TRAY_ICON_PATH));
+
+    if (dbErr != Error::NoError)
+    {
+        EnterFaultState(dbInitErrRes);
+    }
 
     // ProcessWatcher callbacks
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe, uint32_t pid) { OnProcessStarted(targetId, exe, pid); };
@@ -224,6 +238,11 @@ Error Lymalinkd::Init()
     m_processWatcher.SetTargets(LoadExeTargetsFromDatabase());
     m_processWatcher.Start();
 
+    if (m_customDatabasePathUsed && m_databaseLockAcquired)
+    {
+        m_databaseLockThread = std::thread(&Lymalinkd::DatabaseLockHeartbeat, this);
+    }
+
 #if !defined(_WIN32)
     // Signal systemd that we are ready (no-op if not under systemd)
     m_notify.NotifyReady();
@@ -236,22 +255,43 @@ Error Lymalinkd::Init()
 
 /////////////////////////////////////////////////////////////////////
 
-Error Lymalinkd::DatabaseInit()
+Error Lymalinkd::DatabaseInit(std::string& res)
 {
     Error err = Error::NoError;
 
     // Resolve DB path before opening persistent connection
-    m_databasePath = ResolveDatabasePath();
+    const DatabasePathResult databasePathResult = m_databaseUtils.ResolveDatabasePath(ResolveConfigPath());
+    m_databasePath = databasePathResult.path;
+    m_customDatabasePathUsed = databasePathResult.customPath;
     if (m_databasePath.empty())
     {
         LOG_BE(Urgency::Critical, "Database path resolve failed.");
+        res = "Database path resolve failed.";
         err = Error::DatabaseError;
         return err;
+    }
+
+    if (m_customDatabasePathUsed)
+    {
+        m_databaseLockAcquired = m_databaseUtils.AcquireDatabaseLock(m_databasePath, [this](uint64_t processId) { return IsProcessAlive(processId); });
+        if (!m_databaseLockAcquired)
+        {
+            LOG_BE(Urgency::Critical, "Custom database path unavailable - please check set custom database location settings and connection.");
+            res = "Custom database path unavailable - please check set custom database location settings and connection.";
+            err = Error::DatabaseError;
+            return err;
+        }
     }
 
     if (!m_database.DatabaseFileExists(m_databasePath))
     {
         LOG_BE(Urgency::Critical, "Database file not found: %s", m_databasePath.c_str());
+        res = "Database file not found: " + m_databasePath;
+        if (m_customDatabasePathUsed)
+        {
+            m_databaseUtils.ReleaseDatabaseLock();
+            m_databaseLockAcquired = false;
+        }
         err = Error::DatabaseError;
         return err;
     }
@@ -259,6 +299,12 @@ Error Lymalinkd::DatabaseInit()
     if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath))
     {
         LOG_BE(Urgency::Fatal, "Database open failed: %s", m_database.LastError().c_str());
+        res = std::format("Database open failed: {}", m_database.LastError());
+        if (m_customDatabasePathUsed)
+        {
+            m_databaseUtils.ReleaseDatabaseLock();
+            m_databaseLockAcquired = false;
+        }
         err = Error::DatabaseError;
         return err;
     }
@@ -270,6 +316,12 @@ Error Lymalinkd::DatabaseInit()
         !EnsureColumn(m_databaseEmuGamesTable, "achievement_data_status", "achievement_data_status INTEGER DEFAULT 0", &achievementDataStatusColumnAdded))
     {
         LOG_BE(Urgency::Critical, "Database migration failed: %s", m_database.LastError().c_str());
+        res = std::format("Database migration failed: {}", m_database.LastError());
+        if (m_customDatabasePathUsed)
+        {
+            m_databaseUtils.ReleaseDatabaseLock();
+            m_databaseLockAcquired = false;
+        }
         err = Error::DatabaseError;
         return err;
     }
@@ -278,6 +330,12 @@ Error Lymalinkd::DatabaseInit()
         if (!m_database.ExecuteSql(m_databaseConnectionName, std::format("UPDATE {} SET achievement_data_status = 1 WHERE appid_dir_found = 1 AND achievement_data_status = 0", m_databaseEmuGamesTable)))
         {
             LOG_BE(Urgency::Critical, "Database achievement data status sync failed: %s", m_database.LastError().c_str());
+            res = std::format("Database achievement data status sync failed: {}", m_database.LastError());
+            if (m_customDatabasePathUsed)
+            {
+                m_databaseUtils.ReleaseDatabaseLock();
+                m_databaseLockAcquired = false;
+            }
             err = Error::DatabaseError;
             return err;
         }
@@ -293,8 +351,17 @@ void Lymalinkd::Monitor()
 {
     LOG_BE(Urgency::Debug, "Entering main Monitor loop");
 
-    while (m_running.load())
+    while (m_backendRunning.load())
     {
+        if (m_backendFaulted.load())
+        {
+            std::unique_lock<std::mutex> lock(m_cvMutex);
+            m_cv.wait(lock, [this]() {
+                return !m_backendFaulted.load() || !m_backendRunning.load();
+            });
+            continue;
+        }
+
         if (!m_processActive.load())
         {
             LOG_BE(Urgency::Info, "No active processes, going to sleep...");
@@ -306,11 +373,11 @@ void Lymalinkd::Monitor()
             // Sleep until process watcher reports activity or shutdown starts
             std::unique_lock<std::mutex> lock(m_cvMutex);
             m_cv.wait(lock, [this]() {
-                return m_processActive.load() || !m_running.load();
+                return m_processActive.load() || !m_backendRunning.load();
             });
             lock.unlock();
 
-            if (!m_running.load())
+            if (!m_backendRunning.load())
             {
                 break;
             }
@@ -331,7 +398,7 @@ void Lymalinkd::Monitor()
         LOG_BE(Urgency::Info, "Process active, orchestrating...");
 
         auto lastScanTime = std::chrono::steady_clock::now();
-        while (m_running.load() && m_processActive.load())
+        while (m_backendRunning.load() && m_processActive.load() && !m_backendFaulted.load())
         {
             auto currentTime = std::chrono::steady_clock::now();
 
@@ -453,11 +520,11 @@ void Lymalinkd::SignalThread(sigset_t mask)
     if (sfd < 0)
     {
         LOG_BE(Urgency::Critical, "signalfd failed: %s", strerror(errno));
-        m_running.store(false);
+        m_backendRunning.store(false);
         return;
     }
 
-    while (m_running.load())
+    while (m_backendRunning.load())
     {
         struct signalfd_siginfo info{};
         const ssize_t bytes = read(sfd, &info, sizeof(info));
@@ -471,7 +538,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
             }
 
             LOG_BE(Urgency::Critical, "signalfd read failed: %s", strerror(errno));
-            m_running.store(false);
+            m_backendRunning.store(false);
             break;
         }
 
@@ -483,7 +550,7 @@ void Lymalinkd::SignalThread(sigset_t mask)
 
         // Valid signal means daemon should exit main loop
         LOG_BE(Urgency::Debug, "Signal received: %u", info.ssi_signo);
-        m_running.store(false);
+        m_backendRunning.store(false);
         break;
     }
 
@@ -525,6 +592,7 @@ void Lymalinkd::Shutdown()
     m_ipc.Stop();
 #else
     m_dbus.Stop();
+    m_desktopNotifications.Stop();
 #endif
 
     {
@@ -546,18 +614,87 @@ void Lymalinkd::Shutdown()
         m_sleepTimerThread.join();
     }
 
+    if (m_databaseLockThread.joinable())
+    {
+        m_databaseLockThread.join();
+    }
+
     // Close shared database connection last
     std::lock_guard<std::mutex> lock(m_databaseMutex);
     if (m_database.IsDatabaseOpen(m_databaseConnectionName))
     {
         m_database.CloseDatabase(m_databaseConnectionName);
     }
+    m_databaseUtils.ReleaseDatabaseLock();
 
 #if !defined(_WIN32)
     // Disable Vulkan based Overlay loading to games by tweaking manifest
     SetVulkanOverlayManifestEnableEnvironment(true);
 #endif
     LOG_BE(Urgency::Debug, "Shutdown complete.");
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::EnterFaultState(const std::string& error)
+{
+    if (m_backendFaulted.exchange(true))
+    {
+        return;
+    }
+
+    LOG_BE(Urgency::Critical, "Backend fault state entered: %s", error.c_str());
+
+    m_processActive.store(false);
+    m_activeCount.store(0);
+    m_sleepTimerGeneration.fetch_add(1);
+    m_startupNotificationEnabled.store(false);
+
+    RequestManualAchievementDataScanCancel(0, "fault");
+    m_achievementHandler.Pause();
+    m_pathScanner.SetTargets({});
+
+#if !defined(_WIN32)
+    m_overlayNotifications.SetSocketPaused(true);
+    m_overlayNotifications.ClearSharedMemoryNotification();
+    m_notify.NotifyStatus("Faulted");
+#else
+    m_overlayNotifications.ClearSharedMemoryNotification();
+#endif
+
+    {
+        std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
+        m_activeTargetsIds.clear();
+#if defined(_WIN32)
+        m_processStartedAt.clear();
+#endif
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
+        m_targetIdsRequiringDirScan.clear();
+    }
+
+    std::string iconPath = ResolveDataPath(LYMALINKD_ERROR_TRAY_ICON_PATH);
+    m_trayIcon.SetIcon(iconPath);
+    m_trayIcon.SetToolTip("An error occurred");
+    m_desktopNotifications.ShowErrorToast(
+        "Lymalink background service malfunction",
+        error,
+        iconPath
+    );
+
+    m_cv.notify_all();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::HandleDatabaseError(const std::string& context)
+{
+    const std::string dbError = m_database.LastError();
+    const std::string error = dbError.empty() ? context : context + ": " + dbError;
+
+    LOG_BE(Urgency::Critical, "%s", error.c_str());
+    EnterFaultState(error);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -644,7 +781,7 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
         std::unordered_set<uint32_t> injected;
         constexpr int retrySeconds = 45;
 
-        for (int second = 0; second < retrySeconds && m_running.load(); ++second)
+        for (int second = 0; second < retrySeconds && m_backendRunning.load(); ++second)
         {
             // Stop polling once the watched root process has exited
             if (!IsWindowsProcessAlive(rootPid))
@@ -675,7 +812,7 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
                 std::this_thread::sleep_for(std::chrono::milliseconds(WINDOWS_OVERLAY_INJECTION_DELAY_MS));
 
                 // After delay, check if process is still alive - If not, do not try to inject
-                if (!m_running.load() || !IsWindowsProcessAlive(rootPid) || !IsWindowsProcessAlive(pid))
+                if (!m_backendRunning.load() || !IsWindowsProcessAlive(rootPid) || !IsWindowsProcessAlive(pid))
                 {
                     LOG_BE(Urgency::Debug, "Windows overlay injection skipped after delay: rootPid=%u pid=%u exited.", rootPid, pid);
                     injected.insert(pid);
@@ -719,7 +856,46 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
 
 void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath, uint32_t pid)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "OnProcessStarted - targetId=%d exe=%s", targetId, executablePath.c_str());
+    std::string writeProbeError;
+    bool writeProbeOk = false;
+    bool transientBusy = false;
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        writeProbeOk = m_databaseUtils.ProbeRuntimeWriteAccess(m_database, m_databaseConnectionName, writeProbeError, &transientBusy);
+    }
+    if (!writeProbeOk)
+    {
+        if (transientBusy)
+        {
+            LOG_BE(Urgency::Info, "Database check skipped because SQLite is temporarily busy.");
+        }
+        else
+        {
+            const std::string error = m_customDatabasePathUsed
+                ? "Database check failed - please check custom database location settings and connection."
+                : "Database check failed.";
+            const std::string logError = m_customDatabasePathUsed && !writeProbeError.empty()
+                ? "Database check failed - please check custom database location settings and connection: " + writeProbeError
+                : writeProbeError.empty()
+                    ? error
+                    : "Database check failed: " + writeProbeError;
+            LOG_BE(Urgency::Critical, "%s", logError.c_str());
+            EnterFaultState(error);
+            return;
+        }
+    }
+
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     RequestManualAchievementDataScanCancel(0, "game_started");
 
 #if defined(_WIN32)
@@ -757,6 +933,10 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
         std::lock_guard<std::mutex> lock(m_databaseMutex);
         target = m_database.SelectFirst(m_databaseConnectionName, m_databaseEmuGamesTable, "id = ?", {static_cast<int64_t>(targetId)});
     }
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
 
     const std::string appIdDirPath = SQLiteManager::RowString(target, "appid_dir_location");
     const std::string emulatorType = SQLiteManager::RowString(target, "emulator_type");
@@ -792,6 +972,11 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
 
 void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "OnProcessStopped - targetId=%d playtime=%lds", targetId, secondsPlayed);
 
     // Persist playtime before removing active state
@@ -829,14 +1014,14 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
             for (int i = 0; i < 60; ++i)
             {
                 // Cancel stale timer when process state changes
-                if (!m_running.load() || generation != m_sleepTimerGeneration.load())
+                if (!m_backendRunning.load() || generation != m_sleepTimerGeneration.load())
                 {
                     return;
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
 
-            if (m_running.load() && generation == m_sleepTimerGeneration.load() && m_activeCount.load() <= 0)
+            if (m_backendRunning.load() && generation == m_sleepTimerGeneration.load() && m_activeCount.load() <= 0)
             {
                 LOG_BE(Urgency::Debug, "No active processes for 60s, returning to sleep.");
                 {
@@ -853,6 +1038,11 @@ void Lymalinkd::OnProcessStopped(int targetId, long secondsPlayed)
 
 void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achievementKey)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     // Ignore invalid achievement events
     if (targetId <= 0 || achievementKey.empty())
     {
@@ -870,7 +1060,7 @@ void Lymalinkd::OnAchievementUnlocked(int targetId, const std::string& achieveme
 
 void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath)
 {
-    if (targetId <= 0)
+    if (targetId <= 0 || m_backendFaulted.load())
     {
         return;
     }
@@ -888,7 +1078,7 @@ void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirP
 
         if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
         {
-            LOG_BE(Urgency::Critical, "Failed to reset AppID dir scan state: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+            HandleDatabaseError(std::format("Failed to reset AppID dir scan state: targetId={}", targetId));
             return;
         }
     }
@@ -904,6 +1094,11 @@ void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirP
 
 void Lymalinkd::OnTestToast()
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "Test toast requested.");
 
     std::string appIconPath = "";
@@ -942,6 +1137,11 @@ void Lymalinkd::OnTestToast()
 
 void Lymalinkd::OnTestSound()
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "Test sound requested.");
 
     // Play configured notification sound only, no overlay toast.
@@ -954,7 +1154,7 @@ void Lymalinkd::OnShutdown()
 {
     LOG_BE(Urgency::Debug, "Shutdown backend requested.");
 
-    m_running.store(false);
+    m_backendRunning.store(false);
     m_cv.notify_all();
 #if defined(_WIN32)
     QCoreApplication::quit();
@@ -967,6 +1167,11 @@ void Lymalinkd::OnShutdown()
 
 void Lymalinkd::OnReloadConfig()
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     // Refresh notification sound without restarting daemon
     m_notificationSound.SetSoundPath(ResolveInstalledNotificationSoundPath());
     m_notificationSound.SetFallbackSoundPath(ResolveInstalledNotificationSoundPath(false));
@@ -977,6 +1182,11 @@ void Lymalinkd::OnReloadConfig()
 
 void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "Manual achievement data scan requested: targetId=%d", targetId);
 
     // Reject invalid or currently active targets before starting manual filesystem traversal
@@ -1047,7 +1257,7 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
 
         // Cancellation is cooperative so recursive filesystem walks can stop between entries
         auto shouldStopScanning = [this, targetId, deadline]() {
-            if (!m_running.load())
+            if (!m_backendRunning.load() || m_backendFaulted.load())
             {
                 return true;
             }
@@ -1159,7 +1369,7 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
             };
             if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
             {
-                LOG_BE(Urgency::Critical, "Failed to save missing APPID dir result: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+                HandleDatabaseError(std::format("Failed to save missing APPID dir result: targetId={}", targetId));
             }
             else
             {
@@ -1184,6 +1394,11 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
 
 void Lymalinkd::OnCancelManualAchievementDataScan(int targetId)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "Manual achievement data scan cancel requested: targetId=%d", targetId);
     RequestManualAchievementDataScanCancel(targetId, "cancelled");
 }
@@ -1192,6 +1407,11 @@ void Lymalinkd::OnCancelManualAchievementDataScan(int targetId)
 
 void Lymalinkd::OnRequestActiveTargets()
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     std::vector<int32_t> activeTargetIds;
     {
         std::lock_guard<std::mutex> lock(m_activeTargetsMutex);
@@ -1215,6 +1435,11 @@ void Lymalinkd::OnRequestActiveTargets()
 
 void Lymalinkd::OnReloadAllTargets()
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     LOG_BE(Urgency::Debug, "Reloading all targets from database.");
 
     // Reload watched executables from current database state
@@ -1232,6 +1457,11 @@ void Lymalinkd::OnReloadAllTargets()
 
 std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
 {
+    if (m_backendFaulted.load())
+    {
+        return {};
+    }
+
     DbRows rows;
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
@@ -1268,6 +1498,11 @@ std::vector<WatchTarget> Lymalinkd::LoadExeTargetsFromDatabase()
 // Load Targets which are missing AppId Dir paths
 std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTargetsFromDatabase()
 {
+    if (m_backendFaulted.load())
+    {
+        return {};
+    }
+
     DbRows rows;
     {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
@@ -1310,20 +1545,30 @@ std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTarge
 
 bool Lymalinkd::LoadAppIdDirScanTargetFromDatabase(int targetId, AppIdDirPathScanTarget& target)
 {
-    if (targetId <= 0)
+    if (targetId <= 0 || m_backendFaulted.load())
     {
         return false;
     }
 
-    DbRecord row;
-    {
+    auto loadTarget = [this, targetId]() {
         std::lock_guard<std::mutex> lock(m_databaseMutex);
-        row = m_database.SelectFirst(
+        return m_database.SelectFirst(
             m_databaseConnectionName,
             m_databaseEmuGamesTable,
             "id = ?",
             {static_cast<int64_t>(targetId)}
         );
+    };
+
+    DbRecord row = loadTarget();
+    if (row.empty() && !m_database.LastError().empty())
+    {
+        HandleDatabaseError(std::format("Failed to load manual AppID dir scan target: targetId={}", targetId));
+        if (m_backendFaulted.load())
+        {
+            return false;
+        }
+        row = loadTarget();
     }
 
     if (row.empty())
@@ -1348,6 +1593,11 @@ bool Lymalinkd::LoadAppIdDirScanTargetFromDatabase(int targetId, AppIdDirPathSca
 // Check if any active (currently played) target requires finding missing AppId path
 bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
 {
+    if (m_backendFaulted.load())
+    {
+        return false;
+    }
+
     bool hasActiveTargetsNeedingAppIdDirScan = false;
 
     // Copy active target IDs before checking AppId scan map
@@ -1382,6 +1632,11 @@ bool Lymalinkd::HasCurrentActiveTargetsNeedingAppIdDirScan()
 // Get vector of active (currently played) targets which are missing AppId path 
 std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
 {
+    if (m_backendFaulted.load())
+    {
+        return {};
+    }
+
     std::vector<AppIdDirPathScanTarget> targets = {};
 
     // Copy active targets before matching against scan requirements
@@ -1426,6 +1681,11 @@ std::vector<AppIdDirPathScanTarget> Lymalinkd::LoadCurrentActivePrefixPaths()
 // Save AppId path, emulator type to DB for future use 
 void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& results, bool emitTargetDataChanged)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     std::vector<int> savedTargetIds;
     savedTargetIds.reserve(results.size());
     std::vector<std::pair<int, std::string>> savedDataOpt;
@@ -1455,7 +1715,11 @@ void Lymalinkd::SavePathScanResults(const std::vector<AppIdDirPathScanResult>& r
 
             if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(result.targetId)}))
             {
-                LOG_BE(Urgency::Critical, "Failed to save APPID dir result: targetId=%d error=%s", result.targetId, m_database.LastError().c_str());
+                HandleDatabaseError(std::format("Failed to save APPID dir result: targetId={}", result.targetId));
+                if (m_backendFaulted.load())
+                {
+                    break;
+                }
                 continue;
             }
 
@@ -1549,7 +1813,7 @@ bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& co
 
 bool Lymalinkd::DisableAchievementProgress(int targetId)
 {
-    if (targetId <= 0)
+    if (targetId <= 0 || m_backendFaulted.load())
     {
         return false;
     }
@@ -1579,7 +1843,7 @@ bool Lymalinkd::DisableAchievementProgress(int targetId)
 
     if (!updated)
     {
-        LOG_BE(Urgency::Warning, "Failed to disable achievement progress: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+        HandleDatabaseError(std::format("Failed to disable achievement progress: targetId={}", targetId));
         return false;
     }
 
@@ -1598,6 +1862,11 @@ bool Lymalinkd::EmulatorAchievementProgressNotImplemented(const std::string& emu
 
 void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 {
+    if (m_backendFaulted.load())
+    {
+        return;
+    }
+
     std::lock_guard<std::mutex> lock(m_databaseMutex);
 
     // Add this session time to stored total playtime
@@ -1612,7 +1881,7 @@ void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 
     if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
     {
-        LOG_BE(Urgency::Critical, "Failed to save playtime: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+        HandleDatabaseError(std::format("Failed to save playtime: targetId={}", targetId));
     }
     else
     {
@@ -1626,7 +1895,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 {
     bool achievementStateUpdated = false;
 
-    if (targetId <= 0 || achievement.key.empty())
+    if (m_backendFaulted.load() || targetId <= 0 || achievement.key.empty())
     {
         return achievementStateUpdated;
     }
@@ -1634,6 +1903,12 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     const int64_t now = Utils::NowEpoch();
 
     std::lock_guard<std::mutex> lock(m_databaseMutex);
+
+    if (!m_database.BeginTransaction(m_databaseConnectionName))
+    {
+        HandleDatabaseError(std::format("Failed to start achievement state transaction: targetId={} key={}", targetId, achievement.key));
+        return achievementStateUpdated;
+    }
 
     const DbRecord existingAchievement = m_database.SelectFirst(
         m_databaseConnectionName,
@@ -1644,6 +1919,13 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (existingAchievement.empty())
     {
+        const std::string selectError = m_database.LastError();
+        m_database.RollbackTransaction(m_databaseConnectionName);
+        if (!selectError.empty())
+        {
+            HandleDatabaseError(std::format("Failed to fetch achievement for DB update: targetId={} key={}: {}", targetId, achievement.key, selectError));
+            return achievementStateUpdated;
+        }
         LOG_BE(Urgency::Warning, "Achievement not found for DB update: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
@@ -1651,19 +1933,32 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
     if (achievement.achieved && existingUnlockTime > 0)
     {
-        m_database.Update(m_databaseConnectionName,
+        if (!m_database.Update(m_databaseConnectionName,
             m_databaseEmuGamesTable,
             {{"achievement_data_status", int64_t{2}},
             {"date_updated", now}},
             "id = ? AND achievement_data_status != 2",
             {static_cast<int64_t>(targetId)}
-        );
+        ))
+        {
+            m_database.RollbackTransaction(m_databaseConnectionName);
+            HandleDatabaseError(std::format("Failed to mark target achievement data complete: targetId={}", targetId));
+            return achievementStateUpdated;
+        }
+        if (!m_database.CommitTransaction(m_databaseConnectionName))
+        {
+            const std::string commitError = m_database.LastError();
+            m_database.RollbackTransaction(m_databaseConnectionName);
+            HandleDatabaseError(std::format("Failed to commit achievement state transaction: targetId={} key={}: {}", targetId, achievement.key, commitError));
+            return achievementStateUpdated;
+        }
         LOG_BE(Urgency::Debug, "Achievement already unlocked in DB, skipping update and notification: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
 
     if ((achievement.hasCurProgress && achievement.curProgress < 0) || (achievement.hasMaxProgress && achievement.maxProgress < 0))
     {
+        m_database.RollbackTransaction(m_databaseConnectionName);
         LOG_BE(Urgency::Warning, "Rejecting negative achievement progress: targetId=%d key=%s progress=%d/%d", targetId, achievement.key.c_str(), achievement.curProgress, achievement.maxProgress);
         return achievementStateUpdated;
     }
@@ -1690,6 +1985,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (!currentProgressChanged && !maxProgressChanged && !unlockTimeChanged)
     {
+        m_database.RollbackTransaction(m_databaseConnectionName);
         LOG_BE(Urgency::Debug, "Achievement state unchanged, skipping DB update: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
@@ -1720,7 +2016,8 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         "id = ? AND achievement_key = ? COLLATE NOCASE",
         {static_cast<int64_t>(targetId), achievement.key}))
     {
-        LOG_BE(Urgency::Critical, "Failed to update achievement state: targetId=%d key=%s error=%s", targetId, achievement.key.c_str(), m_database.LastError().c_str());
+        m_database.RollbackTransaction(m_databaseConnectionName);
+        HandleDatabaseError(std::format("Failed to update achievement state: targetId={} key={}", targetId, achievement.key));
         return achievementStateUpdated;
     }
 
@@ -1740,7 +2037,8 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (unlockedCount < 0)
     {
-        LOG_BE(Urgency::Critical, "Failed to count unlocked achievements: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+        m_database.RollbackTransaction(m_databaseConnectionName);
+        HandleDatabaseError(std::format("Failed to count unlocked achievements: targetId={}", targetId));
         return achievementStateUpdated;
     }
 
@@ -1763,10 +2061,18 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
     if (!achievementStateUpdated)
     {
-        LOG_BE(Urgency::Critical, "Failed to update target achievement count: targetId=%d error=%s", targetId, m_database.LastError().c_str());
+        m_database.RollbackTransaction(m_databaseConnectionName);
+        HandleDatabaseError(std::format("Failed to update target achievement count: targetId={}", targetId));
     }
     else
     {
+        if (!m_database.CommitTransaction(m_databaseConnectionName))
+        {
+            const std::string commitError = m_database.LastError();
+            m_database.RollbackTransaction(m_databaseConnectionName);
+            HandleDatabaseError(std::format("Failed to commit achievement state transaction: targetId={} key={}: {}", targetId, achievement.key, commitError));
+            return false;
+        }
         LOG_BE(Urgency::Debug, "Achievement state saved successfully: targetId=%d key=%s (Total unlocked: %lld)", targetId, achievement.key.c_str(), static_cast<long long>(unlockedCount));
     }
 
@@ -1777,7 +2083,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
 
 void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
 {
-    if (!m_startupNotificationEnabled.load())
+    if (m_backendFaulted.load() || !m_startupNotificationEnabled.load())
     {
         return;
     }
@@ -1793,7 +2099,7 @@ void Lymalinkd::ScheduleStartupNotification(int targetId, std::string gameName)
         constexpr int POLL_INTERVAL_MS = 100;
 
         auto shouldAbort = [this, targetId]() {
-            return !m_running.load() || !m_startupNotificationEnabled.load() || !IsTargetActive(targetId);
+            return !m_backendRunning.load() || m_backendFaulted.load() || !m_startupNotificationEnabled.load() || !IsTargetActive(targetId);
         };
 
         // Wait before first startup notification so short process probes do not show a toast
@@ -1876,44 +2182,42 @@ bool Lymalinkd::IsTargetActive(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
-std::string Lymalinkd::ResolveDatabasePath() const
+bool Lymalinkd::IsProcessAlive(uint64_t processId) const
 {
-    std::string databasePath = "";
-
-    // Allow developers/users to override the database path via environment variable
-    if (const char* overridePath = std::getenv("LYMALINK_DATABASE_PATH"))
+    if (processId == 0)
     {
-        if (*overridePath != '\0')
+        return false;
+    }
+
+#if defined(_WIN32)
+    HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(processId));
+    if (process == nullptr)
+    {
+        return false;
+    }
+    const DWORD waitResult = WaitForSingleObject(process, 0);
+    CloseHandle(process);
+    return waitResult == WAIT_TIMEOUT;
+#else
+    return kill(static_cast<pid_t>(processId), 0) == 0 || errno == EPERM;
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::DatabaseLockHeartbeat()
+{
+    while (m_backendRunning.load())
+    {
+        for (int elapsed = 0; elapsed < DATABASE_DB_LOCK_LIFESPAN_SEC && m_backendRunning.load(); ++elapsed)
         {
-            databasePath = overridePath;
-            LOG_BE(Urgency::Info, "Database path overridden via environment variable: %s", databasePath.c_str());
-            return databasePath;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        if (m_backendRunning.load())
+        {
+            m_databaseUtils.RefreshDatabaseLock();
         }
     }
-
-    // Fallback to default user data location
-#if defined(_WIN32)
-    const char* appData = std::getenv("APPDATA");
-    if (!appData || *appData == '\0')
-    {
-        LOG_BE(Urgency::Critical, "APPDATA environment variable not set. Cannot resolve database path.");
-        return databasePath;
-    }
-    databasePath = (std::filesystem::path(appData) / "Lymalink" / DATABASE_FILE_NAME).string();
-    std::filesystem::create_directories(std::filesystem::path(databasePath).parent_path());
-    return databasePath;
-#else
-    const char* home = std::getenv("HOME");
-    if (!home || *home == '\0')
-    {
-        LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve database path.");
-        return databasePath;
-    }
-
-    databasePath = (std::filesystem::path(home) / ".local" / "share" / "Lymalink" / DATABASE_FILE_NAME).string();
-    LOG_BE(Urgency::Debug, "Database path resolved to default location: %s", databasePath.c_str());
-    return databasePath;
-#endif
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1921,17 +2225,6 @@ std::string Lymalinkd::ResolveDatabasePath() const
 std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifestPaths() const
 {
     std::vector<std::string> manifestPaths;
-
-    // Check for a Flatpak-specific environment variable override
-    if (const char* overridePath = std::getenv("LYMALINK_FLATPAK_OVERLAY_MANIFEST_PATH"))
-    {
-        if (*overridePath != '\0')
-        {
-            manifestPaths.push_back(overridePath);
-            LOG_BE(Urgency::Info, "Flatpak Vulkan overlay manifest path overridden via environment variable: %s", overridePath);
-            return manifestPaths;
-        }
-    }
 
     // Verify the target Flatpak runtime directory exists
     const std::filesystem::path runtimeDir = ResolveDataPath("flatpak/runtime/org.freedesktop.Platform.VulkanLayer.lymalink/x86_64/25.08");
@@ -2169,35 +2462,6 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
 {
     std::string notificationSoundPath = "";
 
-    // Allow developers/users to override the sound path via environment variable
-    if (allowCustomSound)
-    {
-        if (const char* overridePath = std::getenv("LYMALINK_NOTIFICATION_SOUND_PATH"))
-        {
-            if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
-            {
-                notificationSoundPath = overridePath;
-                LOG_BE(Urgency::Info, "Notification sound path overridden via LYMALINK_NOTIFICATION_SOUND_PATH: %s", notificationSoundPath.c_str());
-                return notificationSoundPath;
-            }
-            LOG_BE(Urgency::Warning, "Ignoring invalid LYMALINK_NOTIFICATION_SOUND_PATH override.");
-        }
-    }
-
-    if (allowCustomSound)
-    {
-        if (const char* overridePath = std::getenv("LYMALINK_ACHIEVEMENT_SOUND_PATH"))
-        {
-            if (*overridePath != '\0' && IsSupportedCustomNotificationSound(std::filesystem::path(overridePath)))
-            {
-                notificationSoundPath = overridePath;
-                LOG_BE(Urgency::Info, "Notification sound path overridden via LYMALINK_ACHIEVEMENT_SOUND_PATH: %s", notificationSoundPath.c_str());
-                return notificationSoundPath;
-            }
-            LOG_BE(Urgency::Warning, "Ignoring invalid LYMALINK_ACHIEVEMENT_SOUND_PATH override.");
-        }
-    }
-
     // Resolve installed notification sounds directory
     const std::filesystem::path soundDir = ResolveDataPath("Lymalink/sounds");
     if (soundDir.empty())
@@ -2206,7 +2470,7 @@ std::string Lymalinkd::ResolveInstalledNotificationSoundPath(bool allowCustomSou
         return notificationSoundPath;
     }
 
-    // Try loading a custom notification sound - Fall back to bundled sounds if invalid.
+    // Try loading a custom notification sound - Use default bundled sounds if invalid.
     bool useCustomSound = false;
     std::string customSoundPath;
     std::string bundledSound;
@@ -2348,38 +2612,33 @@ std::string Lymalinkd::ResolveDataPath(const std::string& relativePath) const
 
     // Windows packages assets directly beside lymalinkd.exe, so preserve callers while dropping that prefix
     std::filesystem::path relative(relativePath);
-    if (relative.begin() != relative.end() && *relative.begin() == "Lymalink")
+    if (relative.begin() != relative.end() && *relative.begin() == ORGANIZATION)
     {
-        relative = relative.lexically_relative("Lymalink");
+        relative = relative.lexically_relative(ORGANIZATION);
     }
     
     return (std::filesystem::path(executablePath).parent_path() / relative).string();
 #else
 
-    // Prefer XDG_DATA_HOME if defined
-    std::filesystem::path dataHome;
-    if (const char* xdgDataHome = std::getenv("XDG_DATA_HOME"))
+    std::filesystem::path relative(relativePath);
+    if (relative.begin() != relative.end() && *relative.begin() == ORGANIZATION)
     {
-        if (*xdgDataHome != '\0')
+        std::filesystem::path appRelative = relative.lexically_relative(ORGANIZATION);
+        std::filesystem::path appDataPath = Utils::ResolveAppDataPath(ORGANIZATION);
+        if (appDataPath.empty())
         {
-            dataHome = xdgDataHome;
-            LOG_BE(Urgency::Debug, "XDG_DATA_HOME detected: %s", xdgDataHome);
-        }
-    }
-
-    // Fallback to ~/.local/share if XDG_DATA_HOME is unavailable
-    if (dataHome.empty())
-    {
-        const char* home = std::getenv("HOME");
-        if (!home || *home == '\0')
-        {
-            LOG_BE(Urgency::Critical, "HOME environment variable not set or empty. Cannot resolve data path.");
             return dataPath;
         }
-        dataHome = std::filesystem::path(home) / ".local" / "share";
+        return (appDataPath / appRelative).string();
     }
 
-    dataPath = (dataHome / relativePath).string();
+    std::filesystem::path appDataPath = Utils::ResolveAppDataPath(ORGANIZATION);
+    if (appDataPath.empty())
+    {
+        return dataPath;
+    }
+
+    dataPath = (appDataPath.parent_path() / relative).string();
     return dataPath;
 #endif
 }

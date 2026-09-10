@@ -3,19 +3,24 @@
 // Date: 2026-06-20
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Declares reserved Windows notification adapter
-//              NOTE: Not used in project currently, left for future use
+// Description: Declares QT based Windows notification adapter
 /////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "notification/AchievementNotificationService.h"
+#include <QPointer>
+#include <string>
 
-class WinNotificationService : public IDesktopNotificationService
+class QWidget;
+
+class WinNotificationService
 {
 public:
     WinNotificationService();
-    ~WinNotificationService() override;
+    ~WinNotificationService();
 
-    bool ShowAchievementToast(const AchievementNotification& notification) override;
+    bool ShowErrorToast(const std::string& summary, const std::string& body, const std::string& iconPath);
+
+private:
+    QPointer<QWidget> m_popup;
 };

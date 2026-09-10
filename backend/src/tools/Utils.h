@@ -23,6 +23,8 @@ std::string ReadTextFile(const std::string& path);
 std::string TrimTrailingWhitespace(std::string value);
 std::string ReadProcessComm();
 std::string ReadProcessCmdline();
+std::string ResolveMachineId();
+std::string ResolveAppDataPath(const std::string organization);
 std::string ReadIniValue(const std::string& configPath, const std::string& section, const std::string& key);
 bool IsHexLeUint32(const std::string& val);
 uint32_t ParseHexLeUint32(const std::string& val);

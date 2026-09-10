@@ -37,7 +37,7 @@ public:
 
     Q_INVOKABLE void PingBackend() override;
     Q_INVOKABLE bool StartService() override;
-    Q_INVOKABLE bool StopService() override;
+    Q_INVOKABLE bool StopService(bool endWaitDelay = false) override;
     Q_INVOKABLE bool RestartService() override;
     Q_INVOKABLE bool SetServiceEnabled(bool enabled) override;
     Q_INVOKABLE bool RefreshServiceStatus() override;
@@ -74,6 +74,7 @@ private slots:
 private:
     QTimer *m_pingTimer;
     QTimer *m_activeTargetsRequestTimer;
+    QTimer *m_startTimeoutTimer;
     bool m_pingInFlight;
     uint16_t m_pingIntervalMs;
     uint16_t m_pingTimeoutMs;

@@ -55,6 +55,8 @@ qt_add_executable(Lymalink
     src/ipc/BackendControl.h
     src/ipc/BackendControl.cpp
     ${PLATFORM_BACKEND_SOURCES}
+    src/database/DatabaseUtils.h
+    src/database/DatabaseUtils.cpp
     src/database/SQLiteManager.h
     src/database/SQLiteManager.cpp
     src/tools/Encryption.h
@@ -235,8 +237,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
     qt_add_executable(SQLiteManagerTests
         tests/SQLiteManagerTests.cpp
+        src/database/DatabaseUtils.h
+        src/database/DatabaseUtils.cpp
         src/database/SQLiteManager.h
         src/database/SQLiteManager.cpp
+        src/tools/Utils.h
+        src/tools/Utils.cpp
     )
     target_link_libraries(SQLiteManagerTests PRIVATE
         Qt6::Core
@@ -245,15 +251,15 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     )
     add_test(NAME SQLiteManagerTests COMMAND SQLiteManagerTests)
 
-#    qt_add_executable(SteamApiTests
-#        tests/SteamApiTests.cpp
-#        src/api/SteamApi.h
-#        src/api/SteamApi.cpp
-#    )
-#    target_link_libraries(SteamApiTests PRIVATE
-#        Qt6::Core
-#        Qt6::Network
-#        Qt6::Test
-#    )
-#    add_test(NAME SteamApiTests COMMAND SteamApiTests)
+    qt_add_executable(SteamApiTests
+        tests/SteamApiTests.cpp
+        src/api/SteamApi.h
+        src/api/SteamApi.cpp
+    )
+    target_link_libraries(SteamApiTests PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+    )
+    add_test(NAME SteamApiTests COMMAND SteamApiTests)
 endif()

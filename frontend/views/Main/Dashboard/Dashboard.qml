@@ -166,6 +166,10 @@ Item {
         id_root.noTargetsAvailable = id_root.totalTargetCount === 0
     }
 
+    function probeRuntimeWriteAccess() {
+        return ctxLymalink.ProbeDatabaseRuntimeWriteAccess()
+    }
+
     function rebuildTargetPage() {
         id_targetModel.clear()
 
@@ -516,6 +520,10 @@ Item {
     function onTargetSelected(appId, targetType) {
         id_root.saveDashboardScrollLocation()
 
+        if (!id_root.probeRuntimeWriteAccess()) {
+            return
+        }
+
         if (id_root.backendServiceUsable) {
             id_root.scheduleLocalAchievementScan(appId, targetType)
         }
@@ -834,6 +842,10 @@ Item {
             }
 
             onRefreshClicked: {
+                if (!id_root.probeRuntimeWriteAccess()) {
+                    return
+                }
+
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
                     if (id_root.pendingTargetDetails.targetType === "Emulator" && id_root.backendServiceUsable) {
                         id_root.startDetailsRefreshScan(id_root.pendingTargetDetails.id)

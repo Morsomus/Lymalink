@@ -24,7 +24,7 @@ public:
     ~SteamImportAutoSyncWorker();
 
 public slots:
-    void Run(const QString &databasePath, const QString &steamId, const QString &apiKey);
+    void Run(const QString &databasePath, const QString &steamId, const QString &apiKey, bool useCustomDatabasePath);
 
 signals:
     void signalFinished(QVariantMap payload);

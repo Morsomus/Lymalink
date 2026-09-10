@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "../database/DatabaseUtils.h"
 #include "../database/SQLiteManager.h"
 
 #include <QObject>
@@ -19,12 +20,14 @@
 #include <QString>
 #include <QVector>
 
+class Settings;
+
 class DataTransporter : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit DataTransporter(QObject *parent = nullptr);
+    explicit DataTransporter(Settings *settings, QObject *parent = nullptr);
     ~DataTransporter();
 
     Q_INVOKABLE QVariantMap ExportAchievements(const QString &filePath);
@@ -60,6 +63,7 @@ private:
         QVector<ImportedAchievement> achievements;
     };
 
+    DatabaseUtils m_databaseUtils;
     SQLiteManager m_databaseManager;
     QString m_databaseConnectionName;
     QString m_databasePath;
@@ -67,7 +71,6 @@ private:
     QVector<ImportedGame> m_cachedImportGames;
     bool m_hasCachedImport = false;
 
-    QString DefaultDatabasePath() const;
     bool EnsureDatabaseOpen(QVariantMap &payload);
     bool ReadImportFile(const QString &filePath, QVector<ImportedGame> &games, QString &error) const;
     bool ParseImportDocument(const QJsonDocument &document, QVector<ImportedGame> &games, QString &error) const;

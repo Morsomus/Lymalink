@@ -18,6 +18,7 @@
     #include <QAction>
     #include <QIcon>
     #include <QMenu>
+    #include <QMetaObject>
     #include <QProcess>
     #include <QString>
 #else
@@ -43,6 +44,7 @@ BackendTrayIcon::BackendTrayIcon() :
     m_itemObject(nullptr),
     m_menuObject(nullptr),
     m_serviceName(""),
+    m_toolTipMessage("lymalinkd is running"),
     m_iconPixmap(),
     m_menuRevision(1)
 #endif
@@ -100,23 +102,30 @@ bool BackendTrayIcon::Start(const std::string& iconPath)
             sdbus::registerProperty("Status").withGetter([]() { return std::string("Active"); }),
             sdbus::registerProperty("WindowId").withGetter([]() { return uint32_t{0}; }),
             sdbus::registerProperty("IconName").withGetter([]() { return std::string(""); }),
-            sdbus::registerProperty("IconPixmap").withGetter([this]() { return m_iconPixmap; }),
+            sdbus::registerProperty("IconPixmap").withGetter([this]()
+            {
+                std::lock_guard<std::mutex> lock(m_stateMutex);
+                return m_iconPixmap;
+            }),
             sdbus::registerProperty("OverlayIconName").withGetter([]() { return std::string(""); }),
             sdbus::registerProperty("OverlayIconPixmap").withGetter([]() { return IconPixmap{}; }),
             sdbus::registerProperty("AttentionIconName").withGetter([]() { return std::string(""); }),
             sdbus::registerProperty("AttentionIconPixmap").withGetter([]() { return IconPixmap{}; }),
             sdbus::registerProperty("AttentionMovieName").withGetter([]() { return std::string(""); }),
-            sdbus::registerProperty("ToolTip").withGetter([]()
+            sdbus::registerProperty("ToolTip").withGetter([this]()
             {
                 using ToolTip = sdbus::Struct<std::string, IconPixmap, std::string, std::string>;
-                return ToolTip{"", IconPixmap{}, "Lymalink Background Service", "lymalinkd is running"};
+                std::lock_guard<std::mutex> lock(m_stateMutex);
+                return ToolTip{"", IconPixmap{}, "Lymalink Background Service", m_toolTipMessage};
             }),
             sdbus::registerProperty("ItemIsMenu").withGetter([]() { return false; }),
             sdbus::registerProperty("Menu").withGetter([]() { return sdbus::ObjectPath{"/org/lymalink/Daemon/TrayMenu"}; }),
             sdbus::registerMethod("ContextMenu").withInputParamNames("x", "y").implementedAs([](int32_t, int32_t) {}),
             sdbus::registerMethod("Activate").withInputParamNames("x", "y").implementedAs([this](int32_t, int32_t) { OpenUi(); }),
             sdbus::registerMethod("SecondaryActivate").withInputParamNames("x", "y").implementedAs([](int32_t, int32_t) {}),
-            sdbus::registerMethod("Scroll").withInputParamNames("delta", "orientation").implementedAs([](int32_t, std::string) {})
+            sdbus::registerMethod("Scroll").withInputParamNames("delta", "orientation").implementedAs([](int32_t, std::string) {}),
+            sdbus::registerSignal("NewIcon"),
+            sdbus::registerSignal("NewToolTip")
         ).forInterface("org.kde.StatusNotifierItem");
 
         // Export dbusmenu model used by StatusNotifier hosts for context menus
@@ -231,6 +240,95 @@ void BackendTrayIcon::Stop()
 }
 
 /////////////////////////////////////////////////////////////////////
+
+bool BackendTrayIcon::SetIcon(const std::string& iconPath)
+{
+#if defined(_WIN32)
+    const QString path = QString::fromStdString(iconPath);
+    QMetaObject::invokeMethod(&m_trayIcon, [this, path]() {
+        m_trayIcon.setIcon(QIcon(path));
+    }, Qt::QueuedConnection);
+    return true;
+#else
+    if (!LoadIconPixmap(iconPath))
+    {
+        LOG_BE(Urgency::Warning, "Tray icon load failed: %s", iconPath.c_str());
+        return false;
+    }
+
+    if (m_itemObject)
+    {
+        try
+        {
+            IconPixmap iconPixmap;
+            {
+                std::lock_guard<std::mutex> lock(m_stateMutex);
+                iconPixmap = m_iconPixmap;
+            }
+
+            m_itemObject->emitSignal(sdbus::SignalName{"PropertiesChanged"})
+                .onInterface("org.freedesktop.DBus.Properties")
+                .withArguments(
+                    std::string{"org.kde.StatusNotifierItem"},
+                    std::map<std::string, sdbus::Variant>{{"IconPixmap", sdbus::Variant(iconPixmap)}},
+                    std::vector<std::string>{}
+                );
+            m_itemObject->emitSignal(sdbus::SignalName{"NewIcon"})
+                .onInterface("org.kde.StatusNotifierItem");
+        }
+        catch (const sdbus::Error& e)
+        {
+            LOG_BE(Urgency::Warning, "Tray icon update signal failed: %s", e.what());
+            return false;
+        }
+    }
+
+    return true;
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void BackendTrayIcon::SetToolTip(const std::string& message)
+{
+#if defined(_WIN32)
+    m_trayIcon.setToolTip(QString::fromStdString("Lymalink Background Service - " + message));
+#else
+    if (!m_itemObject)
+    {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        m_toolTipMessage = message;
+    }
+
+    try
+    {
+        using ToolTip = sdbus::Struct<std::string, IconPixmap, std::string, std::string>;
+        m_itemObject->emitSignal(sdbus::SignalName{"PropertiesChanged"})
+            .onInterface("org.freedesktop.DBus.Properties")
+            .withArguments(
+                std::string{"org.kde.StatusNotifierItem"},
+                std::map<std::string, sdbus::Variant>{
+                    {"ToolTip", sdbus::Variant(
+                        ToolTip{"", IconPixmap{}, "Lymalink Background Service", message}
+                    )}
+                },
+                std::vector<std::string>{}
+            );
+        m_itemObject->emitSignal(sdbus::SignalName{"NewToolTip"})
+            .onInterface("org.kde.StatusNotifierItem");
+    }
+    catch (const sdbus::Error& e)
+    {
+        LOG_BE(Urgency::Warning, "Tray tooltip update signal failed: %s", e.what());
+    }
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -329,7 +427,10 @@ bool BackendTrayIcon::LoadIconPixmap(const std::string& iconPath)
         }
     }
 
-    m_iconPixmap = {IconPixmap::value_type{width, height, std::move(argb)}};
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        m_iconPixmap = {IconPixmap::value_type{width, height, std::move(argb)}};
+    }
     g_object_unref(pixbuf);
     return true;
 }

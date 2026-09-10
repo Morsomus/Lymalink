@@ -7,13 +7,14 @@
 /////////////////////////////////////////////////////////
 
 #include "Settings.h"
+#include "database/DatabaseUtils.h"
 #include "tools/Encryption.h"
+#include "tools/Utils.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QTimer>
@@ -154,11 +155,16 @@ bool Settings::ResetDefaults()
 {
     qInfo() << "Settings::ResetDefaults - Resetting configuration to defaults...";
 
+    // Preserve some saved settings to prevent potentially unwanted changes
     const QString welcomeHelpText = m_welcomeHelpText;
     const QString targetDetailsHelpText = m_targetDetailsHelpText;
+    const QString databaseCustomPath = m_databaseCustomPath;
+
     SetDefaults();
+
     m_welcomeHelpText = welcomeHelpText;
     m_targetDetailsHelpText = targetDetailsHelpText;
+    m_databaseCustomPath = databaseCustomPath;
     m_settings.clear();
 
     const bool saved = SaveConfig();
@@ -261,6 +267,10 @@ bool Settings::LoadConfig()
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
     m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toString();
     m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toString();
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_DATABASE);
+    m_databaseCustomPath = m_settings.value("CustomDBPath", m_databaseCustomPath).toString().trimmed();
     m_settings.endGroup();
 
     LoadEncryptedValueState();
@@ -580,6 +590,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_targetDetailsHelpText;
             break;
         }
+        case DatabaseCustomPath:
+        {
+            m_databaseCustomPath = value.toString().trimmed();
+            group = GROUP_DATABASE;
+            settingsKey = "CustomDBPath";
+            settingsValue = m_databaseCustomPath;
+            break;
+        }
         default:
         {
             qWarning() << "Settings::SaveValue - unknown setting key:" << key;
@@ -607,6 +625,49 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
 QString Settings::GetConfigFilePath() const
 {
     return m_settings.fileName();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantMap Settings::VerifyCustomDatabasePath(const QString &dbPath) const
+{
+    const DatabaseUtils databaseUtils;
+    const QVariantMap result = databaseUtils.VerifyDatabaseLocation(dbPath, QStringLiteral(DATABASE_FILE_NAME));
+    return result;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Settings::SaveCustomDatabasePath(const QString &dbPath)
+{
+    const QString trimmedPath = dbPath.trimmed();
+    const bool success = SaveValue(DatabaseCustomPath, trimmedPath);
+    return success;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QString Settings::GetActiveDatabasePath() const
+{
+    const QString trimmedPath = m_databaseCustomPath.trimmed();
+    if (!trimmedPath.isEmpty())
+    {
+        const QFileInfo externalInfo(trimmedPath);
+        const QDir customDir(externalInfo.absoluteFilePath());
+        const QString customPath = customDir.filePath(DATABASE_FILE_NAME);
+        return customPath;
+    }
+
+    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (appDataPath.isEmpty())
+    {
+        const QString emptyPath;
+        return emptyPath;
+    }
+
+    const QDir appDataDir(appDataPath);
+    const QString defaultPath = appDataDir.filePath(DATABASE_FILE_NAME);
+    return defaultPath;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -668,6 +729,7 @@ void Settings::SetDefaults()
     m_currentVersion = QStringLiteral(LYMALINK_VERSION);
     m_welcomeHelpText = "";
     m_targetDetailsHelpText = "";
+    m_databaseCustomPath = "";
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -800,19 +862,7 @@ bool Settings::SaveSteamImportAutoSyncWebApiKey(const QString &webApiKey)
 
 QString Settings::SteamImportAutoSyncEncryptionKey() const
 {
-    QString hostId;
-
-#if defined(Q_OS_WIN)
-    QSettings machineGuidSettings(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography"), QSettings::NativeFormat);
-    hostId = machineGuidSettings.value(QStringLiteral("MachineGuid")).toString().trimmed();
-#elif defined(Q_OS_LINUX)
-    QFile machineIdFile(QStringLiteral("/etc/machine-id"));
-    if (machineIdFile.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-        hostId = QString::fromUtf8(machineIdFile.readAll()).trimmed();
-    }
-#endif
-
+    const QString hostId = Utils::MachineId();
     if (hostId.isEmpty())
     {
         qWarning() << "Settings::SteamImportAutoSyncEncryptionKey() - host id unavailable";
@@ -881,6 +931,10 @@ void Settings::SavePlainValues()
     m_settings.setValue("ToolbarLayout", m_dashboardToolbarLayout);
     m_settings.setValue("WelcomeHelpText", m_welcomeHelpText);
     m_settings.setValue("TargetDetailsHelpText", m_targetDetailsHelpText);
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_DATABASE);
+    m_settings.setValue("CustomDBPath", m_databaseCustomPath);
     m_settings.endGroup();
 }
 

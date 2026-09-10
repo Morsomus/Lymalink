@@ -20,7 +20,7 @@ public:
 
     virtual void PingBackend() = 0;
     virtual bool StartService() = 0;
-    virtual bool StopService() = 0;
+    virtual bool StopService(bool endWaitDelay = false) = 0;
     virtual bool RestartService() = 0;
     virtual bool SetServiceEnabled(bool enabled) = 0;
     virtual bool RefreshServiceStatus() = 0;

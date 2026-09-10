@@ -320,6 +320,7 @@ function Stage-Payload {
     $licensePath = Join-Path $ROOT_DIR "LICENSE"
     $testIconPath = Join-Path $ROOT_DIR "frontend\res\img\64x64-lymalink-test-icon.png"
     $trayIconPath = Join-Path $ROOT_DIR "backend\res\img\BlankBackground_MFC_00041_ED.png"
+    $trayErrIconPath = Join-Path $ROOT_DIR "backend\res\img\BlankBackground_MFC_00041_ED_ERR.png"
 
     Require-File $frontendBinary
     Require-File $backendBinary
@@ -327,6 +328,7 @@ function Stage-Payload {
     Require-File $licensePath
     Require-File $testIconPath
     Require-File $trayIconPath
+    Require-File $trayErrIconPath
 
     New-CleanDirectory $RELEASE_DIR
     New-Item -ItemType Directory -Path (Join-Path $RELEASE_DIR "sounds") -Force | Out-Null
@@ -338,6 +340,7 @@ function Stage-Payload {
     Copy-Item -LiteralPath $licensePath -Destination (Join-Path $RELEASE_DIR "LICENSE") -Force
     Copy-Item -LiteralPath $testIconPath -Destination (Join-Path $RELEASE_DIR "64x64-lymalink-test-icon.png") -Force
     Copy-Item -LiteralPath $trayIconPath -Destination (Join-Path $RELEASE_DIR "lymalinkd-tray-icon.png") -Force
+    Copy-Item -LiteralPath $trayErrIconPath -Destination (Join-Path $RELEASE_DIR "lymalinkd-tray-icon-error.png") -Force
 
     Get-ChildItem -LiteralPath (Join-Path $vcpkg.InstalledDir "bin") -Filter "*.dll" -File |
         Copy-Item -Destination $RELEASE_DIR -Force

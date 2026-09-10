@@ -3,7 +3,7 @@
 // Date: 2026-05-25
 // Author: Morsomus
 // Copyright: see /LICENSE
-// Description: Implements native desktop notifications
+// Description: Implements native Linux desktop notifications
 //              over D-Bus
 /////////////////////////////////////////////////////////
 
@@ -74,42 +74,32 @@ void FreedesktopNotificationService::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotification& notification)
+bool FreedesktopNotificationService::ShowErrorToast(const std::string& summary, const std::string& body, const std::string& iconPath)
 {
     bool notificationSent = false;
 
     if (!m_notificationsProxy)
     {
-        LOG_BE(Urgency::Warning, "Cannot show toast: service proxy not initialized.");
+        LOG_BE(Urgency::Warning, "Cannot show error toast: service proxy not initialized.");
         return notificationSent;
     }
 
-    // Build user-visible notification fields with fallbacks
-    const std::string summary = notification.achievementName.empty() ? "Achievement unlocked" : notification.achievementName;
-    const std::string body = notification.achievementDescription.empty() ? notification.gameName : notification.achievementDescription;
-    const std::string appIcon = notification.appIconPath.empty() ? "lymalink" : notification.appIconPath;
-
-    // Pass desktop-entry and optional image as freedesktop notification hints
     std::map<std::string, sdbus::Variant> hints;
     hints.emplace("desktop-entry", sdbus::Variant{std::string{"lymalink"}});
-    if (!notification.iconPath.empty())
-    {
-        hints.emplace("image-path", sdbus::Variant{notification.iconPath});
-    }
+    hints.emplace("urgency", sdbus::Variant{uint8_t{2}});
 
     const std::vector<std::string> actions;
-    const int32_t expireTimeoutMs = 4000;
+    const int32_t expireTimeoutMs = 0;
     uint32_t notificationId = 0;
 
     try
     {
-        // Send Notify method call to desktop notification daemon
         m_notificationsProxy->callMethod("Notify")
             .onInterface("org.freedesktop.Notifications")
             .withArguments(
                 std::string{"Lymalink"},
                 uint32_t{0},
-                appIcon,
+                iconPath,
                 summary,
                 body,
                 actions,
@@ -118,14 +108,13 @@ bool FreedesktopNotificationService::ShowAchievementToast(const AchievementNotif
             )
             .storeResultsTo(notificationId);
 
-        LOG_BE(Urgency::Debug, "Notification sent successfully (ID: %u): targetId=%d key=%s", notificationId, notification.targetId, notification.achievementKey.c_str());
-               
+        LOG_BE(Urgency::Debug, "Error notification sent successfully (ID: %u).", notificationId);
         notificationSent = true;
         return notificationSent;
     }
     catch (const sdbus::Error& e)
     {
-        LOG_BE(Urgency::Critical, "Notify method call failed: %s", e.what());
+        LOG_BE(Urgency::Critical, "Notify error method call failed: %s", e.what());
         return notificationSent;
     }
 }

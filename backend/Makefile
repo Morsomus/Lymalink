@@ -40,8 +40,10 @@ SOURCES := \
     src/service/SystemdNotify.cpp \
     src/tray/BackendTrayIcon.cpp \
     src/notification/AchievementNotificationService.cpp \
+    src/notification/FreedesktopNotificationService.cpp \
     src/notification/CanberraSoundService.cpp \
     src/overlay/OverlayNotifier.cpp \
+    src/database/DatabaseUtils.cpp \
     src/database/SQLiteManager.cpp \
     src/ipc/DBusService.cpp \
     src/watcher/PathScanner.cpp \

@@ -22,6 +22,7 @@
 #define GROUP_BACKGROUND_SERVICE "BackgroundService"
 #define GROUP_STEAM_WEB_API "SteamWebApi"
 #define GROUP_DASHBOARD     "Dashboard"
+#define GROUP_DATABASE      "Database"
 
 /////////////////////////////////////////////////////////////////////
 // Database
@@ -29,10 +30,13 @@
 
 #define DATABASE_CONNECTION_NAME        "lymalink_main"
 #define DATABASE_FILE_NAME              "lymalink_database"
+#define DATABASE_LOCK_FILE_NAME         "lymalink_database.lock"
 #define DATABASE_TABLE_EMU_GAMES        "steam_emu_games"
 #define DATABASE_TABLE_EMU_ACHIEVEMENTS "steam_emu_achievements"
 #define DATABASE_TABLE_GAMES            "steam_games"
 #define DATABASE_TABLE_ACHIEVEMENTS     "steam_achievements"
+
+#define DATABASE_DB_LOCK_LIFESPAN_SEC   15
 
 /////////////////////////////////////////////////////////////////////
 // D-Bus
@@ -69,6 +73,7 @@
 #define LYMALINK_APP_ICON_PATH          "icons/hicolor/256x256/apps/lymalink.png"
 #define LYMALINK_TEST_ICON_PATH         "Lymalink/64x64-lymalink-test-icon.png"
 #define LYMALINKD_TRAY_ICON_PATH        "Lymalink/lymalinkd-tray-icon.png"
+#define LYMALINKD_ERROR_TRAY_ICON_PATH  "Lymalink/lymalinkd-tray-icon-error.png"
 
 /////////////////////////////////////////////////////////////////////
 // Logging

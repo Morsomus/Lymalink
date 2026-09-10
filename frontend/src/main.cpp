@@ -34,28 +34,9 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFontDatabase>
+#include <QProcess>
 
-namespace {
-
-constexpr const char *ACTIVATION_SERVER_NAME = "org.lymalink.Lymalink";
-
-void SendActivationRequest()
-{
-    // IPC helper: Attempts to notify an existing Lymalink instance to activate
-    // Prevents spawning multiple application processes
-    QLocalSocket socket;
-    socket.connectToServer(QString::fromLatin1(ACTIVATION_SERVER_NAME));
-    if (!socket.waitForConnected(250)) {
-        // Server not running; likely first instance or activation failed
-        return;
-    }
-
-    socket.write("activate");
-    socket.flush();
-    socket.waitForBytesWritten(250);
-}
-
-}
+#define ACTIVATION_SERVER_NAME  "org.lymalink.Lymalink"
 
 int main(int argc, char *argv[]) {
     // Enable QML console.log/console.debug output on Fedora
@@ -74,10 +55,18 @@ int main(int argc, char *argv[]) {
     const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");
     QLockFile lockFile(lockPath);
     lockFile.setStaleLockTime(5000); // Stale after 5s
-
-    if (!lockFile.tryLock(100)) {
-        // Another instance is active; request it to activate instead of creating a new process
-        SendActivationRequest();
+    if (!lockFile.tryLock(100))
+    {
+        // Another instance is active - request it to activate instead of creating a new process
+        // Prevents spawning multiple application processes
+        QLocalSocket socket;
+        socket.connectToServer(QString::fromLatin1(ACTIVATION_SERVER_NAME)); 
+        if (socket.waitForConnected(250))
+        {
+            socket.write("activate");
+            socket.flush();
+            socket.waitForBytesWritten(250);
+        }
         return 0;
     }
 
@@ -102,20 +91,20 @@ int main(int argc, char *argv[]) {
 
     Settings* settings = new Settings(&app);
     SysTray* sysTray = new SysTray(&app);
-    BackendControl* backendService = nullptr;
-#if defined(Q_OS_WIN)
-    backendService = new WinSocketService(&app);
-#else
-    backendService = new DBusService(&app);
-#endif
-    DataTransporter* dataTransporter = new DataTransporter(&app);
-    Lymalink* lymalink = new Lymalink(&app);
+    DataTransporter* dataTransporter = new DataTransporter(settings, &app);
+    Lymalink* lymalink = new Lymalink(settings, &app);
     const Error lymalinkInitError = lymalink->Initialize();
     if (lymalinkInitError != Error::NoError)
     {
-        qCritical() << "Failed to initialize Lymalink backend:" << static_cast<int>(lymalinkInitError);
+        qCritical() << "Failed to initialize Lymalink business logic:" << static_cast<int>(lymalinkInitError);
         return -1;
     }
+    BackendControl* backendService = nullptr;
+    #if defined(Q_OS_WIN)
+        backendService = new WinSocketService(&app);
+    #else
+        backendService = new DBusService(&app);
+    #endif
 
     QQmlApplicationEngine engine;
 
@@ -150,6 +139,7 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonType(QUrl("qrc:/qt/qml/Lymalink/Themes.qml"), "app.themes", 1, 0, "Themes");
     qmlRegisterUncreatableType<Settings>("app.settings", 1, 0, "Settings", "Constants only");
 
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, lymalink, &Lymalink::CancelSteamHydration);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, backendService, &BackendControl::StopServiceIfNotEnabled);
 
     // Handle QML loading failures with a critical exit
@@ -169,16 +159,19 @@ int main(int argc, char *argv[]) {
     // Remove previous socket file (if any) to avoid "Server already listening" errors.
     QLocalServer::removeServer(QString::fromLatin1(ACTIVATION_SERVER_NAME));
     QLocalServer activationServer;
-    if (activationServer.listen(QString::fromLatin1(ACTIVATION_SERVER_NAME))) {
+    if (activationServer.listen(QString::fromLatin1(ACTIVATION_SERVER_NAME)))
+    {
         // Handle new connections from other instances or external launchers
         QObject::connect(&activationServer, &QLocalServer::newConnection, &app, [&]() {
-            while (QLocalSocket *socket = activationServer.nextPendingConnection()) {
+            while (QLocalSocket *socket = activationServer.nextPendingConnection())
+            {
                 // Drain and close incoming activation sockets
                 socket->deleteLater();
             }
 
             // If QML hasn't loaded yet, ignore activation request
-            if (engine.rootObjects().isEmpty()) {
+            if (engine.rootObjects().isEmpty())
+            {
                 return;
             }
 
@@ -186,11 +179,31 @@ int main(int argc, char *argv[]) {
             QObject *root = engine.rootObjects().first();
             QMetaObject::invokeMethod(root, "restoreFromBackground");
         });
-    } else {
+    }
+    else
+    {
         qWarning() << "Failed to create activation server:" << activationServer.errorString();
     }
 
     settings->TrackWindowSizeSetting(&engine);
 
-    return app.exec();
+    const int exitCode = app.exec();
+    const bool restartRequested = app.property("lymalink.restartRequested").toBool();
+    if (restartRequested && exitCode == 0)
+    {
+        const QString executablePath = QCoreApplication::applicationFilePath();
+        const QString workingDirectory = QCoreApplication::applicationDirPath();
+        const QStringList arguments = QCoreApplication::arguments().mid(1);
+
+        activationServer.close();
+        lockFile.unlock();
+
+        if (!QProcess::startDetached(executablePath, arguments, workingDirectory))
+        {
+            qCritical() << "Failed to restart Lymalink:" << executablePath;
+            return -1;
+        }
+    }
+
+    return exitCode;
 }

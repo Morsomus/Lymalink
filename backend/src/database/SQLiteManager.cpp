@@ -21,6 +21,7 @@ SQLiteManager::SQLiteManager()
 {
     m_dbConnections = {};
     m_lastError = "";
+    m_lastErrorCode = SQLITE_OK;
 }
 
 SQLiteManager::~SQLiteManager()
@@ -46,7 +47,11 @@ bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::s
 
     if (auto it = m_dbConnections.find(conn); it != m_dbConnections.end())
     {
-        if (it->second.isOpen()) return true;
+        if (IsDatabaseOpen(conn) && it->second.dbPath == dbPath)
+        {
+            m_lastError.clear();
+            return true;
+        }
         // stale entry - clean up before re-opening
         sqlite3_close_v2(it->second.db);
         m_dbConnections.erase(it);
@@ -65,7 +70,8 @@ bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::s
     sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
     sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
 
-    m_dbConnections[conn] = Conn{db};
+    m_dbConnections[conn] = Conn{db, dbPath};
+    m_lastError.clear();
     return true;
 }
 
@@ -161,6 +167,7 @@ bool SQLiteManager::DeleteDatabase(const std::string &connectionName, const std:
     if (allRemoved)
     {
         std::cerr << "SQLiteManager: database deleted: " << dbPath << '\n';
+        m_lastError.clear();
     }
 
     return allRemoved;
@@ -183,12 +190,12 @@ bool SQLiteManager::CreateTable(const std::string &connectionName, const std::st
 
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::TableExists(const std::string &connectionName, const std::string &tableName) const
+bool SQLiteManager::TableExists(const std::string &connectionName, const std::string &tableName)
 {
     sqlite3 *db = GetDb(connectionName);
     if (!db)
     {
-        std::cerr << "SQLiteManager - tableExists: database not open\n";
+        SetLastError("tableExists: database not open");
         return false;
     }
 
@@ -197,13 +204,28 @@ bool SQLiteManager::TableExists(const std::string &connectionName, const std::st
     sqlite3_stmt *stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
     {
+        SetLastError(std::format("tableExists (prepare): {}", sqlite3_errmsg(db)));
         return false;
     }
 
     sqlite3_bind_text(stmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
-    const bool found = (sqlite3_step(stmt) == SQLITE_ROW);
+    const int rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW)
+    {
+        sqlite3_finalize(stmt);
+        m_lastError.clear();
+        return true;
+    }
+    if (rc == SQLITE_DONE)
+    {
+        sqlite3_finalize(stmt);
+        m_lastError.clear();
+        return false;
+    }
+
+    SetLastError(std::format("tableExists: {}", sqlite3_errmsg(db)));
     sqlite3_finalize(stmt);
-    return found;
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -220,17 +242,22 @@ bool SQLiteManager::ExecuteSql(const std::string &connectionName, const std::str
     sqlite3 *db = GetDb(connectionName);
     if (!db)
     {
+        m_lastErrorCode = SQLITE_MISUSE;
         SetLastError("ExecuteSql: database not open");
         return false;
     }
 
     char *errmsg = nullptr;
-    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK)
+    const int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errmsg);
+    if (rc != SQLITE_OK)
     {
+        m_lastErrorCode = rc;
         SetLastError(std::format("ExecuteSql: {} | SQL: {}", errmsg ? errmsg : "?", sql));
         sqlite3_free(errmsg);
         return false;
     }
+    m_lastError.clear();
+    m_lastErrorCode = SQLITE_OK;
     return true;
 }
 
@@ -276,14 +303,17 @@ bool SQLiteManager::Insert(const std::string &connectionName, const std::string 
         return false;
     }
 
-    const bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
-    if (!ok)
+    const int rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE)
     {
         SetLastError(std::format("insert: {}", sqlite3_errmsg(db)));
+        sqlite3_finalize(stmt);
+        return false;
     }
 
     sqlite3_finalize(stmt);
-    return ok;
+    m_lastError.clear();
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -337,14 +367,17 @@ bool SQLiteManager::Update(const std::string &connectionName, const std::string 
         return false;
     }
 
-    const bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
-    if (!ok)
+    const int rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE)
     {
         SetLastError(std::format("update: {}", sqlite3_errmsg(db)));
+        sqlite3_finalize(stmt);
+        return false;
     }
     
     sqlite3_finalize(stmt);
-    return ok;
+    m_lastError.clear();
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -377,14 +410,17 @@ bool SQLiteManager::Remove(const std::string &connectionName, const std::string 
         return false;
     }
 
-    const bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
-    if (!ok)
+    const int rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE)
     {
         SetLastError(std::format("remove: {}", sqlite3_errmsg(db)));
+        sqlite3_finalize(stmt);
+        return false;
     }
 
     sqlite3_finalize(stmt);
-    return ok;
+    m_lastError.clear();
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -462,7 +498,8 @@ DbRecord SQLiteManager::SelectFirst(const std::string &connectionName, const std
     }
 
     DbRecord row;
-    if (sqlite3_step(stmt) == SQLITE_ROW)
+    const int rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW)
     {
         const int nCols = sqlite3_column_count(stmt);
         for (int i = 0; i < nCols; ++i)
@@ -471,8 +508,15 @@ DbRecord SQLiteManager::SelectFirst(const std::string &connectionName, const std
             row[name ? name : std::format("col{}", i)] = ColumnValue(stmt, i);
         }
     }
+    else if (rc != SQLITE_DONE)
+    {
+        SetLastError(std::format("selectFirst: {}", sqlite3_errmsg(db)));
+        sqlite3_finalize(stmt);
+        return {};
+    }
 
     sqlite3_finalize(stmt);
+    m_lastError.clear();
     return row;
 }
 
@@ -507,12 +551,20 @@ int64_t SQLiteManager::Count(const std::string &connectionName, const std::strin
     }
 
     int64_t result = -1;
-    if (sqlite3_step(stmt) == SQLITE_ROW)
+    const int rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW)
     {
         result = static_cast<int64_t>(sqlite3_column_int64(stmt, 0));
     }
+    else
+    {
+        SetLastError(std::format("count: {}", sqlite3_errmsg(db)));
+        sqlite3_finalize(stmt);
+        return -1;
+    }
 
     sqlite3_finalize(stmt);
+    m_lastError.clear();
     return result;
 }
 
@@ -659,10 +711,11 @@ bool SQLiteManager::BindValues(sqlite3_stmt *stmt, const std::vector<DbValue> &v
 
 /////////////////////////////////////////////////////////////////////
 
-DbRows SQLiteManager::FetchRows(sqlite3_stmt *stmt) const
+DbRows SQLiteManager::FetchRows(sqlite3_stmt *stmt)
 {
     DbRows rows;
-    while (sqlite3_step(stmt) == SQLITE_ROW)
+    int rc = SQLITE_ROW;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW)
     {
         DbRow row;
         const int nCols = sqlite3_column_count(stmt);
@@ -673,6 +726,12 @@ DbRows SQLiteManager::FetchRows(sqlite3_stmt *stmt) const
         }
         rows.push_back(std::move(row));
     }
+    if (rc != SQLITE_DONE)
+    {
+        SetLastError(std::format("FetchRows: {}", sqlite3_errmsg(sqlite3_db_handle(stmt))));
+        return {};
+    }
+    m_lastError.clear();
     return rows;
 }
 

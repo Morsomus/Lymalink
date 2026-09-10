@@ -62,6 +62,7 @@ public:
     std::function<void(int32_t)> onCancelManualAchievementDataScan;
     std::function<void()> onTestToast;
     std::function<void()> onTestSound;
+    std::function<bool()> onIsFaulted;
 
 private:
     std::unique_ptr<sdbus::IConnection> m_connection;

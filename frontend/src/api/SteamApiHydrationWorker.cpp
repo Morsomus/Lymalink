@@ -419,9 +419,19 @@ QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &u
     const int urlCount = urls.size();
     for (int i = 0; i < urlCount; ++i)
     {
+        if (m_cancelled.loadAcquire())
+        {
+            return downloadedPath;
+        }
+
         const QString &url = urls.at(i);
         QString cachedPath = "";
         const Error err = m_imageCache->DownloadAndCache(url, savePath, targetSize, cachedPath, newName);
+        if (m_cancelled.loadAcquire())
+        {
+            return downloadedPath;
+        }
+
         if (err == Error::NoError && !cachedPath.isEmpty())
         {
             downloadedPath = cachedPath;

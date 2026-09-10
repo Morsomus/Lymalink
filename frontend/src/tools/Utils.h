@@ -22,6 +22,7 @@ QString RelativeTime(qint64 epochSeconds);
 QString LocalDate(qint64 epochSeconds);
 QString MapStringValue(const QVariantMap &row, const QString &key);
 int MapIntValue(const QVariantMap &row, const QString &key);
+QString MachineId();
 QString ReadTextResource(const QString& resourcePath);
 std::function<bool(const QVariant &, const QVariant &)> CreateVariantMapComparator(const QString &primaryKey, const QString &secondaryKey = QString(), const QString &tertiaryKey = QString());
 

@@ -20,6 +20,7 @@ Popup {
     property string p_message: ""
 
     // Internals _____________________________________________
+    property var pendingErrors: []
     readonly property int edgeMargin: 24
     readonly property int maxPopupWidth: 420
     readonly property int overlayZ: 2000
@@ -36,10 +37,35 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     function showError(errorTitle, errorMessage) {
-        p_title = errorTitle || qsTr("Error")
-        p_message = errorMessage || qsTr("An error occurred.")
+        const error = {
+            title: errorTitle || qsTr("Error"),
+            message: errorMessage || qsTr("An error occurred.")
+        }
+
+        if (opened) {
+            pendingErrors.push(error)
+            return
+        }
+
+        displayError(error)
+    }
+
+    function displayError(error) {
+        p_title = error.title
+        p_message = error.message
         open()
         // id_autoCloseTimer.restart()
+    }
+
+    onClosed: {
+        if (pendingErrors.length === 0) {
+            return
+        }
+
+        const nextError = pendingErrors.shift()
+        Qt.callLater(function() {
+            id_root.displayError(nextError)
+        })
     }
 
     // Timer {

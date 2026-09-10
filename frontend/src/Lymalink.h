@@ -12,9 +12,11 @@
 #include "api/SteamApiSearchWorker.h"
 #include "api/SteamApiHydrationWorker.h"
 #include "api/SteamImportAutoSyncWorker.h"
+#include "database/DatabaseUtils.h"
 #include "database/SQLiteManager.h"
 #include "tools/AppIdDirectoryFinder.h"
 #include "tools/FileManager.h"
+#include "Settings.h"
 
 #include <QObject>
 #include <QThread>
@@ -31,7 +33,7 @@ class Lymalink : public QObject
     Q_PROPERTY(bool steamImportAutoSyncBusy READ GetSteamImportAutoSyncBusy NOTIFY signalSteamImportAutoSyncBusyChanged)
 
 public:
-    explicit Lymalink(QObject *parent = nullptr);
+    explicit Lymalink(Settings *settings, QObject *parent = nullptr);
     ~Lymalink();
 
     Error Initialize();
@@ -64,6 +66,9 @@ public:
     Q_INVOKABLE QString GetTargetExecutableLocation(int appId);
     Q_INVOKABLE QString GetTargetInstallationLocation(int appId);
     Q_INVOKABLE QString GetLastOperationError() const;
+    Q_INVOKABLE bool RestartApplication() const;
+    Q_INVOKABLE bool InitializeCustomDatabasePath(const QString &folderPath);
+    Q_INVOKABLE bool ProbeDatabaseRuntimeWriteAccess();
     Q_INVOKABLE QVariantList ReloadAllMissingMetadata();
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
@@ -92,7 +97,9 @@ signals:
     
 private:
     FileManager m_fileManager;
+    DatabaseUtils m_databaseUtils;
     SQLiteManager m_databaseManager;
+    Settings *m_settings;
     QString m_databaseConnectionName;
     QString m_databasePath;
     QString m_lastOperationError;
@@ -107,7 +114,7 @@ private:
     QThread *m_appIdFolderFindThread;
     bool m_appIdFolderFindBusy;
 
-    Error DatabaseInit();
+    Error DatabaseInit(const QString &databasePath = QString(), bool createMissingDb = true, bool missingDbIsFatalErr = true);
     Error FileSystemInit();
     bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef, bool *columnAdded = nullptr);
     bool ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);

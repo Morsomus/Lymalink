@@ -7,6 +7,7 @@
 /////////////////////////////////////////////////////////
 
 #include "DataTransporter.h"
+#include "../Settings.h"
 #include "../Defines.h"
 #include "../tools/Utils.h"
 
@@ -18,7 +19,6 @@
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QStandardPaths>
 #include <QSet>
 
 #include <algorithm>
@@ -27,10 +27,12 @@
 
 /////////////////////////////////////////////////////////////////////
 
-DataTransporter::DataTransporter(QObject *parent) : QObject(parent)
+DataTransporter::DataTransporter(Settings *settings, QObject *parent) :
+    QObject(parent),
+    m_databaseManager(settings && !settings->GetDatabaseCustomPath().trimmed().isEmpty() ? &m_databaseUtils : nullptr)
 {
     m_databaseConnectionName = QString("%1_data_transporter").arg(DATABASE_CONNECTION_NAME);
-    m_databasePath = DefaultDatabasePath();
+    m_databasePath = settings ? settings->GetActiveDatabasePath() : QString();
 }
 
 DataTransporter::~DataTransporter()
@@ -272,14 +274,6 @@ void DataTransporter::ClearAchievementImportPreview()
 
 /////////////////////////////////////////////////////////////////////
 ////////////////////////////// PRIVATE //////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
-QString DataTransporter::DefaultDatabasePath() const
-{
-    const QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return appDataPath.isEmpty() ? QString() : QDir(appDataPath).filePath(DATABASE_FILE_NAME);
-}
-
 /////////////////////////////////////////////////////////////////////
 
 bool DataTransporter::EnsureDatabaseOpen(QVariantMap &payload)
