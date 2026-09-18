@@ -156,6 +156,12 @@ They update automatically when `lymalinkd` is running and the game executable an
 If all of the above conditions are met, you are good to go. If not, then double check the target settings.
 
 ###
+### Where does Lymalink store achievement data?
+Lymalink saves its own achievement data in a local SQLite database named `lymalink_database`.
+- By default, it is stored at `%APPDATA%\Lymalink\lymalink_database`. If you selected a custom database location in Settings, the database is stored in that folder instead.
+- The database contains your tracked targets, achievement lists, unlock states and dates, playtime, hidden target state, and the paths Lymalink uses to find emulator achievement files.
+
+###
 ### Why are achievements not being detected?
 If your progress does not update:
 - Check the service status displayed on the sidebar; it should show a solid or breathing green indicator. You can also try restarting the background service on the Settings page.
