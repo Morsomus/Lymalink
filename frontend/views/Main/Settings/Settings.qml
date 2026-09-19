@@ -623,8 +623,8 @@ Item {
 
         p_title: qsTr("Import Existing Targets")
         p_description: qsTr("The imported data contains targets that already exist in your library.\nChoose how each target should be handled:\n\n" +
-            "Merge: Adds missing achievements, updates progress only when imported progress is higher, and unlocks currently locked achievements. Existing unlock dates and game metadata remain unchanged.\n\n" +
-            "Replace: Removes all existing achievements and replaces them with the imported data.")
+            "Merge: Adds missing achievements, raises progress only, unlocks locked achievements, keeps existing unlock dates, and updates playtime only when imported playtime is higher.\n\n" +
+            "Replace: Removes all existing achievements, metadata, including playtime and replaces them with the imported data.")
         p_mergeText: qsTr("Merge")
         p_replaceText: qsTr("Replace")
         p_cancelText: qsTr("Cancel")

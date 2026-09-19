@@ -676,6 +676,18 @@ bool DataTransporter::InsertImportedAchievement(int gameId, const ImportedAchiev
 
 bool DataTransporter::RefreshImportedGameCounts(const ImportedGame &game, qint64 now, QString &error)
 {
+    const QVariantMap existingGame = m_databaseManager.selectFirst(
+        m_databaseConnectionName,
+        DATABASE_TABLE_EMU_GAMES,
+        "id = ?",
+        {game.id}
+    );
+    if (existingGame.isEmpty())
+    {
+        error = tr("Couldn't refresh imported game metadata for %1: %2").arg(game.name, m_databaseManager.lastError());
+        return false;
+    }
+
     const int totalCount = m_databaseManager.count(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_ACHIEVEMENTS,
@@ -706,6 +718,7 @@ bool DataTransporter::RefreshImportedGameCounts(const ImportedGame &game, qint64
             {"target_hidden", game.hidden ? 1 : 0},
             {"total_amount_achievements", totalCount},
             {"total_unlocked_amount_achievements", unlockedCount},
+            {"total_seconds_played", qMax(Utils::MapIntValue(existingGame, "total_seconds_played"), game.totalSecondsPlayed)},
             {"date_updated", now}
         },
         "id = ?",
