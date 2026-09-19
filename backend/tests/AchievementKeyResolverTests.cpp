@@ -37,7 +37,7 @@ TEST_CASE("achievementKeyResolver_resolvesPreparedCRCKey", "[resolver]")
     cleanupDb(dbPath);
 
     SQLiteManager mgr;
-    REQUIRE(mgr.CreateDatabase(CONN, dbPath));
+    REQUIRE(mgr.CreateDatabase(CONN, dbPath, true));
     REQUIRE(mgr.CreateTable(CONN, DATABASE_TABLE_EMU_ACHIEVEMENTS, {
         "id INTEGER",
         "achievement_key TEXT",

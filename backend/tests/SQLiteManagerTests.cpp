@@ -58,12 +58,30 @@ TEST_CASE("createDatabase_opensConnectionAndCreatesFile", "[database]")
     cleanupDb(DB_PATH);
     SQLiteManager m;
 
-    REQUIRE(m.OpenDatabase(CONN, DB_PATH));
+    REQUIRE(m.OpenDatabase(CONN, DB_PATH, true));
     CHECK(m.IsDatabaseOpen(CONN));
     CHECK(fs::exists(DB_PATH));
 
     m.CloseDatabase(CONN);
     CHECK_FALSE(m.IsDatabaseOpen(CONN));
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("createDatabase_rollbackMode_doesNotCreateWalSideFiles", "[database]")
+{
+    const std::string path = "/tmp/test_sqlitemgr_rollback.db";
+    cleanupDb(path);
+    SQLiteManager m;
+
+    REQUIRE(m.CreateDatabase(CONN, path, false));
+    REQUIRE(m.ExecuteSql(CONN, "CREATE TABLE t (x INTEGER)"));
+    REQUIRE(m.ExecuteSql(CONN, "INSERT INTO t VALUES (1)"));
+    CHECK_FALSE(fs::exists(path + "-wal"));
+    CHECK_FALSE(fs::exists(path + "-shm"));
+
+    m.CloseDatabase(CONN);
+    cleanupDb(path);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -146,7 +164,7 @@ TEST_CASE("invalidQuery_setsLastError", "[error]")
 TEST_CASE("openDatabase_alreadyOpen_returnsTrue", "[connection]")
 {
     TestDb t;
-    CHECK(t.mgr.OpenDatabase(CONN, DB_PATH));
+    CHECK(t.mgr.OpenDatabase(CONN, DB_PATH, true));
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -164,7 +182,7 @@ TEST_CASE("isDatabaseOpen_emptyConnection_usesDefaultConnection", "[connection]"
     cleanupDb(DB_PATH);
     SQLiteManager m;
 
-    REQUIRE(m.OpenDatabase("", DB_PATH));
+    REQUIRE(m.OpenDatabase("", DB_PATH, true));
     CHECK(m.IsDatabaseOpen(""));
 
     m.CloseDatabase("");
@@ -193,7 +211,7 @@ TEST_CASE("createDatabase_nestedDirectories_createsPathAndFile", "[database]")
     fs::remove_all(root);
 
     SQLiteManager m;
-    REQUIRE(m.CreateDatabase(CONN, nested));
+    REQUIRE(m.CreateDatabase(CONN, nested, true));
     CHECK(fs::exists(nested));
 
     m.CloseDatabase(CONN);
@@ -514,7 +532,7 @@ TEST_CASE("transactionCommit_persistsInsertedRows", "[transaction]")
     REQUIRE(t.mgr.CommitTransaction(CONN));
 
     t.mgr.CloseDatabase(CONN);
-    REQUIRE(t.mgr.OpenDatabase(CONN, DB_PATH));
+    REQUIRE(t.mgr.OpenDatabase(CONN, DB_PATH, true));
     CHECK(t.mgr.Count(CONN, TABLE) == 1);
 }
 
@@ -595,7 +613,7 @@ TestDb::TestDb(const std::string &dbPath)
     : path(dbPath)
 {
     cleanupDb(path);
-    REQUIRE(mgr.CreateDatabase(CONN, path));
+    REQUIRE(mgr.CreateDatabase(CONN, path, true));
     REQUIRE(mgr.CreateTable(CONN, TABLE, COLS));
 }
 

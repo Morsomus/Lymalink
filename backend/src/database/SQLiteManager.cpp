@@ -41,7 +41,7 @@ SQLiteManager::~SQLiteManager()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::string &dbPath)
+bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::string &dbPath, bool useWal)
 {
     const std::string conn = ResolveConn(connectionName);
 
@@ -65,10 +65,25 @@ bool SQLiteManager::OpenDatabase(const std::string &connectionName, const std::s
         return false;
     }
 
-    // WAL mode + busy timeout + foreign keys
-    sqlite3_busy_timeout(db, 5000);
-    sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
-    sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
+    std::string journalError;
+    bool success = false;
+    if (useWal)
+    {
+        // WAL mode + busy timeout + foreign keys
+        success = ConfigureWalConnection(db, journalError);
+    }
+    else
+    {
+        // DELETE mode + busy timeout + foreign keys
+        success = ConfigureRollbackConnection(db, journalError);
+    }
+
+    if (!success)
+    {
+        SetLastError(std::format("openDatabase: journal mode setup failed: {}", journalError));
+        sqlite3_close_v2(db);
+        return false;
+    }
 
     m_dbConnections[conn] = Conn{db, dbPath};
     m_lastError.clear();
@@ -107,7 +122,7 @@ bool SQLiteManager::IsDatabaseOpen(const std::string &connectionName) const
 
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::CreateDatabase(const std::string &connectionName, const std::string &dbPath)
+bool SQLiteManager::CreateDatabase(const std::string &connectionName, const std::string &dbPath, bool useWal)
 {
     const fs::path p(dbPath);
     const fs::path dir = p.parent_path();
@@ -123,7 +138,7 @@ bool SQLiteManager::CreateDatabase(const std::string &connectionName, const std:
         }
     }
 
-    if (!OpenDatabase(connectionName, dbPath))
+    if (!OpenDatabase(connectionName, dbPath, useWal))
     {
         return false;
     }
@@ -648,6 +663,72 @@ sqlite3 *SQLiteManager::GetDb(const std::string &connectionName) const
     }
 
     return nullptr;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::ConfigureWalConnection(sqlite3 *db, std::string &error)
+{
+    sqlite3_busy_timeout(db, 5000);
+
+    std::string mode;
+    if (!ExecutePragmaText(db, "PRAGMA journal_mode=WAL;", mode, error))
+    {
+        return false;
+    }
+    if (mode != "wal")
+    {
+        error = std::format("PRAGMA journal_mode=WAL failed, returned '{}'", mode);
+        return false;
+    }
+
+    sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::ConfigureRollbackConnection(sqlite3 *db, std::string &error)
+{
+    sqlite3_busy_timeout(db, 5000);
+
+    std::string mode;
+    if (!ExecutePragmaText(db, "PRAGMA journal_mode=DELETE;", mode, error))
+    {
+        return false;
+    }
+    if (mode != "delete")
+    {
+        error = std::format("PRAGMA journal_mode=DELETE failed, returned '{}'", mode);
+        return false;
+    }
+
+    sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::ExecutePragmaText(sqlite3 *db, const std::string &sql, std::string &value, std::string &error) const
+{
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        error = sqlite3_errmsg(db);
+        return false;
+    }
+
+    if (sqlite3_step(stmt) != SQLITE_ROW)
+    {
+        error = sqlite3_errmsg(db);
+        sqlite3_finalize(stmt);
+        return false;
+    }
+
+    const unsigned char *text = sqlite3_column_text(stmt, 0);
+    value = text != nullptr ? reinterpret_cast<const char *>(text) : "";
+    sqlite3_finalize(stmt);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -39,6 +39,8 @@ Lymalink::Lymalink(Settings *settings, QObject *parent) :
     m_databaseManager(settings && !settings->GetDatabaseCustomPath().trimmed().isEmpty() ? &m_databaseUtils : nullptr)
 {
     m_settings = settings;
+    m_useDefaultDbPath = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
+    m_useDbWalMode = true;
     m_databaseConnectionName = DATABASE_CONNECTION_NAME;
     m_databasePath = "";
     m_steamApiSearchWorker = nullptr;
@@ -145,8 +147,7 @@ Error Lymalink::Initialize()
         });
     m_hydrationWorkerThread.start();
 
-    const bool useCustomDatabasePath = m_settings && !m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    initResult = DatabaseInit(QString(), !useCustomDatabasePath, !useCustomDatabasePath);
+    initResult = DatabaseInit(QString(), m_useDefaultDbPath);
 
     return initResult;
 }
@@ -405,8 +406,7 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     }
 
     // Open database lazily for QML calls made after startup
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::CreateNewSteamEmuTarget: failed to open database for emulator target:" << m_databaseManager.lastError();
@@ -510,8 +510,7 @@ QVariantMap Lymalink::ImportSteamGames(QVariantList games, const QString &steamI
         return payload;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         payload["errors"] = QVariantList{m_lastOperationError};
@@ -739,8 +738,7 @@ QVariantMap Lymalink::UpdateSteamImports(QVariantList games, const QString &stea
         return payload;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         payload["errors"] = QVariantList{m_lastOperationError};
@@ -1138,8 +1136,7 @@ bool Lymalink::SetTargetHidden(int appId, bool hidden, const QString &targetType
     }
 
     // Ensure database is open before toggling visibility
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::SetTargetHidden: failed to open database for target hidden update:" << m_databaseManager.lastError();
         return targetUpdated;
@@ -1169,8 +1166,7 @@ bool Lymalink::SetAllTargetsHidden(bool hidden, const QString &targetType)
     const QString normalizedTargetType = NormalizeTargetType(targetType);
     const QString gameTable = GameTableForTargetType(normalizedTargetType);
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::SetAllTargetsHidden: failed to open database for target hidden update:" << m_databaseManager.lastError();
         return targetsUpdated;
@@ -1210,8 +1206,7 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
         return targetUpdated;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::SetTargetPrefixLocation: failed to open database for target prefix location update:" << m_databaseManager.lastError();
         return targetUpdated;
@@ -1256,8 +1251,7 @@ bool Lymalink::SetTargetExecutableLocation(int appId, const QString &executableP
         return targetUpdated;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::SetTargetExecutableLocation: failed to open database for target executable location update:" << m_databaseManager.lastError();
@@ -1313,8 +1307,7 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
         return targetUpdated;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::SetTargetInstallationLocation: failed to open database for target installation directory update:" << m_databaseManager.lastError();
@@ -1483,8 +1476,7 @@ bool Lymalink::ResetTargetAchievementDataLocation(int appId)
         return targetUpdated;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::ResetTargetAchievementDataLocation: failed to open database:" << m_databaseManager.lastError();
@@ -1528,8 +1520,7 @@ bool Lymalink::SetAchievementUnlocked(int appId, const QString &achievementKey, 
         return achievementStateUpdated;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::SetAchievementUnlocked: failed to open database for achievement unlock update:" << m_databaseManager.lastError();
         return achievementStateUpdated;
@@ -1654,8 +1645,7 @@ bool Lymalink::DeleteTarget(int appId, const QString &targetType)
         return targetDeleted;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::DeleteTarget: failed to open database for target delete:" << m_databaseManager.lastError();
         return targetDeleted;
@@ -1825,6 +1815,15 @@ bool Lymalink::InitializeCustomDatabasePath(const QString &folderPath)
 {
     const QString databasePath = QDir(folderPath.trimmed()).filePath(DATABASE_FILE_NAME);
     bool customDbInitSuccess = DatabaseInit(databasePath, true) == Error::NoError;
+    if (customDbInitSuccess)
+    {
+        m_useDefaultDbPath = false;
+    }
+    else
+    {
+        m_useDefaultDbPath = true;
+    }
+
     return customDbInitSuccess;
 }
 
@@ -1832,7 +1831,7 @@ bool Lymalink::InitializeCustomDatabasePath(const QString &folderPath)
 
 bool Lymalink::ProbeDatabaseRuntimeWriteAccess()
 {
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, false))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, false, m_useDbWalMode))
     {
         const QString error = tr("Database check failed: %1").arg(m_databaseManager.lastError());
         emit signalErrorOccurred(tr("Database Error"), error);
@@ -1872,8 +1871,7 @@ QVariantList Lymalink::ReloadAllMissingMetadata()
 {
     QVariantList queuedTargets;
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::ReloadAllMissingMetadata: failed to open database:" << m_databaseManager.lastError();
         return queuedTargets;
@@ -1916,8 +1914,7 @@ QVariantList Lymalink::FetchDashboardTargets()
 {
     QVariantList targets;
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::FetchDashboardTargets: failed to open database for dashboard targets:" << m_databaseManager.lastError();
         return targets;
@@ -2069,8 +2066,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
         return targetDetails;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         qCritical() << "Lymalink::FetchTargetDetails: failed to open database for target details:" << m_databaseManager.lastError();
         return targetDetails;
@@ -2167,8 +2163,7 @@ QVariantMap Lymalink::FetchSteamOwnedGames(const QString &steamId, const QString
         return payload;
     }
 
-    const bool createMissingDb = m_settings == nullptr || m_settings->GetDatabaseCustomPath().trimmed().isEmpty();
-    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         m_lastOperationError = tr("Failed to open database for Steam import state.");
         payload["error"] = m_lastOperationError;
@@ -2213,9 +2208,13 @@ QVariantMap Lymalink::FetchSteamOwnedGames(const QString &steamId, const QString
 ///////////////////////////// PRIVATE ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-Error Lymalink::DatabaseInit(const QString &databasePath, bool createMissingDb, bool missingDbIsFatalErr)
+Error Lymalink::DatabaseInit(const QString &databasePath, bool createMissingDatabase)
 {
     Error databaseResult = Error::NoError;
+
+    // Default DB path uses WAL, missing DB is fatal error
+    const bool useWal = m_useDbWalMode;
+    const bool missingDbIsFatalErr = m_useDefaultDbPath;
 
     m_databasePath = databasePath.trimmed().isEmpty()
         ? (m_settings ? m_settings->GetActiveDatabasePath() : QString())
@@ -2233,20 +2232,20 @@ Error Lymalink::DatabaseInit(const QString &databasePath, bool createMissingDb, 
     {
         // Open existing database file
         qDebug() << "Lymalink::DatabaseInit: database already exists at" << m_databasePath;
-        if (!m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDb))
+        if (!m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, createMissingDatabase, useWal))
         {
             qCritical() << "Lymalink::DatabaseInit: failed to open database:" << m_databaseManager.lastError();
             databaseResult = Error::DatabaseError;
             return databaseResult;
         }
     }
-    else if (!createMissingDb)
+    else if (!createMissingDatabase)
     {
         m_lastOperationError = tr("Database file not found: %1").arg(m_databasePath);
         qCritical() << "Lymalink::DatabaseInit:" << m_lastOperationError;
         return missingDbIsFatalErr ? Error::DatabaseError : Error::NoError;
     }
-    else if (!m_databaseManager.createDatabase(m_databaseConnectionName, m_databasePath))
+    else if (!m_databaseManager.createDatabase(m_databaseConnectionName, m_databasePath, useWal))
     {
         qCritical() << "Lymalink::DatabaseInit: failed to create/open database:" << m_databaseManager.lastError();
         databaseResult = Error::DatabaseError;

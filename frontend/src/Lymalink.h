@@ -100,6 +100,8 @@ private:
     DatabaseUtils m_databaseUtils;
     SQLiteManager m_databaseManager;
     Settings *m_settings;
+    bool m_useDefaultDbPath;
+    bool m_useDbWalMode;
     QString m_databaseConnectionName;
     QString m_databasePath;
     QString m_lastOperationError;
@@ -114,7 +116,7 @@ private:
     QThread *m_appIdFolderFindThread;
     bool m_appIdFolderFindBusy;
 
-    Error DatabaseInit(const QString &databasePath = QString(), bool createMissingDb = true, bool missingDbIsFatalErr = true);
+    Error DatabaseInit(const QString &databasePath, bool createMissingDatabase);
     Error FileSystemInit();
     bool EnsureColumn(const QString &tableName, const QString &columnName, const QString &columnDef, bool *columnAdded = nullptr);
     bool ApplyNewAchievements(int appId, QString targetType, QVariantList achievements);

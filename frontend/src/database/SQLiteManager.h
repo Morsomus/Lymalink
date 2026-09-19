@@ -31,13 +31,13 @@ public:
     ~SQLiteManager();
 
     // Connection methods
-    bool openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb = true);
+    bool openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal);
     void closeDatabase(const QString &connectionName);
     bool isDatabaseOpen(const QString &connectionName) const;
     bool databaseAvailable(const QString &connectionName);
 
     // Database
-    bool createDatabase(const QString &connectionName, const QString &dbPath);
+    bool createDatabase(const QString &connectionName, const QString &dbPath, bool useWal);
     bool deleteDatabase(const QString &connectionName, const QString &dbPath);
     bool databaseFileExists(const QString &dbPath) const;
 
@@ -77,6 +77,8 @@ private:
 
     QString resolveConn(const QString &connectionName) const;
     QSqlDatabase getDb(const QString &connectionName) const;
+    bool configureWalConnection(QSqlDatabase &db, QString &error);
+    bool configureRollbackConnection(QSqlDatabase &db, QString &error);
     QVariantList fetchRows(QSqlQuery &query) const;
     bool isDatabaseWriteAllowed(const QString &connectionName, bool allowUnlockedInitWrite = false);
     void setLastError(const QString &error);

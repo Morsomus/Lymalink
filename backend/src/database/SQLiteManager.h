@@ -37,12 +37,12 @@ public:
     SQLiteManager &operator=(SQLiteManager &&) = default;
 
     // Connection
-    bool OpenDatabase(const std::string &connectionName, const std::string &dbPath);
+    bool OpenDatabase(const std::string &connectionName, const std::string &dbPath, bool useWal);
     void CloseDatabase(const std::string &connectionName);
     bool IsDatabaseOpen(const std::string &connectionName) const;
 
     // Database
-    bool CreateDatabase(const std::string &connectionName, const std::string &dbPath);
+    bool CreateDatabase(const std::string &connectionName, const std::string &dbPath, bool useWal);
     bool DeleteDatabase(const std::string &connectionName, const std::string &dbPath);
     bool DatabaseFileExists(const std::string &dbPath) const;
 
@@ -89,6 +89,9 @@ private:
 
     std::string ResolveConn(const std::string &name) const;
     sqlite3 *GetDb(const std::string &name) const;  // nullptr if not open
+    bool ConfigureWalConnection(sqlite3 *db, std::string &error);
+    bool ConfigureRollbackConnection(sqlite3 *db, std::string &error);
+    bool ExecutePragmaText(sqlite3 *db, const std::string &sql, std::string &value, std::string &error) const;
     void SetLastError(const std::string &err);
     bool BindValues(sqlite3_stmt *stmt, const std::vector<DbValue> &vals, int startIdx = 1);
     DbRows FetchRows(sqlite3_stmt *stmt);

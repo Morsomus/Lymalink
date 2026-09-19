@@ -42,7 +42,7 @@ SQLiteManager::~SQLiteManager()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb)
+bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal)
 {
     const QString conn = resolveConn(connectionName);
     if (!createMissingDb && !QFileInfo::exists(dbPath))
@@ -73,11 +73,29 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
         return false;
     }
 
-    // Enable WAL mode + foreign keys
-    QSqlQuery q(db);
-    q.exec("PRAGMA journal_mode=WAL");
-    q.exec("PRAGMA busy_timeout=5000");
-    q.exec("PRAGMA foreign_keys=ON");
+    QString journalError;
+    bool success = false;
+    if (useWal)
+    {
+        // WAL mode + busy timeout + foreign keys
+        success = configureWalConnection(db, journalError);
+    }
+    else
+    {
+        // DELETE mode + busy timeout + foreign keys
+        success = configureRollbackConnection(db, journalError);
+    }
+
+    if (!success)
+    {
+        setLastError(QString("Database journal setup failed: %1").arg(journalError));
+        emit signalDatabaseError(m_lastError);
+
+        db.close();
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(conn);
+        return false;
+    }
 
     m_dbConnections[conn] = db;
     m_lastError.clear();
@@ -153,7 +171,7 @@ bool SQLiteManager::databaseAvailable(const QString &connectionName)
 
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::createDatabase(const QString &connectionName, const QString &dbPath)
+bool SQLiteManager::createDatabase(const QString &connectionName, const QString &dbPath, bool useWal)
 {
     // Ensure the target directory exists, create it if necessary
     const QFileInfo fi(dbPath);
@@ -169,7 +187,7 @@ bool SQLiteManager::createDatabase(const QString &connectionName, const QString 
     }
 
     // SQLite creates the file automatically on first open
-    if (!openDatabase(connectionName, dbPath))
+    if (!openDatabase(connectionName, dbPath, true, useWal))
     {
         return false;
     }
@@ -729,6 +747,54 @@ QSqlDatabase SQLiteManager::getDb(const QString &connectionName) const
         return m_dbConnections[conn];
     }
     return QSqlDatabase(); // invalid / not-open db
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::configureWalConnection(QSqlDatabase &db, QString &error)
+{
+    QSqlQuery q(db);
+    q.exec("PRAGMA busy_timeout=5000");
+
+    if (!q.exec("PRAGMA journal_mode=WAL") || !q.next())
+    {
+        error = q.lastError().isValid() ? q.lastError().text() : "Failed to execute PRAGMA journal_mode=WAL";
+        return false;
+    }
+
+    const QString mode = q.value(0).toString().toLower();
+    if (mode != "wal")
+    {
+        error = QString("PRAGMA journal_mode=WAL failed, returned '%1'").arg(mode);
+        return false;
+    }
+
+    q.exec("PRAGMA foreign_keys=ON");
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool SQLiteManager::configureRollbackConnection(QSqlDatabase &db, QString &error)
+{
+    QSqlQuery q(db);
+    q.exec("PRAGMA busy_timeout=5000");
+
+    if (!q.exec("PRAGMA journal_mode=DELETE") || !q.next())
+    {
+        error = q.lastError().isValid() ? q.lastError().text() : "Failed to execute PRAGMA journal_mode=DELETE";
+        return false;
+    }
+
+    const QString mode = q.value(0).toString().toLower();
+    if (mode != "delete")
+    {
+        error = QString("PRAGMA journal_mode=DELETE failed, returned '%1'").arg(mode);
+        return false;
+    }
+
+    q.exec("PRAGMA foreign_keys=ON");
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////

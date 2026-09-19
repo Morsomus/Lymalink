@@ -31,8 +31,13 @@ DataTransporter::DataTransporter(Settings *settings, QObject *parent) :
     QObject(parent),
     m_databaseManager(settings && !settings->GetDatabaseCustomPath().trimmed().isEmpty() ? &m_databaseUtils : nullptr)
 {
+    m_useDefaultDbPath = settings == nullptr || settings->GetDatabaseCustomPath().trimmed().isEmpty();
+    m_useDbWalMode = true;
     m_databaseConnectionName = QString("%1_data_transporter").arg(DATABASE_CONNECTION_NAME);
     m_databasePath = settings ? settings->GetActiveDatabasePath() : QString();
+    m_cachedImportFilePath = "";
+    m_cachedImportGames = {};
+    m_hasCachedImport = false;
 }
 
 DataTransporter::~DataTransporter()
@@ -295,7 +300,7 @@ bool DataTransporter::EnsureDatabaseOpen(QVariantMap &payload)
         return true;
     }
 
-    if (!m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath))
+    if (!m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
         payload = ErrorPayload(tr("Couldn't open database: %1").arg(m_databaseManager.lastError()));
         return false;

@@ -43,6 +43,7 @@ private slots:
     // File management
     void createDatabase_nestedDirectories_createsPathAndFile();
     void deleteDatabase_removesWalAndShmSideFiles();
+    void createDatabase_rollbackMode_doesNotCreateWalSideFiles();
     void databaseFileExists_missingFile_returnsFalse();
 
     // CRUD edge cases
@@ -94,7 +95,7 @@ void SQLiteManagerTests::createDatabase_opensConnectionAndCreatesFile()
     const QString conn = "create_connection";
     const QString path = dbPath(d);
 
-    QVERIFY(m.createDatabase(conn, path));
+    QVERIFY(m.createDatabase(conn, path, true));
     QVERIFY(m.isDatabaseOpen(conn));
     QVERIFY(m.databaseFileExists(path));
 
@@ -217,8 +218,8 @@ void SQLiteManagerTests::openDatabase_alreadyOpen_returnsTrueWithoutReopening()
     QSignalSpy statusSpy(&m, &SQLiteManager::signalConnectionStatusChanged);
     const QString conn = "reopen_connection";
 
-    QVERIFY(m.openDatabase(conn, dbPath(d)));
-    QVERIFY(m.openDatabase(conn, dbPath(d))); // second call - already open
+    QVERIFY(m.openDatabase(conn, dbPath(d), true, true));
+    QVERIFY(m.openDatabase(conn, dbPath(d), true, true)); // second call - already open
     // Signal must have fired exactly once (no reconnect)
     QCOMPARE(statusSpy.count(), 1);
 }
@@ -231,7 +232,7 @@ void SQLiteManagerTests::openDatabase_invalidPath_returnsFalseAndSetsError()
     QSignalSpy errorSpy(&m, &SQLiteManager::signalDatabaseError);
 
     // A path into a non-creatable location (root-owned directory on Linux/Windows)
-    const bool ok = m.openDatabase("bad", "/no_such_root_dir/sub/bad.db");
+    const bool ok = m.openDatabase("bad", "/no_such_root_dir/sub/bad.db", true, true);
     QVERIFY(!ok);
     QVERIFY(!m.lastError().isEmpty());
     QCOMPARE(errorSpy.count(), 1);
@@ -258,7 +259,7 @@ void SQLiteManagerTests::createDatabase_nestedDirectories_createsPathAndFile()
     SQLiteManager m;
     const QString nested = QDir(d.path()).filePath("a/b/c/deep.sqlite");
 
-    QVERIFY(m.createDatabase("deep", nested));
+    QVERIFY(m.createDatabase("deep", nested, true));
     QVERIFY(m.isDatabaseOpen("deep"));
     QVERIFY(QFileInfo::exists(nested));
 }
@@ -272,13 +273,29 @@ void SQLiteManagerTests::deleteDatabase_removesWalAndShmSideFiles()
     const QString conn = "wal_connection";
     const QString path = dbPath(d, "wal.sqlite");
 
-    QVERIFY(m.createDatabase(conn, path));
+    QVERIFY(m.createDatabase(conn, path, true));
     // A write forces WAL file creation
     QVERIFY(m.executeSql(conn, "CREATE TABLE t (x INTEGER)"));
     QVERIFY(m.executeSql(conn, "INSERT INTO t VALUES (1)"));
 
     QVERIFY(m.deleteDatabase(conn, path));
     QVERIFY(!QFileInfo::exists(path));
+    QVERIFY(!QFileInfo::exists(path + "-wal"));
+    QVERIFY(!QFileInfo::exists(path + "-shm"));
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SQLiteManagerTests::createDatabase_rollbackMode_doesNotCreateWalSideFiles()
+{
+    QTemporaryDir d; QVERIFY(d.isValid());
+    SQLiteManager m;
+    const QString conn = "rollback_connection";
+    const QString path = dbPath(d, "rollback.sqlite");
+
+    QVERIFY(m.createDatabase(conn, path, false));
+    QVERIFY(m.executeSql(conn, "CREATE TABLE t (x INTEGER)"));
+    QVERIFY(m.executeSql(conn, "INSERT INTO t VALUES (1)"));
     QVERIFY(!QFileInfo::exists(path + "-wal"));
     QVERIFY(!QFileInfo::exists(path + "-shm"));
 }
@@ -423,7 +440,7 @@ void SQLiteManagerTests::transactionCommit_persistsInsertedRows()
     SQLiteManager m;
     const QString conn = "commit_connection";
     const QString path = dbPath(d);
-    QVERIFY(m.createDatabase(conn, path));
+    QVERIFY(m.createDatabase(conn, path, true));
     QVERIFY(makePeople(m, conn));
 
     QVERIFY(m.beginTransaction(conn));
@@ -432,7 +449,7 @@ void SQLiteManagerTests::transactionCommit_persistsInsertedRows()
 
     // Re-open to confirm persistence
     m.closeDatabase(conn);
-    QVERIFY(m.openDatabase(conn, path));
+    QVERIFY(m.openDatabase(conn, path, true, true));
     QCOMPARE(m.count(conn, "people"), 1);
 }
 
@@ -536,7 +553,7 @@ void SQLiteManagerTests::customDatabasePath_withoutLock_blocksWrites()
     QSignalSpy errorSpy(&m, &SQLiteManager::signalDatabaseError);
     const QString conn = "external_without_lock_connection";
 
-    QVERIFY(m.createDatabase(conn, dbPath(d)));
+    QVERIFY(m.createDatabase(conn, dbPath(d), true));
     QVERIFY(m.createTable(conn, "people", {
         "id   INTEGER PRIMARY KEY AUTOINCREMENT",
         "name TEXT    NOT NULL",
@@ -598,7 +615,7 @@ void SQLiteManagerTests::customDatabasePath_withCurrentLock_allowsWrites()
     SQLiteManager m(&databaseUtils);
     const QString conn = "custom_db_path_with_lock_connection";
 
-    QVERIFY(m.createDatabase(conn, path));
+    QVERIFY(m.createDatabase(conn, path, true));
     QVERIFY(makePeople(m, conn));
     QVERIFY(m.insert(conn, "people", person("Ada", 36)));
     QCOMPARE(m.count(conn, "people"), 1);
@@ -684,7 +701,7 @@ QString SQLiteManagerTests::dbPath(QTemporaryDir &d, const QString &f) const
 
 bool SQLiteManagerTests::openedDb(SQLiteManager &m, const QString &conn, QTemporaryDir &d) const
 {
-    return m.createDatabase(conn, dbPath(d));
+    return m.createDatabase(conn, dbPath(d), true);
 }
 
 /////////////////////////////////////////////////////////////////////

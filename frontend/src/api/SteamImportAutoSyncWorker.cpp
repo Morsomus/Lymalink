@@ -75,7 +75,7 @@ void SteamImportAutoSyncWorker::Run(const QString &databasePath, const QString &
     DatabaseUtils databaseUtils;
     SQLiteManager databaseManager(useCustomDatabasePath ? &databaseUtils : nullptr);
     const QString connectionName = QStringLiteral("steam_auto_sync_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
-    if (!databaseManager.openDatabase(connectionName, databasePath, !useCustomDatabasePath))
+    if (!databaseManager.openDatabase(connectionName, databasePath, !useCustomDatabasePath, true))
     {
         const QString errorText = tr("Steam progress sync failed: couldn't open target database.");
         payload["errors"] = QVariantList{errorText};

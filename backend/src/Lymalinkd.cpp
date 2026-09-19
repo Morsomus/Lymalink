@@ -296,7 +296,7 @@ Error Lymalinkd::DatabaseInit(std::string& res)
         return err;
     }
 
-    if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath))
+    if (!m_database.OpenDatabase(m_databaseConnectionName, m_databasePath, true))
     {
         LOG_BE(Urgency::Fatal, "Database open failed: %s", m_database.LastError().c_str());
         res = std::format("Database open failed: {}", m_database.LastError());

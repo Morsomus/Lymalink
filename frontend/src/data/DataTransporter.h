@@ -65,11 +65,13 @@ private:
 
     DatabaseUtils m_databaseUtils;
     SQLiteManager m_databaseManager;
+    bool m_useDefaultDbPath;
+    bool m_useDbWalMode;
     QString m_databaseConnectionName;
     QString m_databasePath;
     QString m_cachedImportFilePath;
     QVector<ImportedGame> m_cachedImportGames;
-    bool m_hasCachedImport = false;
+    bool m_hasCachedImport;
 
     bool EnsureDatabaseOpen(QVariantMap &payload);
     bool ReadImportFile(const QString &filePath, QVector<ImportedGame> &games, QString &error) const;
