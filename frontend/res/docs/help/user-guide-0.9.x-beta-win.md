@@ -183,9 +183,8 @@ If you encounter any bugs, rendering issues, or if the overlay does not appear o
 ### Why does Windows Defender flag Lymalink backend files?
 This can happen as a false positive with programs that provide in-game overlays or run in the background.
 
-Lymalink's backend updates current-user Windows settings so the background service can start with Windows, and it also registers the Vulkan overlay so achievement popups can appear inside games. The `lymalink-overlay-injector.exe` helper program is used to load the overlay into the running game process. Antivirus tools sometimes treat this kind of behavior as suspicious because similar techniques can also be used by unwanted software.
-
-Lymalink uses these actions only for background achievement tracking and in-game notifications. If you are unsure, you can always review the source code and compile Lymalink yourself from the official Lymalink repository.
+- Lymalink's backend updates current-user Windows settings so the background service can start with Windows, and it also registers the Vulkan overlay so achievement popups can appear inside games. The `lymalink-overlay-injector.exe` helper program is used to load the overlay into the running game process. Antivirus tools sometimes treat this kind of behavior as suspicious because similar techniques can also be used by unwanted software.
+- Lymalink uses these actions only for background achievement tracking and in-game notifications. If you are unsure, you can always review the source code and compile Lymalink yourself from the official Lymalink repository.
 
 ###
 ### Can I use Lymalink without the Dashboard?
