@@ -799,7 +799,7 @@ void Lymalinkd::InjectWindowsOverlayProcessTree(int targetId, uint32_t rootPid)
                     continue;
                 }
 
-                LOG_BE(Urgency::Info, "Windows overlay process-tree injection targetId=%d rootPid=%u pid=%u.", targetId, rootPid, pid);
+                LOG_BE(Urgency::Debug, "Windows overlay process-tree injection targetId=%d rootPid=%u pid=%u.", targetId, rootPid, pid);
                 const bool overlayMappingReady = m_overlayNotifications.RegisterProcess(targetId, pid);
                 if (!overlayMappingReady)
                 {
