@@ -116,6 +116,8 @@ Item {
             return
         }
 
+        ctxLymalink.CancelSteamHydration()
+
         if (path.length > 0 && !ctxLymalink.InitializeCustomDatabasePath(path)) {
             setCustomDatabasePathStatus(qsTr("Couldn't initialize database location: %1").arg(ctxLymalink.GetLastOperationError()))
             return
@@ -1617,21 +1619,21 @@ Item {
                                 CustomButton {
                                     text: qsTr("Verify")
                                     p_tooltipText: qsTr("Verify selected database path")
-                                    enabled: id_customDatabasePathInput.text.trim().length > 0
+                                    enabled: !id_root.hasActiveTarget && id_customDatabasePathInput.text.trim().length > 0
                                     onClicked: id_root.verifyCustomDatabasePath()
                                 }
 
                                 CustomButton {
                                     text: qsTr("Apply")
                                     p_tooltipText: qsTr("Save custom database location")
-                                    enabled: id_customDatabasePathInput.text.trim().length > 0 && id_customDatabasePathInput.text.trim() !== ctxSettings.databaseCustomPath.trim()
+                                    enabled: !id_root.hasActiveTarget && id_customDatabasePathInput.text.trim().length > 0 && id_customDatabasePathInput.text.trim() !== ctxSettings.databaseCustomPath.trim()
                                     onClicked: id_root.applyCustomDatabasePath()
                                 }
 
                                 CustomButton {
                                     text: qsTr("Reset to default")
                                     p_tooltipText: qsTr("Use the default database location")
-                                    enabled: ctxSettings.databaseCustomPath.trim().length > 0
+                                    enabled: !id_root.hasActiveTarget && ctxSettings.databaseCustomPath.trim().length > 0
                                     onClicked: {
                                         id_customDatabasePathInput.text = ""
                                         id_root.applyCustomDatabasePath()

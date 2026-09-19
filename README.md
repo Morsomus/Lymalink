@@ -21,7 +21,8 @@
 - **Target organization** - Sort, filter, and search tracked targets.
 - **Manual achievement control** - Manually unlock or lock achievements when needed.
 - **Customizable interface** - Configure card styles, show or hide UI elements, and adjust color themes from settings.
-- **System tray support** - Keep Lymalink accessible from the system tray.
+- **System tray support** - Access from the system tray.
+- **Custom database location** - Store your database anywhere, including external or network drives, to keep your data accessible across multiple systems.
 - **Export & Import** - Move your achievement data between devices or back it up in JSON format.
 - **Steam achievement import** - Import and sync your personal Steam achievements to the dashboard.
 
@@ -100,7 +101,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.9.4-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.9.5-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -113,7 +114,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/linux/build.sh
-./installer/linux/build/lymalink-installer-0.9.4-*-x86_64.run
+./installer/linux/build/lymalink-installer-0.9.5-*-x86_64.run
 ```
 
 ## Installation - Windows
@@ -131,7 +132,7 @@ Download the latest `lymalink-installer-<VERSION>-win-x64.exe` from the [Release
 ### Option 2: Building from Source
 
 ```powershell
-git clone --depth 1 --branch v0.9.4-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.9.5-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -145,7 +146,7 @@ Install the Windows dependencies documented for each component:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\installer\windows\build.ps1
-.\installer\windows\build\lymalink-installer-0.9.4-win-x64.exe
+.\installer\windows\build\lymalink-installer-0.9.5-win-x64.exe
 ```
 
 
