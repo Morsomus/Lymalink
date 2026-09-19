@@ -30,6 +30,7 @@ Item {
     property string p_activeLayout: "defaultCardGrid"
     property bool p_returnLocked: false
     property bool p_detailsRefreshBusy: false
+    property bool p_showAllHiddenAchievements: false
 
     signal layoutSelected(string size)
     signal returnClicked()
@@ -48,6 +49,7 @@ Item {
     signal targetDetailsSortSelected(string sort)
     signal targetDetailsSortOrderSelected(bool descending)
     signal targetDetailsFiltersSelected(var filters)
+    signal showAllHiddenAchievementsChanged(bool show)
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -722,6 +724,17 @@ Item {
                         isValueActive: true
                         pillValue: id_root.targetDetailsSortLabel(id_root.targetDetailsActiveSort)
                         onPillClicked: id_root.targetDetailsActivePanel = id_detailsSortPill.isOpen ? "" : "detailsSort"
+                    }
+
+                    // Hidden achievements pill
+                    C_SortFilterPill {
+                        pillLabel: qsTr("Hidden:")
+                        isValueActive: true
+                        pillValue: id_root.p_showAllHiddenAchievements ? qsTr("Revealed") : qsTr("Not visible")
+                        onPillClicked: {
+                            id_root.targetDetailsActivePanel = ""
+                            id_root.showAllHiddenAchievementsChanged(!id_root.p_showAllHiddenAchievements)
+                        }
                     }
 
                     // Order pill

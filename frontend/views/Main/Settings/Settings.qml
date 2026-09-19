@@ -1562,9 +1562,9 @@ Item {
 
                             text: qsTr(
                                 "Choose where Lymalink stores its database. Feature can be used for sharing the same achievement progress between operating systems or computers, for example from a shared drive or external device.\n" +
-                                "If the selected path already contains a database named 'lymalink_database', Lymalink will use that database. Otherwise, Apply checks write access and creates a new initialized database before restart.\n" +
+                                "If the selected path already contains a database named 'lymalink_database', Lymalink will use that database. Otherwise, Apply checks write access and creates a new initialized database before restart.\n\n" +
                                 "NOTE: Only one Lymalink instance should access the database at a time."
-                            )
+                            ) + (Qt.platform.os === "linux" ? qsTr("\nNOTE: If you experience database errors using a network location (e.g., SMB/Samba share), ensure your mount configuration (like /etc/fstab) includes the correct permissions and file locking parameters.") : "")
                         }
 
                         C_SettingRow {

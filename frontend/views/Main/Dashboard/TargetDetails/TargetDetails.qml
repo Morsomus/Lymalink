@@ -33,6 +33,7 @@ Item {
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
     property int p_globalColorStyle: 1
+    property bool p_showAllHiddenAchievements: false
     property alias p_achievementModel: id_achievementList.model
 
     signal achievementStateChanged(int appId)
@@ -257,11 +258,12 @@ Item {
         property bool unlocked: false
         property bool achievementHidden: false
         property bool revealed: false
+        property bool showAllHiddenAchievements: false
 
         // leftInset: positive = content shifted right, used for cover-zone indent
         property real leftInset: 0
         readonly property bool concealedHidden: achievementHidden && !unlocked
-        readonly property bool contentRevealed: !concealedHidden || revealed
+        readonly property bool contentRevealed: !concealedHidden || revealed || showAllHiddenAchievements
         readonly property real achievementProgressRatio: maxProgress > 0
             ? Math.max(0.0, Math.min(1.0, curProgress / maxProgress))
             : 0.0
@@ -294,7 +296,15 @@ Item {
             id_contentRevealAnimation.start()
         }
 
-        onRevealedChanged: concealedHidden && (revealed ? animateReveal() : snapToHidden())
+        onRevealedChanged: {
+            if (!showAllHiddenAchievements && concealedHidden) {
+                revealed ? animateReveal() : snapToHidden()
+            }
+        }
+        onShowAllHiddenAchievementsChanged: {
+            revealed = false
+            concealedHidden && (showAllHiddenAchievements ? animateReveal() : snapToHidden())
+        }
         onAchievementHiddenChanged: contentRevealed ? snapToRevealed() : snapToHidden()
         onUnlockedChanged: contentRevealed ? snapToRevealed() : snapToHidden()
         Component.onCompleted: {
@@ -341,7 +351,7 @@ Item {
         }
 
         TapHandler {
-            enabled: id_row.achievementHidden && !id_row.unlocked
+            enabled: id_row.achievementHidden && !id_row.unlocked && !id_row.showAllHiddenAchievements
             onTapped: id_row.revealed = !id_row.revealed
             cursorShape: Qt.PointingHandCursor
         }
@@ -367,7 +377,7 @@ Item {
             Rectangle {
                 width: 64
                 height: 64
-                color: id_row.concealedHidden && id_row.revealed
+                color: id_row.concealedHidden && id_row.contentRevealed
                     ? "transparent"
                     : Themes.targetDetails.colors.coverBackground
 
@@ -384,7 +394,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    visible: id_row.concealedHidden && !id_row.revealed
+                    visible: id_row.concealedHidden && !id_row.contentRevealed
                     text: "?"
                     color: Themes.targetDetails.colors.text
                     font.pixelSize: Themes.targetDetails.fontSizes.hiddenIcon
@@ -955,6 +965,7 @@ Item {
             unlocked: model.unlocked
 
             achievementHidden: model.achievementHidden
+            showAllHiddenAchievements: id_root.p_showAllHiddenAchievements
         }
 
         // Empty state

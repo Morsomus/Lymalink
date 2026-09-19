@@ -40,6 +40,7 @@ Item {
     property string targetDetailsActiveSort: "unlockDate"
     property bool targetDetailsSortDescending: false
     property var targetDetailsActiveFilters: ["all"]
+    property bool showAllHiddenAchievements: false
     property var pendingLocalAchievementScanAppIds: []
     property bool localAchievementScanActive: false
     property int detailsRefreshScanAppId: 0
@@ -52,6 +53,7 @@ Item {
     onShowingTargetDetailsChanged: {
         id_dashboardToolbar.closeOpenPanels()
         if (!showingTargetDetails) {
+            id_root.showAllHiddenAchievements = false
             id_root.cancelDetailsRefreshScan()
         }
     }
@@ -543,6 +545,7 @@ Item {
         id_root.refreshTargetDetailsAchievements()
 
         id_root.pendingTargetDetails = details
+        id_root.showAllHiddenAchievements = false
         id_root.showingTargetDetails = true
     }
 
@@ -757,6 +760,7 @@ Item {
             p_emulatorType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.emulatorType : ""
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel
+            p_showAllHiddenAchievements: id_root.showAllHiddenAchievements
 
             onAchievementStateChanged: function(appId) {
                 id_root.reloadTargetDetails(appId, "Emulator")
@@ -823,6 +827,7 @@ Item {
             p_activeLayout: id_root.activeLayout
             p_returnLocked: id_root.addTargetBusy
             p_detailsRefreshBusy: id_root.detailsRefreshScanAppId > 0
+            p_showAllHiddenAchievements: id_root.showAllHiddenAchievements
 
             // Layout selection
             onLayoutSelected: function(size) {
@@ -916,6 +921,10 @@ Item {
             onTargetDetailsFiltersSelected: function(filters) {
                 id_root.targetDetailsActiveFilters = filters
                 id_root.refreshTargetDetailsAchievements()
+            }
+
+            onShowAllHiddenAchievementsChanged: function(show) {
+                id_root.showAllHiddenAchievements = show
             }
 
             onReloadAssetsRequested: function(appId, targetType) {
