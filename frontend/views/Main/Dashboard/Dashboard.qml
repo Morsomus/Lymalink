@@ -292,6 +292,7 @@ Item {
         const achievementTotal = Number(target.achievementTotal ?? 0)
         const targetType = (target.targetType ?? "").toString().toLocaleLowerCase()
         const status = (target.status ?? "").toString().toLocaleLowerCase()
+        const isInstallableTarget = targetType !== "steam"
 
         switch (filter) {
             case "none":         return true
@@ -301,8 +302,8 @@ Item {
             case "emulator":     return targetType === "emulator"
             case "steam":        return targetType === "steam"
             case "hidden":       return Boolean(target.targetHidden)
-            case "installed":    return status === "installed"
-            case "notInstalled": return status === "not installed"
+            case "installed":    return isInstallableTarget && status === "installed"
+            case "notInstalled": return isInstallableTarget && status === "not installed"
             default:             return true
         }
     }
