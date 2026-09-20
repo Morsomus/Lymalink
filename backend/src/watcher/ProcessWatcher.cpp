@@ -437,14 +437,48 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
         return matched;
     }
 
-    // 3 - .exe filename + parent dir both appear  (Proton/UMU S:\ rewrite)
+    // 3 - Child executable under configured executable root (launcher/bootstrap exe)
+    const size_t childPos = m.dir.empty() ? std::string::npos : cmdline.find(m.dir + "/");
+    if (childPos != std::string::npos && cmdline.find(".exe", childPos) != std::string::npos)
+    {
+        matched = 1;
+        return matched;
+    }
+
+    std::string rootDirBackslash = m.dir;
+    std::replace(rootDirBackslash.begin(), rootDirBackslash.end(), '/', '\\');
+    const size_t childBackslashPos = rootDirBackslash.empty() ? std::string::npos : cmdline.find(rootDirBackslash + "\\");
+    if (childBackslashPos != std::string::npos && cmdline.find(".exe", childBackslashPos) != std::string::npos)
+    {
+        matched = 1;
+        return matched;
+    }
+
+    // 4 - Relative child .exe from the configured executable root
+    const size_t exePos = cmdline.find(".exe");
+    const size_t argStart = exePos == std::string::npos ? std::string::npos : cmdline.rfind(' ', exePos);
+    if (!m.dir.empty() && exePos != std::string::npos &&
+        ((cmdline.rfind('/', exePos) != std::string::npos && (argStart == std::string::npos || cmdline.rfind('/', exePos) > argStart)) ||
+         (cmdline.rfind('\\', exePos) != std::string::npos && (argStart == std::string::npos || cmdline.rfind('\\', exePos) > argStart))))
+    {
+        char cwdBuf[4096] = {};
+        const std::string link = "/proc/" + pid + "/cwd";
+        const ssize_t len = readlink(link.c_str(), cwdBuf, sizeof(cwdBuf) - 1);
+        if (len > 0 && m.dir == std::string(cwdBuf, len))
+        {
+            matched = 1;
+            return matched;
+        }
+    }
+
+    // 5 - .exe filename + parent dir both appear  (Proton/UMU S:\ rewrite)
     if (!m.dir.empty() && cmdline.find(m.exeFilename) != std::string::npos && cmdline.find(m.dir) != std::string::npos)
     {
         matched = 1;
         return matched;
     }  
 
-    // 4 - .exe filename only; verify via /proc/<pid>/cwd  (Wine relative path launch)
+    // 6 - .exe filename only; verify via /proc/<pid>/cwd  (Wine relative path launch)
     if (!m.dir.empty() && cmdline.find(m.exeFilename) != std::string::npos)
     {
         char cwdBuf[4096] = {};
