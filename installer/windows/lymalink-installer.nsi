@@ -1,6 +1,9 @@
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
+!include "StrFunc.nsh"
+
+${Using:StrFunc} StrRep
 
 !ifndef VERSION
     !error "VERSION must be defined"
@@ -190,13 +193,15 @@ Function un.CleanUserDataPreservingConfigAndDatabase
 FunctionEnd
 
 Function WriteOverlayManifestX64
+    # Some Vulkan applications fail to load implicit layers whose library path is relative - use absolute.
+    ${StrRep} $1 "$INSTDIR\overlay\lymalink-overlay-vulkan-x64.dll" "\" "\\"
     FileOpen $0 "$INSTDIR\overlay\lymalink-overlay-vulkan-x64.json" w
     FileWrite $0 '{$\r$\n'
     FileWrite $0 '  "file_format_version": "1.0.0",$\r$\n'
     FileWrite $0 '  "layer": {$\r$\n'
     FileWrite $0 '    "name": "VK_LAYER_LYMALINK_overlay",$\r$\n'
     FileWrite $0 '    "type": "GLOBAL",$\r$\n'
-    FileWrite $0 '    "library_path": "lymalink-overlay-vulkan-x64.dll",$\r$\n'
+    FileWrite $0 '    "library_path": "$1",$\r$\n'
     FileWrite $0 '    "api_version": "1.4.312",$\r$\n'
     FileWrite $0 '    "implementation_version": "1",$\r$\n'
     FileWrite $0 '    "description": "Lymalink achievement overlay",$\r$\n'
@@ -212,13 +217,14 @@ Function WriteOverlayManifestX64
 FunctionEnd
 
 Function WriteOverlayManifestX86
+    ${StrRep} $1 "$INSTDIR\overlay\lymalink-overlay-vulkan-x86.dll" "\" "\\"
     FileOpen $0 "$INSTDIR\overlay\lymalink-overlay-vulkan-x86.json" w
     FileWrite $0 '{$\r$\n'
     FileWrite $0 '  "file_format_version": "1.0.0",$\r$\n'
     FileWrite $0 '  "layer": {$\r$\n'
     FileWrite $0 '    "name": "VK_LAYER_LYMALINK_overlay",$\r$\n'
     FileWrite $0 '    "type": "GLOBAL",$\r$\n'
-    FileWrite $0 '    "library_path": "lymalink-overlay-vulkan-x86.dll",$\r$\n'
+    FileWrite $0 '    "library_path": "$1",$\r$\n'
     FileWrite $0 '    "api_version": "1.4.312",$\r$\n'
     FileWrite $0 '    "implementation_version": "1",$\r$\n'
     FileWrite $0 '    "description": "Lymalink achievement overlay",$\r$\n'
