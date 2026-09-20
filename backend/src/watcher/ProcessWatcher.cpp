@@ -171,6 +171,17 @@ void ProcessWatcher::ScanProc()
     // Map executablePath -> pid (from live /proc scan)
 #if defined(_WIN32)
     std::unordered_map<std::string, uint32_t> running;
+    const auto isIgnoredChildProcessName = [](const std::string& filename) {
+        return filename == "crashreportclient.exe" ||
+               filename == "unitycrashhandler64.exe" ||
+               filename == "unitycrashhandler32.exe" ||
+               filename == "crashreporter.exe" ||
+               filename == "crashpad_handler.exe" ||
+               filename == "uninstall.exe" ||
+               filename == "uninstaller.exe" ||
+               filename == "unins000.exe" ||
+               filename == "unins001.exe";
+    };
 
     // Take a snapshot of all currently running processes in the system
     const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -201,16 +212,31 @@ void ProcessWatcher::ScanProc()
             const std::string runningPath = Utils::ToLower(std::string(path, size));
             for (size_t i = 0; i < totalTargets; ++i)
             {
-                // Normalize the target path delimiters and convert to lowercase
-                std::string targetPath = m_meta[i].exePath;
-                std::replace(targetPath.begin(), targetPath.end(), '/', '\\');
-                targetPath = Utils::ToLower(std::move(targetPath));
-
-                // If this target hasn't been mapped yet and paths match, register the running process ID
-                if (!running.contains(m_meta[i].exePath) && runningPath == targetPath)
+                const auto& m = m_meta[i];
+                if (running.contains(m.exePath))
                 {
-                    running.emplace(m_meta[i].exePath, entry.th32ProcessID);
-                }    
+                    continue;
+                }
+
+                // If paths match, register the running process ID
+                if (runningPath == m.winExePath)
+                {
+                    running.emplace(m.exePath, entry.th32ProcessID);
+                    break;
+                }
+
+                // Detect launcher/bootstrap child executables under the configured executable root
+                if (!m.winDir.empty() && runningPath.rfind(m.winDir, 0) == 0)
+                {
+                    const std::string childName = ExtractFilename(runningPath);
+                    if (isIgnoredChildProcessName(childName))
+                    {
+                        continue;
+                    }
+
+                    running.emplace(m.exePath, entry.th32ProcessID);
+                    break;
+                }
             }
 
             // Early exit if all target processes have already been found
@@ -356,6 +382,17 @@ ProcessWatcher::TargetMeta ProcessWatcher::BuildMeta(const std::string& exePath)
     {
         m.dir = exePath.substr(0, dirEnd);
     }
+
+    m.winExePath = exePath;
+    std::replace(m.winExePath.begin(), m.winExePath.end(), '/', '\\');
+    m.winExePath = Utils::ToLower(std::move(m.winExePath));
+    if (!m.dir.empty())
+    {
+        m.winDir = m.dir;
+        std::replace(m.winDir.begin(), m.winDir.end(), '/', '\\');
+        m.winDir += "\\";
+        m.winDir = Utils::ToLower(std::move(m.winDir));
+    }
 #endif
 
     return m;
@@ -416,6 +453,17 @@ std::string ProcessWatcher::ReadCmdline(const std::string& pid)
 pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta& m, const std::string& pid)
 {
     pid_t matched = 0;
+    static const auto isIgnoredChildProcessName = [](const std::string& filename) {
+        return filename == "crashreportclient.exe" ||
+               filename == "unitycrashhandler64.exe" ||
+               filename == "unitycrashhandler32.exe" ||
+               filename == "crashreporter.exe" ||
+               filename == "crashpad_handler.exe" ||
+               filename == "uninstall.exe" ||
+               filename == "uninstaller.exe" ||
+               filename == "unins000.exe" ||
+               filename == "unins001.exe";
+    };
 
     // Reject meta-processes
     if (cmdline.find("grep ") != std::string::npos || cmdline.find("find ") != std::string::npos)
@@ -439,8 +487,14 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
 
     // 3 - Child executable under configured executable root (launcher/bootstrap exe)
     const size_t childPos = m.dir.empty() ? std::string::npos : cmdline.find(m.dir + "/");
-    if (childPos != std::string::npos && cmdline.find(".exe", childPos) != std::string::npos)
+    const size_t childExeEnd = childPos == std::string::npos ? std::string::npos : cmdline.find(".exe", childPos);
+    if (childExeEnd != std::string::npos)
     {
+        const std::string childName = Utils::ToLower(ExtractFilename(cmdline.substr(childPos, childExeEnd - childPos + 4)));
+        if (isIgnoredChildProcessName(childName))
+        {
+            return matched;
+        }
         matched = 1;
         return matched;
     }
@@ -448,8 +502,14 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
     std::string rootDirBackslash = m.dir;
     std::replace(rootDirBackslash.begin(), rootDirBackslash.end(), '/', '\\');
     const size_t childBackslashPos = rootDirBackslash.empty() ? std::string::npos : cmdline.find(rootDirBackslash + "\\");
-    if (childBackslashPos != std::string::npos && cmdline.find(".exe", childBackslashPos) != std::string::npos)
+    const size_t childBackslashExeEnd = childBackslashPos == std::string::npos ? std::string::npos : cmdline.find(".exe", childBackslashPos);
+    if (childBackslashExeEnd != std::string::npos)
     {
+        const std::string childName = Utils::ToLower(ExtractFilename(cmdline.substr(childBackslashPos, childBackslashExeEnd - childBackslashPos + 4)));
+        if (isIgnoredChildProcessName(childName))
+        {
+            return matched;
+        }
         matched = 1;
         return matched;
     }
@@ -461,6 +521,13 @@ pid_t ProcessWatcher::MatchCmdline(const std::string& cmdline, const TargetMeta&
         ((cmdline.rfind('/', exePos) != std::string::npos && (argStart == std::string::npos || cmdline.rfind('/', exePos) > argStart)) ||
          (cmdline.rfind('\\', exePos) != std::string::npos && (argStart == std::string::npos || cmdline.rfind('\\', exePos) > argStart))))
     {
+        const size_t childPathStart = argStart == std::string::npos ? 0 : argStart + 1;
+        const std::string childName = Utils::ToLower(ExtractFilename(cmdline.substr(childPathStart, exePos - childPathStart + 4)));
+        if (isIgnoredChildProcessName(childName))
+        {
+            return matched;
+        }
+
         char cwdBuf[4096] = {};
         const std::string link = "/proc/" + pid + "/cwd";
         const ssize_t len = readlink(link.c_str(), cwdBuf, sizeof(cwdBuf) - 1);

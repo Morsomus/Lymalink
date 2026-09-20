@@ -50,6 +50,10 @@ private:
         std::string zPath;       // Z:-converted path for native Wine
         std::string zPathLower;  // lowercase z: variant
         std::string dir;         // parent directory for medium/weak match
+#if defined(_WIN32)
+        std::string winExePath;   // lowercase native Windows executable path
+        std::string winDir;       // lowercase native Windows parent directory with trailing slash
+#endif
     };
 
     struct ActiveProcess {
