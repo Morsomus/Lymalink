@@ -56,7 +56,7 @@ public:
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
     Q_INVOKABLE bool SetTargetInstallationLocation(int appId, const QString &installationDir);
-    Q_INVOKABLE bool SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType = "Emulator");
+    Q_INVOKABLE bool SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType = "Emulator", bool useBlackBars = false);
     Q_INVOKABLE bool ClearTargetCoverImage(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE bool ResetTargetAchievementDataLocation(int appId);
     Q_INVOKABLE bool SetAchievementUnlocked(int appId, const QString &achievementKey, bool unlocked, qint64 unlockTimestamp);
@@ -128,7 +128,7 @@ private:
     bool TargetHasMissingMetadata(int appId, const QString &targetType);
     bool TargetHasMissingCoverAssets(const QString &coversPath) const;
     bool TargetHasMissingAchievementIcons(int appId, const QString &iconsPath, const QString &targetType);
-    bool SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize) const;
+    bool SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize, bool enableBlackBars) const;
     QString CommunityIconFilePath(const QString &iconsPath) const;
     QString AchievementIconFilePath(const QString &iconsPath, const QVariantMap &achievement) const;
     QString ExecutableInstallationStatus(const QVariantMap &row) const;

@@ -38,6 +38,7 @@ Popup {
     property string unlockedSteamWebApiKey: ""
     property string steamUpdateStatusText: ""
     property bool steamUpdateStatusIsError: false
+    property bool customCoverEnableBlackBars: false
 
     readonly property bool steamConfigured: ctxSettings.steamId.trim().length > 0 && ctxSettings.steamWebApiKey !== ""
 
@@ -160,7 +161,7 @@ Popup {
             return
         }
 
-        if (ctxLymalink.SetTargetCoverImage(id_root.p_appId, path, id_root.p_targetType)) {
+        if (ctxLymalink.SetTargetCoverImage(id_root.p_appId, path, id_root.p_targetType, id_root.customCoverEnableBlackBars)) {
             id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
         } else {
             id_errorPopup.showError(qsTr("Couldn't Edit Cover Image"), ctxLymalink.GetLastOperationError())
@@ -403,6 +404,14 @@ Popup {
         p_pathDialogTitle: qsTr("Select Cover Image")
         p_pathPlaceholderText: qsTr("Select Cover Image")
         p_pathNameFilters: [qsTr("Image files (*.jpg *.jpeg *.png *.webp *.bmp)")]
+        p_extraComponentContent: Component {
+            CustomCheckBox {
+                Layout.fillWidth: true
+                text: qsTr("Preserve aspect ratio (adds black bars)")
+                checked: id_root.customCoverEnableBlackBars
+                onToggled: id_root.customCoverEnableBlackBars = checked
+            }
+        }
         onConfirmed: function(path) {
             id_root.setTargetCoverImage(path)
         }
@@ -565,7 +574,10 @@ Popup {
 
             text: qsTr("Edit Cover Image")
             tooltipText: qsTr("Select custom cover image")
-            onClicked: id_coverImagePopup.open()
+            onClicked: {
+                id_root.customCoverEnableBlackBars = false
+                id_coverImagePopup.open()
+            }
         }
         
         C_ActionButton {

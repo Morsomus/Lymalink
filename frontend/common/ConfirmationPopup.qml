@@ -34,6 +34,7 @@ Popup {
     property var p_pathNameFilters: []
     property bool p_confirmDanger: false
     property bool p_shortcutEnabled: false
+    property Component p_extraComponentContent: null
 
     // Internals _____________________________________________
     readonly property bool verificationRequired: p_verificationMode || p_singleVerificationMode
@@ -221,6 +222,13 @@ Popup {
             font.pixelSize: Themes.confirmationPopup.fontSizes.body
             wrapMode: Text.WordWrap
             visible: text.length > 0
+        }
+
+        // Additional extra content in Component format
+        Loader {
+            Layout.fillWidth: true
+            active: id_root.p_extraComponentContent !== null
+            sourceComponent: id_root.p_extraComponentContent
         }
 
         ColumnLayout {

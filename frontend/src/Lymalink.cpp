@@ -23,6 +23,7 @@
 #include <QLocale>
 #include <QMetaObject>
 #include <QPair>
+#include <QPainter>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
@@ -31,6 +32,7 @@
 #include <QVariantMap>
 
 #include <algorithm>
+#include <numeric>
 
 /////////////////////////////////////////////////////////////////////
 
@@ -1340,7 +1342,7 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType)
+bool Lymalink::SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType, bool useBlackBars)
 {
     bool coverUpdated = false;
     m_lastOperationError.clear();
@@ -1401,7 +1403,7 @@ bool Lymalink::SetTargetCoverImage(int appId, const QString &sourceImagePath, co
 
     for (const auto &variant : coverVariants)
     {
-        if (!SaveCustomCoverVariant(sourceImage, coversPath, variant.first, variant.second))
+        if (!SaveCustomCoverVariant(sourceImage, coversPath, variant.first, variant.second, useBlackBars))
         {
             m_lastOperationError = tr("Couldn't save custom cover image.");
             return coverUpdated;
@@ -2754,6 +2756,10 @@ QString Lymalink::CoverImageFilePath(const QString &coversPath, const QString &f
     }
 
     coverSource = m_fileManager.LocalFileSource(coverPath);
+    if (fileName.startsWith("custom_"))
+    {
+        coverSource += "?v=" + QString::number(QFileInfo(coverPath).lastModified().toMSecsSinceEpoch());
+    }
     return coverSource;
 }
 
@@ -2851,7 +2857,7 @@ bool Lymalink::TargetHasMissingAchievementIcons(int appId, const QString &iconsP
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize) const
+bool Lymalink::SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize, bool enableBlackBars) const
 {
     if (sourceImage.isNull() || coversPath.isEmpty() || fileName.isEmpty() || !targetSize.isValid())
     {
@@ -2859,33 +2865,87 @@ bool Lymalink::SaveCustomCoverVariant(const QImage &sourceImage, const QString &
         return false;
     }
 
-    QImage result;
-    if (sourceImage.width() > targetSize.width() || sourceImage.height() > targetSize.height())
+    // Write the generated variant atomically so either render mode shares the same save path
+    const auto saveResult = [&](const QImage &result) {
+        const QString finalPath = QDir(coversPath).filePath(fileName);
+        const QString tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(fileName + ".tmp");
+        if (!result.save(tempPath, "JPG", 90))
+        {
+            qWarning() << "Lymalink::SaveCustomCoverVariant: failed to save temp file:" << tempPath;
+            return false;
+        }
+
+        QFile::remove(finalPath);
+        if (!QFile::rename(tempPath, finalPath))
+        {
+            QFile::remove(tempPath);
+            qWarning() << "Lymalink::SaveCustomCoverVariant: failed to move cover variant:" << tempPath << finalPath;
+            return false;
+        }
+
+        return true;
+    };
+
+    if (enableBlackBars)
     {
-        result = sourceImage.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        // Preserve the entire source image on an exact-ratio black canvas instead of cropping it
+        QImage scaledImage = sourceImage;
+        if (sourceImage.width() > targetSize.width() || sourceImage.height() > targetSize.height())
+        {
+            scaledImage = sourceImage.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        QImage result(targetSize, QImage::Format_RGB32);
+        result.fill(Qt::black);
+        QPainter painter(&result);
+        painter.drawImage((targetSize.width() - scaledImage.width()) / 2, (targetSize.height() - scaledImage.height()) / 2, scaledImage);
+
+        return saveResult(result);
+    }
+
+    // Reduce target dimensions to exact crop ratio
+    const int targetGcd = std::gcd(targetSize.width(), targetSize.height());
+    const int targetRatioWidth = targetSize.width() / targetGcd;
+    const int targetRatioHeight = targetSize.height() / targetGcd;
+    QRect cropRect = sourceImage.rect();
+
+    if (static_cast<qint64>(sourceImage.width()) * targetRatioHeight > static_cast<qint64>(sourceImage.height()) * targetRatioWidth)
+    {
+        // Source too wide: remove equal left/right area
+        const int cropHeight = sourceImage.height() - sourceImage.height() % targetRatioHeight;
+        const int cropWidth = cropHeight / targetRatioHeight * targetRatioWidth;
+        if (cropWidth > 0)
+        {
+            cropRect.setX((sourceImage.width() - cropWidth) / 2);
+            cropRect.setWidth(cropWidth);
+        }
+    }
+    else if (static_cast<qint64>(sourceImage.width()) * targetRatioHeight < static_cast<qint64>(sourceImage.height()) * targetRatioWidth)
+    {
+        // Source too tall: remove equal top/bottom area
+        const int cropWidth = sourceImage.width() - sourceImage.width() % targetRatioWidth;
+        const int cropHeight = cropWidth / targetRatioWidth * targetRatioHeight;
+        if (cropHeight > 0)
+        {
+            cropRect.setY((sourceImage.height() - cropHeight) / 2);
+            cropRect.setHeight(cropHeight);
+        }
+    }
+
+    // Crop before resize so QML does not upscale a wrong-ratio variant
+    const QImage croppedImage = sourceImage.copy(cropRect);
+    QImage result;
+    if (croppedImage.width() > targetSize.width() || croppedImage.height() > targetSize.height())
+    {
+        // Downscale only - preserve small source images
+        result = croppedImage.scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
     else
     {
-        result = sourceImage;
+        result = croppedImage;
     }
 
-    const QString finalPath = QDir(coversPath).filePath(fileName);
-    const QString tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(fileName + ".tmp");
-    if (!result.save(tempPath, "JPG", 90))
-    {
-        qWarning() << "Lymalink::SaveCustomCoverVariant: failed to save temp file:" << tempPath;
-        return false;
-    }
-
-    QFile::remove(finalPath);
-    if (!QFile::rename(tempPath, finalPath))
-    {
-        QFile::remove(tempPath);
-        qWarning() << "Lymalink::SaveCustomCoverVariant: failed to move cover variant:" << tempPath << finalPath;
-        return false;
-    }
-
-    return true;
+    return saveResult(result);
 }
 
 /////////////////////////////////////////////////////////////////////
