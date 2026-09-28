@@ -48,6 +48,8 @@ qt_add_executable(Lymalink
     src/Lymalink.cpp
     src/Settings.h
     src/Settings.cpp
+    src/UpdateChecker.h
+    src/UpdateChecker.cpp
     src/SysTray.h
     src/SysTray.cpp
     src/data/DataTransporter.h

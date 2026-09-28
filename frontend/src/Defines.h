@@ -7,22 +7,30 @@
 /////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////
+// Updates
+/////////////////////////////////////////////////////////////////////
+
+#define GH_API_VERSION                  "2026-03-10"
+#define GH_RELEASES_URL                 "https://api.github.com/repos/Morsomus/Lymalink/releases/latest"
+#define GH_REPOSITORY_URL               "https://github.com/Morsomus/Lymalink"
+
+/////////////////////////////////////////////////////////////////////
 // Settings
 /////////////////////////////////////////////////////////////////////
 
 // Setting Info
 // Linux .config/Lymalink/config.ini
-#define ORGANIZATION        "Lymalink"
-#define APPLICATION         "config"
+#define ORGANIZATION                    "Lymalink"
+#define APPLICATION                     "config"
 // Config Groups
-#define GROUP_APPLICATION   "Application"
-#define GROUP_APPEARANCE    "Appearance"
-#define GROUP_INTERFACE     "Interface"
-#define GROUP_DISPLAY       "Display"
-#define GROUP_BACKGROUND_SERVICE "BackgroundService"
-#define GROUP_STEAM_WEB_API "SteamWebApi"
-#define GROUP_DASHBOARD     "Dashboard"
-#define GROUP_DATABASE      "Database"
+#define GROUP_APPLICATION               "Application"
+#define GROUP_APPEARANCE                "Appearance"
+#define GROUP_INTERFACE                 "Interface"
+#define GROUP_DISPLAY                   "Display"
+#define GROUP_BACKGROUND_SERVICE        "BackgroundService"
+#define GROUP_STEAM_WEB_API             "SteamWebApi"
+#define GROUP_DASHBOARD                 "Dashboard"
+#define GROUP_DATABASE                  "Database"
 
 /////////////////////////////////////////////////////////////////////
 // Database

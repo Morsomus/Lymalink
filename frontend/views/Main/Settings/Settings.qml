@@ -1111,6 +1111,29 @@ Item {
                         }                    
                     }
 
+                    // Updates
+                    C_SettingsSection {
+                        title: qsTr("Updates")
+
+                        C_SettingRow {
+                            label: qsTr("Check for updates automatically")
+                            tooltip: qsTr("Check for available updates when the application starts")
+                            CustomSwitch {
+                                checked: ctxSettings.automaticUpdateChecksEnabled
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_automaticUpdateChecksHover }
+                                CustomTooltip {
+                                    p_active: id_automaticUpdateChecksHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Check for available updates when the application starts")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.AutomaticUpdateChecksEnabled, checked)
+                            }
+                        }
+
+                        C_SettingRow {}
+                    }
+
                     // Backend Service
                     C_SettingsSection {
                         title: qsTr("Background Service")

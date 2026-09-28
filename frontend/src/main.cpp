@@ -9,6 +9,7 @@
 #include "Lymalink.h"
 #include "SysTray.h"
 #include "Settings.h"
+#include "UpdateChecker.h"
 #include "data/DataTransporter.h"
 #include "ipc/BackendControl.h"
 #if defined(Q_OS_WIN)
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
     app.setWindowIcon(QIcon(":/qt/qml/Lymalink/res/img/BlankBackground_MFC_00002_E.png"));
 
     Settings* settings = new Settings(&app);
+    UpdateChecker* updateChecker = new UpdateChecker(settings, &app);
     SysTray* sysTray = new SysTray(&app);
     DataTransporter* dataTransporter = new DataTransporter(settings, &app);
     Lymalink* lymalink = new Lymalink(settings, &app);
@@ -112,6 +114,7 @@ int main(int argc, char *argv[]) {
 
     // Set context
     engine.rootContext()->setContextProperty("LYMALINK_APP_VERSION", QStringLiteral(LYMALINK_VERSION));
+    engine.rootContext()->setContextProperty("GH_REPOSITORY_URL", QStringLiteral(GH_REPOSITORY_URL));
 #if defined(Q_OS_WIN)
     engine.rootContext()->setContextProperty("OS_WIN", true);
 #else
@@ -130,6 +133,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.9.x-beta-linux.md")));
 #endif
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
+    engine.rootContext()->setContextProperty("ctxUpdateChecker", updateChecker);
     engine.rootContext()->setContextProperty("ctxSettings", settings);
     engine.rootContext()->setContextProperty("ctxSysTray", sysTray);
     engine.rootContext()->setContextProperty("ctxBackendService", backendService);

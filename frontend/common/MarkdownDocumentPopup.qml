@@ -19,15 +19,21 @@ Popup {
     property string p_title: qsTr("Document")
     property string p_text: ""
     property string p_emptyText: qsTr("No document available.")
+    property Component p_extraComponentContent: null
+    property string p_documentTitle: ""
+    property bool p_adaptiveHeight: false
+    property int p_minPopupHeight: 360
+    property int p_maxPopupHeight: 720
 
     // Internals _____________________________________________
     readonly property int edgeMargin: 48
     readonly property int maxPopupWidth: 820
-    readonly property int maxPopupHeight: 720
+    readonly property int adaptiveDocumentHeight: Math.max(120, Math.min(420, id_documentText.contentHeight + id_documentText.topPadding + id_documentText.bottomPadding))
+    readonly property int adaptivePopupHeight: Math.max(p_minPopupHeight, Math.min(p_maxPopupHeight, id_content.implicitHeight + topPadding + bottomPadding))
 
     parent: Overlay.overlay
     width: Math.min(maxPopupWidth, parent ? parent.width - edgeMargin : maxPopupWidth)
-    height: Math.min(maxPopupHeight, parent ? parent.height - edgeMargin : maxPopupHeight)
+    height: Math.min(p_adaptiveHeight ? adaptivePopupHeight : p_maxPopupHeight, parent ? parent.height - edgeMargin : p_maxPopupHeight)
     modal: true
     focus: true
     padding: 18
@@ -35,6 +41,7 @@ Popup {
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
 
+    // Replace popup content before showing requested document
     function openDocument(documentTitle, documentText) {
         p_title = documentTitle || qsTr("Document")
         p_text = documentText || ""
@@ -89,11 +96,30 @@ Popup {
             color: Themes.confirmationPopup.colors.border
         }
 
+        // Optional content shown between popup heading and document
+        Loader {
+            Layout.fillWidth: true
+            active: id_root.p_extraComponentContent !== null
+            visible: active
+            sourceComponent: id_root.p_extraComponentContent
+        }
+
+        Label {
+            Layout.fillWidth: true
+            text: id_root.p_documentTitle
+            visible: text.length > 0
+            color: Themes.confirmationPopup.colors.titleText
+            font.pixelSize: Themes.confirmationPopup.fontSizes.title
+            font.bold: true
+            elide: Text.ElideRight
+        }
+
         ScrollView {
             id: id_documentScrollView
 
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.preferredHeight: id_root.p_adaptiveHeight ? id_root.adaptiveDocumentHeight : -1
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             ScrollBar.vertical: CustomScrollBar {

@@ -308,9 +308,85 @@ Item {
 
             GHElement {
                 p_collapsed: id_root.p_collapsed
-                p_linkUrl: "https://github.com/Morsomus/Lymalink"
+                p_linkUrl: GH_REPOSITORY_URL
                 Layout.fillWidth: true
                 Layout.preferredHeight: 42
+            }
+
+            CustomButton {
+                id: id_updateAvailable
+
+                visible: ctxSettings.automaticUpdateChecksEnabled && ctxUpdateChecker.updateAvailable
+                Layout.fillWidth: true
+                Layout.preferredHeight: 32
+                leftPadding: 8
+                rightPadding: 8
+                p_tooltipText: qsTr("Update available: %1").arg(ctxSettings.latestShownReleaseTag)
+
+                onClicked: Qt.openUrlExternally(GH_REPOSITORY_URL + "/releases/latest")
+
+                contentItem: RowLayout {
+                    spacing: id_root.p_collapsed ? 0 : 7
+
+                    Item {
+                        Layout.fillWidth: id_root.p_collapsed
+                        Layout.preferredWidth: 10
+                        Layout.preferredHeight: 10
+
+                        Rectangle {
+                            id: id_updateAvailableOrb
+
+                            anchors.centerIn: parent
+                            width: id_root.p_collapsed ? 10 : 8
+                            height: id_root.p_collapsed ? 10 : 8
+                            radius: id_root.p_collapsed ? 5 : 4
+                            color: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+
+                            SequentialAnimation on opacity {
+                                running: id_updateAvailable.visible
+                                loops: Animation.Infinite
+
+                                NumberAnimation {
+                                    to: 0.35
+                                    duration: 900
+                                    easing.type: Easing.InOutSine
+                                }
+
+                                NumberAnimation {
+                                    to: 1.0
+                                    duration: 900
+                                    easing.type: Easing.InOutSine
+                                }
+                            }
+                        }
+                    }
+
+                    Label {
+                        visible: !id_root.p_collapsed
+                        Layout.fillWidth: true
+                        text: qsTr("Update available • %1").arg(ctxSettings.latestShownReleaseTag)
+                        color: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                        font.pixelSize: Themes.general.fontSizes.title
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                }
+
+                background: Rectangle {
+                    radius: 8
+                    color: id_updateAvailable.down
+                        ? Themes.general.colors.linkBackgroundPressed
+                        : (id_updateAvailable.hovered
+                            ? Themes.general.colors.linkBackgroundHover
+                            : Themes.general.colors.linkBackground)
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 100
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                }
             }
 
             // Version Info

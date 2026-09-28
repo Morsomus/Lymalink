@@ -158,12 +158,18 @@ bool Settings::ResetDefaults()
     // Preserve some saved settings to prevent potentially unwanted changes
     const QString welcomeHelpText = m_welcomeHelpText;
     const QString targetDetailsHelpText = m_targetDetailsHelpText;
+    const QString latestShownReleaseTag = m_latestShownReleaseTag;
+    const qint64 latestReleaseCheckAt = m_latestReleaseCheckAt;
+    const qint64 latestReleaseCheckBlockedUntil = m_latestReleaseCheckBlockedUntil;
     const QString databaseCustomPath = m_databaseCustomPath;
 
     SetDefaults();
 
     m_welcomeHelpText = welcomeHelpText;
     m_targetDetailsHelpText = targetDetailsHelpText;
+    m_latestShownReleaseTag = latestShownReleaseTag;
+    m_latestReleaseCheckAt = latestReleaseCheckAt;
+    m_latestReleaseCheckBlockedUntil = latestReleaseCheckBlockedUntil;
     m_databaseCustomPath = databaseCustomPath;
     m_settings.clear();
 
@@ -204,6 +210,10 @@ bool Settings::LoadConfig()
     m_settings.beginGroup(GROUP_APPLICATION);
     const QString savedVersion = m_settings.value("CurrentVersion").toString();
     m_currentVersion = QStringLiteral(LYMALINK_VERSION);
+    m_automaticUpdateChecksEnabled = m_settings.value("AutomaticUpdateChecksEnabled", m_automaticUpdateChecksEnabled).toBool();
+    m_latestShownReleaseTag = m_settings.value("LatestShownReleaseTag", m_latestShownReleaseTag).toString();
+    m_latestReleaseCheckAt = m_settings.value("LatestReleaseCheckAt", m_latestReleaseCheckAt).toLongLong();
+    m_latestReleaseCheckBlockedUntil = m_settings.value("LatestReleaseCheckBlockedUntil", m_latestReleaseCheckBlockedUntil).toLongLong();
     m_settings.setValue("CurrentVersion", m_currentVersion);
     m_settings.endGroup();
     if (savedVersion != m_currentVersion)
@@ -574,6 +584,38 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_dashboardToolbarLayout;
             break;
         }
+        case AutomaticUpdateChecksEnabled:
+        {
+            m_automaticUpdateChecksEnabled = value.toBool();
+            group = GROUP_APPLICATION;
+            settingsKey = "AutomaticUpdateChecksEnabled";
+            settingsValue = m_automaticUpdateChecksEnabled;
+            break;
+        }
+        case LatestShownReleaseTag:
+        {
+            m_latestShownReleaseTag = value.toString().trimmed();
+            group = GROUP_APPLICATION;
+            settingsKey = "LatestShownReleaseTag";
+            settingsValue = m_latestShownReleaseTag;
+            break;
+        }
+        case LatestReleaseCheckAt:
+        {
+            m_latestReleaseCheckAt = value.toLongLong();
+            group = GROUP_APPLICATION;
+            settingsKey = "LatestReleaseCheckAt";
+            settingsValue = m_latestReleaseCheckAt;
+            break;
+        }
+        case LatestReleaseCheckBlockedUntil:
+        {
+            m_latestReleaseCheckBlockedUntil = value.toLongLong();
+            group = GROUP_APPLICATION;
+            settingsKey = "LatestReleaseCheckBlockedUntil";
+            settingsValue = m_latestReleaseCheckBlockedUntil;
+            break;
+        }
         case WelcomeHelpText:
         {
             m_welcomeHelpText = value.toString();
@@ -727,6 +769,10 @@ void Settings::SetDefaults()
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
     m_currentVersion = QStringLiteral(LYMALINK_VERSION);
+    m_automaticUpdateChecksEnabled = true;
+    m_latestShownReleaseTag = "";
+    m_latestReleaseCheckAt = 0;
+    m_latestReleaseCheckBlockedUntil = 0;
     m_welcomeHelpText = "";
     m_targetDetailsHelpText = "";
     m_databaseCustomPath = "";
@@ -878,6 +924,10 @@ void Settings::SavePlainValues()
 {
     m_settings.beginGroup(GROUP_APPLICATION);
     m_settings.setValue("CurrentVersion", m_currentVersion);
+    m_settings.setValue("AutomaticUpdateChecksEnabled", m_automaticUpdateChecksEnabled);
+    m_settings.setValue("LatestShownReleaseTag", m_latestShownReleaseTag);
+    m_settings.setValue("LatestReleaseCheckAt", m_latestReleaseCheckAt);
+    m_settings.setValue("LatestReleaseCheckBlockedUntil", m_latestReleaseCheckBlockedUntil);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_APPEARANCE);

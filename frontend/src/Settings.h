@@ -58,7 +58,11 @@ class Settings : public QObject
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool automaticUpdateChecksEnabled READ GetAutomaticUpdateChecksEnabled NOTIFY signalConfigChanged)
     Q_PROPERTY(QString currentVersion READ GetCurrentVersion NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString latestShownReleaseTag READ GetLatestShownReleaseTag NOTIFY signalConfigChanged)
+    Q_PROPERTY(qint64 latestReleaseCheckAt READ GetLatestReleaseCheckAt NOTIFY signalConfigChanged)
+    Q_PROPERTY(qint64 latestReleaseCheckBlockedUntil READ GetLatestReleaseCheckBlockedUntil NOTIFY signalConfigChanged)
     Q_PROPERTY(QString welcomeHelpText READ GetWelcomeHelpText NOTIFY signalConfigChanged)
     Q_PROPERTY(QString targetDetailsHelpText READ GetTargetDetailsHelpText NOTIFY signalConfigChanged)
     Q_PROPERTY(QString databaseCustomPath READ GetDatabaseCustomPath NOTIFY signalConfigChanged)
@@ -100,6 +104,10 @@ public:
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
         DashboardToolbarLayout,
+        AutomaticUpdateChecksEnabled,
+        LatestShownReleaseTag,
+        LatestReleaseCheckAt,
+        LatestReleaseCheckBlockedUntil,
         WelcomeHelpText,
         TargetDetailsHelpText,
         DatabaseCustomPath
@@ -163,7 +171,11 @@ public:
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
     inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
+    inline bool GetAutomaticUpdateChecksEnabled() const { return m_automaticUpdateChecksEnabled; }
     inline QString GetCurrentVersion() const { return m_currentVersion; }
+    inline QString GetLatestShownReleaseTag() const { return m_latestShownReleaseTag; }
+    inline qint64 GetLatestReleaseCheckAt() const { return m_latestReleaseCheckAt; }
+    inline qint64 GetLatestReleaseCheckBlockedUntil() const { return m_latestReleaseCheckBlockedUntil; }
     inline QString GetWelcomeHelpText() const { return m_welcomeHelpText; }
     inline QString GetTargetDetailsHelpText() const { return m_targetDetailsHelpText; }
     inline QString GetDatabaseCustomPath() const { return m_databaseCustomPath; }
@@ -213,7 +225,11 @@ private:
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
+    bool m_automaticUpdateChecksEnabled;
     QString m_currentVersion;
+    QString m_latestShownReleaseTag;
+    qint64 m_latestReleaseCheckAt;
+    qint64 m_latestReleaseCheckBlockedUntil;
     QString m_welcomeHelpText;
     QString m_targetDetailsHelpText;
     QString m_databaseCustomPath;

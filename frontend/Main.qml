@@ -28,6 +28,9 @@ ApplicationWindow {
     }
     property bool fatalErrorOccurred: false
     property int steamImportAutoSyncLastIntervalMinutes: 0
+    property string pendingUpdateTag: ""
+    property string pendingUpdateNotes: ""
+    property string pendingUpdateUrl: ""
 
     visible: true
     width: ctxSettings.windowSizeX
@@ -48,7 +51,36 @@ ApplicationWindow {
         if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
             id_welcomeHelpTextMarkdownPopup.openDocument(qsTr("Welcome"), USER_GUIDE_MD_TEXT)
         }
+        if (ctxSettings.automaticUpdateChecksEnabled) {
+            ctxUpdateChecker.CheckForUpdate()
+        }
         id_root.scheduleSteamImportAutoSync(10000)
+    }
+
+    // Show queued release only after startup Welcome document is dismissed
+    function showPendingUpdate() {
+        if (pendingUpdateTag === "" || id_welcomeHelpTextMarkdownPopup.opened) {
+            return
+        }
+
+        const tag = pendingUpdateTag
+        const notes = pendingUpdateNotes.trim()
+        const releaseUrl = pendingUpdateUrl
+        id_updateMarkdownPopup.releaseUrl = releaseUrl
+        pendingUpdateTag = ""
+        pendingUpdateNotes = ""
+        pendingUpdateUrl = ""
+
+        ctxSettings.SaveValue(AppSettings.Settings.LatestShownReleaseTag, tag)
+        id_updateMarkdownPopup.openDocument(qsTr("New release available: %1").arg(tag), notes)
+    }
+
+    // Queue release payload so competing startup popups never overlap
+    function queueUpdate(tag, releaseNotes, releaseUrl) {
+        pendingUpdateTag = tag
+        pendingUpdateNotes = releaseNotes
+        pendingUpdateUrl = releaseUrl
+        showPendingUpdate()
     }
 
     function restoreFromBackground() {
@@ -170,6 +202,14 @@ ApplicationWindow {
     }
 
     Connections {
+        target: ctxUpdateChecker
+
+        function onSignalUpdateAvailable(tag, releaseNotes, releaseUrl) {
+            id_root.queueUpdate(tag, releaseNotes, releaseUrl)
+        }
+    }
+
+    Connections {
         target: typeof ctxBackendService !== "undefined" ? ctxBackendService : null
 
         function onSignalLastErrorChanged() {
@@ -214,6 +254,44 @@ ApplicationWindow {
         onClosed: {
             if (ctxSettings.welcomeHelpText !== LYMALINK_APP_VERSION) {
                 ctxSettings.SaveValue(AppSettings.Settings.WelcomeHelpText, LYMALINK_APP_VERSION)
+            }
+            id_root.showPendingUpdate()
+        }
+    }
+
+    MarkdownDocumentPopup {
+        id: id_updateMarkdownPopup
+
+        property string releaseUrl: ""
+
+        p_documentTitle: qsTr("Release Notes")
+        p_adaptiveHeight: true
+        p_minPopupHeight: 200
+        p_maxPopupHeight: 600
+        p_extraComponentContent: Component {
+            RowLayout {
+                spacing: 6
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Download from GitHub")
+                    color: Themes.confirmationPopup.colors.titleText
+                    font.pixelSize: Themes.confirmationPopup.fontSizes.body
+                    font.bold: true
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: "[%1](%1)".arg(id_updateMarkdownPopup.releaseUrl)
+                    textFormat: Text.MarkdownText
+                    wrapMode: Text.WrapAnywhere
+                    color: Themes.confirmationPopup.colors.bodyText
+                    linkColor: Themes.confirmationPopup.colors.buttonText
+                    font.pixelSize: Themes.confirmationPopup.fontSizes.body
+                    onLinkActivated: function(link) {
+                        Qt.openUrlExternally(link)
+                    }
+                }
             }
         }
     }
