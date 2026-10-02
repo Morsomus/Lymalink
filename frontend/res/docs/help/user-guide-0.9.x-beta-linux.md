@@ -11,9 +11,10 @@
 |  |  |
 | --- | --- |
 | **Dashboard** | View tracked targets and achievement progress. |
-| **Settings** | Configure app, display, background service, customization and notifications. |
+| **Settings** | Configure app, display, background service, customization, notifications, Steam import, and updates. |
 | **Currently Playing** | Displays the active tracked game. |
 | **Service Status** | Shows background service status. Click to open Settings. |
+| **Update Available** | Opens the latest release when automatic update checks find one. |
 | **GitHub** | Opens the Lymalink GitHub repository. |
 | **System Tray** | Right-click the tray icon to restore the window or fully exit Lymalink. |
 
@@ -22,11 +23,12 @@
 
 |  |  |
 | --- | --- |
-| **Search & Filters** | Find targets by name/ID, or filter by status (Completed, Emulator, Hidden, Installed). |
-| **View & Sort** | Change layouts (List, Details, Small, Default card) and sort by playtime, progress, or dates. |
-| **Add Target** | Setup new targets (For **Emulators**: search game, set prefix, executable and installation paths). |
+| **Search & Filters** | Find targets by name/ID, or filter by status (Completed, Uncompleted, Emulator, Steam, Hidden, Installed, Not Installed). |
+| **View & Sort** | Change layouts (List, Details, Small, Default card) and sort by title, progress, recent unlock, playtime, last played, or date added. |
+| **Dashboard Settings** | Reload missing metadata or unhide all Emulator or Steam targets. |
+| **Add Target** | Setup new Emulator targets or import/sync your Steam progress. |
 | **Target Card** | Click to access game details, achievement lists, and target settings. |
-| **Refresh** | Reloads dashboard data. |
+| **Refresh** | Reloads dashboard data or refreshes the open target. |
 
 ###
 ### 🎯 Target Details
@@ -34,25 +36,34 @@
 |  |  |
 | --- | --- |
 | **Back Arrow** | Return to Dashboard (or press `Backspace` / `Escape`). |
-| **Settings Gear** | Reload data, update imported progress, edit paths, hide, or delete the target entirely. |
+| **Settings Gear** | Reload metadata, sync Steam progress, edit paths, edit the cover image, hide, or delete the target entirely. |
 | **Display Options** | Filter, sort, and order the displayed achievements. |
 | **Achievement Icon** | Click to manually lock/unlock an achievement. |
 | **Hidden Achievement** | Click a hidden achievement row to reveal or conceal its details. |
+
+---
 
 ###
 ## 🎮 Managing Emulator Targets
 
 In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED, SmartSteamEmu, Tenoke and NemirtingasGalaxyEmulator.
 
+###
 ### ➕ Add an Emulator Target
 
 1. Open **Dashboard** and click **Add Target**.
 2. Select **Emulator**.
 3. Search for the game and select it from results. You can also enable **enter manually** and enter game ID and name yourself.
-4. Select **Game Executable**. This `.exe` file is used to detect when game is running.
-5. Select (optional) **Game Installation Directory**. This directory is used to detect install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke.
-6. Select **Prefix Location**. Choose `drive_c` or equivalent folder inside your Wine, Proton, or Bottle prefix which contains or will contain emulator's achievement file.
-7. Click **Confirm**.
+4. Choose **Achievement data source**:
+   1. **Automatic detection:**
+      - Select **Prefix Location** and choose `drive_c` or equivalent inside your Wine, Proton, or Bottle prefix which contains or will contain the emulator's achievement file.
+      - Select **Game Executable**, Lymalink uses it to detect when the game is running.
+      - For Tenoke or NemirtingasGalaxyEmulator, enable **Install-dir emulator used** and select **Game Installation Directory** so Lymalink can scan its achievement files.
+   2. **Specify achievement file manually (Advanced):**
+      - Select the emulator type, choose the achievement file or folder, and select **Game Executable**.
+5. Click **Confirm**.
+
+###
 
 Example prefix locations:
 
@@ -61,8 +72,15 @@ Example prefix locations:
 - **Flatpak Heroic Launcher:** `/home/<user>/Games/Heroic/Prefixes/Helltaker/drive_c`
 - **Heroic prefix scan root:** `/home/<user>/Games/Heroic/Prefixes`
 
+###
+
 Use the Heroic prefix scan root when you want Lymalink to scan all game prefixes below that folder.
 
+###
+
+You can change the detection mode or paths later from **Target Details** -> **Settings gear** -> **Edit Target Paths**.
+
+###
 ### 🗑️ Remove an Emulator Target
 
 **Warning:** Deleting a target will remove it from Lymalink, along with all downloaded assets and achievement data.
@@ -75,39 +93,46 @@ Use the Heroic prefix scan root when you want Lymalink to scan all game prefixes
 
 ---
 
+##
 ## 🌐 Managing Steam Import Targets
 
 You can import your official Steam library and sync achievements directly. This feature requires configuring your Steam ID and API key.
 
+###
 ### 🔑 Before Use
 
 * Please configure both your **Steam ID** and **Web API key** in **Settings**.
 * Please ensure your **Steam profile privacy** is set to **Public**.
 
+###
 ### ➕ Add / Import Steam Games
 
 1. Open **Dashboard** and click **Add Target**.
-2. Select **Steam Import / Update**.
+2. Select **Steam Import / Sync**.
 3. Click **Load Steam Library**.
 4. Enter your passcode.
 5. Select games to import (or uncheck to remove).
 6. Click **Apply Selection**.
 
+###
 ### 🔄 Update Steam Library & Achievements
 
 1. Open **Dashboard** and click **Add Target**.
-2. Select **Steam Import / Update**.
-3. Press **Update**.
+2. Select **Steam Import / Sync**.
+3. Press **Sync**.
 
-Or at Target Details
+Automatic Steam progress sync can be enabled from **Settings**.
+
+Or at Target Details:
 1. Open target card from **Dashboard**.
 2. Click **Settings gear**.
 3. Click **Sync Steam Progress**.
 
+###
 ### 🗑️ Remove Steam Import Games
 
 1. Open **Dashboard** and click **Add Target**.
-2. Select **Steam Import / Update**.
+2. Select **Steam Import / Sync**.
 3. Click **Load Steam Library**.
 4. Enter your passcode.
 5. Uncheck the games you want to remove.
@@ -117,6 +142,7 @@ Or at Target Details
 
 ---
 
+##
 ## 👁️ General Target Options (Hide / Show)
 
 Hide targets you do not want to see on Dashboard without deleting their data. Works for both Emulator and Steam targets.
@@ -131,6 +157,8 @@ Hidden targets disappear from normal Dashboard view. To show one again:
 2. Select **Hidden**.
 3. Open hidden target card.
 4. Click **Settings gear**, then **Unhide**.
+
+You can also use **Dashboard Settings** to unhide all Emulator or all Steam targets at once.
 
 ---
 
