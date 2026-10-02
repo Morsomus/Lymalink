@@ -459,22 +459,11 @@ void Lymalinkd::Monitor()
                             {
                                 if (result.appidDirFound)
                                 {
-                                    if (EmulatorAchievementProgressNotImplemented(result.emulatorType))
+                                    // SmartSteamEmu CRC key matching support
+                                    if (result.emulatorType == "SmartSteamEmu")
                                     {
-                                        // These emulators do not expose usable achievement progress, so hide stale DB progress
-                                        bool progressChanged = false;
-                                        {
-                                            std::lock_guard<std::mutex> lock(m_databaseMutex);
-                                            progressChanged = DisableAchievementProgress(result.targetId);
-                                            if (result.emulatorType == "SmartSteamEmu")
-                                            {
-                                                m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
-                                            }
-                                        }
-                                        if (progressChanged)
-                                        {
-                                            EmitTargetDataChanged(result.targetId);
-                                        }
+                                        std::lock_guard<std::mutex> lock(m_databaseMutex);
+                                        m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
                                     }
 #if defined(_WIN32)
                                     std::filesystem::file_time_type processStartedAt{};
@@ -946,21 +935,10 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     const bool customAchievementLocation = SQLiteManager::RowInt(target, "custom_achievement_location") == 1;
     if (!appIdDirPath.empty() && !emulatorType.empty())
     {
-        if (EmulatorAchievementProgressNotImplemented(emulatorType))
+        if (emulatorType == "SmartSteamEmu") // Prepare CRC key matching before SmartSteamEmu starts polling stats.bin
         {
-            bool progressChanged = false;
-            {
-                std::lock_guard<std::mutex> lock(m_databaseMutex);
-                progressChanged = DisableAchievementProgress(targetId);
-                if (emulatorType == "SmartSteamEmu") // Prepare CRC key matching before SmartSteamEmu starts polling stats.bin
-                {
-                    m_achievementKeyResolver.PrepareTargetKeys(targetId);
-                }
-            }
-            if (progressChanged)
-            {
-                EmitTargetDataChanged(targetId);
-            }
+            std::lock_guard<std::mutex> lock(m_databaseMutex);
+            m_achievementKeyResolver.PrepareTargetKeys(targetId);
         }
 
         // Custom file paths reuse normal directory monitoring with an exact filename override
@@ -1417,22 +1395,10 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 }
 
                 int updatedAchievements = 0;
-                if (EmulatorAchievementProgressNotImplemented(result.emulatorType))
+                if (result.emulatorType == "SmartSteamEmu") // Manual scans use the CRC resolving rules as runtime polling
                 {
-                    // Manual scans use the same no-progress rules as runtime polling
-                    bool progressChanged = false;
-                    {
-                        std::lock_guard<std::mutex> lock(m_databaseMutex);
-                        progressChanged = DisableAchievementProgress(result.targetId);
-                        if (result.emulatorType == "SmartSteamEmu")  // Manual scans use the same CRC resolving rules as runtime polling
-                        {
-                            m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
-                        }
-                    }
-                    if (progressChanged)
-                    {
-                        EmitTargetDataChanged(result.targetId);
-                    }
+                    std::lock_guard<std::mutex> lock(m_databaseMutex);
+                    m_achievementKeyResolver.PrepareTargetKeys(result.targetId);
                 }
                 std::vector<AchievementData> achievements;
                 if (target.customAchievementLocation)
@@ -1943,55 +1909,6 @@ bool Lymalinkd::EnsureColumn(const std::string& tableName, const std::string& co
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalinkd::DisableAchievementProgress(int targetId)
-{
-    if (targetId <= 0 || m_backendFaulted.load())
-    {
-        return false;
-    }
-
-    const DbRecord progressRow = m_database.SelectFirst(
-        m_databaseConnectionName,
-        DATABASE_TABLE_EMU_ACHIEVEMENTS,
-        "id = ? AND (cur_progress != 0 OR max_progress != 0)",
-        {static_cast<int64_t>(targetId)}
-    );
-    if (progressRow.empty())
-    {
-        return false;
-    }
-
-    const bool updated = m_database.Update(
-        m_databaseConnectionName,
-        DATABASE_TABLE_EMU_ACHIEVEMENTS,
-        {
-            {"cur_progress", int64_t{0}},
-            {"max_progress", int64_t{0}},
-            {"date_updated", Utils::NowEpoch()}
-        },
-        "id = ?",
-        {static_cast<int64_t>(targetId)}
-    );
-
-    if (!updated)
-    {
-        HandleDatabaseError(std::format("Failed to disable achievement progress: targetId={}", targetId));
-        return false;
-    }
-
-    LOG_BE(Urgency::Debug, "Disabled achievement progress: targetId=%d", targetId);
-    return true;
-}
-
-/////////////////////////////////////////////////////////////////////
-
-bool Lymalinkd::EmulatorAchievementProgressNotImplemented(const std::string& emulatorType) const
-{
-    return emulatorType == "SmartSteamEmu" || emulatorType == "Tenoke";
-}
-
-/////////////////////////////////////////////////////////////////////
-
 void Lymalinkd::SavePlaytime(int targetId, long secondsPlayed)
 {
     if (m_backendFaulted.load())
@@ -2063,8 +1980,35 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
     }
 
     const int64_t existingUnlockTime = SQLiteManager::RowInt(existingAchievement, "date_unlocked");
+    const int64_t dbCurProgress = SQLiteManager::RowInt(existingAchievement, "cur_progress");
+    const int64_t dbMaxProgress = SQLiteManager::RowInt(existingAchievement, "max_progress");
+    const int64_t effectiveMaxProgress = achievement.maxProgress > 0 ? achievement.maxProgress : dbMaxProgress;
     if (achievement.achieved && existingUnlockTime > 0)
     {
+        // Preserve the original unlock timestamp while normalizing completed progress
+        const bool maxProgressChanged = achievement.hasMaxProgress && achievement.maxProgress > 0 && achievement.maxProgress != dbMaxProgress;
+        if (effectiveMaxProgress > 0 && (dbCurProgress != effectiveMaxProgress || maxProgressChanged))
+        {
+            DbRecord achievementUpdate{
+                {"cur_progress", effectiveMaxProgress},
+                {"date_updated", now}
+            };
+            if (maxProgressChanged)
+            {
+                achievementUpdate["max_progress"] = static_cast<int64_t>(achievement.maxProgress);
+            }
+            if (!m_database.Update(
+                m_databaseConnectionName,
+                DATABASE_TABLE_EMU_ACHIEVEMENTS,
+                achievementUpdate,
+                "id = ? AND achievement_key = ? COLLATE NOCASE",
+                {static_cast<int64_t>(targetId), achievement.key}))
+            {
+                m_database.RollbackTransaction(m_databaseConnectionName);
+                HandleDatabaseError(std::format("Failed to normalize unlocked achievement progress: targetId={} key={}", targetId, achievement.key));
+                return achievementStateUpdated;
+            }
+        }
         if (!m_database.Update(m_databaseConnectionName,
             m_databaseEmuGamesTable,
             {{"achievement_data_status", int64_t{2}},
@@ -2084,7 +2028,7 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
             HandleDatabaseError(std::format("Failed to commit achievement state transaction: targetId={} key={}: {}", targetId, achievement.key, commitError));
             return achievementStateUpdated;
         }
-        LOG_BE(Urgency::Debug, "Achievement already unlocked in DB, skipping update and notification: targetId=%d key=%s", targetId, achievement.key.c_str());
+        LOG_BE(Urgency::Debug, "Achievement already unlocked in DB, skipping notification: targetId=%d key=%s", targetId, achievement.key.c_str());
         return achievementStateUpdated;
     }
 
@@ -2095,9 +2039,6 @@ bool Lymalinkd::SaveAchievementState(int targetId, const AchievementData& achiev
         return achievementStateUpdated;
     }
 
-    const int64_t dbCurProgress = SQLiteManager::RowInt(existingAchievement, "cur_progress");
-    const int64_t dbMaxProgress = SQLiteManager::RowInt(existingAchievement, "max_progress");
-    const int64_t effectiveMaxProgress = achievement.maxProgress > 0 ? achievement.maxProgress : dbMaxProgress;
     int64_t currentProgress = static_cast<int64_t>(achievement.curProgress);
     bool shouldUpdateCurrentProgress = achievement.hasCurProgress;
     if (achievement.achieved && effectiveMaxProgress > 0 && currentProgress < effectiveMaxProgress)

@@ -159,6 +159,25 @@ Popup {
         return selectedOption.filePattern
     }
 
+    function selectedAchievementFileSuffix() {
+        return id_root.selectedAchievementFilePattern().replace(/^\*/, "")
+    }
+
+    function achievementFileMatchesSelectedEmulator(filePath) {
+        if (filePath.length === 0) {
+            return true
+        }
+
+        return filePath.toLowerCase().endsWith(id_root.selectedAchievementFileSuffix().toLowerCase())
+    }
+
+    function selectEmulatorType(index) {
+        id_root.draftEmulatorType = id_root.emulatorTypeOptions[index].value
+        if (!id_root.achievementFileMatchesSelectedEmulator(id_root.draftAchievementFile)) {
+            id_root.draftAchievementFile = ""
+        }
+    }
+
     function fileUrlToPath(fileUrl) {
         if (OS_WIN) {
             return decodeURIComponent(fileUrl.toString().replace(/^file:\/\/\//, ""))
@@ -450,7 +469,7 @@ Popup {
                     return value.label
                 }
                 onActivated: function(index) {
-                    id_root.draftEmulatorType = id_root.emulatorTypeOptions[index].value
+                    id_root.selectEmulatorType(index)
                 }
             }
 
@@ -486,7 +505,7 @@ Popup {
                 p_path: id_root.draftAchievementLocation
                 placeholderText: id_root.draftAchievementLocationIsFolder
                     ? qsTr("Select Achievement Data Folder")
-                    : qsTr("Select Achievement File")
+                    : qsTr("Select Achievement %1 file").arg(id_root.selectedAchievementFileSuffix())
                 onSelected: id_root.draftAchievementLocationIsFolder
                     ? id_achievementFolderDialog.open()
                     : id_achievementFileDialog.open()

@@ -2773,7 +2773,8 @@ bool Lymalink::ApplyNewAchievements(int appId, QString targetType, QVariantList 
 
         const int oldMaxProgress = Utils::MapIntValue(existingAchievement, "max_progress");
         const int newMaxProgress = Utils::MapIntValue(entry, "max_progress");
-        if (newMaxProgress != oldMaxProgress)
+        // A zero metadata maximum means unavailable - keep known emulator progress
+        if (newMaxProgress > 0 && newMaxProgress != oldMaxProgress)
         {
             const int oldCurProgress = Utils::MapIntValue(existingAchievement, "cur_progress");
             achievementUpdate["max_progress"] = newMaxProgress;

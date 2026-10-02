@@ -48,6 +48,11 @@ Item {
     readonly property bool p_enabledAchievementRowDynamicWidth: ctxSettings.enableDynamicAchievementRows
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
+    // Tenoke and SmartSteamEmu do not expose reliable per-achievement progress
+    readonly property bool achievementProgressSupported: {
+        const emulatorType = (p_emulatorType || "").trim().toUpperCase()
+        return emulatorType !== "TENOKE" && emulatorType !== "SMARTSTEAMEMU"
+    }
     // Completion ratio used to drive the progress bar gradient and opacity
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
@@ -553,7 +558,7 @@ Item {
                 Item {
                     width: id_unlockGlobalRow.implicitWidth
                     height: 18
-                    visible: id_row.maxProgress > 1
+                    visible: id_root.achievementProgressSupported && id_row.maxProgress > 1
 
                     readonly property color progressColor: id_row.unlocked
                         ? id_root.themedCompletionColor
