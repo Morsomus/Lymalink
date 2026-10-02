@@ -101,7 +101,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.9.6-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.9.7-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -114,7 +114,7 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/linux/build.sh
-./installer/linux/build/lymalink-installer-0.9.6-*-x86_64.run
+./installer/linux/build/lymalink-installer-0.9.7-*-x86_64.run
 ```
 
 ## Installation - Windows
@@ -132,7 +132,7 @@ Download the latest `lymalink-installer-<VERSION>-win-x64.exe` from the [Release
 ### Option 2: Building from Source
 
 ```powershell
-git clone --depth 1 --branch v0.9.6-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.9.7-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -146,7 +146,7 @@ Install the Windows dependencies documented for each component:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\installer\windows\build.ps1
-.\installer\windows\build\lymalink-installer-0.9.6-win-x64.exe
+.\installer\windows\build\lymalink-installer-0.9.7-win-x64.exe
 ```
 
 
@@ -166,8 +166,8 @@ Current progress towards different versions, platform-wise
 | &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | - | v0.8.0-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | - | 🔴 To Be Started | v0.9.x-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | - | 🔴 To Be Started | v0.9.x-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | - | 🚧 In Development | v0.9.x-beta |
+| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | - | 🚧 In Development | v0.9.x-beta |
 | &nbsp;&nbsp;&nbsp;&nbsp;Localisation | - | 🔴 To Be Started | v1.x.x |
 | **Backend Service** | | | |
 | &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | - | v0.8.0-beta |
