@@ -142,6 +142,27 @@ QtObject {
         }
     }
 
+    // CustomTabSelector.qml
+    readonly property QtObject customTabSelector: QtObject {
+        readonly property QtObject colors: QtObject {
+            readonly property color background: id_themes.themeColor("#181818", "#eceff1")
+            readonly property color backgroundHover: id_themes.themeColor("#2b2b2b", "#f7f7f7")
+            readonly property color backgroundPressed: id_themes.themeColor("#202020", "#dfe3e6")
+            readonly property color backgroundSelected: id_themes.themeColor("#3a3a3a", "#ffffff")
+            readonly property color backgroundDisabled: id_themes.themeColor("#202020", "#eceff1")
+            readonly property color border: id_themes.themeColor("#474747", "#adb4ba")
+            readonly property color borderSelected: id_themes.themeColor("#747474", "#7d858c")
+            readonly property color borderFocus: id_themes.themeColor("#8a8a8a", "#5f666d")
+            readonly property color text: id_themes.themeColor("#b0b0b0", "#51565b")
+            readonly property color textSelected: id_themes.themeColor("#ffffff", "#202326")
+            readonly property color textDisabled: id_themes.themeColor("#686868", "#8b9298")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int text: 13
+        }
+    }
+
     // CustomTextField.qml
     readonly property QtObject customTextField: QtObject {
         readonly property QtObject colors: QtObject {

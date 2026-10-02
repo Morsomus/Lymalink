@@ -98,4 +98,4 @@
 // Import / Export
 /////////////////////////////////////////////////////////////////////
 
-#define EXPORT_FILE_VERSION     1
+#define EXPORT_FILE_VERSION     2

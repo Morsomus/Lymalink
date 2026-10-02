@@ -47,7 +47,7 @@ public:
     Q_INVOKABLE void CancelSteamHydration();
     Q_INVOKABLE QVariantMap InspectExecutableFolder(const QString &executablePath);
     Q_INVOKABLE void FindEmulatorAppIdFolders(const QString &rootPath = QString());
-    Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir);
+    Q_INVOKABLE bool CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString locationPath, QString installationDir, bool customAchievementLocation, QString emulatorType);
     Q_INVOKABLE QVariantMap ImportSteamGames(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE QVariantMap UpdateSteamImports(QVariantList games, const QString &steamId, const QString &apiKey);
     Q_INVOKABLE void StartSteamImportAutoSync(const QString &steamId, const QString &apiKey, qint64 expiresAt);
@@ -56,6 +56,8 @@ public:
     Q_INVOKABLE bool SetTargetPrefixLocation(int appId, const QString &prefixPath);
     Q_INVOKABLE bool SetTargetExecutableLocation(int appId, const QString &executablePath);
     Q_INVOKABLE bool SetTargetInstallationLocation(int appId, const QString &installationDir);
+    Q_INVOKABLE QVariantMap GetTargetLocationSettings(int appId);
+    Q_INVOKABLE bool SetTargetLocationSettings(int appId, QString executablePath, QString prefixPath, QString installationDir, bool customAchievementLocation, QString emulatorType, QString achievementDataLocation, bool achievementLocationIsFolder);
     Q_INVOKABLE bool SetTargetCoverImage(int appId, const QString &sourceImagePath, const QString &targetType = "Emulator", bool useBlackBars = false);
     Q_INVOKABLE bool ClearTargetCoverImage(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE bool ResetTargetAchievementDataLocation(int appId);

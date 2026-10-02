@@ -159,6 +159,7 @@ qt_add_qml_module(Lymalink
         common/CustomComboBox.qml
         common/CustomScrollBar.qml
         common/CustomSwitch.qml
+        common/CustomTabSelector.qml
         common/CustomTextField.qml
         common/CustomTooltip.qml
         common/ConflictResolutionPopup.qml
@@ -179,6 +180,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/NewTarget/Targets/SteamImport.qml
         views/Main/Dashboard/TargetDetails/TargetDetails.qml
         views/Main/Dashboard/TargetDetails/TargetAchievementEditPopup.qml
+        views/Main/Dashboard/TargetDetails/TargetLocationSettingsPopup.qml
         views/Main/Dashboard/TargetDetails/TargetSettings.qml
         views/Main/Dashboard/Dashboard.qml
         views/Main/Dashboard/DashboardSettings.qml

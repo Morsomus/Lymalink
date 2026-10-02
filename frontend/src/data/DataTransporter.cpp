@@ -354,9 +354,8 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
         return false;
     }
 
-    // In future, version will be used to determine possible legacy support
     const int version = JsonIntValue(root.value("version"));
-    if (version != EXPORT_FILE_VERSION)
+    if (version < 1 || version > EXPORT_FILE_VERSION)
     {
         error = tr("Unsupported import file version: %1").arg(version);
         return false;
@@ -404,6 +403,25 @@ bool DataTransporter::ParseImportDocument(const QJsonDocument &document, QVector
         game.executableLocation = paths.value("exe").toString();
         game.prefixLocation = paths.value("prefix").toString();
         game.installationDir = paths.value("install").toString();
+
+        // Version 1 exports predate manual achievement locations and remain automatic
+        if (version >= 2)
+        {
+            if (!paths.value("custom_achievement_location").isBool() || !paths.value("achievement_data").isString() || !paths.value("emulator_type").isString())
+            {
+                error = tr("Import file contains a game with invalid achievement location data.");
+                return false;
+            }
+
+            game.customAchievementLocation = paths.value("custom_achievement_location").toBool(false);
+            game.achievementDataLocation = paths.value("achievement_data").toString();
+            game.emulatorType = paths.value("emulator_type").toString().trimmed();
+            if (game.customAchievementLocation && (game.achievementDataLocation.trimmed().isEmpty() || game.emulatorType.isEmpty()))
+            {
+                error = tr("Import file contains a game with incomplete manual achievement location data.");
+                return false;
+            }
+        }
 
         if (!gameObject.value("stats").isObject())
         {
@@ -706,21 +724,29 @@ bool DataTransporter::RefreshImportedGameCounts(const ImportedGame &game, qint64
         return false;
     }
 
+    QVariantMap updateData{
+        {"appid_dir_found", 0},
+        {"achievement_data_status", 0},
+        {"data_opt", ""},
+        {"target_hidden", game.hidden ? 1 : 0},
+        {"total_amount_achievements", totalCount},
+        {"total_unlocked_amount_achievements", unlockedCount},
+        {"total_seconds_played", qMax(Utils::MapIntValue(existingGame, "total_seconds_played"), game.totalSecondsPlayed)},
+        {"date_updated", now}
+    };
+
+    // Automatic targets retain existing rescan behavior; manual configuration must survive metadata refresh.
+    const bool customAchievementLocation = Utils::MapIntValue(existingGame, "custom_achievement_location") == 1;
+    if (!customAchievementLocation)
+    {
+        updateData.insert("emulator_type", "");
+        updateData.insert("appid_dir_location", "");
+    }
+
     if (!m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
-        {
-            {"emulator_type", ""},
-            {"appid_dir_found", 0},
-            {"achievement_data_status", 0},
-            {"appid_dir_location", ""},
-            {"data_opt", ""},
-            {"target_hidden", game.hidden ? 1 : 0},
-            {"total_amount_achievements", totalCount},
-            {"total_unlocked_amount_achievements", unlockedCount},
-            {"total_seconds_played", qMax(Utils::MapIntValue(existingGame, "total_seconds_played"), game.totalSecondsPlayed)},
-            {"date_updated", now}
-        },
+        updateData,
         "id = ?",
         {game.id}
     ))
@@ -739,15 +765,16 @@ QVariantMap DataTransporter::ImportedGameRow(const ImportedGame &game, qint64 no
     return {
         {"id", game.id},
         {"game_name", game.name},
-        {"emulator_type", ""},
         {"executable_location", game.executableLocation},
-        {"prefix_location", game.prefixLocation},
-        {"installation_dir", game.installationDir},
+        {"prefix_location", game.customAchievementLocation ? "" : game.prefixLocation},
+        {"installation_dir", game.customAchievementLocation ? "" : game.installationDir},
+        {"custom_achievement_location", game.customAchievementLocation ? 1 : 0},
         {"data_opt", ""},
         {"target_hidden", game.hidden ? 1 : 0},
         {"appid_dir_found", 0},
         {"achievement_data_status", 0},
-        {"appid_dir_location", ""},
+        {"appid_dir_location", game.customAchievementLocation ? game.achievementDataLocation : ""},
+        {"emulator_type", game.customAchievementLocation ? game.emulatorType : ""},
         {"total_amount_achievements", game.achievements.size()},
         {"total_unlocked_amount_achievements", 0},
         {"total_seconds_played", game.totalSecondsPlayed},
@@ -806,6 +833,9 @@ bool DataTransporter::BuildExportJson(QJsonObject &exportJson, int &exportedGame
             "executable_location",
             "prefix_location",
             "installation_dir",
+            "custom_achievement_location",
+            "appid_dir_location",
+            "emulator_type",
             "target_hidden",
             "total_amount_achievements",
             "total_unlocked_amount_achievements",
@@ -878,7 +908,10 @@ QJsonObject DataTransporter::BuildGameJson(const QVariantMap &row, const QVarian
         {"paths", QJsonObject{
             {"exe", Utils::MapStringValue(row, "executable_location")},
             {"prefix", Utils::MapStringValue(row, "prefix_location")},
-            {"install", Utils::MapStringValue(row, "installation_dir")}
+            {"install", Utils::MapStringValue(row, "installation_dir")},
+            {"custom_achievement_location", Utils::MapIntValue(row, "custom_achievement_location") == 1},
+            {"achievement_data", Utils::MapStringValue(row, "appid_dir_location")},
+            {"emulator_type", Utils::MapStringValue(row, "emulator_type")}
         }},
         {"hidden", row.value("target_hidden").toInt() == 1},
         {"stats", QJsonObject{

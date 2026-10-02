@@ -56,6 +56,9 @@ private:
         QString executableLocation;
         QString prefixLocation;
         QString installationDir;
+        bool customAchievementLocation = false;
+        QString achievementDataLocation;
+        QString emulatorType;
         bool hidden = false;
         int totalSecondsPlayed = 0;
         qint64 lastPlayedDate = 0;

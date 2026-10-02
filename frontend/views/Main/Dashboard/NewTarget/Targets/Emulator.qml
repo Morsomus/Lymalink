@@ -45,6 +45,18 @@ Item {
     property int addedDate: Math.floor(Date.now() / 1000)
     property bool manualGameEntry: false
     property bool installationDirScanEnabled: false
+    property bool manualAchievementData: false
+    property bool achievementLocationIsFolder: true
+    property string customAchievementFolder: ""
+    property string customAchievementFile: ""
+    readonly property var emulatorTypeOptions: [
+        { label: qsTr("CODEX / RUNE"), value: "CODEX", filePattern: "*.ini" },
+        { label: qsTr("Goldberg"), value: "GOLDBERG", filePattern: "*.json" },
+        { label: qsTr("Reloaded"), value: "RLD", filePattern: "*.ini" },
+        { label: qsTr("SmartSteamEmu"), value: "SmartSteamEmu", filePattern: "*.bin" },
+        { label: qsTr("Tenoke"), value: "Tenoke", filePattern: "*.ini" },
+        { label: qsTr("NemirtingasGalaxyEmulator"), value: "GOG-N", filePattern: "*.json" }
+    ]
     property var detectedSteamAppIds: []
     property bool detectedGogConfig: false
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(ctxSettings.globalColorStyle)
@@ -82,6 +94,14 @@ Item {
         
         const folderName = t.split("/").pop()
         return !folderName.startsWith("drive_") && !folderName.startsWith("Prefixes")
+    }
+
+    ButtonGroup {
+        id: id_achievementSourceGroup
+    }
+
+    ButtonGroup {
+        id: id_achievementLocationTypeGroup
     }
 
     Connections {
@@ -270,6 +290,34 @@ Item {
         id_root.busyChanged(busy)
     }
 
+    function canConfirmTarget() {
+        let targetCanBeConfirmed = false
+
+        // Validate fields shared by both achievement source modes
+        if (id_root.selectedAppId <= 0 || id_root.selectedName.trim().length === 0 || id_installLocationField.text.trim().length === 0 || id_root.targetCreated || id_root.isCreatingTarget) {
+            return targetCanBeConfirmed
+        }
+
+        // Validate manual emulator and achievement location selection
+        if (id_root.manualAchievementData) {
+            const achievementDataLocation = id_root.achievementLocationIsFolder
+                ? id_root.customAchievementFolder
+                : id_root.customAchievementFile
+            const emulatorTypeSelected = id_emulatorTypeCombo.currentIndex >= 0
+            const achievementDataLocationSelected = achievementDataLocation.trim().length > 0
+            targetCanBeConfirmed = emulatorTypeSelected && achievementDataLocationSelected
+
+            return targetCanBeConfirmed
+        }
+
+        // Validate fields used by automatic detection
+        const installationDirectorySelected = !id_root.installationDirScanEnabled || id_installDirField.text.trim().length > 0
+        const prefixLocationSelected = OS_WIN || id_prefixLocationField.text.trim().length > 0
+        targetCanBeConfirmed = installationDirectorySelected && prefixLocationSelected
+
+        return targetCanBeConfirmed
+    }
+
     function createTarget() {
         if (id_root.isCreatingTarget || !id_confirmTarget.canConfirm) {
             return
@@ -280,12 +328,19 @@ Item {
         id_root.targetStatusText = qsTr("Creating target...")
         id_root.targetStatusIsError = false
 
+        // Save only fields used by selected achievement source mode
+        const achievementDataLocation = id_root.achievementLocationIsFolder
+            ? id_root.customAchievementFolder
+            : id_root.customAchievementFile
+        const emulatorType = id_emulatorTypeCombo.model[id_emulatorTypeCombo.currentIndex].value
         const success = ctxLymalink.CreateNewSteamEmuTarget(
             id_root.selectedAppId,
             id_root.selectedName,
             id_installLocationField.text,
-            id_prefixLocationField.text,
-            id_root.installationDirScanEnabled ? id_installDirField.text : ""
+            id_root.manualAchievementData ? achievementDataLocation : id_prefixLocationField.text,
+            !id_root.manualAchievementData && id_root.installationDirScanEnabled ? id_installDirField.text : "",
+            id_root.manualAchievementData,
+            id_root.manualAchievementData ? emulatorType : ""
         )
 
         id_root.targetStatusIsError = !success
@@ -298,6 +353,48 @@ Item {
             id_root.targetAdded(id_root.selectedAppId)
         } else {
             id_root.setAddBusy(false)
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    //////////////////////////// COMPONENTS /////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    component C_RadioButton: RadioButton {
+        id: id_radioButton
+
+        indicator: Rectangle {
+            implicitWidth: 18
+            implicitHeight: 18
+            x: id_radioButton.leftPadding
+            y: id_radioButton.topPadding + (id_radioButton.availableHeight - height) / 2
+            radius: width / 2
+            color: id_radioButton.checked
+                ? Themes.customCheckBox.colors.backgroundChecked
+                : Themes.customCheckBox.colors.background
+            border.width: 1
+            border.color: id_radioButton.visualFocus
+                ? Themes.customCheckBox.colors.borderFocus
+                : (id_radioButton.checked
+                    ? Themes.customCheckBox.colors.borderChecked
+                    : Themes.customCheckBox.colors.border)
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 8
+                height: 8
+                radius: width / 2
+                visible: id_radioButton.checked
+                color: Themes.customCheckBox.colors.mark
+            }
+        }
+
+        contentItem: Text {
+            text: id_radioButton.text
+            leftPadding: id_radioButton.indicator.width + 8
+            color: Themes.customCheckBox.colors.text
+            font.pixelSize: Themes.customCheckBox.fontSizes.text
+            verticalAlignment: Text.AlignVCenter
         }
     }
 
@@ -337,6 +434,32 @@ Item {
         title: qsTr("Select Game Installation Directory")
         onAccepted: {
             id_installDirField.text = id_root.fileUrlToPath(selectedFolder)
+            id_root.targetStatusText = ""
+            id_root.targetStatusIsError = false
+        }
+    }
+
+    FolderDialog {
+        id: id_achievementDataFolderDialog
+
+        title: qsTr("Select Achievement Data Folder")
+        onAccepted: {
+            // Trailing slash marks custom folder locations in database
+            const folderPath = id_root.fileUrlToPath(selectedFolder).replace(/[\\/]+$/, "")
+            id_root.customAchievementFolder = folderPath + "/"
+            id_root.targetStatusText = ""
+            id_root.targetStatusIsError = false
+        }
+    }
+
+    FileDialog {
+        id: id_achievementDataFileDialog
+
+        title: qsTr("Select Achievement File")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("Achievement files (%1)").arg(id_root.emulatorTypeOptions[id_emulatorTypeCombo.currentIndex].filePattern)]
+        onAccepted: {
+            id_root.customAchievementFile = id_root.fileUrlToPath(selectedFile)
             id_root.targetStatusText = ""
             id_root.targetStatusIsError = false
         }
@@ -1304,6 +1427,127 @@ Item {
                         enabled: id_root.manualGameEntry || id_root.selectedAppId > 0
                         opacity: enabled ? 1.0 : 0.45
 
+                        // Achievement data source
+                        Text {
+                            Layout.preferredWidth: 200
+                            text: qsTr("Achievement data source")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 24
+
+                            C_RadioButton {
+                                text: qsTr("Automatic detection")
+                                checked: !id_root.manualAchievementData
+                                ButtonGroup.group: id_achievementSourceGroup
+                                onClicked: {
+                                    id_root.manualAchievementData = false
+                                    id_root.targetStatusText = ""
+                                    id_root.targetStatusIsError = false
+                                }
+                            }
+
+                            C_RadioButton {
+                                text: qsTr("Specify achievement file manually (Advanced)")
+                                checked: id_root.manualAchievementData
+                                ButtonGroup.group: id_achievementSourceGroup
+                                onClicked: {
+                                    id_root.manualAchievementData = true
+                                    id_root.targetStatusText = ""
+                                    id_root.targetStatusIsError = false
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            visible: id_root.manualAchievementData
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+                            implicitHeight: id_manualAchievementNotice.implicitHeight + 28
+                            radius: 6
+                            color: Themes.emulatorTarget.colors.infoBlockBackground
+                            border.width: 1
+                            border.color: Themes.emulatorTarget.colors.infoBlockBorder
+
+                            RowLayout {
+                                id: id_manualAchievementNotice
+
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignTop
+                                    width: 18
+                                    height: 18
+                                    radius: width / 2
+                                    color: "transparent"
+                                    border.width: 1
+                                    border.color: Themes.emulatorTarget.colors.infoIconBorder
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "i"
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.infoIcon
+                                        font.italic: true
+                                        font.bold: true
+                                        color: Themes.emulatorTarget.colors.infoIconText
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 5
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Manual achievement data source")
+                                        color: Themes.emulatorTarget.colors.labelText
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                                        font.bold: true
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Overrides automatic detection. Select the corresponding emulator to ensure proper data parsing.")
+                                        color: Themes.emulatorTarget.colors.descriptionText
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: qsTr("File: Select a specific achievement data file directly.")
+                                        color: Themes.emulatorTarget.colors.descriptionText
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Folder: Select a directory to monitor for the default file, including files created in the future.")
+                                        color: Themes.emulatorTarget.colors.descriptionText
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.description
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.topMargin: 2
+                                        text: qsTr("Using a folder? Expected file names and formats are displayed in the information box at the top of this view.")
+                                        color: Themes.emulatorTarget.colors.descriptionMutedText
+                                        font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
+                                        wrapMode: Text.Wrap
+                                    }
+                                }
+                            }
+                        }
+
                         // ID
                         Text {
                             Layout.preferredWidth: 200
@@ -1351,9 +1595,106 @@ Item {
                             }
                         }
 
+                        // Emulator type
+                        Text {
+                            visible: id_root.manualAchievementData
+                            Layout.preferredWidth: 200
+                            text: qsTr("Emulator type")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        CustomComboBox {
+                            id: id_emulatorTypeCombo
+
+                            visible: id_root.manualAchievementData
+                            Layout.fillWidth: true
+                            model: id_root.emulatorTypeOptions
+                            currentIndex: 0
+                            p_textFromValue: function(value) {
+                                return value.label
+                            }
+                            onActivated: {
+                                id_root.targetStatusText = ""
+                                id_root.targetStatusIsError = false
+                            }
+                        }
+
+                        // Location type
+                        Text {
+                            visible: id_root.manualAchievementData
+                            Layout.preferredWidth: 200
+                            text: qsTr("Location type")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        RowLayout {
+                            visible: id_root.manualAchievementData
+                            Layout.fillWidth: true
+                            spacing: 24
+
+                            C_RadioButton {
+                                text: qsTr("Folder")
+                                checked: id_root.achievementLocationIsFolder
+                                ButtonGroup.group: id_achievementLocationTypeGroup
+                                onClicked: {
+                                    id_root.achievementLocationIsFolder = true
+                                    id_root.targetStatusText = ""
+                                    id_root.targetStatusIsError = false
+                                }
+                            }
+
+                            C_RadioButton {
+                                text: qsTr("File")
+                                checked: !id_root.achievementLocationIsFolder
+                                ButtonGroup.group: id_achievementLocationTypeGroup
+                                onClicked: {
+                                    id_root.achievementLocationIsFolder = false
+                                    id_root.targetStatusText = ""
+                                    id_root.targetStatusIsError = false
+                                }
+                            }
+                        }
+
+                        // Achievement data location
+                        Text {
+                            visible: id_root.manualAchievementData
+                            Layout.preferredWidth: 200
+                            text: id_root.achievementLocationIsFolder
+                                ? qsTr("Achievement data folder")
+                                : qsTr("Achievement file")
+                            color: Themes.emulatorTarget.colors.descriptionText
+                            font.pixelSize: Themes.emulatorTarget.fontSizes.label
+                            wrapMode: Text.Wrap
+                        }
+
+                        CustomTextField {
+                            visible: id_root.manualAchievementData
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: false
+                            text: id_root.achievementLocationIsFolder
+                                ? id_root.customAchievementFolder
+                                : id_root.customAchievementFile
+                            placeholderText: id_root.achievementLocationIsFolder
+                                ? qsTr("Path to achievement data folder")
+                                : qsTr("Path to achievement file")
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: id_root.achievementLocationIsFolder
+                                    ? id_achievementDataFolderDialog.open()
+                                    : id_achievementDataFileDialog.open()
+                            }
+                        }
+
                         // Prefix Location
                         ColumnLayout {
-                            visible: !OS_WIN
+                            visible: !id_root.manualAchievementData && !OS_WIN
                             Layout.preferredWidth: 200
                             spacing: 2
 
@@ -1374,7 +1715,7 @@ Item {
                         }
 
                         ColumnLayout {
-                            visible: !OS_WIN
+                            visible: !id_root.manualAchievementData && !OS_WIN
                             Layout.fillWidth: true
                             spacing: 4
 
@@ -1457,6 +1798,7 @@ Item {
 
                         // Installation Directory
                         ColumnLayout {
+                            visible: !id_root.manualAchievementData
                             Layout.preferredWidth: 200
                             spacing: 2
 
@@ -1488,6 +1830,7 @@ Item {
                         }
 
                         ColumnLayout {
+                            visible: !id_root.manualAchievementData
                             Layout.fillWidth: true
                             spacing: 4
 
@@ -1556,13 +1899,7 @@ Item {
                             Rectangle {
                                 id: id_confirmTarget
 
-                                readonly property bool canConfirm: id_root.selectedAppId > 0
-                                    && id_root.selectedName.trim().length > 0
-                                    && id_installLocationField.text.trim().length > 0
-                                    && (!id_root.installationDirScanEnabled || id_installDirField.text.trim().length > 0)
-                                    && (OS_WIN || id_prefixLocationField.text.trim().length > 0)
-                                    && !id_root.targetCreated
-                                    && !id_root.isCreatingTarget
+                                readonly property bool canConfirm: id_root.canConfirmTarget()
 
                                 implicitHeight: 32
                                 implicitWidth: id_confirmTargetLabel.implicitWidth + 60

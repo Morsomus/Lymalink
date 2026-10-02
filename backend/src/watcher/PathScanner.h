@@ -23,6 +23,9 @@ struct AppIdDirPathScanTarget
     std::string executableLocation;
     std::string installationDir;
     std::string dataOpt;
+    bool customAchievementLocation = false;
+    std::string customAchievementDataLocation;
+    std::string emulatorType;
 };
 
 struct AppIdDirPathScanResult

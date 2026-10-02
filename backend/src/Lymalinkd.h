@@ -54,6 +54,12 @@ public:
     Error Main();
 
 private:
+    struct CustomAchievementLocation
+    {
+        std::string directoryPath;
+        std::string fileName;
+    };
+
 #if defined(_WIN32)
     WinSocketServer m_ipc;
     WinNotificationService m_desktopNotifications;
@@ -137,6 +143,7 @@ private:
     void  OnProcessStopped(int targetId, long secondsPlayed);
     void  OnAchievementUnlocked(int targetId, const std::string& achievementKey);
     void  OnAppIdDirUnavailable(int targetId, const std::string& appIdDirPath);
+    void  OnAchievementFileAvailable(int targetId);
     void  OnTestToast();
     void  OnTestSound();
     void  OnShutdown();
@@ -171,6 +178,7 @@ private:
     void LoadNotificationSoundConfig(bool& outUseCustomSound, std::string& outCustomSoundPath, std::string& outBundledSound) const;
     bool LoadStartupNotificationConfig() const;
     bool ParseConfigBool(const std::string& value) const;
+    CustomAchievementLocation ResolveCustomAchievementLocation(const std::string& configuredPath);
     bool IsSupportedCustomNotificationSound(const std::filesystem::path& soundPath) const;
     void RequestManualAchievementDataScanCancel(int targetId, const std::string& reason);
     void FinishManualAchievementDataScan(int targetId, bool found, const std::string& reason);

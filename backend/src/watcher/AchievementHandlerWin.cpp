@@ -108,7 +108,7 @@ void AchievementHandler::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, std::optional<std::filesystem::file_time_type> processStartedAt)
+void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, std::optional<std::filesystem::file_time_type> processStartedAt)
 {
     // Ensure the directory exists before continuing
     if (!fs::is_directory(appIdDirPath))
@@ -141,12 +141,17 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     session.targetId = targetId;
     session.appIdDirPath = appIdDirPath;
     session.emulatorType = emulatorType;
+    session.achievementFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
     session.processStartedAt = processStartedAt;
     m_parsers[targetId] = parser;
     m_sessions[targetId] = std::move(session);
 
     // Perform initial read to establish baseline state
     ReadInitial(m_sessions[targetId]);
+    if (m_sessions[targetId].achievementFilePresent && onAchievementFileAvailable)
+    {
+        onAchievementFileAvailable(targetId);
+    }
 
     LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
 }
@@ -196,9 +201,13 @@ std::vector<AchievementData> AchievementHandler::PollUnhandled(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
-std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
+std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, bool *achievementFileFound)
 {
     std::vector<AchievementData> values;
+    if (achievementFileFound)
+    {
+        *achievementFileFound = false;
+    }
 
     // Manual rescan uses the same parser family without adding a persistent polling session
     AchievementParser* parser = CreateParser(emulatorType);
@@ -207,12 +216,17 @@ std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int tar
         return values;
     }
 
-    const fs::path filePath = fs::path(appIdDirPath) / parser->GetFileName();
+    const std::string resolvedFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+    const fs::path filePath = fs::path(appIdDirPath) / resolvedFileName;
     if (!fs::is_regular_file(filePath))
     {
         LOG_BE(Urgency::Debug, "Achievement file not present for one-shot read: targetId=%d path=%s", targetId, filePath.string().c_str());
         delete parser;
         return values;
+    }
+    if (achievementFileFound)
+    {
+        *achievementFileFound = true;
     }
 
     try
@@ -255,7 +269,7 @@ void AchievementHandler::WatchLoop()
                     continue;
                 }
 
-                const fs::path filePath = fs::path(session.appIdDirPath) / m_parsers[session.targetId]->GetFileName();
+                const fs::path filePath = fs::path(session.appIdDirPath) / session.achievementFileName;
                 if (!fs::is_regular_file(filePath))
                 {
                     // File can be recreated in same AppId directory, so retain session like Linux retains directory watch
@@ -272,6 +286,10 @@ void AchievementHandler::WatchLoop()
                 {
                     session.achievementFilePresent = true;
                     LOG_BE(Urgency::Info, "Achievement file appeared: targetId=%d file=%s", session.targetId, filePath.filename().string().c_str());
+                    if (onAchievementFileAvailable)
+                    {
+                        onAchievementFileAvailable(session.targetId);
+                    }
                     if (!session.initialReadDone)
                     {
                         // File first appeared after tracking began: diff it, never create a silent startup baseline
@@ -345,7 +363,7 @@ void AchievementHandler::AddFileWatch(WatchSession& session)
 void AchievementHandler::ReadInitial(WatchSession& session)
 {
     // Construct local file target path
-    const fs::path filePath = fs::path(session.appIdDirPath) / m_parsers[session.targetId]->GetFileName();
+    const fs::path filePath = fs::path(session.appIdDirPath) / session.achievementFileName;
     if (!fs::is_regular_file(filePath))
     {
         return;
@@ -392,7 +410,7 @@ void AchievementHandler::ReadInitial(WatchSession& session)
 void AchievementHandler::ReadAndDiff(WatchSession& session)
 {
     // Build target update path location
-    const fs::path filePath = fs::path(session.appIdDirPath) / m_parsers[session.targetId]->GetFileName();
+    const fs::path filePath = fs::path(session.appIdDirPath) / session.achievementFileName;
     if (!fs::is_regular_file(filePath))
     {
         return;

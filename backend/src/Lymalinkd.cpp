@@ -230,6 +230,7 @@ Error Lymalinkd::Init()
     m_processWatcher.onProcessStarted = [this](int targetId, const std::string& exe, uint32_t pid) { OnProcessStarted(targetId, exe, pid); };
     m_processWatcher.onProcessStopped = [this](int targetId, long secs) { OnProcessStopped(targetId, secs); };
     m_achievementHandler.onAppIdDirUnavailable = [this](int targetId, const std::string& appIdDirPath) { OnAppIdDirUnavailable(targetId, appIdDirPath); };
+    m_achievementHandler.onAchievementFileAvailable = [this](int targetId) { OnAchievementFileAvailable(targetId); };
 
     m_achievementHandler.Init();
     m_achievementHandler.Start();
@@ -313,6 +314,7 @@ Error Lymalinkd::DatabaseInit(std::string& res)
     bool achievementDataStatusColumnAdded = false;
     if (!EnsureColumn(m_databaseEmuGamesTable, "installation_dir", "installation_dir TEXT") ||
         !EnsureColumn(m_databaseEmuGamesTable, "data_opt", "data_opt TEXT") ||
+        !EnsureColumn(m_databaseEmuGamesTable, "custom_achievement_location", "custom_achievement_location INTEGER DEFAULT 0") ||
         !EnsureColumn(m_databaseEmuGamesTable, "achievement_data_status", "achievement_data_status INTEGER DEFAULT 0", &achievementDataStatusColumnAdded))
     {
         LOG_BE(Urgency::Critical, "Database migration failed: %s", m_database.LastError().c_str());
@@ -487,7 +489,7 @@ void Lymalinkd::Monitor()
                                         }
                                     }
 
-                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, hasProcessStartTime ? std::optional{processStartedAt} : std::nullopt);
+                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, "", hasProcessStartTime ? std::optional{processStartedAt} : std::nullopt);
 #else
                                     m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
 #endif
@@ -941,6 +943,7 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
     const std::string appIdDirPath = SQLiteManager::RowString(target, "appid_dir_location");
     const std::string emulatorType = SQLiteManager::RowString(target, "emulator_type");
     const std::string gameName = SQLiteManager::RowString(target, "game_name");
+    const bool customAchievementLocation = SQLiteManager::RowInt(target, "custom_achievement_location") == 1;
     if (!appIdDirPath.empty() && !emulatorType.empty())
     {
         if (EmulatorAchievementProgressNotImplemented(emulatorType))
@@ -959,7 +962,17 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
                 EmitTargetDataChanged(targetId);
             }
         }
-        m_achievementHandler.AddTarget(targetId, appIdDirPath, emulatorType);
+
+        // Custom file paths reuse normal directory monitoring with an exact filename override
+        std::string achievementDirectory = appIdDirPath;
+        std::string customAchievementFileName;
+        if (customAchievementLocation)
+        {
+            const CustomAchievementLocation location = ResolveCustomAchievementLocation(appIdDirPath);
+            achievementDirectory = location.directoryPath;
+            customAchievementFileName = location.fileName;
+        }
+        m_achievementHandler.AddTarget(targetId, achievementDirectory, emulatorType, customAchievementFileName);
     }
 
     ScheduleStartupNotification(targetId, gameName);
@@ -1065,6 +1078,20 @@ void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirP
         return;
     }
 
+    bool customAchievementLocation = false;
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        const DbRecord target = m_database.SelectFirst(m_databaseConnectionName, m_databaseEmuGamesTable, "id = ?", {static_cast<int64_t>(targetId)});
+        customAchievementLocation = SQLiteManager::RowInt(target, "custom_achievement_location") == 1;
+    }
+
+    // Manual configuration remains authoritative when its directory is temporarily unavailable
+    if (customAchievementLocation)
+    {
+        LOG_BE(Urgency::Warning, "Custom achievement directory unavailable: targetId=%d path=%s", targetId, appIdDirPath.c_str());
+        return;
+    }
+
     LOG_BE(Urgency::Warning, "AppID dir unavailable, resetting scan state: targetId=%d path=%s", targetId, appIdDirPath.c_str());
 
     {
@@ -1087,6 +1114,49 @@ void Lymalinkd::OnAppIdDirUnavailable(int targetId, const std::string& appIdDirP
     {
         std::lock_guard<std::mutex> lock(m_targetIdsRequiringDirScanMutex);
         m_targetIdsRequiringDirScan = targetsMissingAppIdDir;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalinkd::OnAchievementFileAvailable(int targetId)
+{
+    if (targetId <= 0 || m_backendFaulted.load())
+    {
+        return;
+    }
+
+    bool targetChanged = false;
+    {
+        std::lock_guard<std::mutex> lock(m_databaseMutex);
+        const DbRecord target = m_database.SelectFirst(m_databaseConnectionName, m_databaseEmuGamesTable, "id = ?", {static_cast<int64_t>(targetId)});
+        const bool customAchievementLocation = SQLiteManager::RowInt(target, "custom_achievement_location") == 1;
+        const bool appIdDirFound = SQLiteManager::RowInt(target, "appid_dir_found") == 1;
+        const int64_t achievementDataStatus = SQLiteManager::RowInt(target, "achievement_data_status");
+        if (!customAchievementLocation || (appIdDirFound && achievementDataStatus > 0))
+        {
+            return;
+        }
+
+        // Record file availability without replacing configured location or parser type
+        DbRecord data{
+            {"appid_dir_found", int64_t{1}},
+            {"date_updated", Utils::NowEpoch()}
+        };
+        if (achievementDataStatus <= 0)
+        {
+            data.emplace("achievement_data_status", int64_t{1});
+        }
+        targetChanged = m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)});
+        if (!targetChanged)
+        {
+            HandleDatabaseError(std::format("Failed to mark custom achievement file available: targetId={}", targetId));
+        }
+    }
+
+    if (targetChanged)
+    {
+        EmitTargetDataChanged(targetId);
     }
 }
 
@@ -1216,11 +1286,18 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
         return;
     }
 
-#if defined(_WIN32)
-    if (target.executableLocation.empty())
-#else
-    if (target.prefixLocation.empty() || target.executableLocation.empty())
+    bool requiredPathsMissing = target.executableLocation.empty();
+    if (target.customAchievementLocation)
+    {
+        requiredPathsMissing = requiredPathsMissing || target.customAchievementDataLocation.empty() || target.emulatorType.empty();
+    }
+#if !defined(_WIN32)
+    else
+    {
+        requiredPathsMissing = requiredPathsMissing || target.prefixLocation.empty();
+    }
 #endif
+    if (requiredPathsMissing)
     {
         LOG_BE(Urgency::Warning, "Manual achievement data scan rejected because required paths are missing: targetId=%d prefix=%s executable=%s", targetId, target.prefixLocation.c_str(), target.executableLocation.c_str());
         EmitManualAchievementDataScanFinished(targetId, false, "invalid");
@@ -1252,8 +1329,6 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
     m_manualScanThread = std::thread([this, target]() {
         const int targetId = target.targetId;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-        PathScanner scanner;
-        scanner.SetTargets({target});
 
         // Cancellation is cooperative so recursive filesystem walks can stop between entries
         auto shouldStopScanning = [this, targetId, deadline]() {
@@ -1273,14 +1348,38 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
             return false;
         };
 
-        const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir(shouldStopScanning);
-        bool found = false;
-        for (const AppIdDirPathScanResult& result : results)
+        std::vector<AppIdDirPathScanResult> results;
+        std::vector<AchievementData> customAchievements;
+        std::string customAchievementDirectory;
+        bool customAchievementFileFound = false;
+        bool achievementFileFound = false;
+        if (target.customAchievementLocation)
         {
-            if (result.appidDirFound)
+            // Custom refresh reads only configured directory entry and bypasses recursive detection
+            const bool scanCancelled = shouldStopScanning();
+            if (!scanCancelled)
             {
-                found = true;
-                break;
+                const CustomAchievementLocation location = ResolveCustomAchievementLocation(target.customAchievementDataLocation);
+                customAchievementDirectory = location.directoryPath;
+                customAchievements = m_achievementHandler.ReadAchievementFileOnce(targetId, location.directoryPath, target.emulatorType, location.fileName, &customAchievementFileFound);
+                if (shouldStopScanning())
+                {
+                    customAchievementFileFound = false;
+                }
+            }
+        }
+        else
+        {
+            PathScanner scanner;
+            scanner.SetTargets({target});
+            results = scanner.ScanOnceForAppIdDir(shouldStopScanning);
+            for (const AppIdDirPathScanResult& result : results)
+            {
+                if (result.appidDirFound)
+                {
+                    achievementFileFound = true;
+                    break;
+                }
             }
         }
 
@@ -1295,9 +1394,19 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
             RequestManualAchievementDataScanCancel(0, "game_started");
         }
 
+        if (target.customAchievementLocation && customAchievementFileFound && !m_manualScanCancelRequested.load())
+        {
+            achievementFileFound = true;
+            results.push_back(AppIdDirPathScanResult{targetId, customAchievementDirectory, target.emulatorType, "", true});
+            OnAchievementFileAvailable(targetId);
+        }
+
         if (!results.empty() && !m_manualScanCancelRequested.load())
         {
-            SavePathScanResults(results, false); // Set false - Using EmitManualAchievementDataScanFinished instead of EmitTargetDataChanged
+            if (!target.customAchievementLocation)
+            {
+                SavePathScanResults(results, false); // Set false - Using EmitManualAchievementDataScanFinished instead of EmitTargetDataChanged
+            }
 
             // After finding AppID data manually, do the initial achievement state sync
             for (const AppIdDirPathScanResult& result : results)
@@ -1325,7 +1434,15 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                         EmitTargetDataChanged(result.targetId);
                     }
                 }
-                const std::vector<AchievementData> achievements = m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType);
+                std::vector<AchievementData> achievements;
+                if (target.customAchievementLocation)
+                {
+                    achievements = customAchievements;
+                }
+                else
+                {
+                    achievements = m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType);
+                }
                 for (const AchievementData& achievement : achievements)
                 {
                     if (achievement.key.empty())
@@ -1356,37 +1473,46 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 LOG_BE(Urgency::Debug, "Manual achievement scan state sync saved: targetId=%d updated=%d", result.targetId, updatedAchievements);
             }
         }
-        if (!found && !m_manualScanCancelRequested.load())
+        if (!achievementFileFound && !m_manualScanCancelRequested.load())
         {
-            LOG_BE(Urgency::Debug, "Not found appIdDir: targetId=%d", targetId);
-            std::lock_guard<std::mutex> lock(m_databaseMutex);
-            DbRecord data{
-                {"appid_dir_found", int64_t{0}},
-                {"achievement_data_status", int64_t{0}},
-                {"appid_dir_location", std::string{}},
-                {"emulator_type", std::string{}},
-                {"date_updated", Utils::NowEpoch()}
-            };
-            if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
+            if (target.customAchievementLocation)
             {
-                HandleDatabaseError(std::format("Failed to save missing APPID dir result: targetId={}", targetId));
+                // Custom achievement location does not reset info - which is manually set by user
+                LOG_BE(Urgency::Info, "Custom achievement file not found: targetId=%d path=%s", targetId, target.customAchievementDataLocation.c_str());
             }
             else
             {
-                std::lock_guard<std::mutex> scanLock(m_targetIdsRequiringDirScanMutex);
-                m_targetIdsRequiringDirScan[targetId] = target;
+                // Reset info for not found appIdDir target
+                LOG_BE(Urgency::Debug, "Not found appIdDir: targetId=%d", targetId);
+                std::lock_guard<std::mutex> lock(m_databaseMutex);
+                DbRecord data{
+                    {"appid_dir_found", int64_t{0}},
+                    {"achievement_data_status", int64_t{0}},
+                    {"appid_dir_location", std::string{}},
+                    {"emulator_type", std::string{}},
+                    {"date_updated", Utils::NowEpoch()}
+                };
+                if (!m_database.Update(m_databaseConnectionName, m_databaseEmuGamesTable, data, "id = ?", {static_cast<int64_t>(targetId)}))
+                {
+                    HandleDatabaseError(std::format("Failed to save missing APPID dir result: targetId={}", targetId));
+                }
+                else
+                {
+                    std::lock_guard<std::mutex> scanLock(m_targetIdsRequiringDirScanMutex);
+                    m_targetIdsRequiringDirScan[targetId] = target;
+                }
             }
         }
 
-        std::string reason = found ? "found" : "not_found";
+        std::string reason = achievementFileFound ? "found" : "not_found";
         if (m_manualScanCancelRequested.load())
         {
             std::lock_guard<std::mutex> lock(m_manualScanMutex);
             reason = m_manualScanCancelReason.empty() ? "cancelled" : m_manualScanCancelReason;
-            found = false;
+            achievementFileFound = false;
         }
 
-        FinishManualAchievementDataScan(targetId, found, reason);
+        FinishManualAchievementDataScan(targetId, achievementFileFound, reason);
     });
 }
 
@@ -1511,9 +1637,9 @@ std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTarge
             m_databaseConnectionName,
             m_databaseEmuGamesTable,
 #if defined(_WIN32)
-            "appid_dir_found = 0 AND executable_location IS NOT NULL AND executable_location != ''",
+            "custom_achievement_location = 0 AND appid_dir_found = 0 AND executable_location IS NOT NULL AND executable_location != ''",
 #else
-            "appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
+            "custom_achievement_location = 0 AND appid_dir_found = 0 AND prefix_location IS NOT NULL AND prefix_location != ''",
 #endif
             {},
             {"id", "prefix_location", "executable_location", "installation_dir", "data_opt"}
@@ -1533,7 +1659,10 @@ std::unordered_map<int, AppIdDirPathScanTarget> Lymalinkd::LoadAppIdDirScanTarge
             SQLiteManager::RowString(row, "prefix_location"),
             SQLiteManager::RowString(row, "executable_location"),
             SQLiteManager::RowString(row, "installation_dir"),
-            SQLiteManager::RowString(row, "data_opt")
+            SQLiteManager::RowString(row, "data_opt"),
+            false,
+            "",
+            ""
         });
     }
 
@@ -1583,7 +1712,10 @@ bool Lymalinkd::LoadAppIdDirScanTargetFromDatabase(int targetId, AppIdDirPathSca
         SQLiteManager::RowString(row, "prefix_location"),
         SQLiteManager::RowString(row, "executable_location"),
         SQLiteManager::RowString(row, "installation_dir"),
-        SQLiteManager::RowString(row, "data_opt")
+        SQLiteManager::RowString(row, "data_opt"),
+        SQLiteManager::RowInt(row, "custom_achievement_location") == 1,
+        SQLiteManager::RowString(row, "appid_dir_location"),
+        SQLiteManager::RowString(row, "emulator_type")
     };
     return true;
 }
@@ -2737,6 +2869,28 @@ bool Lymalinkd::IsSupportedCustomNotificationSound(const std::filesystem::path& 
     }
 
     return isFile;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+Lymalinkd::CustomAchievementLocation Lymalinkd::ResolveCustomAchievementLocation(const std::string& configuredPath)
+{
+    CustomAchievementLocation location;
+    const bool folderLocation = !configuredPath.empty() && (configuredPath.back() == '/' || configuredPath.back() == '\\');
+    const std::filesystem::path path(configuredPath);
+
+    // Folder locations use parser default filename - file locations keep exact basename.
+    if (folderLocation)
+    {
+        location.directoryPath = path.lexically_normal().string();
+    }
+    else
+    {
+        location.directoryPath = path.parent_path().string();
+        location.fileName = path.filename().string();
+    }
+
+    return location;
 }
 
 /////////////////////////////////////////////////////////////////////

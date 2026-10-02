@@ -145,9 +145,10 @@ void AchievementHandler::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
+void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName)
 {
     bool appIdDirUnavailable = false;
+    bool achievementFileAvailable = false;
     bool shouldReturn = false;
 
     {
@@ -172,6 +173,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
         session.targetId = targetId;
         session.appIdDirPath = appIdDirPath;
         session.emulatorType = emulatorType;
+        session.achievementFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
 
         // Watch directory for file creation/move and directory removal.
         session.dirWd = inotify_add_watch(m_inotifyFd, appIdDirPath.c_str(), IN_CREATE | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF);
@@ -199,11 +201,12 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
 
             // If achievement file already exists: initial read + add file watch
             WatchSession& stored = m_sessions[targetId];
-            const std::string filePath = stored.appIdDirPath + "/" + m_parsers[targetId]->GetFileName();
+            const std::string filePath = stored.appIdDirPath + "/" + stored.achievementFileName;
             if (access(filePath.c_str(), F_OK) == 0)
             {
                 AddFileWatch(stored);
                 ReadInitial(stored);
+                achievementFileAvailable = true;
             }
 
             LOG_BE(Urgency::Debug, "Target added: targetId=%d emu=%s", targetId, emulatorType.c_str());
@@ -213,6 +216,11 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     if (appIdDirUnavailable && onAppIdDirUnavailable)
     {
         onAppIdDirUnavailable(targetId, appIdDirPath);
+    }
+
+    if (achievementFileAvailable && onAchievementFileAvailable)
+    {
+        onAchievementFileAvailable(targetId);
     }
 
     if (shouldReturn)
@@ -298,9 +306,13 @@ std::vector<AchievementData> AchievementHandler::PollUnhandled(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
-std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType)
+std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, bool *achievementFileFound)
 {
     std::vector<AchievementData> parsed;
+    if (achievementFileFound)
+    {
+        *achievementFileFound = false;
+    }
 
     // Manual rescan uses the same parser family without adding a persistent inotify session
     AchievementParser* parser = CreateParser(emulatorType);
@@ -309,12 +321,17 @@ std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int tar
         return parsed;
     }
 
-    const std::string filePath = appIdDirPath + "/" + parser->GetFileName();
+    const std::string resolvedFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+    const std::string filePath = appIdDirPath + "/" + resolvedFileName;
     if (access(filePath.c_str(), F_OK) != 0)
     {
         LOG_BE(Urgency::Debug, "Achievement file not present for one-shot read: targetId=%d path=%s", targetId, filePath.c_str());
         delete parser;
         return parsed;
+    }
+    if (achievementFileFound)
+    {
+        *achievementFileFound = true;
     }
 
     try
@@ -459,7 +476,7 @@ std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct 
     if (ev->wd == session.dirWd && (ev->mask & (IN_CREATE | IN_MOVED_TO)))
     {
         // Ignore unrelated files created in the same directory
-        const std::string expected = m_parsers[targetId]->GetFileName();
+        const std::string expected = session.achievementFileName;
         if (fileName != expected)
         {
             return {};
@@ -477,6 +494,11 @@ std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct 
         }
         AddFileWatch(session);
         session.modifyPending = false;
+        session.achievementFilePresent = true;
+        if (onAchievementFileAvailable)
+        {
+            onAchievementFileAvailable(targetId);
+        }
 
         // Existing files are snapshotted silently in AddTarget(). A file that appears while tracking is active may be Emulators's first write for an unlock, so diff it against the session state
         if (!session.initialReadDone)
@@ -519,6 +541,7 @@ std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct 
         m_wdToTarget.erase(session.fileWd);
         inotify_rm_watch(m_inotifyFd, session.fileWd);
         session.fileWd = -1;
+        session.achievementFilePresent = false;
         session.modifyPending = false;
     }
 
@@ -529,7 +552,8 @@ std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct 
 
 void AchievementHandler::ReadInitial(WatchSession& session)
 {
-    const std::string filePath = session.appIdDirPath + "/" + m_parsers[session.targetId]->GetFileName();
+    const std::string filePath = session.appIdDirPath + "/" + session.achievementFileName;
+    session.achievementFilePresent = true;
     std::vector<AchievementData> parsed;
     try
     {
@@ -578,7 +602,7 @@ void AchievementHandler::ReadInitial(WatchSession& session)
 
 void AchievementHandler::ReadAndDiff(WatchSession& session)
 {
-    const std::string filePath = session.appIdDirPath + "/" + m_parsers[session.targetId]->GetFileName();
+    const std::string filePath = session.appIdDirPath + "/" + session.achievementFileName;
     std::vector<AchievementData> parsed;
     try
     {
@@ -637,7 +661,7 @@ void AchievementHandler::ReadAndDiff(WatchSession& session)
 
 void AchievementHandler::AddFileWatch(WatchSession& session)
 {
-    const std::string filePath = session.appIdDirPath + "/" + m_parsers[session.targetId]->GetFileName();
+    const std::string filePath = session.appIdDirPath + "/" + session.achievementFileName;
 
     // Register inotify watch for writes, deletions and renames on the achievement file
     session.fileWd = inotify_add_watch(m_inotifyFd, filePath.c_str(), IN_CLOSE_WRITE | IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF);

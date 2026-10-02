@@ -29,9 +29,6 @@ Popup {
 
     // Internals _____________________________________________
     property bool targetHiddenState: p_targetHidden
-    property string currentPrefixLocation: ""
-    property string currentExecutableLocation: ""
-    property string currentInstallationLocation: ""
     property bool steamUpdateLoading: false
     property bool passcodeUnlocked: false
     property bool awaitingUnlockAction: false
@@ -52,12 +49,12 @@ Popup {
     y: parent ? Math.round((parent.height - height) / 2) : 0
 
     onClosed: {
+        id_locationSettingsPopup.close()
         deleteConfirmVisible = false
         id_deleteConfirmInput.text = ""
     }
 
     onOpened: {
-        id_root.refreshTargetLocations()
         id_root.steamUpdateStatusText = ""
         id_root.steamUpdateStatusIsError = false
     }
@@ -87,63 +84,6 @@ Popup {
         if (ctxLymalink.SetTargetHidden(id_root.p_appId, hidden, id_root.p_targetType)) {
             id_root.targetHiddenState = hidden
             id_root.targetHiddenChanged(id_root.p_appId, id_root.p_targetType, hidden)
-        }
-    }
-
-    function refreshTargetLocations() {
-        id_root.currentPrefixLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetPrefixLocation(id_root.p_appId) : ""
-        id_root.currentExecutableLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetExecutableLocation(id_root.p_appId) : ""
-        id_root.currentInstallationLocation = id_root.p_appId > 0 ? ctxLymalink.GetTargetInstallationLocation(id_root.p_appId) : ""
-    }
-
-    function reloadBackendTargets() {
-        if (typeof ctxBackendService !== "undefined" && ctxBackendService !== null) {
-            ctxBackendService.ReloadAllTargets()
-        }
-    }
-
-    function setPrefixLocation(path) {
-        if (id_root.p_appId <= 0 || path.length === 0) {
-            return
-        }
-
-        if (path === id_root.currentPrefixLocation) {
-            return
-        }
-
-        if (ctxLymalink.SetTargetPrefixLocation(id_root.p_appId, path)) {
-            id_root.currentPrefixLocation = path
-            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
-        }
-    }
-
-    function setExecutableLocation(path) {
-        if (id_root.p_appId <= 0 || path.length === 0) {
-            return
-        }
-
-        if (ctxLymalink.SetTargetExecutableLocation(id_root.p_appId, path)) {
-            id_root.currentExecutableLocation = path
-            id_root.reloadBackendTargets()
-        } else {
-            id_errorPopup.showError(qsTr("Couldn't Edit Executable Location"), ctxLymalink.GetLastOperationError())
-        }
-    }
-
-    function setInstallationLocation(path) {
-        if (id_root.p_appId <= 0) {
-            return
-        }
-
-        if (path === id_root.currentInstallationLocation) {
-            return
-        }
-
-        if (ctxLymalink.SetTargetInstallationLocation(id_root.p_appId, path)) {
-            id_root.currentInstallationLocation = path
-            id_root.targetDataUpdated(id_root.p_appId, id_root.p_targetType)
-        } else {
-            id_errorPopup.showError(qsTr("Couldn't Edit Installation Directory"), ctxLymalink.GetLastOperationError())
         }
     }
 
@@ -333,60 +273,11 @@ Popup {
     ////////////////////////////// PUBLIC ///////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
-    ConfirmationPopup {
-        id: id_prefixLocationPopup
+    TargetLocationSettingsPopup {
+        id: id_locationSettingsPopup
 
-        p_title: qsTr("Edit Prefix Location")
-        p_description: qsTr("Current path:\n%1").arg(id_root.currentPrefixLocation.length > 0
-            ? id_root.currentPrefixLocation
-            : qsTr("Not set"))
-        p_confirmText: qsTr("Apply")
-        p_popupWidth: 520
-        p_pathSelectionMode: true
-        p_pathSelectionFolder: true
-        p_pathDialogTitle: qsTr("Select Prefix Location (drive_c or equivalent)")
-        p_pathPlaceholderText: qsTr("Select Prefix Location (drive_c or equivalent)")
-        onConfirmed: function(path) {
-            id_root.setPrefixLocation(path)
-        }
-    }
-
-    ConfirmationPopup {
-        id: id_executableLocationPopup
-
-        p_title: qsTr("Edit Executable Location")
-        p_description: qsTr("Current path:\n%1").arg(id_root.currentExecutableLocation.length > 0
-            ? id_root.currentExecutableLocation
-            : qsTr("Not set"))
-        p_confirmText: qsTr("Apply")
-        p_popupWidth: 520
-        p_pathSelectionMode: true
-        p_pathSelectionFolder: false
-        p_pathDialogTitle: qsTr("Select Game Executable")
-        p_pathPlaceholderText: qsTr("Select Game Executable")
-        p_pathNameFilters: [qsTr("Executable files (*.exe)")]
-        onConfirmed: function(path) {
-            id_root.setExecutableLocation(path)
-        }
-    }
-
-    ConfirmationPopup {
-        id: id_installationLocationPopup
-
-        p_title: qsTr("Edit Installation Directory")
-        p_description: qsTr("Adding an installation directory enables scanning for install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke.\n\nClear it to disable install-dir scanning.\n\nCurrent path:\n%1").arg(id_root.currentInstallationLocation.length > 0
-            ? id_root.currentInstallationLocation
-            : qsTr("Not set"))
-        p_confirmText: qsTr("Apply")
-        p_popupWidth: 520
-        p_pathSelectionMode: true
-        p_pathSelectionFolder: true
-        p_pathSelectionRequired: false
-        p_pathAllowClear: true
-        p_pathDialogTitle: qsTr("Select Game Installation Directory")
-        p_pathPlaceholderText: qsTr("Select Game Installation Directory")
-        onConfirmed: function(path) {
-            id_root.setInstallationLocation(path)
+        onSettingsApplied: function(appId) {
+            id_root.targetDataUpdated(appId, id_root.p_targetType)
         }
     }
 
@@ -543,30 +434,12 @@ Popup {
         }
 
         C_ActionButton {
-            id: id_editExecutableLocationButton
+            id: id_editTargetLocationsButton
 
             visible: id_root.p_targetType !== "Steam"
-            text: qsTr("Edit Executable Location")
-            tooltipText: qsTr("Select Game Executable")
-            onClicked: id_executableLocationPopup.open()
-        }
-
-        C_ActionButton {
-            id: id_editInstallationLocationButton
-
-            visible: id_root.p_targetType === "Emulator"
-            text: qsTr("Edit Installation Directory")
-            tooltipText: qsTr("Select Game installation directory")
-            onClicked: id_installationLocationPopup.open()
-        }
-
-        C_ActionButton {
-            id: id_editPrefixLocationButton
-
-            visible: !OS_WIN && id_root.p_targetType !== "Steam"
-            text: qsTr("Edit Prefix Location")
-            tooltipText: qsTr("Select Prefix Location (drive_c or equivalent)")
-            onClicked: id_prefixLocationPopup.open()
+            text: qsTr("Edit Target Paths")
+            tooltipText: qsTr("Edit executable and achievement data paths")
+            onClicked: id_locationSettingsPopup.openForTarget(id_root.p_appId)
         }
 
         C_ActionButton {

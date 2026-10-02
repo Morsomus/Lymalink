@@ -377,7 +377,7 @@ void Lymalink::FindEmulatorAppIdFolders(const QString &rootPath)
 
 /////////////////////////////////////////////////////////////////////
 
-bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString prefixPath, QString installationDir)
+bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exePath, QString locationPath, QString installationDir, bool customAchievementLocation, QString emulatorType)
 {
     bool targetCreated = false;
     m_lastOperationError.clear();
@@ -385,14 +385,29 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
     // Normalize user-provided paths before validation/database write
     gameName = gameName.trimmed();
     exePath = exePath.trimmed();
-    prefixPath = prefixPath.trimmed();
-    installationDir = installationDir.trimmed();
+    locationPath = locationPath.trimmed();
+
+    // Keep only optional fields used by selected achievement source mode
+    if (customAchievementLocation)
+    {
+        // Custom fields
+        installationDir.clear();
+        emulatorType = emulatorType.trimmed();
+    }
+    else
+    {
+        // Default fields
+        emulatorType.clear();
+        installationDir = installationDir.trimmed();
+    }
 
 #if defined(Q_OS_WIN)
-    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty())
+    const bool automaticAchLocationInvalid = false;
 #else
-    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || prefixPath.isEmpty())
+    const bool automaticAchLocationInvalid = locationPath.isEmpty();
 #endif
+    const bool customAchLocationInvalid = emulatorType.isEmpty() || locationPath.isEmpty();
+    if (appId <= 0 || gameName.isEmpty() || exePath.isEmpty() || (customAchievementLocation ? customAchLocationInvalid : automaticAchLocationInvalid))
     {
         m_lastOperationError = tr("Invalid emulator target data.");
         qWarning() << "Lymalink::CreateNewSteamEmuTarget: invalid emulator target data";
@@ -473,8 +488,11 @@ bool Lymalink::CreateNewSteamEmuTarget(int appId, QString gameName, QString exeP
         {"id", appId},
         {"game_name", gameName},
         {"executable_location", exePath},
-        {"prefix_location", prefixPath},
+        {"prefix_location", customAchievementLocation ? "" : locationPath},
         {"installation_dir", installationDir},
+        {"custom_achievement_location", customAchievementLocation ? 1 : 0},
+        {"emulator_type", emulatorType},
+        {"appid_dir_location", customAchievementLocation ? locationPath : ""},
         {"date_added", QDateTime::currentSecsSinceEpoch()}
     };
 
@@ -1195,6 +1213,7 @@ bool Lymalink::SetAllTargetsHidden(bool hidden, const QString &targetType)
 bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 {
     bool targetUpdated = false;
+    m_lastOperationError.clear();
 
     // Prefix changes invalidate discovered Steam appid directory cache
     const QString trimmedPrefixPath = prefixPath.trimmed();
@@ -1210,7 +1229,17 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 
     if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
     {
+        m_lastOperationError = tr("Couldn't open target database.");
         qCritical() << "Lymalink::SetTargetPrefixLocation: failed to open database for target prefix location update:" << m_databaseManager.lastError();
+        return targetUpdated;
+    }
+
+    // Custom targets must keep their configured achievement path and parser
+    const QVariantMap target = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    if (target.isEmpty() || target.value("custom_achievement_location").toInt() == 1)
+    {
+        m_lastOperationError = tr("Prefix location can only be edited for automatic detection.");
+        qWarning() << "Lymalink::SetTargetPrefixLocation: custom or missing target rejected:" << appId;
         return targetUpdated;
     }
 
@@ -1231,6 +1260,7 @@ bool Lymalink::SetTargetPrefixLocation(int appId, const QString &prefixPath)
 
     if (!targetUpdated)
     {
+        m_lastOperationError = tr("Couldn't save target prefix location.");
         qCritical() << "Lymalink::SetTargetPrefixLocation: failed to update target prefix location:" << m_databaseManager.lastError();
     }
 
@@ -1316,6 +1346,15 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
         return targetUpdated;
     }
 
+    // Custom targets do not use installation-directory based detection
+    const QVariantMap target = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    if (target.isEmpty() || target.value("custom_achievement_location").toInt() == 1)
+    {
+        m_lastOperationError = tr("Installation directory can only be edited for automatic detection.");
+        qWarning() << "Lymalink::SetTargetInstallationLocation: custom or missing target rejected:" << appId;
+        return targetUpdated;
+    }
+
     targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
@@ -1337,6 +1376,165 @@ bool Lymalink::SetTargetInstallationLocation(int appId, const QString &installat
         qCritical() << "Lymalink::SetTargetInstallationLocation: failed to update target installation directory:" << m_databaseManager.lastError();
     }
 
+    return targetUpdated;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantMap Lymalink::GetTargetLocationSettings(int appId)
+{
+    QVariantMap settings;
+    m_lastOperationError.clear();
+
+    if (appId <= 0)
+    {
+        m_lastOperationError = tr("Invalid target.");
+        return settings;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        return settings;
+    }
+
+    const QVariantMap target = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    if (target.isEmpty())
+    {
+        m_lastOperationError = tr("Couldn't find target.");
+        return settings;
+    }
+
+    const bool customAchievementLocation = target.value("custom_achievement_location").toInt() == 1;
+    const QString achievementDataLocation = customAchievementLocation ? Utils::MapStringValue(target, "appid_dir_location") : QString{};
+    const bool achievementLocationIsFolder = achievementDataLocation.isEmpty() || achievementDataLocation.endsWith('/') || achievementDataLocation.endsWith('\\');
+
+    // Return one consistent snapshot for the staged location editor
+    settings = {
+        {"executableLocation", Utils::MapStringValue(target, "executable_location")},
+        {"prefixLocation", Utils::MapStringValue(target, "prefix_location")},
+        {"installationLocation", Utils::MapStringValue(target, "installation_dir")},
+        {"customAchievementLocation", customAchievementLocation},
+        {"emulatorType", Utils::MapStringValue(target, "emulator_type")},
+        {"achievementDataLocation", achievementDataLocation},
+        {"achievementLocationIsFolder", achievementLocationIsFolder}
+    };
+    return settings;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::SetTargetLocationSettings(int appId, QString executablePath, QString prefixPath, QString installationDir, bool customAchievementLocation, QString emulatorType, QString achievementDataLocation, bool achievementLocationIsFolder)
+{
+    bool targetUpdated = false;
+    m_lastOperationError.clear();
+
+    executablePath = executablePath.trimmed();
+    prefixPath = prefixPath.trimmed();
+    installationDir = installationDir.trimmed();
+    emulatorType = emulatorType.trimmed();
+    achievementDataLocation = achievementDataLocation.trimmed();
+
+    bool requiredSettingsMissing = appId <= 0 || executablePath.isEmpty();
+    if (customAchievementLocation)
+    {
+        requiredSettingsMissing = requiredSettingsMissing || emulatorType.isEmpty() || achievementDataLocation.isEmpty();
+    }
+#if !defined(Q_OS_WIN)
+    else
+    {
+        requiredSettingsMissing = requiredSettingsMissing || prefixPath.isEmpty();
+    }
+#endif
+    if (requiredSettingsMissing)
+    {
+        m_lastOperationError = tr("Required target location settings are missing.");
+        return targetUpdated;
+    }
+
+    if (!m_databaseManager.isDatabaseOpen(m_databaseConnectionName) && !m_databaseManager.openDatabase(m_databaseConnectionName, m_databasePath, m_useDefaultDbPath, m_useDbWalMode))
+    {
+        m_lastOperationError = tr("Couldn't open target database.");
+        return targetUpdated;
+    }
+
+    const QVariantMap target = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    if (target.isEmpty())
+    {
+        m_lastOperationError = tr("Couldn't find target.");
+        return targetUpdated;
+    }
+
+    bool executableQuerySucceeded = false;
+    if (IsTargetExecutableLocationInUse(executablePath, appId, &executableQuerySucceeded))
+    {
+        m_lastOperationError = tr("Game executable is already set for another target.");
+        return targetUpdated;
+    }
+    if (!executableQuerySucceeded)
+    {
+        m_lastOperationError = tr("Couldn't check existing target executables.");
+        return targetUpdated;
+    }
+
+    const bool currentCustomLocation = target.value("custom_achievement_location").toInt() == 1;
+    const QString currentPrefixPath = Utils::MapStringValue(target, "prefix_location");
+    const QString currentInstallationDir = Utils::MapStringValue(target, "installation_dir");
+    const QString currentAchievementLocation = Utils::MapStringValue(target, "appid_dir_location");
+    const QString currentEmulatorType = Utils::MapStringValue(target, "emulator_type");
+
+    QVariantMap data{
+        {"executable_location", executablePath},
+        {"custom_achievement_location", customAchievementLocation ? 1 : 0},
+        {"date_updated", QDateTime::currentSecsSinceEpoch()}
+    };
+    bool detectionSettingsChanged = false;
+
+    // Manual mode stores an exact file or normalized folder and clears automatic-only paths.
+    if (customAchievementLocation)
+    {
+        if (achievementLocationIsFolder)
+        {
+            achievementDataLocation = QDir::cleanPath(QDir::fromNativeSeparators(achievementDataLocation));
+            if (!achievementDataLocation.endsWith('/'))
+            {
+                achievementDataLocation += '/';
+            }
+        }
+
+        data.insert("prefix_location", "");
+        data.insert("installation_dir", "");
+        data.insert("appid_dir_location", achievementDataLocation);
+        data.insert("emulator_type", emulatorType);
+        detectionSettingsChanged = !currentCustomLocation || !currentPrefixPath.isEmpty() || !currentInstallationDir.isEmpty() || currentAchievementLocation != achievementDataLocation || currentEmulatorType != emulatorType;
+    }
+    else
+    {
+#if defined(Q_OS_WIN)
+        prefixPath.clear();
+#endif
+        data.insert("prefix_location", prefixPath);
+        data.insert("installation_dir", installationDir);
+        detectionSettingsChanged = currentCustomLocation || currentPrefixPath != prefixPath || currentInstallationDir != installationDir;
+        if (detectionSettingsChanged)
+        {
+            data.insert("appid_dir_location", "");
+            data.insert("emulator_type", "");
+        }
+    }
+
+    if (detectionSettingsChanged)
+    {
+        data.insert("appid_dir_found", 0);
+        data.insert("achievement_data_status", 0);
+    }
+
+    // Apply the complete location configuration in one database update.
+    targetUpdated = m_databaseManager.update(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, data, "id = ?", {appId});
+    if (!targetUpdated)
+    {
+        m_lastOperationError = tr("Couldn't save target location settings.");
+    }
     return targetUpdated;
 }
 
@@ -1485,16 +1683,31 @@ bool Lymalink::ResetTargetAchievementDataLocation(int appId)
         return targetUpdated;
     }
 
+    const QVariantMap target = m_databaseManager.selectFirst(m_databaseConnectionName, DATABASE_TABLE_EMU_GAMES, "id = ?", {appId});
+    if (target.isEmpty())
+    {
+        m_lastOperationError = tr("Couldn't find target.");
+        qWarning() << "Lymalink::ResetTargetAchievementDataLocation: target not found:" << appId;
+        return targetUpdated;
+    }
+
+    // Custom targets retain their configured location and parser during refresh.
+    const bool customAchievementLocation = target.value("custom_achievement_location").toInt() == 1;
+    QVariantMap data = {
+        {"appid_dir_found", 0},
+        {"achievement_data_status", 0},
+        {"date_updated", QDateTime::currentSecsSinceEpoch()}
+    };
+    if (!customAchievementLocation)
+    {
+        data.insert("appid_dir_location", "");
+        data.insert("emulator_type", "");
+    }
+
     targetUpdated = m_databaseManager.update(
         m_databaseConnectionName,
         DATABASE_TABLE_EMU_GAMES,
-        {
-            {"appid_dir_found", 0},
-            {"achievement_data_status", 0},
-            {"appid_dir_location", ""},
-            {"emulator_type", ""},
-            {"date_updated", QDateTime::currentSecsSinceEpoch()}
-        },
+        data,
         "id = ?",
         {appId}
     );
@@ -2266,6 +2479,7 @@ Error Lymalink::DatabaseInit(const QString &databasePath, bool createMissingData
             "prefix_location TEXT",
             "installation_dir TEXT",
             "data_opt TEXT",
+            "custom_achievement_location INTEGER DEFAULT 0",
             "target_hidden INTEGER DEFAULT 0",
             "appid_dir_found INTEGER DEFAULT 0",
             "achievement_data_status INTEGER DEFAULT 0",
@@ -2290,6 +2504,7 @@ Error Lymalink::DatabaseInit(const QString &databasePath, bool createMissingData
     bool achievementDataStatusColumnAdded = false;
     if (!EnsureColumn(DATABASE_TABLE_EMU_GAMES, "installation_dir", "installation_dir TEXT") ||
         !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "data_opt", "data_opt TEXT") ||
+        !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "custom_achievement_location", "custom_achievement_location INTEGER DEFAULT 0") ||
         !EnsureColumn(DATABASE_TABLE_EMU_GAMES, "achievement_data_status", "achievement_data_status INTEGER DEFAULT 0", &achievementDataStatusColumnAdded))
     {
         qCritical() << "Lymalink::DatabaseInit: failed to migrate" << DATABASE_TABLE_EMU_GAMES << "table:" << m_databaseManager.lastError();
