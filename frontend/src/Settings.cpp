@@ -275,6 +275,8 @@ bool Settings::LoadConfig()
     m_dashboardToolbarFilters = m_settings.value("ToolbarFilters", m_dashboardToolbarFilters).toStringList();
     m_dashboardToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_dashboardToolbarSortDescending).toBool();
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
+    m_targetDetailsEmulatorMetaFields = m_settings.value("TargetDetailsEmulatorMetaFields", m_targetDetailsEmulatorMetaFields).toStringList();
+    m_targetDetailsSteamMetaFields = m_settings.value("TargetDetailsSteamMetaFields", m_targetDetailsSteamMetaFields).toStringList();
     m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toString();
     m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toString();
     m_settings.endGroup();
@@ -584,6 +586,32 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_dashboardToolbarLayout;
             break;
         }
+        case TargetDetailsEmulatorMetaFields:
+        {
+            m_targetDetailsEmulatorMetaFields = value.toStringList();
+            m_targetDetailsEmulatorMetaFields.removeAll("none");
+            if (m_targetDetailsEmulatorMetaFields.isEmpty())
+            {
+                m_targetDetailsEmulatorMetaFields = QStringList{"none"};
+            }
+            group = GROUP_DASHBOARD;
+            settingsKey = "TargetDetailsEmulatorMetaFields";
+            settingsValue = m_targetDetailsEmulatorMetaFields;
+            break;
+        }
+        case TargetDetailsSteamMetaFields:
+        {
+            m_targetDetailsSteamMetaFields = value.toStringList();
+            m_targetDetailsSteamMetaFields.removeAll("none");
+            if (m_targetDetailsSteamMetaFields.isEmpty())
+            {
+                m_targetDetailsSteamMetaFields = QStringList{"none"};
+            }
+            group = GROUP_DASHBOARD;
+            settingsKey = "TargetDetailsSteamMetaFields";
+            settingsValue = m_targetDetailsSteamMetaFields;
+            break;
+        }
         case AutomaticUpdateChecksEnabled:
         {
             m_automaticUpdateChecksEnabled = value.toBool();
@@ -768,6 +796,8 @@ void Settings::SetDefaults()
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
+    m_targetDetailsEmulatorMetaFields = QStringList{"status", "type", "playtime", "lastPlayed", "recentUnlock", "achievementData", "customPath"};
+    m_targetDetailsSteamMetaFields = QStringList{"type", "playtime", "lastPlayed", "recentUnlock"};
     m_currentVersion = QStringLiteral(LYMALINK_VERSION);
     m_automaticUpdateChecksEnabled = true;
     m_latestShownReleaseTag = "";
@@ -979,6 +1009,8 @@ void Settings::SavePlainValues()
     m_settings.setValue("ToolbarFilters", m_dashboardToolbarFilters);
     m_settings.setValue("ToolbarSortDescending", m_dashboardToolbarSortDescending);
     m_settings.setValue("ToolbarLayout", m_dashboardToolbarLayout);
+    m_settings.setValue("TargetDetailsEmulatorMetaFields", m_targetDetailsEmulatorMetaFields);
+    m_settings.setValue("TargetDetailsSteamMetaFields", m_targetDetailsSteamMetaFields);
     m_settings.setValue("WelcomeHelpText", m_welcomeHelpText);
     m_settings.setValue("TargetDetailsHelpText", m_targetDetailsHelpText);
     m_settings.endGroup();

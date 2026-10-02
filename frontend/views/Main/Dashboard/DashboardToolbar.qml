@@ -40,6 +40,7 @@ Item {
     signal refreshClicked()
     signal reloadAssetsRequested(int appId, string targetType)
     signal targetDataUpdated(int appId, string targetType)
+    signal locationSettingsApplied(int appId, string targetType)
     signal targetHiddenChanged(int appId, string targetType, bool hidden)
     signal targetDeleted(int appId, string targetType)
     signal sortSelected(string sort)
@@ -433,6 +434,9 @@ Item {
         }
         onTargetDataUpdated: function(appId, targetType) {
             id_root.targetDataUpdated(appId, targetType)
+        }
+        onLocationSettingsApplied: function(appId, targetType) {
+            id_root.locationSettingsApplied(appId, targetType)
         }
         onTargetHiddenChanged: function(appId, targetType, hidden) {
             id_root.targetHiddenChanged(appId, targetType, hidden)

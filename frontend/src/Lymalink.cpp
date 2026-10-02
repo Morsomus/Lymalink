@@ -2329,6 +2329,7 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
         {"appIdDirFound", IsSteamTargetType(normalizedTargetType) ? false : row.value("appid_dir_found").toInt() == 1},
         {"achievementDataStatus", IsSteamTargetType(normalizedTargetType) ? 0 : Utils::MapIntValue(row, "achievement_data_status")},
         {"emulatorType", emulatorType},
+        {"customAchievementLocation", !IsSteamTargetType(normalizedTargetType) && row.value("custom_achievement_location").toInt() == 1},
         {"targetHidden", row.value("target_hidden").toInt() == 1},
         {"achievements", achievements}
     };

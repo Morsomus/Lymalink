@@ -38,6 +38,21 @@ Item {
     readonly property var overlayExitAnimationValues: ["slide-out", "fade-out"]
     readonly property var overlayExitAnimationLabels: [qsTr("Slide out"), qsTr("Fade out")]
     readonly property var steamImportAutoSyncIntervalOptions: [15, 30, 60, 180, 360, 720, 1440]
+    readonly property var emulatorTargetDetailsMetaOptions: [
+        { value: "status", label: qsTr("Status") },
+        { value: "type", label: qsTr("Type") },
+        { value: "playtime", label: qsTr("Playtime") },
+        { value: "lastPlayed", label: qsTr("Last played") },
+        { value: "recentUnlock", label: qsTr("Recent unlock") },
+        { value: "customPath", label: qsTr("Custom path") },
+        { value: "achievementData", label: qsTr("Achievement data") }
+    ]
+    readonly property var steamTargetDetailsMetaOptions: [
+        { value: "type", label: qsTr("Type") },
+        { value: "playtime", label: qsTr("Playtime") },
+        { value: "lastPlayed", label: qsTr("Last played") },
+        { value: "recentUnlock", label: qsTr("Recent unlock") }
+    ]
 
     signal achievementImportCompleted(var addedTargets)
 
@@ -222,6 +237,29 @@ Item {
 
     function saveTargetTypeBadgeSelection(value) {
         ctxSettings.SaveValue(Settings.TargetTypeBadgeColorStyle, value)
+    }
+
+    function targetDetailsMetaFieldEnabled(targetType, field) {
+        const fields = targetType === "Steam"
+            ? ctxSettings.targetDetailsSteamMetaFields
+            : ctxSettings.targetDetailsEmulatorMetaFields
+        return fields.indexOf(field) !== -1
+    }
+
+    function setTargetDetailsMetaFieldEnabled(targetType, field, enabled) {
+        const fields = (targetType === "Steam"
+            ? ctxSettings.targetDetailsSteamMetaFields
+            : ctxSettings.targetDetailsEmulatorMetaFields).slice()
+        const index = fields.indexOf(field)
+        if (enabled && index === -1) {
+            fields.push(field)
+        } else if (!enabled && index !== -1) {
+            fields.splice(index, 1)
+        } else {
+            return
+        }
+
+        ctxSettings.SaveValue(targetType === "Steam" ? Settings.TargetDetailsSteamMetaFields : Settings.TargetDetailsEmulatorMetaFields, fields)
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -819,18 +857,25 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Lymalink Logo")
-                            tooltip: qsTr("Show or hide the Lymalink logo in the sidebar")
-                            CustomSwitch {
-                                checked: ctxSettings.showLymalinkLogo
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_logoSwitchHover }
-                                CustomTooltip {
-                                    p_active: id_logoSwitchHover.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Show or hide the Lymalink logo in the sidebar")
+                            label: qsTr("Color theme")
+                            tooltip: qsTr("Select color theme for the application")
+                            CustomComboBox {
+                                p_tooltipText: qsTr("Select color theme for the application")
+                                model: [0, 1, 2, 3, 4, 5]
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
+                                implicitWidth: 150
+                                p_textFromValue: function(value, index) {
+                                    switch (value) {
+                                        case 0: return qsTr("Gold")
+                                        case 1: return qsTr("Blue")
+                                        case 2: return qsTr("Purple")
+                                        case 3: return qsTr("Emerald")
+                                        case 4: return qsTr("Ember")
+                                        case 5: return qsTr("Frost")
+                                    }
+                                    return qsTr("Gold")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.ShowLymalinkLogo, checked)
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.GlobalColorStyle, model[index])
                             }
                         }
 
@@ -846,7 +891,21 @@ Item {
                             }
                         }
 
-                        C_SettingRow {}
+                        C_SettingRow {
+                            label: qsTr("Lymalink Logo")
+                            tooltip: qsTr("Show or hide the Lymalink logo in the sidebar")
+                            CustomSwitch {
+                                checked: ctxSettings.showLymalinkLogo
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_logoSwitchHover }
+                                CustomTooltip {
+                                    p_active: id_logoSwitchHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Show or hide the Lymalink logo in the sidebar")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.ShowLymalinkLogo, checked)
+                            }
+                        }
 
                         C_SettingRow {
                             label: qsTr("Window size")
@@ -971,50 +1030,9 @@ Item {
                         }
                     }
 
-                    // Display
+                    // Dashboard
                     C_SettingsSection {
-                        title: qsTr("Display")
-
-                        C_SettingRow {
-                            label: qsTr("Color theme")
-                            tooltip: qsTr("Select color theme for the application")
-                            CustomComboBox {
-                                p_tooltipText: qsTr("Select color theme for the application")
-                                model: [0, 1, 2, 3, 4, 5]
-                                currentIndex: Math.max(0, model.indexOf(ctxSettings.globalColorStyle))
-                                implicitWidth: 150
-                                p_textFromValue: function(value, index) {
-                                    switch (value) {
-                                        case 0: return qsTr("Gold")
-                                        case 1: return qsTr("Blue")
-                                        case 2: return qsTr("Purple")
-                                        case 3: return qsTr("Emerald")
-                                        case 4: return qsTr("Ember")
-                                        case 5: return qsTr("Frost")
-                                    }
-                                    return qsTr("Gold")
-                                }
-                                onActivated: (index) => ctxSettings.SaveValue(Settings.GlobalColorStyle, model[index])
-                            }
-                        }
-
-                        C_SettingRow {}
-
-                        C_SettingRow {
-                            label: qsTr("Dynamic achievement rows")
-                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
-                            CustomSwitch {
-                                checked: ctxSettings.enableDynamicAchievementRows
-                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_dynamicAchievementRows }
-                                CustomTooltip {
-                                    p_active: id_dynamicAchievementRows.hovered
-                                    p_delay: 600
-                                    p_text: qsTr("Achievement rows resize automatically to use available window space")
-                                }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
-                            }
-                        }
+                        title: qsTr("Dashboard")
 
                         C_SettingRow {
                             label: qsTr("Total achievements badge")
@@ -1066,21 +1084,6 @@ Item {
                         C_SettingDivider {}
 
                         C_SettingRow {
-                            label: qsTr("Progress bar")
-                            tooltip: qsTr("Select color theme for the card progress bar, or disable it")
-                            CustomComboBox {
-                                p_tooltipText: qsTr("Select color theme for the card progress bar, or disable it")
-                                model: [-1, 0, 1, 2, 3, 4, 5]
-                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
-                                implicitWidth: 150
-                                p_textFromValue: function(value, index) { return id_root.colorStyleLabel(value) }
-                                onActivated: (index) => id_root.saveProgressBarSelection(model[index])
-                            }
-                        }
-
-                        C_SettingRow {}
-
-                        C_SettingRow {
                             label: qsTr("Progress frame")
                             tooltip: qsTr("Select color theme for the card progress frame, grayscale mode, or disable it")
                             CustomComboBox {
@@ -1108,7 +1111,107 @@ Item {
                                 }
                                 onToggled: ctxSettings.SaveValue(Settings.EnableProgressFrameCompletionAnimation, checked)
                             }
-                        }                    
+                        }
+
+                        C_SettingRow {
+                            label: qsTr("Progress bar")
+                            tooltip: qsTr("Select color theme for the card progress bar, or disable it")
+                            CustomComboBox {
+                                p_tooltipText: qsTr("Select color theme for the card progress bar, or disable it")
+                                model: [-1, 0, 1, 2, 3, 4, 5]
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.progressBarColorStyle))
+                                implicitWidth: 150
+                                p_textFromValue: function(value, index) { return id_root.colorStyleLabel(value) }
+                                onActivated: (index) => id_root.saveProgressBarSelection(model[index])
+                            }
+                        }
+                    }
+
+                    // Target Details
+                    C_SettingsSection {
+                        title: qsTr("Target details")
+
+                        C_SettingRow {
+                            label: qsTr("Dynamic achievement rows")
+                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            CustomSwitch {
+                                checked: ctxSettings.enableDynamicAchievementRows
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_dynamicAchievementRows }
+                                CustomTooltip {
+                                    p_active: id_dynamicAchievementRows.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Achievement rows resize automatically to use available window space")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
+                            }
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Label {
+                                    text: qsTr("Emulator info fields")
+                                    color: Themes.settings.colors.labelText
+                                    font.pixelSize: Themes.settings.fontSizes.labelText
+                                }
+
+                                Flow {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: childrenRect.height
+                                    spacing: 10
+
+                                    Repeater {
+                                        model: id_root.emulatorTargetDetailsMetaOptions
+
+                                        CustomCheckBox {
+                                            required property var modelData
+                                            text: modelData.label
+                                            checked: id_root.targetDetailsMetaFieldEnabled("Emulator", modelData.value)
+                                            onToggled: id_root.setTargetDetailsMetaFieldEnabled("Emulator", modelData.value, checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        C_SettingRow {
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Label {
+                                    text: qsTr("Steam info fields")
+                                    color: Themes.settings.colors.labelText
+                                    font.pixelSize: Themes.settings.fontSizes.labelText
+                                }
+
+                                Flow {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: childrenRect.height
+                                    spacing: 10
+
+                                    Repeater {
+                                        model: id_root.steamTargetDetailsMetaOptions
+
+                                        CustomCheckBox {
+                                            required property var modelData
+                                            text: modelData.label
+                                            checked: id_root.targetDetailsMetaFieldEnabled("Steam", modelData.value)
+                                            onToggled: id_root.setTargetDetailsMetaFieldEnabled("Steam", modelData.value, checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Updates

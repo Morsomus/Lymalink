@@ -32,6 +32,7 @@ Item {
     property int p_achievementDataStatus: 0
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
+    property bool p_customAchievementLocation: false
     property int p_globalColorStyle: 1
     property bool p_showAllHiddenAchievements: false
     property alias p_achievementModel: id_achievementList.model
@@ -112,6 +113,13 @@ Item {
         default:
             return qsTr("Some emulators create the initial achievement data when the game first starts; others create it after the first achievement unlocks.")
         }
+    }
+
+    function metaFieldEnabled(field) {
+        const fields = id_root.p_targetType === "Steam"
+            ? ctxSettings.targetDetailsSteamMetaFields
+            : ctxSettings.targetDetailsEmulatorMetaFields
+        return fields.indexOf(field) !== -1
     }
 
     // Component.onCompleted: {
@@ -861,32 +869,40 @@ Item {
                 C_MetaRow {
                     label: qsTr("Status")
                     value: id_root.p_installationStatus
-                    visible: id_root.p_targetType !== "Steam"
+                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("status")
                 }
                 C_MetaRow {
                     label: qsTr("Type")
                     value: id_root.p_targetType
-                    visible: id_root.p_targetType !== ""
+                    visible: id_root.p_targetType !== "" && id_root.metaFieldEnabled("type")
                 }
                 C_MetaRow {
                     label: qsTr("")
                     value: id_root.emulatorLabel(id_root.p_emulatorType)
-                    visible: id_root.p_targetType === "Emulator" && id_root.emulatorLabel(id_root.p_emulatorType) !== "-"
+                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("type") && id_root.emulatorLabel(id_root.p_emulatorType) !== "-"
                 }
                 C_MetaRow {
                     label: qsTr("Playtime")
                     value: id_root.p_playtime === "" ? qsTr("Never") : id_root.p_playtime
-                    // visible: id_root.p_playtime !== ""
+                    visible: id_root.metaFieldEnabled("playtime")
                 }
                 C_MetaRow {
                     label: qsTr("Last played")
                     value: id_root.p_lastPlayed === "" ? qsTr("Never") : id_root.p_lastPlayed
-                    // visible: id_root.p_lastPlayed !== ""
+                    visible: id_root.metaFieldEnabled("lastPlayed")
                 }
                 C_MetaRow {
                     label: qsTr("Recent unlock")
                     value: id_root.p_recentUnlock === "" ? qsTr("Never") : id_root.p_recentUnlock
-                    visible: id_root.p_achievementTotal > 0
+                    visible: id_root.metaFieldEnabled("recentUnlock") && id_root.p_achievementTotal > 0
+                }
+                C_MetaRow {
+                    label: qsTr("Custom path")
+                    tooltip: qsTr("Using custom path for achievement file")
+                    value: qsTr("Enabled")
+                    visible: id_root.p_targetType === "Emulator"
+                        && id_root.p_customAchievementLocation
+                        && id_root.metaFieldEnabled("customPath")
                 }
                 C_MetaRow {
                     label: qsTr("Achievement data")
@@ -894,11 +910,12 @@ Item {
                     showInfoMarker: id_root.achievementDataState !== "found"
                     value: id_root.achievementDataLabel()
                     valueColor: id_root.achievementDataColor
-                    visible: id_root.p_targetType !== "Steam"
+                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("achievementData")
                 }
 
                 // Bottom separator
                 Rectangle {
+                    visible: !id_root.metaFieldEnabled("none")
                     width: parent.width
                     height: 3
                     color: Themes.targetDetails.colors.divider
@@ -918,8 +935,7 @@ Item {
 
             rightMargin: Math.max(0, parent.width - 1252) // Width cap for wider window
             leftMargin: id_root.p_enabledAchievementRowDynamicWidth ? 0 : id_root.coverPanelWidth + 24
-            topMargin: 28
-            bottomMargin: 28
+            topMargin: 25
         }
         spacing: 1
         clip: true

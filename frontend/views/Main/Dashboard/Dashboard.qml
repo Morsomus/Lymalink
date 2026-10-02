@@ -568,6 +568,18 @@ Item {
         }
     }
 
+    function refreshSelectedTargetDetails(appId, targetType) {
+        if (!id_root.probeRuntimeWriteAccess()) {
+            return
+        }
+
+        if (targetType === "Emulator" && id_root.backendServiceUsable) {
+            id_root.startDetailsRefreshScan(appId)
+        } else {
+            id_root.reloadTargetDetails(appId, targetType)
+        }
+    }
+
     function startDetailsRefreshScan(appId) {
         if (appId <= 0 || id_root.detailsRefreshScanAppId > 0 || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
             return
@@ -759,6 +771,7 @@ Item {
             p_appIdDirFound: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.appIdDirFound) : false
             p_achievementDataStatus: id_root.pendingTargetDetails ? Number(id_root.pendingTargetDetails.achievementDataStatus || 0) : 0
             p_emulatorType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.emulatorType : ""
+            p_customAchievementLocation: id_root.pendingTargetDetails ? Boolean(id_root.pendingTargetDetails.customAchievementLocation) : false
             p_globalColorStyle: ctxSettings.globalColorStyle
             p_achievementModel: id_targetDetailsAchievementModel
             p_showAllHiddenAchievements: id_root.showAllHiddenAchievements
@@ -874,16 +887,11 @@ Item {
             }
 
             onRefreshClicked: {
-                if (!id_root.probeRuntimeWriteAccess()) {
-                    return
-                }
-
                 if (id_root.showingTargetDetails && id_root.pendingTargetDetails) {
-                    if (id_root.pendingTargetDetails.targetType === "Emulator" && id_root.backendServiceUsable) {
-                        id_root.startDetailsRefreshScan(id_root.pendingTargetDetails.id)
-                    } else {
-                        id_root.reloadTargetDetails(id_root.pendingTargetDetails.id, id_root.pendingTargetDetails.targetType)
-                    }
+                    id_root.refreshSelectedTargetDetails(
+                        id_root.pendingTargetDetails.id,
+                        id_root.pendingTargetDetails.targetType
+                    )
                 } else {
                     id_root.refreshTargets()
                 }
@@ -937,6 +945,11 @@ Item {
             onTargetDataUpdated: function(appId, targetType) {
                 id_root.reloadTargetDetails(appId, targetType)
                 id_root.reloadBackendTargets()
+            }
+
+            onLocationSettingsApplied: function(appId, targetType) {
+                id_root.reloadBackendTargets()
+                id_root.refreshSelectedTargetDetails(appId, targetType)
             }
 
             onTargetHiddenChanged: function(appId, targetType, hidden) {

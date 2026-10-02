@@ -24,6 +24,7 @@ Popup {
 
     signal reloadAssetsRequested(int appId, string targetType)
     signal targetDataUpdated(int appId, string targetType)
+    signal locationSettingsApplied(int appId, string targetType)
     signal targetHiddenChanged(int appId, string targetType, bool hidden)
     signal targetDeleted(int appId, string targetType)
 
@@ -277,7 +278,7 @@ Popup {
         id: id_locationSettingsPopup
 
         onSettingsApplied: function(appId) {
-            id_root.targetDataUpdated(appId, id_root.p_targetType)
+            id_root.locationSettingsApplied(appId, id_root.p_targetType)
         }
     }
 
