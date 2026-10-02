@@ -70,6 +70,9 @@ Error SteamApi::SearchAppId(const QString &term, QList<SteamSearchResult> &resul
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
 
@@ -242,6 +245,9 @@ Error SteamApi::FetchAppNames(const QList<int> &appIds, QMap<int, QString> &game
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
 
@@ -706,6 +712,9 @@ Error SteamApi::FetchAchievementDataPrimary(int appId, QList<SteamAchievementDat
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
 
@@ -815,6 +824,9 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     schemaUrl.setQuery(schemaQuery);
 
     QNetworkRequest schemaRequest(schemaUrl);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    schemaRequest.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     schemaRequest.setRawHeader("User-Agent", "Mozilla/5.0");
     schemaRequest.setRawHeader("Accept", "application/json");
 
@@ -842,6 +854,9 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     percentageUrl.setQuery(percentageQuery);
 
     QNetworkRequest percentageRequest(percentageUrl);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    percentageRequest.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     percentageRequest.setRawHeader("User-Agent", "Mozilla/5.0");
     percentageRequest.setRawHeader("Accept", "application/json");
 
@@ -865,6 +880,9 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
     QUrl descriptionsUrl(QString("https://steamhunters.com/api/apps/%1/achievements").arg(appId));
 
     QNetworkRequest descriptionsRequest(descriptionsUrl);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    descriptionsRequest.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     descriptionsRequest.setRawHeader("User-Agent", "Mozilla/5.0");
     descriptionsRequest.setRawHeader("Accept", "application/json");
 
@@ -934,6 +952,9 @@ Error SteamApi::FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
 
@@ -995,6 +1016,9 @@ Error SteamApi::FetchPlayerAchievements(int appId, const QString &steamId, QList
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
 
@@ -1209,6 +1233,9 @@ QNetworkRequest SteamApi::BuildGameInfoRequest(int appId, const QString &country
     url.setQuery(query);
 
     QNetworkRequest request(url);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setRawHeader("User-Agent", "Mozilla/5.0");
     request.setRawHeader("Accept", "application/json");
     return request;
@@ -1279,6 +1306,9 @@ Error SteamApi::DownloadRawImageUrl(const QString &url, int transferTimeoutMs, Q
 
     // Build a raw image request without using the asset cache
     QNetworkRequest request{QUrl(url)};
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setTransferTimeout(transferTimeoutMs);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setRawHeader("User-Agent", "Mozilla/5.0");

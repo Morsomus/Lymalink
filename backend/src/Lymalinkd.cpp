@@ -1443,8 +1443,18 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
         {
             if (target.customAchievementLocation)
             {
-                // Custom achievement location does not reset info - which is manually set by user
                 LOG_BE(Urgency::Info, "Custom achievement file not found: targetId=%d path=%s", targetId, target.customAchievementDataLocation.c_str());
+                std::lock_guard<std::mutex> lock(m_databaseMutex);
+                if (!m_database.Update(m_databaseConnectionName,
+                    m_databaseEmuGamesTable,
+                    {{"appid_dir_found", int64_t{0}},
+                    {"achievement_data_status", int64_t{0}},
+                    {"date_updated", Utils::NowEpoch()}},
+                    "id = ?",
+                    {static_cast<int64_t>(targetId)}))
+                {
+                    HandleDatabaseError(std::format("Failed to save missing custom achievement file result: targetId={}", targetId));
+                }
             }
             else
             {

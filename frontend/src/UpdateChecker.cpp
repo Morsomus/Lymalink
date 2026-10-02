@@ -65,6 +65,9 @@ void UpdateChecker::CheckForUpdate()
     request.setRawHeader("X-GitHub-Api-Version", GH_API_VERSION);
     request.setRawHeader("User-Agent", QStringLiteral(ORGANIZATION "/%1 (+%2)").arg(m_settings->GetCurrentVersion(), QStringLiteral(GH_REPOSITORY_URL)).toUtf8());
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+    // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setTransferTimeout(10000);
 
     QNetworkReply *reply = m_networkManager.get(request);

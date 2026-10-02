@@ -82,6 +82,9 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
     {
         // Download original image data before decoding/scaling
         QNetworkRequest request{QUrl(url)};
+        // Work around Qt 6.11.1 HTTP/2 teardown race causing "QIODevice::read (QSslSocket): device not open"
+        // Re-enable HTTP/2 after upgrading Qt and verifying an upstream fix
+        request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 
         QNetworkReply *reply = m_network.get(request);
