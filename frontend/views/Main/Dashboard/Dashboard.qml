@@ -632,7 +632,7 @@ Item {
             return
         }
 
-        if (!id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+        if (ctxLymalink.steamHydrationBusy || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
             id_localAchievementScanTimer.restart()
             return
         }
