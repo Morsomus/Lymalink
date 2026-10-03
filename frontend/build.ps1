@@ -31,7 +31,18 @@ $SCRIPT_DIR = $PSScriptRoot
 $BUILD_ROOT = Join-Path $SCRIPT_DIR "build\windows"
 $MIN_QT_VERSION = [Version]"6.8.0"
 $CMAKE_GENERATOR = "Ninja"
-$BACKEND_OWNED_INSTALL_ITEMS = @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "sounds", "overlay")
+$NON_FRONTEND_INSTALL_ITEMS = @(
+    "lymalinkd.exe",
+    "sqlite3.dll",
+    "64x64-lymalink-test-icon.png",
+    "lymalinkd-tray-icon.png",
+    "lymalinkd-tray-icon-error.png",
+    "sounds",
+    "overlay",
+    "LICENSE",
+    "uninstall-lymalink.exe"
+)
+$FRONTEND_INSTALL_MANIFEST = ".lymalink-frontend-files.txt"
 $REQUIRED_QML_MODULES = @("Qt5Compat\GraphicalEffects")
 
 ##############################################################################
@@ -443,6 +454,92 @@ function New-LymalinkStartMenuShortcut {
 
 ##############################################################################
 
+function Test-SafeInstallRelativePath {
+    param([string]$RelativePath)
+
+    # Accept only relative paths so a modified manifest cannot target files outside the install directory
+    if ([string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) {
+        return $false
+    }
+
+    # Reject traversal, empty segments, and characters that Windows forbids in file names
+    $normalized = $RelativePath.Replace('/', '\')
+    foreach ($segment in ($normalized -split '\\')) {
+        if ([string]::IsNullOrWhiteSpace($segment) -or $segment -eq ".." -or $segment -eq "." -or $segment.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ge 0) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+##############################################################################
+
+function Get-FrontendBundleFiles {
+    param([string]$BundleDirectory)
+
+    # Record bundle files relative to its root so the manifest remains portable across user profiles
+    $bundleRoot = [System.IO.Path]::GetFullPath($BundleDirectory).TrimEnd('\') + '\'
+    return @(Get-ChildItem -LiteralPath $BundleDirectory -File -Recurse -Force | ForEach-Object {
+        $relativePath = $_.FullName.Substring($bundleRoot.Length)
+        $topLevelItem = ($relativePath -split '\\', 2)[0]
+        # Keep files owned by backend, overlay, or installer out of the frontend manifest and copy set
+        if ($topLevelItem -notin $NON_FRONTEND_INSTALL_ITEMS) {
+            $relativePath
+        }
+    })
+}
+
+##############################################################################
+
+function Remove-PreviouslyInstalledFrontendFiles {
+    param([string]$InstallDirectory)
+
+    # Without an earlier manifest ownership is unknown, so preserve every existing installed file
+    $manifestPath = Join-Path $InstallDirectory $FRONTEND_INSTALL_MANIFEST
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        return
+    }
+
+    # Validate the complete manifest before deleting anything to avoid a partial cleanup on bad input
+    $installedFiles = @(Get-Content -LiteralPath $manifestPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    foreach ($relativePath in $installedFiles) {
+        if (-not (Test-SafeInstallRelativePath $relativePath)) {
+            throw "Unsafe path in frontend install manifest: $relativePath"
+        }
+    }
+
+    # Remove only exact files recorded by the previous successful deploy
+    foreach ($relativePath in $installedFiles) {
+        $target = Join-Path $InstallDirectory $relativePath
+        if (Test-Path -LiteralPath $target -PathType Leaf) {
+            Remove-Item -LiteralPath $target -Force
+        }
+    }
+
+    # Collect recorded parent directories from deepest to shallowest for safe empty-directory cleanup
+    $directories = @($installedFiles | ForEach-Object {
+        $parent = Split-Path -Parent $_
+        while (-not [string]::IsNullOrWhiteSpace($parent)) {
+            $parent
+            $parent = Split-Path -Parent $parent
+        }
+    } | Sort-Object Length -Descending -Unique)
+
+    # Preserve any directory containing files from another component or an unknown source
+    foreach ($relativeDirectory in $directories) {
+        $directory = Join-Path $InstallDirectory $relativeDirectory
+        if ((Test-Path -LiteralPath $directory -PathType Container) -and @(Get-ChildItem -LiteralPath $directory -Force).Count -eq 0) {
+            Remove-Item -LiteralPath $directory -Force
+        }
+    }
+
+    # Remove the consumed manifest - the completed deployment writes its replacement
+    Remove-Item -LiteralPath $manifestPath -Force
+}
+
+##############################################################################
+
 function Deploy {
     param([string[]]$Options)
 
@@ -485,19 +582,22 @@ function Deploy {
         throw "windeployqt failed."
     }
     Test-DeployedQtQmlModules $bundleDir
+    $frontendBundleFiles = Get-FrontendBundleFiles $bundleDir
 
     Stop-LymalinkProcess
     if (Test-Path -LiteralPath $installPaths.InstallDirectory -PathType Container) {
-        Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force |
-            Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } |
-            Remove-Item -Recurse -Force
+        Remove-PreviouslyInstalledFrontendFiles $installPaths.InstallDirectory
     }
     New-Item -ItemType Directory -Path (Split-Path -Parent $installPaths.InstallDirectory) -Force | Out-Null
     New-Item -ItemType Directory -Path $installPaths.InstallDirectory -Force | Out-Null
-    Get-ChildItem -LiteralPath $bundleDir -Force | Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } | Copy-Item -Destination $installPaths.InstallDirectory -Recurse -Force
+    Get-ChildItem -LiteralPath $bundleDir -Force | Where-Object { $_.Name -notin $NON_FRONTEND_INSTALL_ITEMS } | Copy-Item -Destination $installPaths.InstallDirectory -Recurse -Force
     if (-not (Test-Path -LiteralPath (Join-Path $installPaths.InstallDirectory "Lymalink.exe") -PathType Leaf)) {
         throw "Installed binary not found: $($installPaths.InstallDirectory)\Lymalink.exe"
     }
+
+    # Write Frontend Install Manifest - Save the exact frontend file set only after deployment and binary verification succeed
+    $manifestPath = Join-Path $installPaths.InstallDirectory $FRONTEND_INSTALL_MANIFEST
+    Set-Content -LiteralPath $manifestPath -Value @($frontendBundleFiles | Sort-Object -Unique) -Encoding UTF8
 
     New-LymalinkStartMenuShortcut $installPaths.InstallDirectory $installPaths.ShortcutPath
 
@@ -514,9 +614,7 @@ function Uninstall {
     Write-Host "==> Removing Lymalink installation..."
 
     if (Test-Path -LiteralPath $installPaths.InstallDirectory -PathType Container) {
-        Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force |
-            Where-Object { $_.Name -notin $BACKEND_OWNED_INSTALL_ITEMS } |
-            Remove-Item -Recurse -Force
+        Remove-PreviouslyInstalledFrontendFiles $installPaths.InstallDirectory
         if (@(Get-ChildItem -LiteralPath $installPaths.InstallDirectory -Force).Count -eq 0) {
             Remove-Item -LiteralPath $installPaths.InstallDirectory -Force
         }

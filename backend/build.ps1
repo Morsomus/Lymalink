@@ -422,7 +422,7 @@ function Deploy {
     Copy-Item -LiteralPath (Join-Path $SCRIPT_DIR "res\img\BlankBackground_MFC_00041_ED.png") -Destination (Join-Path $installDir "lymalinkd-tray-icon.png") -Force
     Copy-Item -LiteralPath (Join-Path $SCRIPT_DIR "res\img\BlankBackground_MFC_00041_ED_ERR.png") -Destination (Join-Path $installDir "lymalinkd-tray-icon-error.png") -Force
 
-    foreach ($path in @((Join-Path $installDir "lymalinkd.exe"), (Join-Path $installDir "sqlite3.dll"), (Join-Path $installDir "64x64-lymalink-test-icon.png"), (Join-Path $installDir "lymalinkd-tray-icon.png"))) {
+    foreach ($path in @((Join-Path $installDir "lymalinkd.exe"), (Join-Path $installDir "sqlite3.dll"), (Join-Path $installDir "64x64-lymalink-test-icon.png"), (Join-Path $installDir "lymalinkd-tray-icon.png"), (Join-Path $installDir "lymalinkd-tray-icon-error.png"))) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Deployment verification failed: $path"
         }
@@ -474,7 +474,7 @@ function Uninstall {
     }
 
     $installDir = Get-WindowsInstallDirectory
-    foreach ($path in @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "lymalinkd-tray-icon.png")) {
+    foreach ($path in @("lymalinkd.exe", "sqlite3.dll", "64x64-lymalink-test-icon.png", "lymalinkd-tray-icon.png", "lymalinkd-tray-icon-error.png")) {
         $target = Join-Path $installDir $path
         if (Test-Path -LiteralPath $target) {
             Remove-Item -LiteralPath $target -Force
