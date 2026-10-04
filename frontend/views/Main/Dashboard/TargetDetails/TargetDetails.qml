@@ -41,10 +41,11 @@ Item {
     signal backgroundClicked()
 
     // Internals _____________________________________________
+    readonly property bool mediumCoverEnabled: ctxSettings.targetDetailsCoverSize === "medium"
     readonly property bool largeCoverEnabled: ctxSettings.targetDetailsCoverSize === "large"
-    readonly property int coverPanelWidth: largeCoverEnabled ? 360 : 240
-    readonly property int coverHeight: largeCoverEnabled ? 540 : 360
-    readonly property int contentWidthCap: largeCoverEnabled ? 1372 : 1252
+    readonly property int coverPanelWidth: largeCoverEnabled ? 360 : (mediumCoverEnabled ? 304 : 240)
+    readonly property int coverHeight: largeCoverEnabled ? 540 : (mediumCoverEnabled ? 456 : 360)
+    readonly property int contentWidthCap: largeCoverEnabled ? 1372 : (mediumCoverEnabled ? 1316 : 1252)
     readonly property real fixedPanelClearance: id_coverColumn.implicitHeight
     readonly property real fixedPanelInset: id_root.coverPanelWidth + 24
     readonly property bool hasVerticalScroll: id_achievementList.ScrollBar.vertical.size < 1.0

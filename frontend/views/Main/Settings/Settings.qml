@@ -1137,10 +1137,13 @@ Item {
 
                             CustomComboBox {
                                 p_tooltipText: qsTr("Select cover image size on the Target Details page")
-                                model: ["default", "large"]
+                                model: ["default", "medium", "large"]
                                 currentIndex: Math.max(0, model.indexOf(ctxSettings.targetDetailsCoverSize))
                                 implicitWidth: 140
                                 p_textFromValue: function(value, index) {
+                                    if (value === "medium") {
+                                        return qsTr("Medium")
+                                    }
                                     return value === "large" ? qsTr("Large") : qsTr("Default")
                                 }
                                 onActivated: (index) => ctxSettings.SaveValue(Settings.TargetDetailsCoverSize, model[index])
