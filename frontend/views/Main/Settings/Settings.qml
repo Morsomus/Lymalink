@@ -1132,6 +1132,22 @@ Item {
                         title: qsTr("Target details")
 
                         C_SettingRow {
+                            label: qsTr("Cover size")
+                            tooltip: qsTr("Select cover image size on the Target Details page")
+
+                            CustomComboBox {
+                                p_tooltipText: qsTr("Select cover image size on the Target Details page")
+                                model: ["default", "large"]
+                                currentIndex: Math.max(0, model.indexOf(ctxSettings.targetDetailsCoverSize))
+                                implicitWidth: 140
+                                p_textFromValue: function(value, index) {
+                                    return value === "large" ? qsTr("Large") : qsTr("Default")
+                                }
+                                onActivated: (index) => ctxSettings.SaveValue(Settings.TargetDetailsCoverSize, model[index])
+                            }
+                        }
+
+                        C_SettingRow {
                             label: qsTr("Dynamic achievement rows")
                             tooltip: qsTr("Achievement rows resize automatically to use available window space")
                             CustomSwitch {

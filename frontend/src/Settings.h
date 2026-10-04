@@ -58,6 +58,7 @@ class Settings : public QObject
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString targetDetailsCoverSize READ GetTargetDetailsCoverSize NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList targetDetailsEmulatorMetaFields READ GetTargetDetailsEmulatorMetaFields NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList targetDetailsSteamMetaFields READ GetTargetDetailsSteamMetaFields NOTIFY signalConfigChanged)
     Q_PROPERTY(bool automaticUpdateChecksEnabled READ GetAutomaticUpdateChecksEnabled NOTIFY signalConfigChanged)
@@ -106,6 +107,7 @@ public:
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
         DashboardToolbarLayout,
+        TargetDetailsCoverSize,
         TargetDetailsEmulatorMetaFields,
         TargetDetailsSteamMetaFields,
         AutomaticUpdateChecksEnabled,
@@ -175,6 +177,7 @@ public:
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
     inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
+    inline QString GetTargetDetailsCoverSize() const { return m_targetDetailsCoverSize; }
     inline QStringList GetTargetDetailsEmulatorMetaFields() const { return m_targetDetailsEmulatorMetaFields; }
     inline QStringList GetTargetDetailsSteamMetaFields() const { return m_targetDetailsSteamMetaFields; }
     inline bool GetAutomaticUpdateChecksEnabled() const { return m_automaticUpdateChecksEnabled; }
@@ -231,6 +234,7 @@ private:
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
+    QString m_targetDetailsCoverSize;
     QStringList m_targetDetailsEmulatorMetaFields;
     QStringList m_targetDetailsSteamMetaFields;
     bool m_automaticUpdateChecksEnabled;

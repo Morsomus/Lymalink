@@ -41,8 +41,10 @@ Item {
     signal backgroundClicked()
 
     // Internals _____________________________________________
-    readonly property int coverPanelWidth: 240
-    readonly property int coverHeight: 360
+    readonly property bool largeCoverEnabled: ctxSettings.targetDetailsCoverSize === "large"
+    readonly property int coverPanelWidth: largeCoverEnabled ? 360 : 240
+    readonly property int coverHeight: largeCoverEnabled ? 540 : 360
+    readonly property int contentWidthCap: largeCoverEnabled ? 1372 : 1252
     readonly property real fixedPanelClearance: id_coverColumn.implicitHeight
     readonly property real fixedPanelInset: id_root.coverPanelWidth + 24
     readonly property bool hasVerticalScroll: id_achievementList.ScrollBar.vertical.size < 1.0
@@ -728,8 +730,8 @@ Item {
                     source: id_root.p_coverSource
                     smooth: false
                     sourceSize: Qt.size(
-                        Math.round(width * Screen.devicePixelRatio),
-                        Math.round(height * Screen.devicePixelRatio)
+                        Math.min(600, Math.round(width * Screen.devicePixelRatio)),
+                        Math.min(900, Math.round(height * Screen.devicePixelRatio))
                     )
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
@@ -938,7 +940,7 @@ Item {
         anchors {
             fill: parent
 
-            rightMargin: Math.max(0, parent.width - 1252) // Width cap for wider window
+            rightMargin: Math.max(0, parent.width - id_root.contentWidthCap) // Width cap for wider window
             leftMargin: id_root.p_enabledAchievementRowDynamicWidth ? 0 : id_root.coverPanelWidth + 24
             topMargin: 25
         }
