@@ -15,12 +15,13 @@
 #include <cstdint>
 
 constexpr const char* OVERLAY_SHM_NAME = "/lymalink_overlay";
-constexpr uint32_t OVERLAY_SHM_VERSION = 4;
+constexpr uint32_t OVERLAY_SHM_VERSION = 5;
 
-// 64x64 RGBA, matches the scale used by EnsureOpenGLIconTexture / EnsureVulkanIconTexture
-constexpr uint32_t OVERLAY_ICON_SIZE = 64;
+// Fixed 128x128 RGBA payload preserves largest achievement icons
+// Smaller sources are scaled to this size by the platform image decoder
+constexpr uint32_t OVERLAY_ICON_SIZE = 128;
 constexpr uint32_t OVERLAY_ICON_STRIDE = OVERLAY_ICON_SIZE * 4; // bytes per row
-constexpr uint32_t OVERLAY_ICON_DATA_SIZE = OVERLAY_ICON_SIZE * OVERLAY_ICON_STRIDE; // 16 384 bytes
+constexpr uint32_t OVERLAY_ICON_DATA_SIZE = OVERLAY_ICON_SIZE * OVERLAY_ICON_STRIDE; // 65 536 bytes
 
 enum class OverlayNotificationPosition : uint32_t
 {

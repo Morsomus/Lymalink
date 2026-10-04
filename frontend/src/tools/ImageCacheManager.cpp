@@ -40,7 +40,7 @@ ImageCacheManager::~ImageCacheManager()
 
 /////////////////////////////////////////////////////////////////////
 
-Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &savePath, const QSize &targetSize, QString &cachedPath, const QString &newName)
+Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &savePath, const QSize &targetSize, QString &cachedPath, const QString &newName, bool downscaleIfOversized)
 {
     Error downloadResult = Error::NoError;
 
@@ -130,9 +130,9 @@ Error ImageCacheManager::DownloadAndCache(const QString &url, const QString &sav
         return downloadResult;
     }
 
-    // Scale down only; avoid upscaling smaller source images
+    // Scale only explicitly selected assets, and never upscale smaller sources
     QImage result;
-    if (image.width() > targetSize.width() || image.height() > targetSize.height())
+    if (downscaleIfOversized && (image.width() > targetSize.width() || image.height() > targetSize.height()))
     {
         result = image.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     }

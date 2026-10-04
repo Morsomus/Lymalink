@@ -61,10 +61,7 @@ private:
     bool m_running = false;
     QStringList m_benchmarkedAchievementIconUrlFormats;
 
-    static const QSize COVER_CARD_TARGET_SIZE;
-    static const QSize COVER_CARD_SMALL_TARGET_SIZE;
-    static const QSize COVER_ROW_DETAILED_TARGET_SIZE;
-    static const QSize COVER_TARGET_DETAILS_TARGET_SIZE;
+    static const QSize COVER_TARGET_SIZE;
     static const QSize CI_TARGET_SIZE;
     static const QSize ACH_ICON_TARGET_SIZE;
 
@@ -72,5 +69,5 @@ private:
     void ProcessTask(const HydrationTask &task);
     void BenchmarkAchievementIconCdn();
     bool ClearAssetDirectory(const QString &directoryPath, int appId);
-    QString TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName = QString());
+    QString TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName, bool downscaleIfOversized);
 };

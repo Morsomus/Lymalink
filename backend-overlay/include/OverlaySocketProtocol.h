@@ -14,7 +14,7 @@
 #include <cstdint>
 
 constexpr const char* OVERLAY_SOCKET_FILENAME = "lymalink-overlay.sock";
-constexpr uint32_t OVERLAY_SOCKET_VERSION = 2;
+constexpr uint32_t OVERLAY_SOCKET_VERSION = 3;
 
 struct OverlaySocketPacket
 {
@@ -28,7 +28,7 @@ struct OverlaySocketPacket
     uint32_t notificationPosition = static_cast<uint32_t>(OverlayNotificationPosition::BottomRight);
     uint32_t notificationExitAnimation = static_cast<uint32_t>(OverlayNotificationExitAnimation::SlideOut);
 
-    // Embedded icon pixels (RGBA, 64×64, pre-scaled by the daemon)
+    // Embedded icon pixels (RGBA, 128×128, pre-scaled by the daemon)
     // hasIconPixels == 1 -> use iconPixels, ignore iconPath on receiver side
     // hasIconPixels == 0 -> iconPixels is zeroed, receiver falls back to iconPath
     uint32_t hasIconPixels = 0;

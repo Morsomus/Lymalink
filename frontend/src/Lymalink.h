@@ -128,7 +128,6 @@ private:
     QString CoverImageFilePath(const QString &coversPath, const QString &fileName) const;
     QString PreferredCoverImageFilePath(const QString &coversPath, const QString &fileName) const;
     bool TargetHasMissingMetadata(int appId, const QString &targetType);
-    bool TargetHasMissingCoverAssets(const QString &coversPath) const;
     bool TargetHasMissingAchievementIcons(int appId, const QString &iconsPath, const QString &targetType);
     bool SaveCustomCoverVariant(const QImage &sourceImage, const QString &coversPath, const QString &fileName, const QSize &targetSize, bool enableBlackBars) const;
     QString CommunityIconFilePath(const QString &iconsPath) const;

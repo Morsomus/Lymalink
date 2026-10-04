@@ -25,7 +25,7 @@ public:
     explicit ImageCacheManager(QObject *parent = nullptr);
     ~ImageCacheManager();
 
-    Error DownloadAndCache(const QString &url, const QString &savePath, const QSize &targetSize, QString &cachedPath, const QString &newName = QString());
+    Error DownloadAndCache(const QString &url, const QString &savePath, const QSize &targetSize, QString &cachedPath, const QString &newName, bool downscaleIfOversized);
     void ClearMemoryCache();
 
 private:

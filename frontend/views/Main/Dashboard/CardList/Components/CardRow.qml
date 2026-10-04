@@ -183,8 +183,6 @@ Rectangle {
                 anchors.margins: 3
                 source: id_root.p_logoSource !== "" ? id_root.p_logoSource : id_root.p_coverSource
                 fillMode: Image.PreserveAspectFit
-                smooth: true
-                mipmap: true
                 asynchronous: true
 
                 Rectangle {

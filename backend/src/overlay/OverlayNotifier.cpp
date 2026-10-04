@@ -744,7 +744,7 @@ OverlaySocketPacket OverlayNotifier::BuildSocketPacket(const AchievementNotifica
     packet.iconPath[sizeof(packet.iconPath) - 1] = '\0';
     packet.appIconPath[sizeof(packet.appIconPath) - 1] = '\0';
 
-    // Embed 64x64 RGBA icon bytes for socket transport.
+    // Embed 128x128 RGBA icon bytes for socket transport.
     // Prefer achievement icon, fall back to app icon if missing/unloadable.
     if (!EmbedIconIntoPacket(packet, notification.iconPath))
     {

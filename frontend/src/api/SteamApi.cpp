@@ -1462,14 +1462,14 @@ SteamGameInfo SteamApi::ParseGameInfoResponse(const QByteArray &jsonResponse, in
 
     // Extract required asset suffixes used by later CDN URL builders
     const QJsonObject assets = storeItem["assets"].toObject();
-    gameInfo.lcSuffix = assets["library_capsule"].toString();
+    gameInfo.lcSuffix = assets["library_capsule_2x"].toString();
     if (gameInfo.lcSuffix.isEmpty())
     {
-        gameInfo.lcSuffix = assets["library_capsule_2x"].toString();
+        gameInfo.lcSuffix = assets["library_capsule"].toString();
     }
     if (gameInfo.lcSuffix.isEmpty())
     {
-        gameInfo.lcSuffix = assets["hero_capsule"].toString();
+        gameInfo.lcSuffix = assets["hero_capsule_2x"].toString();
     }
     if (gameInfo.lcSuffix.isEmpty())
     {

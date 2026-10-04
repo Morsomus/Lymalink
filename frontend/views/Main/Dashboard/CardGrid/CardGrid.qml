@@ -26,8 +26,8 @@ Item {
     signal backgroundClicked()
 
     // Internals _____________________________________________
-    readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 150
-    readonly property int cellH: id_root.p_gridSize === "defaultCardGrid" ? 300 : 225
+    readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 152
+    readonly property int cellH: id_root.p_gridSize === "defaultCardGrid" ? 300 : 228
     readonly property int cellSpacing: 16
     readonly property bool hasVerticalScroll: id_rootScrollView.ScrollBar.vertical.size < 1.0
     property bool restoringScrollLocation: false

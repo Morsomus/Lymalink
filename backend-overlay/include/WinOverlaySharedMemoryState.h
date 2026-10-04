@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <string>
 
-constexpr uint32_t WIN_OVERLAY_SHM_VERSION = 2;
+constexpr uint32_t WIN_OVERLAY_SHM_VERSION = 3;
 constexpr wchar_t WIN_OVERLAY_SHM_PREFIX[] = L"Local\\LymalinkOverlay.v1.";
 
 #pragma pack(push, 8)
@@ -41,7 +41,7 @@ struct alignas(8) WinOverlaySharedMemoryState
     char iconPath[1024];
     char appIconPath[1024];
 
-    // Optional fixed-size 64x64 RGBA icon payload.
+    // Optional fixed-size 128x128 RGBA icon payload
     uint32_t hasIconPixels;
     uint32_t notificationExitAnimation;
     uint8_t iconPixels[OVERLAY_ICON_DATA_SIZE];
@@ -53,7 +53,7 @@ static_assert(alignof(WinOverlaySharedMemoryState) == 8);
 static_assert(offsetof(WinOverlaySharedMemoryState, timestamp) == 16);
 static_assert(offsetof(WinOverlaySharedMemoryState, title) == 32);
 static_assert(offsetof(WinOverlaySharedMemoryState, iconPixels) == 2856);
-static_assert(sizeof(WinOverlaySharedMemoryState) == 19240);
+static_assert(sizeof(WinOverlaySharedMemoryState) == 68392);
 
 inline std::wstring WinOverlaySharedMemoryName(uint32_t pid)
 {

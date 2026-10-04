@@ -971,7 +971,7 @@ bool OverlayReceiver::EnsureVulkanIconTexture(const std::string& iconPath)
         // Fallback: load from icon file path (works outside sandbox)
         GError* error = nullptr;
         GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(
-            iconPath.c_str(), 64, 64, TRUE, &error);
+            iconPath.c_str(), static_cast<int>(OVERLAY_ICON_SIZE), static_cast<int>(OVERLAY_ICON_SIZE), TRUE, &error);
         if (!pixbuf)
         {
             if (error)
@@ -1372,7 +1372,8 @@ bool OverlayReceiver::EnsureOpenGLIconTexture(const std::string& iconPath)
     {
         // Load image file from disk
         GError* error = nullptr;
-        GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(iconPath.c_str(), 64, 64, TRUE, &error);
+        GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(
+            iconPath.c_str(), static_cast<int>(OVERLAY_ICON_SIZE), static_cast<int>(OVERLAY_ICON_SIZE), TRUE, &error);
         if (!pixbuf)
         {
             if (error)

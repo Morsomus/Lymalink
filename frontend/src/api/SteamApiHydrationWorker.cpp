@@ -18,12 +18,9 @@
 
 /////////////////////////////////////////////////////////////////////
 
-const QSize SteamApiHydrationWorker::COVER_CARD_TARGET_SIZE = QSize(200, 300);
-const QSize SteamApiHydrationWorker::COVER_CARD_SMALL_TARGET_SIZE = QSize(150, 225);
-const QSize SteamApiHydrationWorker::COVER_ROW_DETAILED_TARGET_SIZE = QSize(80, 120);
-const QSize SteamApiHydrationWorker::COVER_TARGET_DETAILS_TARGET_SIZE = QSize(240, 360);
+const QSize SteamApiHydrationWorker::COVER_TARGET_SIZE = QSize(600, 900);
 const QSize SteamApiHydrationWorker::CI_TARGET_SIZE = QSize(44, 44);
-const QSize SteamApiHydrationWorker::ACH_ICON_TARGET_SIZE = QSize(64, 64);
+const QSize SteamApiHydrationWorker::ACH_ICON_TARGET_SIZE = QSize(128, 128);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -209,13 +206,10 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Download library capsule (cover)
     emit signalHydrationTaskProgress(appId, targetType, "DownloadingCover", 0, 0);
 
-    // Resolve cover CDN URLs and download required scaled cover variants
+    // Resolve cover CDN URLs and cache one shared high-resolution cover
     QList<QString> lcUrls;
     m_steamApi->GetLibraryCapsuleUrls(appId, gameInfo.lcSuffix, gameInfo.assetUrlFormat, lcUrls);
-    TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_TARGET_SIZE, "cover_200x300");
-    TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_SMALL_TARGET_SIZE, "cover_150x225");
-    TryDownloadFirstWorking(lcUrls, coversDir, COVER_ROW_DETAILED_TARGET_SIZE, "cover_80x120");
-    TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_DETAILS_TARGET_SIZE, "cover_240x360");
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_SIZE, "cover_600x900", true);
     m_imageCache->ClearMemoryCache();
 
     if (m_cancelled.loadAcquire())
@@ -230,7 +224,7 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Resolve community icon CDN URLs and cache icon
     QList<QString> ciUrls;
     m_steamApi->GetCommunityIconUrls(appId, gameInfo.ciSuffix, ciUrls);
-    TryDownloadFirstWorking(ciUrls, iconsDir, CI_TARGET_SIZE, "community_icon");
+    TryDownloadFirstWorking(ciUrls, iconsDir, CI_TARGET_SIZE, "community_icon", false);
 
     if (m_cancelled.loadAcquire())
     {
@@ -314,8 +308,8 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
         emit signalHydrationTaskProgress(appId, targetType, "DownloadingAchievementIcons", i + 1, total);
 
         const SteamAchievementIconUrls &iconUrls = achievementIconUrls.at(i);
-        TryDownloadFirstWorking(iconUrls.iconUrls,     iconsDir, ACH_ICON_TARGET_SIZE, iconUrls.achievementKey + "_icon");
-        TryDownloadFirstWorking(iconUrls.iconGrayUrls, iconsDir, ACH_ICON_TARGET_SIZE, iconUrls.achievementKey + "_gray_icon");
+        TryDownloadFirstWorking(iconUrls.iconUrls,     iconsDir, ACH_ICON_TARGET_SIZE, iconUrls.achievementKey + "_icon", true);
+        TryDownloadFirstWorking(iconUrls.iconGrayUrls, iconsDir, ACH_ICON_TARGET_SIZE, iconUrls.achievementKey + "_gray_icon", true);
     }
 
     if (m_cancelled.loadAcquire())
@@ -411,7 +405,7 @@ bool SteamApiHydrationWorker::ClearAssetDirectory(const QString &directoryPath, 
 
 /////////////////////////////////////////////////////////////////////
 
-QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName)
+QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &urls, const QString &savePath, const QSize &targetSize, const QString &newName, bool downscaleIfOversized)
 {
     QString downloadedPath = "";
 
@@ -426,7 +420,7 @@ QString SteamApiHydrationWorker::TryDownloadFirstWorking(const QList<QString> &u
 
         const QString &url = urls.at(i);
         QString cachedPath = "";
-        const Error err = m_imageCache->DownloadAndCache(url, savePath, targetSize, cachedPath, newName);
+        const Error err = m_imageCache->DownloadAndCache(url, savePath, targetSize, cachedPath, newName, downscaleIfOversized);
         if (m_cancelled.loadAcquire())
         {
             return downloadedPath;

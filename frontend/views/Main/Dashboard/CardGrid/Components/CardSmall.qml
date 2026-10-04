@@ -47,8 +47,8 @@ Rectangle {
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
     readonly property bool targetTypeBadgeAllowed: p_targetType === "Custom" || p_targetType === "Steam"
 
-    width: 150
-    height: 225
+    width: 152
+    height: 228
     radius: 8
     clip: true
     color: Themes.cardSmall.colors.cardBackground
@@ -82,6 +82,11 @@ Rectangle {
             z: id_errorImage.errorActive ? 2 : 0
             anchors.fill: parent
             source: id_root.p_coverSource
+            smooth: false
+            sourceSize: Qt.size(
+                Math.round(width * Screen.devicePixelRatio),
+                Math.round(height * Screen.devicePixelRatio)
+            )
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: false

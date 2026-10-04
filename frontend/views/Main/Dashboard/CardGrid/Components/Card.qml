@@ -82,6 +82,11 @@ Rectangle {
             z: id_errorImage.errorActive ? 2 : 0
             anchors.fill: parent
             source: id_root.p_coverSource
+            smooth: false
+            sourceSize: Qt.size(
+                Math.round(width * Screen.devicePixelRatio),
+                Math.round(height * Screen.devicePixelRatio)
+            )
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: false

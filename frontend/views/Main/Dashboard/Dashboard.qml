@@ -132,7 +132,7 @@ Item {
     function calculatePageSize() {
         switch (id_root.activeLayout) {
             case "smallCardGrid":
-                return id_root.calculateGridPageSize(150, 16, 6)
+                return id_root.calculateGridPageSize(152, 16, 6)
             case "defaultCardGrid":
                 return id_root.calculateGridPageSize(200, 16, 4)
             case "detailedList":
