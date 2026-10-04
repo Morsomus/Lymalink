@@ -59,6 +59,7 @@ class Settings : public QObject
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
     Q_PROPERTY(QString targetDetailsCoverSize READ GetTargetDetailsCoverSize NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool targetDetailsExpandableInfoPanel READ GetTargetDetailsExpandableInfoPanel NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList targetDetailsEmulatorMetaFields READ GetTargetDetailsEmulatorMetaFields NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList targetDetailsSteamMetaFields READ GetTargetDetailsSteamMetaFields NOTIFY signalConfigChanged)
     Q_PROPERTY(bool automaticUpdateChecksEnabled READ GetAutomaticUpdateChecksEnabled NOTIFY signalConfigChanged)
@@ -108,6 +109,7 @@ public:
         DashboardToolbarSortDescending,
         DashboardToolbarLayout,
         TargetDetailsCoverSize,
+        TargetDetailsExpandableInfoPanel,
         TargetDetailsEmulatorMetaFields,
         TargetDetailsSteamMetaFields,
         AutomaticUpdateChecksEnabled,
@@ -178,6 +180,7 @@ public:
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
     inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
     inline QString GetTargetDetailsCoverSize() const { return m_targetDetailsCoverSize; }
+    inline bool GetTargetDetailsExpandableInfoPanel() const { return m_targetDetailsExpandableInfoPanel; }
     inline QStringList GetTargetDetailsEmulatorMetaFields() const { return m_targetDetailsEmulatorMetaFields; }
     inline QStringList GetTargetDetailsSteamMetaFields() const { return m_targetDetailsSteamMetaFields; }
     inline bool GetAutomaticUpdateChecksEnabled() const { return m_automaticUpdateChecksEnabled; }
@@ -235,6 +238,7 @@ private:
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
     QString m_targetDetailsCoverSize;
+    bool m_targetDetailsExpandableInfoPanel;
     QStringList m_targetDetailsEmulatorMetaFields;
     QStringList m_targetDetailsSteamMetaFields;
     bool m_automaticUpdateChecksEnabled;

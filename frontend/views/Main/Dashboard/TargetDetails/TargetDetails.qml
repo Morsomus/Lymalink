@@ -873,51 +873,205 @@ Item {
                     }
                 }
 
-                C_MetaRow {
-                    label: qsTr("Status")
-                    value: id_root.p_installationStatus
-                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("status")
-                }
-                C_MetaRow {
-                    label: qsTr("Type")
-                    value: id_root.p_targetType
-                    visible: id_root.p_targetType !== "" && id_root.metaFieldEnabled("type")
-                }
-                C_MetaRow {
-                    label: qsTr("")
-                    value: id_root.emulatorLabel(id_root.p_emulatorType)
-                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("type") && id_root.emulatorLabel(id_root.p_emulatorType) !== "-"
-                }
-                C_MetaRow {
-                    label: qsTr("Playtime")
-                    value: id_root.p_playtime === "" ? qsTr("Never") : id_root.p_playtime
-                    visible: id_root.metaFieldEnabled("playtime")
-                }
-                C_MetaRow {
-                    label: qsTr("Last played")
-                    value: id_root.p_lastPlayed === "" ? qsTr("Never") : id_root.p_lastPlayed
-                    visible: id_root.metaFieldEnabled("lastPlayed")
-                }
-                C_MetaRow {
-                    label: qsTr("Recent unlock")
-                    value: id_root.p_recentUnlock === "" ? qsTr("Never") : id_root.p_recentUnlock
-                    visible: id_root.metaFieldEnabled("recentUnlock") && id_root.p_achievementTotal > 0
-                }
-                C_MetaRow {
-                    label: qsTr("Custom path")
-                    tooltip: qsTr("Using custom path for achievement file")
-                    value: qsTr("Enabled")
-                    visible: id_root.p_targetType === "Emulator"
-                        && id_root.p_customAchievementLocation
-                        && id_root.metaFieldEnabled("customPath")
-                }
-                C_MetaRow {
-                    label: qsTr("Achievement data")
-                    tooltip: id_root.achievementDataTooltip(id_root.p_emulatorType)
-                    showInfoMarker: id_root.achievementDataState !== "found"
-                    value: id_root.achievementDataLabel()
-                    valueColor: id_root.achievementDataColor
-                    visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("achievementData")
+                // Optional hover-expandable target information panel
+                Item {
+                    id: id_infoPanel
+
+                    readonly property bool panelEnabled: ctxSettings.targetDetailsExpandableInfoPanel
+                    readonly property int collapsedHeight: 30
+                    readonly property int contentTopMargin: 8
+                    readonly property color accentColor: id_root.completionRatio >= 1.0
+                        ? id_root.themedCompletionColor
+                        : id_root.themedProgressColor
+                    property bool hoverActive: false
+
+                    visible: !id_root.metaFieldEnabled("none")
+                    width: parent.width
+                    height: panelEnabled
+                        ? (hoverActive
+                            ? collapsedHeight + contentTopMargin + id_metaRows.implicitHeight + 10
+                            : collapsedHeight)
+                        : id_metaRows.implicitHeight
+                    clip: panelEnabled
+
+                    Behavior on height {
+                        enabled: id_infoPanel.panelEnabled
+                        NumberAnimation {
+                            duration: 180
+                            easing.type: Easing.InOutQuad
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: id_infoPanel.panelEnabled
+                        radius: 8
+                        color: Themes.targetDetails.colors.infoPanelBackground
+                        border.width: 1
+                        border.color: Themes.globalStyle.withAlpha(
+                            id_infoPanel.accentColor,
+                            0.55
+                        )
+
+                        Behavior on color {
+                            ColorAnimation { duration: 120 }
+                        }
+
+                        Behavior on border.color {
+                            ColorAnimation { duration: 120 }
+                        }
+                    }
+
+                    Timer {
+                        id: id_infoPanelHoverTimer
+
+                        interval: 200
+                        repeat: false
+                        onTriggered: id_infoPanel.hoverActive = true
+                    }
+
+                    HoverHandler {
+                        enabled: id_infoPanel.panelEnabled
+                        onHoveredChanged: {
+                            if (hovered) {
+                                id_infoPanelHoverTimer.start()
+                                return
+                            }
+
+                            id_infoPanelHoverTimer.stop()
+                            id_infoPanel.hoverActive = false
+                        }
+                    }
+
+                    Item {
+                        id: id_infoPanelHeader
+
+                        visible: id_infoPanel.panelEnabled
+                        width: parent.width
+                        height: id_infoPanel.collapsedHeight
+
+                        Rectangle {
+                            anchors {
+                                left: parent.left
+                                leftMargin: 12
+                                verticalCenter: parent.verticalCenter
+                            }
+                            width: 4
+                            height: 16
+                            radius: 2
+                            color: id_infoPanel.accentColor
+                        }
+
+                        Text {
+                            anchors {
+                                left: parent.left
+                                leftMargin: 26
+                                right: id_infoPanelDisclosure.left
+                                rightMargin: 8
+                                verticalCenter: parent.verticalCenter
+                            }
+                            text: qsTr("Details")
+                            color: Themes.targetDetails.colors.infoPanelHeaderText
+                            font.pixelSize: Themes.targetDetails.fontSizes.infoPanelHeader
+                            font.letterSpacing: 0.8
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            id: id_infoPanelDisclosure
+
+                            anchors {
+                                right: parent.right
+                                rightMargin: 12
+                                verticalCenter: parent.verticalCenter
+                            }
+                            text: "\u25be"
+                            color: id_infoPanel.hoverActive
+                                ? id_infoPanel.accentColor
+                                : Themes.targetDetails.colors.infoPanelHeaderText
+                            font.pixelSize: 15
+                            rotation: id_infoPanel.hoverActive ? 180 : 0
+
+                            Behavior on color {
+                                ColorAnimation { duration: 120 }
+                            }
+
+                            Behavior on rotation {
+                                RotationAnimation {
+                                    duration: 180
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+                        }
+                    }
+
+                    Column {
+                        id: id_metaRows
+
+                        x: id_infoPanel.panelEnabled ? 10 : 0
+                        y: id_infoPanel.panelEnabled
+                            ? id_infoPanel.collapsedHeight + id_infoPanel.contentTopMargin
+                            : 0
+                        width: parent.width - (id_infoPanel.panelEnabled ? 20 : 0)
+                        spacing: 6
+                        opacity: !id_infoPanel.panelEnabled || id_infoPanel.hoverActive ? 1.0 : 0.0
+                        enabled: !id_infoPanel.panelEnabled || id_infoPanel.hoverActive
+
+                        Behavior on opacity {
+                            enabled: id_infoPanel.panelEnabled
+                            NumberAnimation {
+                                duration: 140
+                                easing.type: Easing.InOutQuad
+                            }
+                        }
+
+                        C_MetaRow {
+                            label: qsTr("Status")
+                            value: id_root.p_installationStatus
+                            visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("status")
+                        }
+                        C_MetaRow {
+                            label: qsTr("Type")
+                            value: id_root.p_targetType
+                            visible: id_root.p_targetType !== "" && id_root.metaFieldEnabled("type")
+                        }
+                        C_MetaRow {
+                            label: qsTr("")
+                            value: id_root.emulatorLabel(id_root.p_emulatorType)
+                            visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("type") && id_root.emulatorLabel(id_root.p_emulatorType) !== "-"
+                        }
+                        C_MetaRow {
+                            label: qsTr("Playtime")
+                            value: id_root.p_playtime === "" ? qsTr("Never") : id_root.p_playtime
+                            visible: id_root.metaFieldEnabled("playtime")
+                        }
+                        C_MetaRow {
+                            label: qsTr("Last played")
+                            value: id_root.p_lastPlayed === "" ? qsTr("Never") : id_root.p_lastPlayed
+                            visible: id_root.metaFieldEnabled("lastPlayed")
+                        }
+                        C_MetaRow {
+                            label: qsTr("Recent unlock")
+                            value: id_root.p_recentUnlock === "" ? qsTr("Never") : id_root.p_recentUnlock
+                            visible: id_root.metaFieldEnabled("recentUnlock") && id_root.p_achievementTotal > 0
+                        }
+                        C_MetaRow {
+                            label: qsTr("Custom path")
+                            tooltip: qsTr("Using custom path for achievement file")
+                            value: qsTr("Enabled")
+                            visible: id_root.p_targetType === "Emulator"
+                                && id_root.p_customAchievementLocation
+                                && id_root.metaFieldEnabled("customPath")
+                        }
+                        C_MetaRow {
+                            label: qsTr("Achievement data")
+                            tooltip: id_root.achievementDataTooltip(id_root.p_emulatorType)
+                            showInfoMarker: id_root.achievementDataState !== "found"
+                            value: id_root.achievementDataLabel()
+                            valueColor: id_root.achievementDataColor
+                            visible: id_root.p_targetType === "Emulator" && id_root.metaFieldEnabled("achievementData")
+                        }
+                    }
                 }
 
                 // Bottom separator

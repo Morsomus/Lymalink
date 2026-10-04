@@ -670,6 +670,8 @@ QtObject {
             readonly property color progressBarTrack: id_themes.themeColor("#2a2a3a", "#e9edf2")
             readonly property color progressBarText: id_themes.themeColor("white", "#1f2933")
             readonly property color hiddenHoverOverlay: id_themes.themeColor("white", "#1f2933")
+            readonly property color infoPanelBackground: id_themes.themeColor(Qt.rgba(1, 1, 1, 0.025), "#f6f8fa")
+            readonly property color infoPanelHeaderText: id_themes.themeColor("#d8d8df", "#344054")
             readonly property color warningText: id_themes.themeColor("#e8a838", "#9a5a00")
             readonly property color errorText: id_themes.themeColor("#f0b8b8", "#b42318")
         }
@@ -681,6 +683,7 @@ QtObject {
             readonly property int metaIcon: 14
             readonly property int metaLabel: 14
             readonly property int metaValue: 14
+            readonly property int infoPanelHeader: 12
             readonly property int sectionTitle: 15
             readonly property int rowName: 14
             readonly property int rowDescription: 13

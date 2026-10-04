@@ -1147,6 +1147,25 @@ Item {
                             }
                         }
 
+                        C_SettingRow {}
+
+                        C_SettingRow {
+                            label: qsTr("Expandable info panel")
+                            tooltip: qsTr("Collapse Target Details information")
+
+                            CustomSwitch {
+                                checked: ctxSettings.targetDetailsExpandableInfoPanel
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_expandableInfoPanelHover }
+                                CustomTooltip {
+                                    p_active: id_expandableInfoPanelHover.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Collapse Target Details information")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.TargetDetailsExpandableInfoPanel, checked)
+                            }
+                        }
+
                         C_SettingRow {
                             label: qsTr("Dynamic achievement rows")
                             tooltip: qsTr("Achievement rows resize automatically to use available window space")

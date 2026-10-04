@@ -276,6 +276,7 @@ bool Settings::LoadConfig()
     m_dashboardToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_dashboardToolbarSortDescending).toBool();
     m_dashboardToolbarLayout = m_settings.value("ToolbarLayout", m_dashboardToolbarLayout).toString();
     m_targetDetailsCoverSize = m_settings.value("TargetDetailsCoverSize", m_targetDetailsCoverSize).toString().toLower();
+    m_targetDetailsExpandableInfoPanel = m_settings.value("TargetDetailsExpandableInfoPanel", m_targetDetailsExpandableInfoPanel).toBool();
     m_targetDetailsEmulatorMetaFields = m_settings.value("TargetDetailsEmulatorMetaFields", m_targetDetailsEmulatorMetaFields).toStringList();
     m_targetDetailsSteamMetaFields = m_settings.value("TargetDetailsSteamMetaFields", m_targetDetailsSteamMetaFields).toStringList();
     m_welcomeHelpText = m_settings.value("WelcomeHelpText", m_welcomeHelpText).toString();
@@ -596,6 +597,14 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_targetDetailsCoverSize;
             break;
         }
+        case TargetDetailsExpandableInfoPanel:
+        {
+            m_targetDetailsExpandableInfoPanel = value.toBool();
+            group = GROUP_DASHBOARD;
+            settingsKey = "TargetDetailsExpandableInfoPanel";
+            settingsValue = m_targetDetailsExpandableInfoPanel;
+            break;
+        }
         case TargetDetailsEmulatorMetaFields:
         {
             m_targetDetailsEmulatorMetaFields = value.toStringList();
@@ -807,6 +816,7 @@ void Settings::SetDefaults()
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
     m_targetDetailsCoverSize = "default";
+    m_targetDetailsExpandableInfoPanel = false;
     m_targetDetailsEmulatorMetaFields = QStringList{"status", "type", "playtime", "lastPlayed", "recentUnlock", "achievementData", "customPath"};
     m_targetDetailsSteamMetaFields = QStringList{"type", "playtime", "lastPlayed", "recentUnlock"};
     m_currentVersion = QStringLiteral(LYMALINK_VERSION);
@@ -1021,6 +1031,7 @@ void Settings::SavePlainValues()
     m_settings.setValue("ToolbarSortDescending", m_dashboardToolbarSortDescending);
     m_settings.setValue("ToolbarLayout", m_dashboardToolbarLayout);
     m_settings.setValue("TargetDetailsCoverSize", m_targetDetailsCoverSize);
+    m_settings.setValue("TargetDetailsExpandableInfoPanel", m_targetDetailsExpandableInfoPanel);
     m_settings.setValue("TargetDetailsEmulatorMetaFields", m_targetDetailsEmulatorMetaFields);
     m_settings.setValue("TargetDetailsSteamMetaFields", m_targetDetailsSteamMetaFields);
     m_settings.setValue("WelcomeHelpText", m_welcomeHelpText);
