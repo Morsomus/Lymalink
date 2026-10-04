@@ -986,7 +986,7 @@ Item {
                     id: id_detailsRefreshMouseArea
 
                     anchors.fill: parent
-                    enabled: p_targetDetailsVisible && !id_root.p_detailsRefreshBusy
+                    enabled: p_targetDetailsVisible && !id_root.p_detailsRefreshBusy && !ctxLymalink.steamHydrationBusy
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {

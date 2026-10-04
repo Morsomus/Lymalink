@@ -117,18 +117,18 @@ Error Lymalink::Initialize()
     connect(&m_hydrationWorkerThread, &QThread::started,  m_steamApiHydrationWorker, &SteamApiHydrationWorker::Init);
     connect(&m_hydrationWorkerThread, &QThread::finished, m_steamApiHydrationWorker, &QObject::deleteLater);
     connect(this, &Lymalink::signalRequestEnqueueSteamHydrationTask, m_steamApiHydrationWorker, &SteamApiHydrationWorker::EnqueueTask);
+    connect(this, &Lymalink::signalRequestContinueSteamHydration,    m_steamApiHydrationWorker, &SteamApiHydrationWorker::ContinueQueue);
     connect(this, &Lymalink::signalRequestCancelSteamHydration,      m_steamApiHydrationWorker, &SteamApiHydrationWorker::CancelAllEnqueueTasks);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskStarted,   this, &Lymalink::signalSteamHydrationTaskStarted);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskProgress,  this, &Lymalink::signalSteamHydrationTaskProgress);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskFinished,  this, &Lymalink::signalSteamHydrationTaskFinished);
-    connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this, &Lymalink::signalSteamHydrationQueueFinished);
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskStarted, this,
-        [this](int, QString) {
+        [this](int appId, const QString &targetType) {
             if (!m_steamHydrationBusy)
             {
                 m_steamHydrationBusy = true;
                 emit signalSteamHydrationBusyChanged();
             }
+            emit signalSteamHydrationTaskStarted(appId, targetType);
         });
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationQueueFinished, this,
         [this]() {
@@ -137,6 +137,7 @@ Error Lymalink::Initialize()
                 m_steamHydrationBusy = false;
                 emit signalSteamHydrationBusyChanged();
             }
+            emit signalSteamHydrationQueueFinished();
         });
     connect(m_steamApiHydrationWorker, &SteamApiHydrationWorker::signalHydrationTaskError, this,
         [this](int appId, const QString &title, const QString &message) {
@@ -194,6 +195,13 @@ void Lymalink::EnqueueSteamHydrationTask(int appId, bool reloadAssets, const QSt
 void Lymalink::CancelSteamHydration()
 {
     emit signalRequestCancelSteamHydration();
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalink::ContinueSteamHydration()
+{
+    emit signalRequestContinueSteamHydration();
 }
 
 /////////////////////////////////////////////////////////////////////

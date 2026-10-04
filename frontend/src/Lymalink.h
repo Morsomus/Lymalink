@@ -44,6 +44,7 @@ public:
     Q_INVOKABLE void SearchSteamAppIds(const QString &term);
     Q_INVOKABLE void CancelSteamAppIdSearch();
     Q_INVOKABLE void EnqueueSteamHydrationTask(int appId, bool reloadAssets = false, const QString &targetType = "Emulator");
+    Q_INVOKABLE void ContinueSteamHydration();
     Q_INVOKABLE void CancelSteamHydration();
     Q_INVOKABLE QVariantMap InspectExecutableFolder(const QString &executablePath);
     Q_INVOKABLE void FindEmulatorAppIdFolders(const QString &rootPath = QString());
@@ -95,6 +96,7 @@ signals:
 
     // Internal - SteamApiHydrationWorker
     void signalRequestEnqueueSteamHydrationTask(int appId, bool reloadAssets, QString targetType);
+    void signalRequestContinueSteamHydration();
     void signalRequestCancelSteamHydration();
     
 private:

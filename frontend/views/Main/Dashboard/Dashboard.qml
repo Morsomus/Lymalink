@@ -43,6 +43,9 @@ Item {
     property bool showAllHiddenAchievements: false
     property var pendingLocalAchievementScanAppIds: []
     property bool localAchievementScanActive: false
+    property int localAchievementScanAppId: 0
+    property int hydrationCompletionScanAppId: 0
+    property bool hydrationCompletionScanStarted: false
     property int detailsRefreshScanAppId: 0
     readonly property int requiredWindowMinimumWidth: activeLayout === "detailedList" || showingTargetDetails ? 1280 : 900
     readonly property bool backendServiceReady: typeof ctxBackendService !== "undefined" && ctxBackendService !== null
@@ -58,6 +61,13 @@ Item {
         }
     }
     onShowingAddTargetChanged: id_dashboardToolbar.closeOpenPanels()
+    onBackendServiceUsableChanged: {
+        if (!backendServiceUsable && hydrationCompletionScanAppId > 0) {
+            id_root.finishHydrationCompletionScan(hydrationCompletionScanAppId, false, true)
+        } else if (backendServiceUsable && !ctxLymalink.steamHydrationBusy) {
+            id_root.processPendingLocalAchievementScan()
+        }
+    }
 
     ListModel {
         id: id_targetModel
@@ -97,6 +107,14 @@ Item {
         interval: 32000
         repeat: false
         onTriggered: id_root.finishDetailsRefreshScan(id_root.detailsRefreshScanAppId)
+    }
+
+    Timer {
+        id: id_hydrationCompletionScanFallbackTimer
+
+        interval: 32000
+        repeat: false
+        onTriggered: id_root.finishHydrationCompletionScan(id_root.hydrationCompletionScanAppId, true, true)
     }
 
     ErrorPopup {
@@ -581,7 +599,7 @@ Item {
     }
 
     function startDetailsRefreshScan(appId) {
-        if (appId <= 0 || id_root.detailsRefreshScanAppId > 0 || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+        if (appId <= 0 || id_root.detailsRefreshScanAppId > 0 || ctxLymalink.steamHydrationBusy || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
             return
         }
 
@@ -632,7 +650,12 @@ Item {
             return
         }
 
-        if (ctxLymalink.steamHydrationBusy || !id_root.backendServiceUsable || id_root.anyTargetIsActive) {
+        // Hydration completion scans own the backend until the worker queue is explicitly continued - Leave unrelated scans queued without polling
+        if (ctxLymalink.steamHydrationBusy) {
+            return
+        }
+
+        if (!id_root.backendServiceUsable || id_root.anyTargetIsActive) {
             id_localAchievementScanTimer.restart()
             return
         }
@@ -643,7 +666,63 @@ Item {
         id_root.pendingLocalAchievementScanAppIds = remaining
 
         id_root.localAchievementScanActive = true
+        id_root.localAchievementScanAppId = appId
         ctxBackendService.StartManualAchievementDataScan(appId)
+    }
+
+    function startHydrationCompletionScan(appId) {
+        if (appId <= 0) {
+            ctxLymalink.ContinueSteamHydration()
+            return
+        }
+
+        id_root.hydrationCompletionScanAppId = appId
+        id_root.requestHydrationCompletionScan()
+    }
+
+    function requestHydrationCompletionScan() {
+        const appId = id_root.hydrationCompletionScanAppId
+        if (appId <= 0 || id_root.hydrationCompletionScanStarted) {
+            return
+        }
+
+        if (!id_root.backendServiceUsable) {
+            id_root.finishHydrationCompletionScan(appId, false, true)
+            return
+        }
+
+        // A user-triggered scan already owns the backend - Keep hydration paused until that scan reports completion, then request this task's scan
+        if (id_root.localAchievementScanActive || id_root.detailsRefreshScanAppId > 0) {
+            return
+        }
+
+        id_root.hydrationCompletionScanStarted = true
+        id_root.localAchievementScanActive = true
+        id_root.localAchievementScanAppId = appId
+        id_hydrationCompletionScanFallbackTimer.restart()
+        ctxBackendService.StartManualAchievementDataScan(appId)
+    }
+
+    function finishHydrationCompletionScan(appId, cancelBackend, continueQueue) {
+        if (appId <= 0 || id_root.hydrationCompletionScanAppId !== appId) {
+            return false
+        }
+
+        id_hydrationCompletionScanFallbackTimer.stop()
+        id_root.hydrationCompletionScanAppId = 0
+        id_root.hydrationCompletionScanStarted = false
+        if (id_root.localAchievementScanAppId === appId) {
+            id_root.localAchievementScanActive = false
+            id_root.localAchievementScanAppId = 0
+        }
+
+        if (cancelBackend && id_root.backendServiceReady) {
+            ctxBackendService.CancelManualAchievementDataScan(appId)
+        }
+        if (continueQueue) {
+            ctxLymalink.ContinueSteamHydration()
+        }
+        return true
     }
 
     function applyAchievementImportResult(addedTargets) {
@@ -680,13 +759,30 @@ Item {
             id_root.setTargetLoading(appId, targetType, false)
             id_root.refreshTargets()
             if (success && !cancelled) {
-                id_root.reloadBackendTargets()
-                id_root.scheduleLocalAchievementScan(appId, targetType)
+                if (targetType === "Emulator") {
+                    id_root.reloadBackendTargets()
+                    id_root.startHydrationCompletionScan(appId)
+                    return
+                }
             }
+            ctxLymalink.ContinueSteamHydration()
         }
 
         function onSignalSteamHydrationQueueFinished() {
+            if (id_root.hydrationCompletionScanAppId > 0) {
+                id_root.finishHydrationCompletionScan(
+                    id_root.hydrationCompletionScanAppId,
+                    id_root.hydrationCompletionScanStarted,
+                    false
+                )
+            }
             id_root.processPendingLocalAchievementScan()
+        }
+
+        function onSignalSteamHydrationBusyChanged() {
+            if (!ctxLymalink.steamHydrationBusy && id_root.hydrationCompletionScanAppId <= 0) {
+                id_root.processPendingLocalAchievementScan()
+            }
         }
     }
 
@@ -711,7 +807,11 @@ Item {
         }
 
         function onSignalManualAchievementDataScanFinished(appId, found, reason) {
-            id_root.localAchievementScanActive = false
+            const hydrationScanFinished = id_root.hydrationCompletionScanStarted && id_root.finishHydrationCompletionScan(appId, false, true)
+            if (!hydrationScanFinished && id_root.localAchievementScanAppId === appId) {
+                id_root.localAchievementScanActive = false
+                id_root.localAchievementScanAppId = 0
+            }
             id_root.finishDetailsRefreshScan(appId)
 
             if (id_root.pendingTargetDetails && id_root.pendingTargetDetails.id === appId) {
@@ -720,7 +820,11 @@ Item {
                 id_root.refreshTargets()
             }
 
-            if (id_root.pendingLocalAchievementScanAppIds.length > 0) {
+            if (!hydrationScanFinished && id_root.hydrationCompletionScanAppId > 0) {
+                id_root.requestHydrationCompletionScan()
+            }
+
+            if (!ctxLymalink.steamHydrationBusy && id_root.pendingLocalAchievementScanAppIds.length > 0) {
                 id_localAchievementScanTimer.restart()
             }
         }

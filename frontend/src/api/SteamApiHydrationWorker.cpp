@@ -31,6 +31,7 @@ SteamApiHydrationWorker::SteamApiHydrationWorker(QObject *parent) : QObject(pare
     m_taskQueue = {};
     m_cancelled.storeRelease(0);
     m_running = false;
+    m_waitingForContinuation = false;
     m_benchmarkedAchievementIconUrlFormats = {};
 }
 
@@ -103,6 +104,28 @@ void SteamApiHydrationWorker::CancelAllEnqueueTasks()
     m_cancelled.storeRelease(1);
     m_taskQueue.clear();
     qDebug() << "SteamApiHydrationWorker::CancelAllEnqueueTasks: cancellation requested, queue cleared";
+
+    // A completed task can leave the worker paused while the frontend waits for its backend scan - End that paused queue immediately on cancellation
+    if (m_waitingForContinuation)
+    {
+        m_waitingForContinuation = false;
+        m_running = false;
+        m_benchmarkedAchievementIconUrlFormats.clear();
+        emit signalHydrationQueueFinished();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void SteamApiHydrationWorker::ContinueQueue()
+{
+    if (!m_running || !m_waitingForContinuation)
+    {
+        return;
+    }
+
+    m_waitingForContinuation = false;
+    ProcessNext();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -119,6 +142,7 @@ void SteamApiHydrationWorker::ProcessNext()
             qDebug() << "SteamApiHydrationWorker::ProcessNext: clearing achievement icon CDN benchmark state";
         }
         m_benchmarkedAchievementIconUrlFormats.clear();
+        m_waitingForContinuation = false;
         m_running = false;
         emit signalHydrationQueueFinished();
         return;
@@ -129,8 +153,8 @@ void SteamApiHydrationWorker::ProcessNext()
     const HydrationTask task = m_taskQueue.dequeue();
     ProcessTask(task);
 
-    // Proceed to next unless cancelled (Cancel() already cleared the queue)
-    ProcessNext();
+    // Let the frontend finish any per-task work before the next task can access the shared database
+    m_waitingForContinuation = true;
 }
 
 /////////////////////////////////////////////////////////////////////

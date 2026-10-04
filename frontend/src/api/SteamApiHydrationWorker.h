@@ -33,6 +33,7 @@ public:
 public slots:
     void Init();
     void EnqueueTask(int appId, bool reloadAssets = false, QString targetType = "Emulator");
+    void ContinueQueue();
     void CancelAllEnqueueTasks();
 
 signals:
@@ -58,7 +59,8 @@ private:
     ImageCacheManager *m_imageCache;
     QQueue<HydrationTask> m_taskQueue;
     QAtomicInt m_cancelled;
-    bool m_running = false;
+    bool m_running;
+    bool m_waitingForContinuation;
     QStringList m_benchmarkedAchievementIconUrlFormats;
 
     static const QSize COVER_TARGET_SIZE;
