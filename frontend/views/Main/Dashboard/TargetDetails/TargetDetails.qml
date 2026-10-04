@@ -881,9 +881,6 @@ Item {
                     readonly property bool panelEnabled: ctxSettings.targetDetailsExpandableInfoPanel
                     readonly property int collapsedHeight: 30
                     readonly property int contentTopMargin: 8
-                    readonly property color accentColor: id_root.completionRatio >= 1.0
-                        ? id_root.themedCompletionColor
-                        : id_root.themedProgressColor
                     property bool hoverActive: false
 
                     visible: !id_root.metaFieldEnabled("none")
@@ -910,8 +907,8 @@ Item {
                         color: Themes.targetDetails.colors.infoPanelBackground
                         border.width: 1
                         border.color: Themes.globalStyle.withAlpha(
-                            id_infoPanel.accentColor,
-                            0.55
+                            Themes.targetDetails.colors.infoPanelHeaderText,
+                            0.30
                         )
 
                         Behavior on color {
@@ -960,7 +957,10 @@ Item {
                             width: 4
                             height: 16
                             radius: 2
-                            color: id_infoPanel.accentColor
+                            color: Themes.globalStyle.withAlpha(
+                                Themes.targetDetails.colors.infoPanelHeaderText,
+                                0.50
+                            )
                         }
 
                         Text {
@@ -988,8 +988,8 @@ Item {
                             }
                             text: "\u25be"
                             color: id_infoPanel.hoverActive
-                                ? id_infoPanel.accentColor
-                                : Themes.targetDetails.colors.infoPanelHeaderText
+                                ? Themes.targetDetails.colors.divider
+                                : Themes.globalStyle.withAlpha(Themes.targetDetails.colors.infoPanelHeaderText, 0.50)
                             font.pixelSize: 15
                             rotation: id_infoPanel.hoverActive ? 180 : 0
 
