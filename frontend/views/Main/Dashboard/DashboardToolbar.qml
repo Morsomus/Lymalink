@@ -73,7 +73,8 @@ Item {
         { value: "list", label: "List" },
         { value: "detailedList", label: "Details" },
         { value: "smallCardGrid", label: "Small" },
-        { value: "defaultCardGrid", label: "Default" }
+        { value: "defaultCardGrid", label: "Default" },
+        { value: "largeCardGrid", label: "Large" }
     ]
 
     implicitHeight: p_addTargetVisible

@@ -18,7 +18,7 @@ Item {
     id: id_root
 
     // Public ________________________________________________
-    property string p_gridSize: "defaultCardGrid"   // "defaultCardGrid" | "smallCardGrid"
+    property string p_gridSize: "defaultCardGrid"   // "largeCardGrid" | "defaultCardGrid" | "smallCardGrid"
     property var p_targetModel: null
     property real p_scrollLocation: 0
 
@@ -26,8 +26,8 @@ Item {
     signal backgroundClicked()
 
     // Internals _____________________________________________
-    readonly property int cellW: id_root.p_gridSize === "defaultCardGrid" ? 200 : 152
-    readonly property int cellH: id_root.p_gridSize === "defaultCardGrid" ? 300 : 228
+    readonly property int cellW: id_root.p_gridSize === "largeCardGrid" ? 240 : id_root.p_gridSize === "defaultCardGrid" ? 200 : 152
+    readonly property int cellH: id_root.p_gridSize === "largeCardGrid" ? 360 : id_root.p_gridSize === "defaultCardGrid" ? 300 : 228
     readonly property int cellSpacing: 16
     readonly property bool hasVerticalScroll: id_rootScrollView.ScrollBar.vertical.size < 1.0
     property bool restoringScrollLocation: false
@@ -60,6 +60,22 @@ Item {
     /////////////////////////////////////////////////////////////////////
 
     // Card components
+    Component {
+        id: id_largeCoverCard
+
+        CardLarge {
+            p_miniAchievementsBadgeEnabled: ctxSettings.showTotalAchievementsBadge
+            p_targetTypeBadgeEnabled: ctxSettings.targetTypeBadgeColorStyle >= 0
+            p_targetTypeBadgeColorStyle: ctxSettings.targetTypeBadgeColorStyle
+            p_edgeProgressFrameEnabled: ctxSettings.progressFrameColorStyle !== -1
+            p_edgeProgressFrameColorStyle: ctxSettings.progressFrameColorStyle
+            p_edgeProgressFrameStaticGrayColor: ctxSettings.progressFrameColorStyle === -2
+            p_edgeProgressFrameCompletionAnimation: ctxSettings.enableProgressFrameCompletionAnimation
+            p_progressBarEnabled: ctxSettings.progressBarColorStyle >= 0
+            p_progressBarColorStyle: ctxSettings.progressBarColorStyle
+        }
+    }
+
     Component {
         id: id_defaultCoverCard
 
@@ -179,14 +195,27 @@ Item {
                             id: id_cardLoader
 
                             anchors.fill: parent
-                            sourceComponent: id_root.p_gridSize === "defaultCardGrid" ? id_defaultCoverCard : id_smallCoverCard
+                            sourceComponent: {
+                                switch (id_root.p_gridSize) {
+                                    case "largeCardGrid":
+                                        return id_largeCoverCard
+                                    case "defaultCardGrid":
+                                        return id_defaultCoverCard
+                                    case "smallCardGrid":
+                                        return id_smallCoverCard
+                                    default:
+                                        return id_defaultCoverCard
+                                }
+                            }
 
                             onLoaded: {
                                 item.p_appId            = model.id
                                 item.p_title            = model.title
-                                item.p_coverSource      = id_root.p_gridSize === "defaultCardGrid"
-                                    ? model.coverSourceCard
-                                    : model.coverSourceCardSmall
+                                item.p_coverSource      = id_root.p_gridSize === "largeCardGrid"
+                                    ? model.coverSourceCardLarge
+                                    : id_root.p_gridSize === "smallCardGrid"
+                                        ? model.coverSourceCardSmall
+                                        : model.coverSourceCard
                                 item.p_achievementCount = model.achievementCount
                                 item.p_achievementTotal = model.achievementTotal
                                 item.p_targetType       = model.targetType

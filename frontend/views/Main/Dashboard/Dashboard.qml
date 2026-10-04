@@ -18,7 +18,7 @@ Item {
     id: id_root
 
     // Internals _____________________________________________
-    property string activeLayout: ctxSettings.dashboardToolbarLayout // list, detailedList, smallCardGrid, defaultCardGrid
+    property string activeLayout: ctxSettings.dashboardToolbarLayout // list, detailedList, smallCardGrid, defaultCardGrid, largeCardGrid
     property bool noTargetsAvailable: false
     property var pendingTargetDetails: null
     property bool showingTargetDetails: false
@@ -149,6 +149,8 @@ Item {
 
     function calculatePageSize() {
         switch (id_root.activeLayout) {
+            case "largeCardGrid":
+                return id_root.calculateGridPageSize(240, 16, 4)
             case "smallCardGrid":
                 return id_root.calculateGridPageSize(152, 16, 6)
             case "defaultCardGrid":
@@ -1125,7 +1127,7 @@ Item {
                     return id_targetDetailsLayout
                 } else if (id_root.activeLayout === "list" || id_root.activeLayout === "detailedList") {
                     return id_cardListLayout
-                } else if (id_root.activeLayout === "smallCardGrid" || id_root.activeLayout === "defaultCardGrid") {
+                } else if (id_root.activeLayout === "smallCardGrid" || id_root.activeLayout === "defaultCardGrid" || id_root.activeLayout === "largeCardGrid") {
                     return id_cardGridLayout
                 } else {
                     console.error("Dashboard - sourceComponent not defined")

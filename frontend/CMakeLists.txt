@@ -170,6 +170,7 @@ qt_add_qml_module(Lymalink
         custom/SteamImportAutoSyncPopup.qml
         views/Main/Dashboard/CardGrid/CardGrid.qml
         views/Main/Dashboard/CardGrid/Components/Card.qml
+        views/Main/Dashboard/CardGrid/Components/CardLarge.qml
         views/Main/Dashboard/CardGrid/Components/CardSmall.qml
         views/Main/Dashboard/CardList/CardList.qml
         views/Main/Dashboard/CardList/Components/CardRow.qml
