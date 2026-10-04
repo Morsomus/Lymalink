@@ -225,7 +225,7 @@ Rectangle {
 
         // Title + Status
         ColumnLayout {
-            Layout.preferredWidth: 180
+            Layout.preferredWidth: 200
             Layout.fillWidth: false
             Layout.leftMargin: 16
             Layout.rightMargin: 16
@@ -309,7 +309,7 @@ Rectangle {
 
         // Achievements
         ColumnLayout {
-            Layout.preferredWidth: 200
+            Layout.preferredWidth: 180
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.leftMargin: 16

@@ -547,17 +547,138 @@ Item {
 
         visible: p_targetDetailsVisible && !p_addTargetVisible
         anchors.fill: parent
+        spacing: 8
 
-        // Toolbar row: back image, wrapping title, toolbar column.
-        RowLayout {
+        // Control group moves below title/actions when horizontal space is limited
+        Item {
+            id: id_detailsToolbarLayout
+
             Layout.fillWidth: true
-            spacing: 20
+            implicitHeight: contentHeight
+
+            property int spacing: 12
+            property real contentHeight: 35
+
+            function itemWidth(item) {
+                return item.implicitWidth > 0 ? item.implicitWidth : item.width
+            }
+
+            function itemHeight(item) {
+                return item.implicitHeight > 0 ? item.implicitHeight : item.height
+            }
+
+            function placeItem(item, itemX, itemY, itemWidth) {
+                item.width = itemWidth
+                item.height = itemHeight(item)
+                item.x = itemX
+                item.y = itemY
+            }
+
+            function scheduleRelayout() {
+                Qt.callLater(relayoutToolbar)
+            }
+
+            function relayoutToolbar() {
+                const maxWidth = Math.max(0, width)
+                const settingsWidth = itemWidth(id_detailsSettingsGroup)
+                const refreshWidth = id_detailsRefreshGroup.visible
+                    ? itemWidth(id_detailsRefreshGroup)
+                    : 0
+                const reservedWidth = settingsWidth
+                    + spacing
+                    + (id_detailsRefreshGroup.visible ? refreshWidth + spacing : 0)
+                const minimumTitleWidth = 35
+                    + id_backArrowRow.spacing
+                    + id_titleLabel.Layout.minimumWidth
+                const availableTitleWidth = Math.max(
+                    minimumTitleWidth,
+                    maxWidth - reservedWidth
+                )
+                const titleWidth = Math.min(
+                    itemWidth(id_detailsBackTitleGroup),
+                    availableTitleWidth
+                )
+                const items = [
+                    id_detailsBackTitleGroup,
+                    id_detailsSettingsGroup,
+                    id_detailsToolbarColumn
+                ]
+                const itemWidths = [
+                    titleWidth,
+                    settingsWidth,
+                    itemWidth(id_detailsToolbarColumn)
+                ]
+                const actionItem = id_detailsRefreshGroup.visible
+                    ? id_detailsRefreshGroup
+                    : null
+                let firstRowWidth = 0
+                let firstRowHeight = 0
+                let splitIndex = 0
+
+                for (let i = 0; i < items.length; ++i) {
+                    const candidateWidth = splitIndex === 0
+                        ? itemWidths[i]
+                        : firstRowWidth + spacing + itemWidths[i]
+                    const candidateWithActions = actionItem
+                        ? candidateWidth + spacing + refreshWidth
+                        : candidateWidth
+
+                    if (candidateWithActions <= maxWidth || splitIndex === 0) {
+                        firstRowWidth = candidateWidth
+                        splitIndex = i + 1
+                    } else {
+                        break
+                    }
+                }
+
+                let itemX = 0
+                for (let i = 0; i < splitIndex; ++i) {
+                    const item = items[i]
+                    placeItem(item, itemX, 0, itemWidths[i])
+                    firstRowHeight = Math.max(firstRowHeight, itemHeight(item))
+                    itemX += itemWidths[i] + spacing
+                }
+
+                if (actionItem) {
+                    placeItem(actionItem, itemX, 0, refreshWidth)
+                    firstRowHeight = Math.max(firstRowHeight, itemHeight(actionItem))
+                }
+
+                itemX = 0
+                let itemY = firstRowHeight + spacing
+                let rowHeight = 0
+
+                for (let i = splitIndex; i < items.length; ++i) {
+                    const item = items[i]
+                    const placedWidth = Math.min(itemWidths[i], maxWidth)
+
+                    if (itemX > 0 && itemX + spacing + placedWidth > maxWidth) {
+                        itemX = 0
+                        itemY += rowHeight + spacing
+                        rowHeight = 0
+                    }
+
+                    placeItem(item, itemX, itemY, placedWidth)
+                    itemX += placedWidth + spacing
+                    rowHeight = Math.max(rowHeight, itemHeight(item))
+                }
+
+                contentHeight = splitIndex >= items.length
+                    ? firstRowHeight
+                    : itemY + rowHeight
+            }
+
+            Component.onCompleted: scheduleRelayout()
+            onWidthChanged: scheduleRelayout()
 
             // Back arrow image
             Item {
-                Layout.preferredWidth: id_backArrowRow.implicitWidth
-                Layout.preferredHeight: id_backArrowRow.implicitHeight
-                Layout.alignment: Qt.AlignTop
+                id: id_detailsBackTitleGroup
+
+                implicitWidth: id_backArrowRow.implicitWidth
+                implicitHeight: id_backArrowRow.implicitHeight
+                onImplicitWidthChanged: id_detailsToolbarLayout.scheduleRelayout()
+                onImplicitHeightChanged: id_detailsToolbarLayout.scheduleRelayout()
 
                 MouseArea {
                     id: id_backArrorIconMouseArea
@@ -573,6 +694,7 @@ Item {
                     RowLayout {
                         id: id_backArrowRow
 
+                        anchors.fill: parent
                         spacing: 10
 
                         CustomTooltip {
@@ -601,7 +723,8 @@ Item {
                             id: id_titleLabel
 
                             Layout.minimumWidth: 80
-                            Layout.preferredWidth: Math.min(implicitWidth, 450)
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: implicitWidth
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.title
                             font.bold: true
                             color: Themes.dashboardToolbar.colors.titleText
@@ -610,6 +733,8 @@ Item {
                             maximumLineCount: 2
                             elide: Text.ElideRight
                             text: id_root.p_toolbarTitle
+                            onImplicitWidthChanged: id_detailsToolbarLayout.scheduleRelayout()
+                            onImplicitHeightChanged: id_detailsToolbarLayout.scheduleRelayout()
 
                             Behavior on opacity {
                                 NumberAnimation {
@@ -621,87 +746,105 @@ Item {
                 }
             }
 
-            // Divider
-            Rectangle {
-                width: 2
-                Layout.fillHeight: true
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
-            }
+            Item {
+                id: id_detailsSettingsGroup
 
-            // Settings Icon for Selected Target
-            Rectangle {
-                id: id_settingsIconPill
+                implicitWidth: id_detailsSettingsRow.implicitWidth
+                implicitHeight: id_detailsSettingsRow.implicitHeight
+                onImplicitWidthChanged: id_detailsToolbarLayout.scheduleRelayout()
 
-                Layout.preferredWidth: implicitWidth
-                Layout.preferredHeight: implicitHeight
-                Layout.alignment: Qt.AlignTop
-
-                implicitWidth: 32
-                implicitHeight: 32
-                radius: 16
-
-                color: id_settingsIconMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.pillPressed
-                    : id_settingsIconMouseArea.containsMouse
-                        ? Themes.dashboardToolbar.colors.pillHover
-                        : Themes.dashboardToolbar.colors.pillBackground
-                border.width: 1
-                border.color: id_settingsIconMouseArea.pressed
-                    ? Themes.dashboardToolbar.colors.pillBorderPressed
-                    : id_settingsIconMouseArea.containsMouse
-                        ? Themes.dashboardToolbar.colors.pillBorderHover
-                        : Themes.dashboardToolbar.colors.pillBorder
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-
-                Image {
-                    id: id_settingsIcon
-
-                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
-                    width: 24
-                    height: 24
-                    anchors.centerIn: parent
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                    opacity: id_settingsIconMouseArea.containsMouse ? 0.78 : 1.0
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 120
-                        }
-                    }
-                }
-
-                MouseArea {
-                    id: id_settingsIconMouseArea
+                RowLayout {
+                    id: id_detailsSettingsRow
 
                     anchors.fill: parent
-                    enabled: p_targetDetailsVisible
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        id_targetSettingsPopup.open()
+                    spacing: id_detailsToolbarLayout.spacing
+
+                    Rectangle {
+                        implicitWidth: 2
+                        Layout.fillHeight: true
+                        color: Themes.dashboardToolbar.colors.divider
+                        opacity: 0.5
+                    }
+
+                    // Settings Icon for Selected Target
+                    Rectangle {
+                        id: id_settingsIconPill
+
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        radius: 16
+
+                        color: id_settingsIconMouseArea.pressed
+                            ? Themes.dashboardToolbar.colors.pillPressed
+                            : id_settingsIconMouseArea.containsMouse
+                                ? Themes.dashboardToolbar.colors.pillHover
+                                : Themes.dashboardToolbar.colors.pillBackground
+                        border.width: 1
+                        border.color: id_settingsIconMouseArea.pressed
+                            ? Themes.dashboardToolbar.colors.pillBorderPressed
+                            : id_settingsIconMouseArea.containsMouse
+                                ? Themes.dashboardToolbar.colors.pillBorderHover
+                                : Themes.dashboardToolbar.colors.pillBorder
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+
+                        Image {
+                            id: id_settingsIcon
+
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
+                            width: 24
+                            height: 24
+                            anchors.centerIn: parent
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+                            opacity: id_settingsIconMouseArea.containsMouse ? 0.78 : 1.0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 120
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: id_settingsIconMouseArea
+
+                            anchors.fill: parent
+                            enabled: p_targetDetailsVisible
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                id_targetSettingsPopup.open()
+                            }
+                        }
                     }
                 }
             }
 
             // Target Details Toolbar controls
-            ColumnLayout {
+            Item {
                 id: id_detailsToolbarColumn
 
-                Layout.alignment: Qt.AlignTop
-                Layout.preferredWidth: id_detailsToolbarFlow.implicitWidth
-                spacing: 8
+                readonly property real naturalWidth: id_detailsFilterPill.implicitWidth
+                    + id_detailsSortPill.implicitWidth
+                    + id_detailsHiddenPill.implicitWidth
+                    + id_detailsOrderPill.implicitWidth
+                    + id_detailsToolbarFlow.spacing * 3
+
+                implicitWidth: naturalWidth
+                implicitHeight: id_detailsToolbarFlow.implicitHeight
+                onImplicitWidthChanged: id_detailsToolbarLayout.scheduleRelayout()
+                onImplicitHeightChanged: id_detailsToolbarLayout.scheduleRelayout()
 
                 Flow {
                     id: id_detailsToolbarFlow
 
+                    width: parent.width
                     spacing: 12
 
                     // Filter pill
@@ -733,6 +876,8 @@ Item {
 
                     // Hidden achievements pill
                     C_SortFilterPill {
+                        id: id_detailsHiddenPill
+
                         pillLabel: qsTr("Hidden:")
                         isValueActive: true
                         pillValue: id_root.p_showAllHiddenAchievements ? qsTr("Revealed") : qsTr("Not visible")
@@ -808,192 +953,195 @@ Item {
                     }
                 }
 
-                // Details Sort/Filter chip bar
-                Item {
-                    id: id_detailsSelectionArea
-
-                    implicitWidth: id_root.targetDetailsActivePanel === "detailsSort"
-                        ? 320
-                        : id_root.targetDetailsActivePanel === "detailsFilter"
-                            ? 300
-                            : 0
-                    implicitHeight: id_root.targetDetailsActivePanel === "detailsSort"
-                        ? id_detailsSortBar.implicitHeight
-                        : id_root.targetDetailsActivePanel === "detailsFilter"
-                            ? id_detailsFilterBar.implicitHeight
-                            : 0
-
-                    Behavior on implicitHeight {
-                        NumberAnimation {
-                            duration: 180
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-
-                    // Sort chips
-                    C_ChipBar {
-                        id: id_detailsSortBar
-
-                        width: parent.width
-                        barLabel: qsTr("Sort by:")
-                        chipModel: id_root.targetDetailsSortModel
-                        labelFn: id_root.targetDetailsSortLabel
-                        isActiveFn: function(v) { return v === id_root.targetDetailsActiveSort }
-                        visible: id_root.targetDetailsActivePanel === "detailsSort"
-                        opacity: id_root.targetDetailsActivePanel === "detailsSort" ? 1 : 0
-                        onChipClicked: function(value) {
-                            id_root.targetDetailsActiveSort  = value
-                            id_root.targetDetailsActivePanel = ""
-                            id_root.targetDetailsSortSelected(value)
-                        }
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 150
-                            }
-                        }
-                    }
-
-                    // Filter chips
-                    C_ChipBar {
-                        id: id_detailsFilterBar
-
-                        width: parent.width
-                        barLabel: qsTr("Filter by:")
-                        chipModel: id_root.targetDetailsFilterModel
-                        labelFn: id_root.targetDetailsFilterLabel
-                        isActiveFn: function(v) { return id_root.hasFilter(v, "targetDetails") }
-                        visible: id_root.targetDetailsActivePanel === "detailsFilter"
-                        opacity: id_root.targetDetailsActivePanel === "detailsFilter" ? 1 : 0
-                        onChipClicked: function(value) {
-                            id_root.toggleFilter(value, "targetDetails")
-                        }
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 150
-                            }
-                        }
-                    }
-                }
             }
 
-            // Divider
-            Rectangle {
-                visible: id_root.p_targetType === "Emulator"
-                width: 2
-                Layout.fillHeight: true
-                color: Themes.dashboardToolbar.colors.divider
-                opacity: 0.5
-            }
-
-            // Refresh selected target
-            Rectangle {
-                id: id_detailsRefresh
+            Item {
+                id: id_detailsRefreshGroup
 
                 visible: id_root.p_targetType === "Emulator"
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 32
-                Layout.alignment: Qt.AlignTop
-                radius: 16
+                implicitWidth: id_detailsRefreshRow.implicitWidth
+                implicitHeight: id_detailsRefreshRow.implicitHeight
+                onVisibleChanged: id_detailsToolbarLayout.scheduleRelayout()
 
-                property real refreshRotation: 0
-                property bool initialRefreshSpinRunning: false
-
-                color: id_detailsRefreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
-                    : id_detailsRefreshMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
-                        : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
-
-                border.width: 1
-                border.color: id_detailsRefreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
-                    : id_detailsRefreshMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
-                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                    }
-                }
-
-                CustomTooltip {
-                    p_active: id_detailsRefreshMouseArea.containsMouse
-                    p_delay: 1000
-                    p_text: qsTr("Rescan this target's achievement files and reload achievements")
-                }
-
-                Image {
-                    id: id_detailsRefreshIcon
-
-                    anchors.centerIn: parent
-                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
-                    width: 19
-                    height: 19
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-
-                    visible: false // MultiEffect draws image
-                }
-
-                MultiEffect {
-                    anchors.fill: id_detailsRefreshIcon
-                    source: id_detailsRefreshIcon
-                    colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
-                    colorization: 1.0
-                    rotation: id_detailsRefresh.refreshRotation
-                }
-
-                NumberAnimation {
-                    id: id_detailsRefreshSpinAnimation
-
-                    target: id_detailsRefresh
-                    property: "refreshRotation"
-                    from: 0
-                    to: 360
-                    duration: 300
-                    easing.type: Easing.Linear
-
-                    onStarted: id_detailsRefresh.initialRefreshSpinRunning = true
-                    onStopped: {
-                        id_detailsRefresh.initialRefreshSpinRunning = false
-                        if (!id_root.p_detailsRefreshBusy) {
-                            id_detailsRefresh.refreshRotation = 0
-                        }
-                    }
-                }
-
-                NumberAnimation {
-                    target: id_detailsRefresh
-                    property: "refreshRotation"
-                    from: 0
-                    to: 360
-                    duration: 900
-                    loops: Animation.Infinite
-                    running: id_root.p_detailsRefreshBusy && !id_detailsRefresh.initialRefreshSpinRunning
-                    easing.type: Easing.Linear
-
-                    onStopped: {
-                        if (!id_root.p_detailsRefreshBusy) {
-                            id_detailsRefresh.refreshRotation = 0
-                        }
-                    }
-                }
-
-                MouseArea {
-                    id: id_detailsRefreshMouseArea
+                RowLayout {
+                    id: id_detailsRefreshRow
 
                     anchors.fill: parent
-                    enabled: p_targetDetailsVisible && !id_root.p_detailsRefreshBusy && !ctxLymalink.steamHydrationBusy
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        id_detailsRefreshSpinAnimation.restart()
-                        id_root.refreshClicked()
+                    spacing: id_detailsToolbarLayout.spacing
+
+                    Rectangle {
+                        implicitWidth: 2
+                        Layout.fillHeight: true
+                        color: Themes.dashboardToolbar.colors.divider
+                        opacity: 0.5
                     }
+
+                    // Refresh selected target
+                    Rectangle {
+                        id: id_detailsRefresh
+
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        radius: 16
+
+                        property real refreshRotation: 0
+                        property bool initialRefreshSpinRunning: false
+
+                        color: id_detailsRefreshMouseArea.pressed
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
+                            : id_detailsRefreshMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                                : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
+
+                        border.width: 1
+                        border.color: id_detailsRefreshMouseArea.pressed
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
+                            : id_detailsRefreshMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                                : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+
+                        CustomTooltip {
+                            p_active: id_detailsRefreshMouseArea.containsMouse
+                            p_delay: 1000
+                            p_text: qsTr("Rescan this target's achievement files and reload achievements")
+                        }
+
+                        Image {
+                            id: id_detailsRefreshIcon
+
+                            anchors.centerIn: parent
+                            source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                            width: 19
+                            height: 19
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+
+                            visible: false // MultiEffect draws image
+                        }
+
+                        MultiEffect {
+                            anchors.fill: id_detailsRefreshIcon
+                            source: id_detailsRefreshIcon
+                            colorizationColor: Themes.globalStyle.completionColor(ctxSettings.globalColorStyle)
+                            colorization: 1.0
+                            rotation: id_detailsRefresh.refreshRotation
+                        }
+
+                        NumberAnimation {
+                            id: id_detailsRefreshSpinAnimation
+
+                            target: id_detailsRefresh
+                            property: "refreshRotation"
+                            from: 0
+                            to: 360
+                            duration: 300
+                            easing.type: Easing.Linear
+
+                            onStarted: id_detailsRefresh.initialRefreshSpinRunning = true
+                            onStopped: {
+                                id_detailsRefresh.initialRefreshSpinRunning = false
+                                if (!id_root.p_detailsRefreshBusy) {
+                                    id_detailsRefresh.refreshRotation = 0
+                                }
+                            }
+                        }
+
+                        NumberAnimation {
+                            target: id_detailsRefresh
+                            property: "refreshRotation"
+                            from: 0
+                            to: 360
+                            duration: 900
+                            loops: Animation.Infinite
+                            running: id_root.p_detailsRefreshBusy && !id_detailsRefresh.initialRefreshSpinRunning
+                            easing.type: Easing.Linear
+
+                            onStopped: {
+                                if (!id_root.p_detailsRefreshBusy) {
+                                    id_detailsRefresh.refreshRotation = 0
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: id_detailsRefreshMouseArea
+
+                            anchors.fill: parent
+                            enabled: p_targetDetailsVisible && !id_root.p_detailsRefreshBusy && !ctxLymalink.steamHydrationBusy
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                id_detailsRefreshSpinAnimation.restart()
+                                id_root.refreshClicked()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Details Sort/Filter chip bar
+        Item {
+            id: id_detailsSelectionArea
+
+            Layout.fillWidth: true
+            implicitHeight: id_root.targetDetailsActivePanel === "detailsSort"
+                ? id_detailsSortBar.implicitHeight
+                : id_root.targetDetailsActivePanel === "detailsFilter"
+                    ? id_detailsFilterBar.implicitHeight
+                    : 0
+
+            Behavior on implicitHeight {
+                NumberAnimation {
+                    duration: 180
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            C_ChipBar {
+                id: id_detailsSortBar
+
+                width: parent.width
+                barLabel: qsTr("Sort by:")
+                chipModel: id_root.targetDetailsSortModel
+                labelFn: id_root.targetDetailsSortLabel
+                isActiveFn: function(v) { return v === id_root.targetDetailsActiveSort }
+                visible: id_root.targetDetailsActivePanel === "detailsSort"
+                opacity: id_root.targetDetailsActivePanel === "detailsSort" ? 1 : 0
+                onChipClicked: function(value) {
+                    id_root.targetDetailsActiveSort = value
+                    id_root.targetDetailsActivePanel = ""
+                    id_root.targetDetailsSortSelected(value)
+                }
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
+                }
+            }
+
+            C_ChipBar {
+                id: id_detailsFilterBar
+
+                width: parent.width
+                barLabel: qsTr("Filter by:")
+                chipModel: id_root.targetDetailsFilterModel
+                labelFn: id_root.targetDetailsFilterLabel
+                isActiveFn: function(v) { return id_root.hasFilter(v, "targetDetails") }
+                visible: id_root.targetDetailsActivePanel === "detailsFilter"
+                opacity: id_root.targetDetailsActivePanel === "detailsFilter" ? 1 : 0
+                onChipClicked: function(value) {
+                    id_root.toggleFilter(value, "targetDetails")
+                }
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
                 }
             }
         }
