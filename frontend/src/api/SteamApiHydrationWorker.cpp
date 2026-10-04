@@ -18,7 +18,13 @@
 
 /////////////////////////////////////////////////////////////////////
 
-const QSize SteamApiHydrationWorker::COVER_TARGET_SIZE = QSize(600, 900);
+const QSize SteamApiHydrationWorker::COVER_ROW_DETAILED_TARGET_SIZE = QSize(80, 120);
+const QSize SteamApiHydrationWorker::COVER_CARD_SMALL_TARGET_SIZE = QSize(152, 228);
+const QSize SteamApiHydrationWorker::COVER_CARD_TARGET_SIZE = QSize(200, 300);
+const QSize SteamApiHydrationWorker::COVER_CARD_LARGE_TARGET_SIZE = QSize(240, 360);
+const QSize SteamApiHydrationWorker::COVER_TARGET_DETAILS_MEDIUM_TARGET_SIZE = QSize(304, 456);
+const QSize SteamApiHydrationWorker::COVER_TARGET_DETAILS_LARGE_TARGET_SIZE = QSize(360, 540);
+const QSize SteamApiHydrationWorker::COVER_SCALED_TARGET_SIZE = QSize(600, 900);
 const QSize SteamApiHydrationWorker::CI_TARGET_SIZE = QSize(44, 44);
 const QSize SteamApiHydrationWorker::ACH_ICON_TARGET_SIZE = QSize(128, 128);
 
@@ -230,10 +236,16 @@ void SteamApiHydrationWorker::ProcessTask(const HydrationTask &task)
     // Download library capsule (cover)
     emit signalHydrationTaskProgress(appId, targetType, "DownloadingCover", 0, 0);
 
-    // Resolve cover CDN URLs and cache one shared high-resolution cover
+    // Resolve cover CDN URLs once, then reuse the downloaded bytes for every cover variant
     QList<QString> lcUrls;
     m_steamApi->GetLibraryCapsuleUrls(appId, gameInfo.lcSuffix, gameInfo.assetUrlFormat, lcUrls);
-    TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_SIZE, "cover_600x900", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_SCALED_TARGET_SIZE, "cover_600x900", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_DETAILS_LARGE_TARGET_SIZE, "cover_360x540", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_TARGET_DETAILS_MEDIUM_TARGET_SIZE, "cover_304x456", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_LARGE_TARGET_SIZE, "cover_240x360", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_TARGET_SIZE, "cover_200x300", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_CARD_SMALL_TARGET_SIZE, "cover_152x228", true);
+    TryDownloadFirstWorking(lcUrls, coversDir, COVER_ROW_DETAILED_TARGET_SIZE, "cover_80x120", true);
     m_imageCache->ClearMemoryCache();
 
     if (m_cancelled.loadAcquire())

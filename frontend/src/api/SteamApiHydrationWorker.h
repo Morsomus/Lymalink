@@ -63,7 +63,13 @@ private:
     bool m_waitingForContinuation;
     QStringList m_benchmarkedAchievementIconUrlFormats;
 
-    static const QSize COVER_TARGET_SIZE;
+    static const QSize COVER_ROW_DETAILED_TARGET_SIZE;
+    static const QSize COVER_CARD_SMALL_TARGET_SIZE;
+    static const QSize COVER_CARD_TARGET_SIZE;
+    static const QSize COVER_CARD_LARGE_TARGET_SIZE;
+    static const QSize COVER_TARGET_DETAILS_MEDIUM_TARGET_SIZE;
+    static const QSize COVER_TARGET_DETAILS_LARGE_TARGET_SIZE;
+    static const QSize COVER_SCALED_TARGET_SIZE;
     static const QSize CI_TARGET_SIZE;
     static const QSize ACH_ICON_TARGET_SIZE;
 

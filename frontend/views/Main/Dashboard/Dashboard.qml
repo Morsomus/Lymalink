@@ -868,6 +868,9 @@ Item {
             p_targetType: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.targetType : ""
             p_title: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.title : ""
             p_coverSource: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetails : ""
+            p_coverSourceMedium: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetailsMedium : ""
+            p_coverSourceLarge: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceTargetDetailsLarge : ""
+            p_coverSourceScaled: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.coverSourceScaled : ""
             p_achievementCount: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementCount : 0
             p_achievementTotal: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.achievementTotal : 0
             p_installationStatus: id_root.pendingTargetDetails ? id_root.pendingTargetDetails.installationStatus : ""

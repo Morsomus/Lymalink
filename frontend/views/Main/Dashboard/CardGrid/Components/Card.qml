@@ -24,6 +24,7 @@ Rectangle {
     property int p_appId: 0
     property string p_title: "Title"
     property string p_coverSource: ""
+    property string p_coverSourceScaled: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
     property string p_targetType: ""
@@ -46,12 +47,34 @@ Rectangle {
     // Internals _____________________________________________
     readonly property real edgeProgressFrameCompletion: p_achievementTotal > 0 ? p_achievementCount / p_achievementTotal : 0.0
     readonly property bool targetTypeBadgeAllowed: p_targetType === "Custom" || p_targetType === "Steam"
+    readonly property real effectiveDevicePixelRatio: OS_WIN || !Window.window ? Screen.devicePixelRatio : Window.window.devicePixelRatio
+    readonly property bool useFractionalSourceSize: effectiveDevicePixelRatio > 1.0
+    readonly property bool useScaledCover: effectiveDevicePixelRatio > 1.0 && Math.abs(effectiveDevicePixelRatio - 2.0) > 0.01
 
     width: 200
     height: 300
     radius: 8
     clip: true
     color: Themes.card.colors.cardBackground
+
+    function scaledCoverSourceSize(imageWidth, imageHeight) {
+        const physicalWidth = imageWidth * effectiveDevicePixelRatio
+        const physicalHeight = imageHeight * effectiveDevicePixelRatio
+        const multiplier = Math.floor(
+            Math.min(
+                600 / physicalWidth,
+                900 / physicalHeight
+            )
+        )
+
+        if (multiplier < 1)
+            return Qt.size(-1, -1)
+
+        return Qt.size(
+            physicalWidth * multiplier,
+            physicalHeight * multiplier
+        )
+    }
 
     function targetTypeIconSource(targetType) {
         switch (targetType) {
@@ -81,12 +104,15 @@ Rectangle {
 
             z: id_errorImage.errorActive ? 2 : 0
             anchors.fill: parent
-            source: id_root.p_coverSource
+            source: id_root.useScaledCover && id_root.p_coverSourceScaled !== ""
+                ? id_root.p_coverSourceScaled
+                : id_root.p_coverSource
             smooth: false
-            sourceSize: Qt.size(
-                Math.round(width * Screen.devicePixelRatio),
-                Math.round(height * Screen.devicePixelRatio)
-            )
+            sourceSize: id_root.useFractionalSourceSize
+                && id_root.useScaledCover
+                && id_root.p_coverSourceScaled !== ""
+                    ? id_root.scaledCoverSourceSize(width, height)
+                    : Qt.size(-1, -1)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: false

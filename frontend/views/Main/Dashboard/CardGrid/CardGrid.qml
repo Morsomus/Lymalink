@@ -216,6 +216,7 @@ Item {
                                     : id_root.p_gridSize === "smallCardGrid"
                                         ? model.coverSourceCardSmall
                                         : model.coverSourceCard
+                                item.p_coverSourceScaled = model.coverSourceScaled
                                 item.p_achievementCount = model.achievementCount
                                 item.p_achievementTotal = model.achievementTotal
                                 item.p_targetType       = model.targetType

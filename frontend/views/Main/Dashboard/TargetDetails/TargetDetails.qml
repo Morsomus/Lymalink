@@ -22,6 +22,9 @@ Item {
     property int p_appId: 0
     property string p_title: "MISSING"
     property string p_coverSource: ""
+    property string p_coverSourceMedium: ""
+    property string p_coverSourceLarge: ""
+    property string p_coverSourceScaled: ""
     property string p_lastPlayed: ""
     property string p_recentUnlock: ""
     property string p_playtime: "" // minutes or hours
@@ -43,6 +46,15 @@ Item {
     // Internals _____________________________________________
     readonly property bool mediumCoverEnabled: ctxSettings.targetDetailsCoverSize === "medium"
     readonly property bool largeCoverEnabled: ctxSettings.targetDetailsCoverSize === "large"
+    readonly property real effectiveDevicePixelRatio: OS_WIN || !Window.window ? Screen.devicePixelRatio : Window.window.devicePixelRatio
+    readonly property bool useFractionalSourceSize: effectiveDevicePixelRatio > 1.0
+    readonly property bool useScaledCover: effectiveDevicePixelRatio > 1.0 && Math.abs(effectiveDevicePixelRatio - 2.0) > 0.01
+    readonly property string nativeCoverSource: largeCoverEnabled
+        ? p_coverSourceLarge
+        : mediumCoverEnabled
+            ? p_coverSourceMedium
+            : p_coverSource
+
     readonly property int coverPanelWidth: largeCoverEnabled ? 360 : (mediumCoverEnabled ? 304 : 240)
     readonly property int coverHeight: largeCoverEnabled ? 540 : (mediumCoverEnabled ? 456 : 360)
     readonly property int contentWidthCap: largeCoverEnabled ? 1372 : (mediumCoverEnabled ? 1316 : 1252)
@@ -57,6 +69,26 @@ Item {
         const emulatorType = (p_emulatorType || "").trim().toUpperCase()
         return emulatorType !== "TENOKE" && emulatorType !== "SMARTSTEAMEMU"
     }
+
+    function scaledCoverSourceSize(imageWidth, imageHeight) {
+        const physicalWidth = imageWidth * effectiveDevicePixelRatio
+        const physicalHeight = imageHeight * effectiveDevicePixelRatio
+        const multiplier = Math.floor(
+            Math.min(
+                600 / physicalWidth,
+                900 / physicalHeight
+            )
+        )
+
+        if (multiplier < 1)
+            return Qt.size(-1, -1)
+
+        return Qt.size(
+            physicalWidth * multiplier,
+            physicalHeight * multiplier
+        )
+    }
+
     // Completion ratio used to drive the progress bar gradient and opacity
     readonly property real completionRatio: p_achievementTotal > 0
         ? p_achievementCount / p_achievementTotal
@@ -728,12 +760,15 @@ Item {
                     id: id_coverImage
 
                     anchors.fill: parent
-                    source: id_root.p_coverSource
+                    source: id_root.useScaledCover && id_root.p_coverSourceScaled !== ""
+                        ? id_root.p_coverSourceScaled
+                        : id_root.nativeCoverSource
                     smooth: false
-                    sourceSize: Qt.size(
-                        Math.min(600, Math.round(width * Screen.devicePixelRatio)),
-                        Math.min(900, Math.round(height * Screen.devicePixelRatio))
-                    )
+                    sourceSize: id_root.useFractionalSourceSize
+                        && id_root.useScaledCover
+                        && id_root.p_coverSourceScaled !== ""
+                            ? id_root.scaledCoverSourceSize(width, height)
+                            : Qt.size(-1, -1)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
 

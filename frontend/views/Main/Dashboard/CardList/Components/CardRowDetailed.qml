@@ -20,6 +20,7 @@ Rectangle {
     property int p_appId: 0
     property string p_title: "Title"
     property string p_coverSource: ""
+    property string p_coverSourceScaled: ""
     property int p_achievementCount: 0
     property int p_achievementTotal: 0
     property string p_targetType: ""
@@ -42,6 +43,10 @@ Rectangle {
     readonly property int progressDelay: Math.max(0, Math.min(p_delegateIndex * 40, 300))
     readonly property int coverHeight: 120
     readonly property int coverWidth: Math.round(coverHeight * (2 / 3))
+    readonly property real effectiveDevicePixelRatio: OS_WIN || !Window.window ? Screen.devicePixelRatio : Window.window.devicePixelRatio
+    readonly property bool useFractionalSourceSize: effectiveDevicePixelRatio > 1.0
+    readonly property bool useScaledCover: effectiveDevicePixelRatio > 1.0 && Math.abs(effectiveDevicePixelRatio - 2.0) > 0.01
+
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
     property real animatedProgress: 0.0
@@ -49,6 +54,25 @@ Rectangle {
     height: coverHeight + 16
     clip: true
     color: Themes.cardRowDetailed.colors.rowBackground
+
+    function scaledCoverSourceSize(imageWidth, imageHeight) {
+        const physicalWidth = imageWidth * effectiveDevicePixelRatio
+        const physicalHeight = imageHeight * effectiveDevicePixelRatio
+        const multiplier = Math.floor(
+            Math.min(
+                600 / physicalWidth,
+                900 / physicalHeight
+            )
+        )
+
+        if (multiplier < 1)
+            return Qt.size(-1, -1)
+
+        return Qt.size(
+            physicalWidth * multiplier,
+            physicalHeight * multiplier
+        )
+    }
 
     SequentialAnimation {
         id: id_progressAnim
@@ -180,12 +204,16 @@ Rectangle {
                     id: id_coverImage
 
                     anchors.fill: parent
-                    source: id_root.p_coverSource
+                    source: id_root.useScaledCover && id_root.p_coverSourceScaled !== ""
+                        ? id_root.p_coverSourceScaled
+                        : id_root.p_coverSource
                     smooth: false
-                    sourceSize: Qt.size(
-                        Math.round(width * Screen.devicePixelRatio),
-                        Math.round(height * Screen.devicePixelRatio)
-                    )
+                    mipmap: id_root.effectiveDevicePixelRatio > 1.0 && id_root.effectiveDevicePixelRatio <= 1.5
+                    sourceSize: id_root.useFractionalSourceSize
+                        && id_root.useScaledCover
+                        && id_root.p_coverSourceScaled !== ""
+                            ? id_root.scaledCoverSourceSize(width, height)
+                            : Qt.size(-1, -1)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
 

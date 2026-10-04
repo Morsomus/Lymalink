@@ -100,6 +100,7 @@ Item {
                     p_appId:            model.id
                     p_title:            model.title
                     p_coverSource:      model.coverSourceRowDetailed
+                    p_coverSourceScaled: model.coverSourceScaled
                     p_achievementCount: model.achievementCount
                     p_achievementTotal: model.achievementTotal
                     p_targetType:       model.targetType

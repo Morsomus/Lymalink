@@ -1600,12 +1600,23 @@ bool Lymalink::SetTargetCoverImage(int appId, const QString &sourceImagePath, co
         return coverUpdated;
     }
 
-    const QString customCoverFileName = "custom_cover_600x900.jpg";
-    const QSize customCoverTargetSize(600, 900);
-    if (!SaveCustomCoverVariant(sourceImage, coversPath, customCoverFileName, customCoverTargetSize, useBlackBars))
+    const QList<QPair<QString, QSize>> coverVariants = {
+        {"custom_cover_80x120.jpg", QSize(80, 120)},
+        {"custom_cover_152x228.jpg", QSize(152, 228)},
+        {"custom_cover_200x300.jpg", QSize(200, 300)},
+        {"custom_cover_240x360.jpg", QSize(240, 360)},
+        {"custom_cover_304x456.jpg", QSize(304, 456)},
+        {"custom_cover_360x540.jpg", QSize(360, 540)},
+        {"custom_cover_600x900.jpg", QSize(600, 900)}
+    };
+
+    for (const auto &variant : coverVariants)
     {
-        m_lastOperationError = tr("Couldn't save custom cover image.");
-        return coverUpdated;
+        if (!SaveCustomCoverVariant(sourceImage, coversPath, variant.first, variant.second, useBlackBars))
+        {
+            m_lastOperationError = tr("Couldn't save custom cover image.");
+            return coverUpdated;
+        }
     }
 
     coverUpdated = true;
@@ -2147,7 +2158,14 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QDir emulatorAppDir(QDir(appDataPath).filePath("Emulator/" + appIdText));
         const QString coversPath = emulatorAppDir.filePath("covers");
         const QString iconsPath = emulatorAppDir.filePath("icons");
-        const QString coverSource = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
+        const QString coverSourceCard = PreferredCoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = PreferredCoverImageFilePath(coversPath, "cover_152x228.jpg");
+        const QString coverSourceCardLarge = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceRowDetailed = PreferredCoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceTargetDetailsMedium = PreferredCoverImageFilePath(coversPath, "cover_304x456.jpg");
+        const QString coverSourceTargetDetailsLarge = PreferredCoverImageFilePath(coversPath, "cover_360x540.jpg");
+        const QString coverSourceScaled = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
 
         // Fetch achievements only enough to compute latest unlock preview
         const QVariantList achievements = m_databaseManager.selectWhere(
@@ -2171,12 +2189,15 @@ QVariantList Lymalink::FetchDashboardTargets()
         QVariantMap target = {
             {"id", appId},
             {"title", Utils::MapStringValue(row, "game_name")},
-            {"coverSource", coverSource},
-            {"coverSourceCard", coverSource},
-            {"coverSourceCardLarge", coverSource},
-            {"coverSourceCardSmall", coverSource},
-            {"coverSourceRowDetailed", coverSource},
-            {"coverSourceTargetDetails", coverSource},
+            {"coverSource", coverSourceCard},
+            {"coverSourceCard", coverSourceCard},
+            {"coverSourceCardLarge", coverSourceCardLarge},
+            {"coverSourceCardSmall", coverSourceCardSmall},
+            {"coverSourceRowDetailed", coverSourceRowDetailed},
+            {"coverSourceTargetDetails", coverSourceTargetDetails},
+            {"coverSourceTargetDetailsMedium", coverSourceTargetDetailsMedium},
+            {"coverSourceTargetDetailsLarge", coverSourceTargetDetailsLarge},
+            {"coverSourceScaled", coverSourceScaled},
             {"logoSource", CommunityIconFilePath(iconsPath)},
             {"achievementCount", achievementCount},
             {"achievementTotal", achievementTotal},
@@ -2207,7 +2228,14 @@ QVariantList Lymalink::FetchDashboardTargets()
         const QDir steamAppDir(QDir(appDataPath).filePath("Steam/" + appIdText));
         const QString coversPath = steamAppDir.filePath("covers");
         const QString iconsPath = steamAppDir.filePath("icons");
-        const QString coverSource = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
+        const QString coverSourceCard = PreferredCoverImageFilePath(coversPath, "cover_200x300.jpg");
+        const QString coverSourceCardSmall = PreferredCoverImageFilePath(coversPath, "cover_152x228.jpg");
+        const QString coverSourceCardLarge = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceRowDetailed = PreferredCoverImageFilePath(coversPath, "cover_80x120.jpg");
+        const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
+        const QString coverSourceTargetDetailsMedium = PreferredCoverImageFilePath(coversPath, "cover_304x456.jpg");
+        const QString coverSourceTargetDetailsLarge = PreferredCoverImageFilePath(coversPath, "cover_360x540.jpg");
+        const QString coverSourceScaled = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
 
         const QVariantList achievements = m_databaseManager.selectWhere(
             m_databaseConnectionName,
@@ -2229,12 +2257,15 @@ QVariantList Lymalink::FetchDashboardTargets()
         QVariantMap target = {
             {"id", appId},
             {"title", Utils::MapStringValue(row, "game_name")},
-            {"coverSource", coverSource},
-            {"coverSourceCard", coverSource},
-            {"coverSourceCardLarge", coverSource},
-            {"coverSourceCardSmall", coverSource},
-            {"coverSourceRowDetailed", coverSource},
-            {"coverSourceTargetDetails", coverSource},
+            {"coverSource", coverSourceCard},
+            {"coverSourceCard", coverSourceCard},
+            {"coverSourceCardLarge", coverSourceCardLarge},
+            {"coverSourceCardSmall", coverSourceCardSmall},
+            {"coverSourceRowDetailed", coverSourceRowDetailed},
+            {"coverSourceTargetDetails", coverSourceTargetDetails},
+            {"coverSourceTargetDetailsMedium", coverSourceTargetDetailsMedium},
+            {"coverSourceTargetDetailsLarge", coverSourceTargetDetailsLarge},
+            {"coverSourceScaled", coverSourceScaled},
             {"logoSource", CommunityIconFilePath(iconsPath)},
             {"achievementCount", achievementCount},
             {"achievementTotal", achievementTotal},
@@ -2295,7 +2326,10 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
     const QString coversPath = targetAppDir.filePath("covers");
     const QString iconsPath = targetAppDir.filePath("icons");
 
-    const QString coverSource = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
+    const QString coverSourceTargetDetails = PreferredCoverImageFilePath(coversPath, "cover_240x360.jpg");
+    const QString coverSourceTargetDetailsMedium = PreferredCoverImageFilePath(coversPath, "cover_304x456.jpg");
+    const QString coverSourceTargetDetailsLarge = PreferredCoverImageFilePath(coversPath, "cover_360x540.jpg");
+    const QString coverSourceScaled = PreferredCoverImageFilePath(coversPath, "cover_600x900.jpg");
     const QVariantList achievements = BuildAchievementDetails(appId, iconsPath, normalizedTargetType);
     const QVariantMap latestAchievement = LatestUnlockedAchievement(m_databaseManager.selectWhere(
         m_databaseConnectionName,
@@ -2309,8 +2343,11 @@ QVariantMap Lymalink::FetchTargetDetails(int appId, const QString &targetType)
     targetDetails = {
         {"id", appId},
         {"title", Utils::MapStringValue(row, "game_name")},
-        {"coverSource", coverSource},
-        {"coverSourceTargetDetails", coverSource},
+        {"coverSource", coverSourceTargetDetails},
+        {"coverSourceTargetDetails", coverSourceTargetDetails},
+        {"coverSourceTargetDetailsMedium", coverSourceTargetDetailsMedium},
+        {"coverSourceTargetDetailsLarge", coverSourceTargetDetailsLarge},
+        {"coverSourceScaled", coverSourceScaled},
         {"achievementCount", Utils::MapIntValue(row, "total_unlocked_amount_achievements")},
         {"achievementTotal", Utils::MapIntValue(row, "total_amount_achievements")},
         {"targetType", normalizedTargetType},
@@ -2983,7 +3020,29 @@ QString Lymalink::PreferredCoverImageFilePath(const QString &coversPath, const Q
         return customCoverSource;
     }
 
-    return CoverImageFilePath(coversPath, fileName);
+    if (fileName != "cover_600x900.jpg")
+    {
+        const QString customScaledCoverSource = CoverImageFilePath(coversPath, "custom_cover_600x900.jpg");
+        if (!customScaledCoverSource.isEmpty())
+        {
+            return customScaledCoverSource;
+        }
+    }
+
+    const QString coverSource = CoverImageFilePath(coversPath, fileName);
+    if (!coverSource.isEmpty())
+    {
+        return coverSource;
+    }
+
+    const QString defaultCoverFileName = "cover_600x900.jpg";
+    if (fileName == defaultCoverFileName)
+    {
+        return QString();
+    }
+
+    const QString defaultCoverPath = CoverImageFilePath(coversPath, defaultCoverFileName);
+    return defaultCoverPath;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2998,8 +3057,22 @@ bool Lymalink::TargetHasMissingMetadata(int appId, const QString &targetType)
     const QString iconsPath = targetAppDir.filePath("icons");
 
     const QDir coversDir(coversPath);
-    const bool missingCover = !QFileInfo::exists(coversDir.filePath("cover_600x900.jpg"));
+    const QStringList coverFiles = {
+        "cover_80x120.jpg",
+        "cover_152x228.jpg",
+        "cover_200x300.jpg",
+        "cover_240x360.jpg",
+        "cover_304x456.jpg",
+        "cover_360x540.jpg",
+        "cover_600x900.jpg"
+    };
+
+    const bool missingCover = std::any_of(coverFiles.cbegin(), coverFiles.cend(), [&coversDir](const QString &coverFile) {
+        return !QFileInfo::exists(coversDir.filePath(coverFile));
+    });
+    
     const bool missingAchievementIcons = TargetHasMissingAchievementIcons(appId, iconsPath, normalizedTargetType);
+
     return missingCover || missingAchievementIcons;
 }
 
