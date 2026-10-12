@@ -186,10 +186,9 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
 
     LOG_BE(Urgency::Debug, "Writing to SHM.");
 
-    // Load and scale directly to overlay icon target size
-    int kIconSize = 64;
-    int kIconStride = kIconSize * 4; // 256 bytes per row
+    // The receiver interprets payload as packed OVERLAY_ICON_SIZE x OVERLAY_ICON_SIZE RGBA image
     m_shm->hasIconPixels = 0;
+    std::memset(m_shm->iconPixels, 0, sizeof(m_shm->iconPixels));
     // Load primary icon, fallback to secondary
     const char* candidatePaths[] = { notification.iconPath.c_str(), notification.appIconPath.c_str() };
     for (const char* path : candidatePaths)
@@ -197,7 +196,7 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
         if (path && path[0] != '\0')
         {
             GError* error = nullptr;
-            GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(path, kIconSize, kIconSize, TRUE, &error);       
+            GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file_at_scale(path, static_cast<int>(OVERLAY_ICON_SIZE), static_cast<int>(OVERLAY_ICON_SIZE), TRUE, &error);
             if (pixbuf)
             {
                 GdkPixbuf* rgba = gdk_pixbuf_get_has_alpha(pixbuf) ? pixbuf : gdk_pixbuf_add_alpha(pixbuf, FALSE, 0, 0, 0);
@@ -206,17 +205,27 @@ bool OverlayNotifier::WriteNotification(const AchievementNotification& notificat
                 if (rgba)
                 {
                     const guchar* src = gdk_pixbuf_get_pixels(rgba);
+                    const int width = gdk_pixbuf_get_width(rgba);
+                    const int height = gdk_pixbuf_get_height(rgba);
                     const int stride = gdk_pixbuf_get_rowstride(rgba);
-
-                    for (int i = 0; i < kIconSize; ++i)
+                    const int channels = gdk_pixbuf_get_n_channels(rgba);
+                    if (src && width > 0 && height > 0 && channels == 4)
                     {
-                        std::memcpy(m_shm->iconPixels + (i * kIconStride), src + (i * stride), kIconStride);
+                        const int copyRows = std::min(height, static_cast<int>(OVERLAY_ICON_SIZE));
+                        const int copyBytes = std::min(width, static_cast<int>(OVERLAY_ICON_SIZE)) * channels;
+                        for (int row = 0; row < copyRows; ++row)
+                        {
+                            std::memcpy(m_shm->iconPixels + static_cast<size_t>(row) * OVERLAY_ICON_STRIDE, src + static_cast<size_t>(row) * static_cast<size_t>(stride), static_cast<size_t>(copyBytes));
+                        }
+                        m_shm->hasIconPixels = 1;
+                        LOG_BE(Urgency::Debug, "Embedded %dx%d icon '%s' into SHM.", width, height, path);
                     }
                     g_object_unref(rgba);
-                    m_shm->hasIconPixels = 1;
-                    LOG_BE(Urgency::Debug, "Embedded icon '%s' into SHM.", path);
 
-                    break;
+                    if (m_shm->hasIconPixels == 1)
+                    {
+                        break;
+                    }
                 }
             }
             else if (error)
