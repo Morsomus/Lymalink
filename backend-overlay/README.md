@@ -7,7 +7,7 @@ Build information for the overlay libraries on Linux and Windows.
 ### Supported Build Host
 
 - Linux `x86_64`
-- Flatpak extension branch `25.08`
+- Flatpak extension branches `25.08` and `26.08`
 
 ### Dependencies
 
@@ -52,17 +52,20 @@ sudo dnf install \
 
 Release builds compile overlay logging out fully. Debug builds retain logging.
 Native i386 builds use the host multilib compiler and i386 development
-libraries. Flatpak builds run inside `org.freedesktop.Sdk//25.08` so extension
-libraries match the Freedesktop runtime ABI. The i386 SDK extension is required
-for 32-bit Flatpak overlay artifacts. After compilation, runtime dependency
-checks run inside `org.freedesktop.Platform//25.08`. Install the SDK, i386 SDK
-extension, and runtime with:
+libraries. Flatpak builds run inside `org.freedesktop.Sdk//25.08` and
+`org.freedesktop.Sdk//26.08` so extension libraries match each runtime ABI. The
+matching i386 SDK extension is required for 32-bit Flatpak overlay artifacts.
+After compilation, x86_64 dependency checks run inside the matching Platform
+runtime. Install both SDKs, i386 SDK extensions, and runtimes with:
 
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user flathub org.freedesktop.Sdk//25.08
 flatpak install --user flathub org.freedesktop.Sdk.Compat.i386//25.08
 flatpak install --user flathub org.freedesktop.Platform//25.08
+flatpak install --user flathub org.freedesktop.Sdk//26.08
+flatpak install --user flathub org.freedesktop.Sdk.Compat.i386//26.08
+flatpak install --user flathub org.freedesktop.Platform//26.08
 ```
 
 ### Build Script
@@ -91,7 +94,7 @@ Deploy installs:
 - native i386 libraries: `~/.local/lib/i386-linux-gnu/lymalink-overlay*.so`
 - Vulkan layer manifests: `${XDG_DATA_HOME:-~/.local/share}/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json` and `lymalink_overlay.x86.json`
 - OpenGL launcher: `~/.local/bin/lymalink-overlay`
-- Flatpak VulkanLayer extension with x86_64 and i386 libraries: user Flatpak runtime, when Flatpak is available
+- Flatpak VulkanLayer extensions for `25.08` and `26.08`, each with x86_64 and i386 libraries: user Flatpak runtimes, when Flatpak is available
 
 ### Direct Makefile Build
 

@@ -84,6 +84,7 @@ APPLICATION_DIR="$DATA_HOME/applications"
 APP_DATA_DIR="$DATA_HOME/Lymalink"
 SOUND_DIR="$APP_DATA_DIR/sounds"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
+FLATPAK_EXTENSION_BRANCHES=("25.08" "26.08")
 FLATPAK_BUNDLE="$SCRIPT_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
 PATH_BLOCK_START="# >>> Lymalink installer PATH >>>"
 PATH_BLOCK_END="# <<< Lymalink installer PATH <<<"
@@ -1269,7 +1270,6 @@ for payload_file in \
     "$SCRIPT_DIR/bin/Lymalink" \
     "$FRONTEND_BINARY" \
     "$FRONTEND_QT_BUILD_VERSION_FILE" \
-    "$FLATPAK_BUNDLE" \
     "$SCRIPT_DIR/bin/lymalinkd" \
     "$SCRIPT_DIR/bin/lymalink-overlay" \
     "$SCRIPT_DIR/uninstall.sh" \
@@ -1288,6 +1288,13 @@ for payload_file in \
     "$SCRIPT_DIR/systemd/lymalinkd.service" \
     "$SCRIPT_DIR/systemd/lymalink-ui.service"; do
     require_file "$payload_file"
+done
+for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+    bundle="$FLATPAK_BUNDLE"
+    if [ "$branch" != "25.08" ]; then
+        bundle="$SCRIPT_DIR/flatpak/${FLATPAK_EXTENSION_ID}-$branch.flatpak"
+    fi
+    require_file "$bundle"
 done
 
 # Ensure sound assets are present
@@ -1355,7 +1362,13 @@ replace_home_placeholder "$SERVICE_DIR/lymalink-ui.service"
 
 # Install the Flatpak VulkanLayer extension
 echo "==> Installing Flatpak VulkanLayer extension..."
-flatpak install --user --bundle --reinstall -y --noninteractive "$FLATPAK_BUNDLE"
+for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+    bundle="$FLATPAK_BUNDLE"
+    if [ "$branch" != "25.08" ]; then
+        bundle="$SCRIPT_DIR/flatpak/${FLATPAK_EXTENSION_ID}-$branch.flatpak"
+    fi
+    flatpak install --user --bundle --reinstall -y --noninteractive "$bundle"
+done
 
 # Update shell environment PATH for the current user
 case ":$PATH:" in
@@ -1389,7 +1402,9 @@ echo "==> LYMALINK INSTALL DONE."
 echo "    Frontend:      $BIN_DIR/Lymalink"
 echo "    Backend:       $BIN_DIR/lymalinkd"
 echo "    Service unit:  $SERVICE_DIR/lymalinkd.service"
-echo "    Flatpak layer: $FLATPAK_EXTENSION_ID//25.08"
+for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+    echo "    Flatpak layer: $FLATPAK_EXTENSION_ID//$branch"
+done
 echo "    Uninstall:     $BIN_DIR/uninstall-lymalink"
 echo "    The desktop application controls backend service activation."
 echo "    Run: source ~/.bashrc or open new shell to refresh PATH."

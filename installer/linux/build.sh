@@ -33,11 +33,9 @@ FRONTEND_BINARY="$ROOT_DIR/frontend/build/release/bin/Lymalink"
 BACKEND_BUILD_BIN_DIR="$ROOT_DIR/backend/build/release/bin"
 OVERLAY_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/release/bin"
 OVERLAY_BUILD_BIN_DIR_I386="$ROOT_DIR/backend-overlay/build/release-i386/bin"
-OVERLAY_FLATPAK_BUILD_BIN_DIR="$ROOT_DIR/backend-overlay/build/flatpak/release/bin"
-OVERLAY_FLATPAK_BUILD_BIN_DIR_I386="$ROOT_DIR/backend-overlay/build/flatpak/release-i386/bin"
+OVERLAY_FLATPAK_BUILD_DIR="$ROOT_DIR/backend-overlay/build/flatpak"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
-FLATPAK_EXTENSION_BRANCH="25.08"
-FLATPAK_BUNDLE="$RELEASE_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
+FLATPAK_EXTENSION_BRANCHES=("25.08" "26.08")
 MIN_QT_VERSION="6.8.0"
 FRONTEND_QML_MODULES=(
     QtCore
@@ -688,8 +686,14 @@ require_file "$BACKEND_BUILD_BIN_DIR/lymalinkd"
 require_file "$ROOT_DIR/backend-overlay/lymalink-overlay.sh"
 validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR" 64 "native x86_64"
 validate_overlay_artifact_set "$OVERLAY_BUILD_BIN_DIR_I386" 32 "native i386"
-validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR" 64 "Flatpak x86_64"
-validate_overlay_artifact_set "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386" 32 "Flatpak i386"
+for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+    branch_build_dir="$OVERLAY_FLATPAK_BUILD_DIR"
+    if [ "$branch" != "25.08" ]; then
+        branch_build_dir="$branch_build_dir/$branch"
+    fi
+    validate_overlay_artifact_set "$branch_build_dir/release/bin" 64 "Flatpak $branch x86_64"
+    validate_overlay_artifact_set "$branch_build_dir/release-i386/bin" 32 "Flatpak $branch i386"
+done
 
 # Create release staging tree
 echo "==> Staging release payload..."
@@ -882,47 +886,55 @@ StandardOutput=journal
 StandardError=journal
 EOF
 
-# Stage Flatpak VulkanLayer extension
-echo "==> Building Flatpak VulkanLayer extension bundle..."
-mkdir -p \
-    "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu" \
-    "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu" \
-    "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d" \
-    "$FLATPAK_REPO_DIR"
+for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+    branch_build_dir="$OVERLAY_FLATPAK_BUILD_DIR"
+    extension_dir="$FLATPAK_EXTENSION_DIR"
+    repo_dir="$FLATPAK_REPO_DIR"
+    bundle="$RELEASE_DIR/flatpak/${FLATPAK_EXTENSION_ID}.flatpak"
+    if [ "$branch" != "25.08" ]; then
+        branch_build_dir="$branch_build_dir/$branch"
+        extension_dir="$FLATPAK_WORK_DIR/extension-$branch"
+        repo_dir="$FLATPAK_WORK_DIR/repo-$branch"
+        bundle="$RELEASE_DIR/flatpak/${FLATPAK_EXTENSION_ID}-$branch.flatpak"
+    fi
 
-# Copy Flatpak overlay libraries
-cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"
-cp "$OVERLAY_FLATPAK_BUILD_BIN_DIR_I386/"*.so "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"
-chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/x86_64-linux-gnu/"*.so
-chmod 755 "$FLATPAK_EXTENSION_DIR/files/lib/i386-linux-gnu/"*.so
+    echo "==> Building Flatpak VulkanLayer extension bundle $branch..."
+    mkdir -p \
+        "$extension_dir/files/lib/x86_64-linux-gnu" \
+        "$extension_dir/files/lib/i386-linux-gnu" \
+        "$extension_dir/files/share/vulkan/implicit_layer.d" \
+        "$repo_dir"
 
-# Write Flatpak Vulkan layer manifests
-write_vulkan_manifest \
-    "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
-    "/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay.so" \
-    "VK_LAYER_LYMALINK_overlay_x86_64"
+    cp "$branch_build_dir/release/bin/"*.so "$extension_dir/files/lib/x86_64-linux-gnu/"
+    cp "$branch_build_dir/release-i386/bin/"*.so "$extension_dir/files/lib/i386-linux-gnu/"
+    chmod 755 "$extension_dir/files/lib/x86_64-linux-gnu/"*.so
+    chmod 755 "$extension_dir/files/lib/i386-linux-gnu/"*.so
 
-write_vulkan_manifest \
-    "$FLATPAK_EXTENSION_DIR/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" \
-    "/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay.so" \
-    "VK_LAYER_LYMALINK_overlay_x86"
+    write_vulkan_manifest \
+        "$extension_dir/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86_64.json" \
+        "/usr/lib/extensions/vulkan/lymalink/lib/x86_64-linux-gnu/lymalink-overlay.so" \
+        "VK_LAYER_LYMALINK_overlay_x86_64"
 
-# Write Flatpak extension metadata
-cat > "$FLATPAK_EXTENSION_DIR/metadata" <<EOF
+    write_vulkan_manifest \
+        "$extension_dir/files/share/vulkan/implicit_layer.d/lymalink_overlay.x86.json" \
+        "/usr/lib/extensions/vulkan/lymalink/lib/i386-linux-gnu/lymalink-overlay.so" \
+        "VK_LAYER_LYMALINK_overlay_x86"
+
+    cat > "$extension_dir/metadata" <<EOF
 [Runtime]
 name=${FLATPAK_EXTENSION_ID}
-runtime=org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
-sdk=org.freedesktop.Sdk/x86_64/${FLATPAK_EXTENSION_BRANCH}
+runtime=org.freedesktop.Platform/x86_64/${branch}
+sdk=org.freedesktop.Sdk/x86_64/${branch}
 
 [ExtensionOf]
-ref=runtime/org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
-runtime=org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
+ref=runtime/org.freedesktop.Platform/x86_64/${branch}
+runtime=org.freedesktop.Platform/x86_64/${branch}
 EOF
 
-# Export and bundle Flatpak extension
-flatpak build-export --runtime --arch="$ARCH" "$FLATPAK_REPO_DIR" "$FLATPAK_EXTENSION_DIR" "$FLATPAK_EXTENSION_BRANCH"
-flatpak build-bundle --runtime --arch="$ARCH" "$FLATPAK_REPO_DIR" "$FLATPAK_BUNDLE" "$FLATPAK_EXTENSION_ID" "$FLATPAK_EXTENSION_BRANCH"
-require_file "$FLATPAK_BUNDLE"
+    flatpak build-export --runtime --arch="$ARCH" "$repo_dir" "$extension_dir" "$branch"
+    flatpak build-bundle --runtime --arch="$ARCH" "$repo_dir" "$bundle" "$FLATPAK_EXTENSION_ID" "$branch"
+    require_file "$bundle"
+done
 
 # Build self-extracting installer
 echo "==> Creating self-extracting installer..."

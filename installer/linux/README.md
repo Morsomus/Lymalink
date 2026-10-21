@@ -12,7 +12,7 @@ it with `sudo`; the install script rejects root.
 - Install scope: current user only
 - Frontend Qt runtime: bundled privately from the build host, never lower than
   `6.8.0`
-- Flatpak VulkanLayer extension branch: `25.08`
+- Flatpak VulkanLayer extension branches: `25.08` and `26.08`
 - Overlay architecture support: native x86_64, native i386, Flatpak
   x86_64, and Flatpak i386
 
@@ -22,12 +22,12 @@ can load the exact ICU SONAME it was built against. Frontend Qt libraries, Qt
 plugins, and QML imports are private to the frontend wrapper. It does not bundle
 system libraries such as OpenSSL, libstdc++, GL, D-Bus, or `systemd`.
 
-Flatpak is required because the installer builds and installs the Flatpak
-VulkanLayer extension used by Flatpak games. The Freedesktop i386 SDK extension
-is required for Flatpak i386 overlay libraries. Native i386 overlay libraries
-are built separately against the build host's multilib toolchain and i386
-development libraries. If Flatpak or extension installation fails, the installer
-fails.
+Flatpak is required because the installer builds and installs Flatpak
+VulkanLayer extensions used by Flatpak games. The matching Freedesktop i386 SDK
+extensions are required for Flatpak i386 overlay libraries. Native i386 overlay
+libraries are built separately against the build host's multilib toolchain and
+i386 development libraries. If Flatpak or extension installation fails, the
+installer fails.
 
 ## Build Requirements
 

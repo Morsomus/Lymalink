@@ -78,6 +78,7 @@ APPLICATION_DIR="$DATA_HOME/applications"
 APP_DATA_DIR="$DATA_HOME/Lymalink"
 SOUND_DIR="$APP_DATA_DIR/sounds"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
+FLATPAK_EXTENSION_BRANCHES=("25.08" "26.08")
 PATH_BLOCK_START="# >>> Lymalink installer PATH >>>"
 PATH_BLOCK_END="# <<< Lymalink installer PATH <<<"
 
@@ -150,9 +151,12 @@ rmdir "$APP_LIB_DIR" >/dev/null 2>&1 || true
 rmdir "$APP_DATA_DIR" >/dev/null 2>&1 || true
 
 # Uninstall the Lymalink Vulkan layer extension from Flatpak if installed
-if command -v flatpak >/dev/null 2>&1 \
-    && flatpak info --user "$FLATPAK_EXTENSION_ID" >/dev/null 2>&1; then
-    flatpak uninstall --user -y --noninteractive "$FLATPAK_EXTENSION_ID" || true
+if command -v flatpak >/dev/null 2>&1; then
+    for branch in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+        if flatpak info --user "$FLATPAK_EXTENSION_ID//$branch" >/dev/null 2>&1; then
+            flatpak uninstall --user -y --noninteractive "$FLATPAK_EXTENSION_ID//$branch" || true
+        fi
+    done
 fi
 
 # Clean up PATH additions from common shell profile files

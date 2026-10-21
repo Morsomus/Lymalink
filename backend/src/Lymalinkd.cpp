@@ -2309,46 +2309,20 @@ std::vector<std::string> Lymalinkd::ResolveInstalledFlatpakVulkanOverlayManifest
 {
     std::vector<std::string> manifestPaths;
 
-    // Verify the target Flatpak runtime directory exists
-    const std::filesystem::path runtimeDir = ResolveDataPath("flatpak/runtime/org.freedesktop.Platform.VulkanLayer.lymalink/x86_64/25.08");
-    if (runtimeDir.empty() || !std::filesystem::exists(runtimeDir))
+    const std::filesystem::path runtimeRoot = ResolveDataPath("flatpak/runtime/org.freedesktop.Platform.VulkanLayer.lymalink/x86_64");
+    for (const char* branch : {"25.08", "26.08"})
     {
-        LOG_BE(Urgency::Debug, "Flatpak runtime directory not found or empty: %s", runtimeDir.string().c_str());
-        return manifestPaths;
-    }
-
-    LOG_BE(Urgency::Debug, "Scanning Flatpak runtime directory for manifests: %s", runtimeDir.string().c_str());
-
-    // Recursively scan the directory for the overlay manifest
-    std::error_code ec;
-    std::filesystem::recursive_directory_iterator it(runtimeDir, std::filesystem::directory_options::skip_permission_denied, ec);
-    const std::filesystem::recursive_directory_iterator end;
-    while (!ec && it != end)
-    {
-        const std::filesystem::directory_entry& entry = *it;
-
-        // Skip directories and inaccessible files
-        if (!entry.is_regular_file(ec) || ec)
+        // Flatpak's active symlink selects the deployed revision for each branch
+        const std::filesystem::path manifestDir = runtimeRoot / branch / "active/files/share/vulkan/implicit_layer.d";
+        for (const char* filename : {"lymalink_overlay.x86_64.json", "lymalink_overlay.x86.json"})
         {
-            ec.clear();
-            it.increment(ec);
-            continue;
+            const std::filesystem::path manifestPath = manifestDir / filename;
+            if (std::filesystem::exists(manifestPath))
+            {
+                manifestPaths.push_back(manifestPath.string());
+                LOG_BE(Urgency::Debug, "Found Flatpak Vulkan overlay manifest: %s", manifestPath.string().c_str());
+            }
         }
-
-        // Collect paths matching the Flatpak VulkanLayer architecture manifests.
-        const std::string filename = entry.path().filename().string();
-        if (filename == "lymalink_overlay.x86_64.json" || filename == "lymalink_overlay.x86.json")
-        {
-            manifestPaths.push_back(entry.path().string());
-            LOG_BE(Urgency::Debug, "Found Flatpak Vulkan overlay manifest: %s", entry.path().string().c_str());
-        }
-
-        it.increment(ec);
-    }
-
-    if (ec)
-    {
-        LOG_BE(Urgency::Warning, "Error occurred during Flatpak manifest directory scan: %s", ec.message().c_str());
     }
 
     return manifestPaths;

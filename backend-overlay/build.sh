@@ -77,7 +77,7 @@ INSTALL_BIN_DIR="$LOGIN_HOME/.local/bin"
 INSTALL_LIB_DIR="$LOGIN_HOME/.local/lib"
 INSTALL_VULKAN_LAYER_DIR="$DATA_HOME/vulkan/implicit_layer.d"
 FLATPAK_EXTENSION_ID="org.freedesktop.Platform.VulkanLayer.lymalink"
-FLATPAK_EXTENSION_BRANCH="25.08"
+FLATPAK_EXTENSION_BRANCHES=("25.08" "26.08")
 FLATPAK_EXTENSION_MANIFEST_X86_64="lymalink_overlay.x86_64.json"
 FLATPAK_EXTENSION_MANIFEST_X86="lymalink_overlay.x86.json"
 FLATPAK_PLATFORM_ID="org.freedesktop.Platform"
@@ -93,6 +93,19 @@ _get_build_root() {
     else
         echo "$SCRIPT_DIR/build"
     fi
+}
+
+##############################################################################
+
+_flatpak_build_root() {
+    local BRANCH="$1"
+    local BUILD_ROOT
+    BUILD_ROOT="$(_get_build_root)/flatpak"
+    # Keep the existing 25.08 artifact paths.
+    if [ "$BRANCH" != "25.08" ]; then
+        BUILD_ROOT="$BUILD_ROOT/$BRANCH"
+    fi
+    printf '%s\n' "$BUILD_ROOT"
 }
 
 ##############################################################################
@@ -245,17 +258,18 @@ _validate_overlay_artifact_set() {
 ##############################################################################
 
 _require_flatpak_sdk() {
+    local BRANCH="$1"
     _require_command flatpak
 
-    if ! flatpak info --user "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" >/dev/null 2>&1; then
-        echo "==> ERROR: Required Flatpak SDK not installed: $FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH"
-        echo "==> Install it with: flatpak install --user flathub $FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH"
+    if ! flatpak info --user "$FLATPAK_SDK_ID//$BRANCH" >/dev/null 2>&1; then
+        echo "==> ERROR: Required Flatpak SDK not installed: $FLATPAK_SDK_ID//$BRANCH"
+        echo "==> Install it with: flatpak install --user flathub $FLATPAK_SDK_ID//$BRANCH"
         exit 1
     fi
 
-    if ! flatpak info --user "$FLATPAK_SDK_I386_ID//$FLATPAK_EXTENSION_BRANCH" >/dev/null 2>&1; then
-        echo "==> ERROR: Required Flatpak i386 SDK extension not installed: $FLATPAK_SDK_I386_ID//$FLATPAK_EXTENSION_BRANCH"
-        echo "==> Install it with: flatpak install --user flathub $FLATPAK_SDK_I386_ID//$FLATPAK_EXTENSION_BRANCH"
+    if ! flatpak info --user "$FLATPAK_SDK_I386_ID//$BRANCH" >/dev/null 2>&1; then
+        echo "==> ERROR: Required Flatpak i386 SDK extension not installed: $FLATPAK_SDK_I386_ID//$BRANCH"
+        echo "==> Install it with: flatpak install --user flathub $FLATPAK_SDK_I386_ID//$BRANCH"
         exit 1
     fi
 }
@@ -264,18 +278,19 @@ _require_flatpak_sdk() {
 
 _check_flatpak_runtime_dependencies() {
     local BUILD_DIR="$1"
+    local BRANCH="$2"
 
-    if ! flatpak info --user "$FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH" >/dev/null 2>&1; then
-        echo "==> ERROR: Required Flatpak runtime not installed: $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH"
-        echo "==> Install it with: flatpak install --user flathub $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH"
+    if ! flatpak info --user "$FLATPAK_PLATFORM_ID//$BRANCH" >/dev/null 2>&1; then
+        echo "==> ERROR: Required Flatpak runtime not installed: $FLATPAK_PLATFORM_ID//$BRANCH"
+        echo "==> Install it with: flatpak install --user flathub $FLATPAK_PLATFORM_ID//$BRANCH"
         exit 1
     fi
 
-    echo "==> Checking Flatpak overlay dependencies against $FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH..."
+    echo "==> Checking Flatpak overlay dependencies against $FLATPAK_PLATFORM_ID//$BRANCH..."
     flatpak run --user \
         --filesystem="$BUILD_DIR:ro" \
         --command=bash \
-        "$FLATPAK_PLATFORM_ID//$FLATPAK_EXTENSION_BRANCH" \
+        "$FLATPAK_PLATFORM_ID//$BRANCH" \
         -c '
             for library in "$@"; do
                 if ! output="$(ldd "$library" 2>&1)"; then
@@ -481,6 +496,7 @@ _prepare_flatpak_extension_tree() {
     local OVERLAY_OPENGL_PATH_I386="$5"
     local OVERLAY_PRELOADER_PATH_I386="$6"
     local EXT_DIR="$7"
+    local BRANCH="$8"
 
     rm -rf "$EXT_DIR"
     mkdir -p "$EXT_DIR/files/lib/x86_64-linux-gnu"
@@ -509,12 +525,12 @@ _prepare_flatpak_extension_tree() {
     cat > "$EXT_DIR/metadata" <<EOF
 [Runtime]
 name=${FLATPAK_EXTENSION_ID}
-runtime=org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
-sdk=org.freedesktop.Sdk/x86_64/${FLATPAK_EXTENSION_BRANCH}
+runtime=org.freedesktop.Platform/x86_64/${BRANCH}
+sdk=org.freedesktop.Sdk/x86_64/${BRANCH}
 
 [ExtensionOf]
-ref=runtime/org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
-runtime=org.freedesktop.Platform/x86_64/${FLATPAK_EXTENSION_BRANCH}
+ref=runtime/org.freedesktop.Platform/x86_64/${BRANCH}
+runtime=org.freedesktop.Platform/x86_64/${BRANCH}
 EOF
 }
 
@@ -522,6 +538,7 @@ EOF
 
 _install_flatpak_extension() {
     local MODE_LOWER="$1"
+    local BRANCH
     if ! command -v flatpak >/dev/null 2>&1; then
         echo "==> Flatpak not found, skipping VulkanLayer extension."
         return
@@ -530,40 +547,53 @@ _install_flatpak_extension() {
     local BUILD_ROOT
     BUILD_ROOT="$(_get_build_root)"
     build_flatpak "$MODE_LOWER"
-    local OVERLAY_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_LIB"
-    local OVERLAY_OPENGL_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_OPENGL_LIB"
-    local OVERLAY_PRELOADER_PATH="$BUILD_ROOT/flatpak/$MODE_LOWER/bin/$OVERLAY_PRELOADER_LIB"
-    local OVERLAY_PATH_I386="$BUILD_ROOT/flatpak/${MODE_LOWER}-i386/bin/$OVERLAY_LIB"
-    local OVERLAY_OPENGL_PATH_I386="$BUILD_ROOT/flatpak/${MODE_LOWER}-i386/bin/$OVERLAY_OPENGL_LIB"
-    local OVERLAY_PRELOADER_PATH_I386="$BUILD_ROOT/flatpak/${MODE_LOWER}-i386/bin/$OVERLAY_PRELOADER_LIB"
-    local EXT_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-extension"
-    local REPO_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-repo"
-    local BUNDLE_PATH="$BUILD_ROOT/$MODE_LOWER/${FLATPAK_EXTENSION_ID}.flatpak"
+    for BRANCH in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+        local BRANCH_BUILD_ROOT
+        BRANCH_BUILD_ROOT="$(_flatpak_build_root "$BRANCH")"
+        local OVERLAY_PATH="$BRANCH_BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_LIB"
+        local OVERLAY_OPENGL_PATH="$BRANCH_BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_OPENGL_LIB"
+        local OVERLAY_PRELOADER_PATH="$BRANCH_BUILD_ROOT/$MODE_LOWER/bin/$OVERLAY_PRELOADER_LIB"
+        local OVERLAY_PATH_I386="$BRANCH_BUILD_ROOT/${MODE_LOWER}-i386/bin/$OVERLAY_LIB"
+        local OVERLAY_OPENGL_PATH_I386="$BRANCH_BUILD_ROOT/${MODE_LOWER}-i386/bin/$OVERLAY_OPENGL_LIB"
+        local OVERLAY_PRELOADER_PATH_I386="$BRANCH_BUILD_ROOT/${MODE_LOWER}-i386/bin/$OVERLAY_PRELOADER_LIB"
+        local EXT_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-extension"
+        local REPO_DIR="$BUILD_ROOT/$MODE_LOWER/flatpak-repo"
+        local BUNDLE_PATH="$BUILD_ROOT/$MODE_LOWER/${FLATPAK_EXTENSION_ID}.flatpak"
+        if [ "$BRANCH" != "25.08" ]; then
+            EXT_DIR="$EXT_DIR-$BRANCH"
+            REPO_DIR="$REPO_DIR-$BRANCH"
+            BUNDLE_PATH="$BUILD_ROOT/$MODE_LOWER/${FLATPAK_EXTENSION_ID}-$BRANCH.flatpak"
+        fi
 
-    echo "==> Building Flatpak VulkanLayer extension..."
-    _prepare_flatpak_extension_tree \
-        "$OVERLAY_PATH" "$OVERLAY_OPENGL_PATH" "$OVERLAY_PRELOADER_PATH" \
-        "$OVERLAY_PATH_I386" "$OVERLAY_OPENGL_PATH_I386" "$OVERLAY_PRELOADER_PATH_I386" \
-        "$EXT_DIR"
-    rm -rf "$REPO_DIR" "$BUNDLE_PATH"
-    mkdir -p "$REPO_DIR"
-    flatpak build-export --runtime --arch=x86_64 "$REPO_DIR" "$EXT_DIR" "$FLATPAK_EXTENSION_BRANCH"
-    flatpak build-bundle --runtime --arch=x86_64 "$REPO_DIR" "$BUNDLE_PATH" "$FLATPAK_EXTENSION_ID" "$FLATPAK_EXTENSION_BRANCH"
+        echo "==> Building Flatpak VulkanLayer extension $BRANCH..."
+        _prepare_flatpak_extension_tree \
+            "$OVERLAY_PATH" "$OVERLAY_OPENGL_PATH" "$OVERLAY_PRELOADER_PATH" \
+            "$OVERLAY_PATH_I386" "$OVERLAY_OPENGL_PATH_I386" "$OVERLAY_PRELOADER_PATH_I386" \
+            "$EXT_DIR" "$BRANCH"
+        rm -rf "$REPO_DIR" "$BUNDLE_PATH"
+        mkdir -p "$REPO_DIR"
+        flatpak build-export --runtime --arch=x86_64 "$REPO_DIR" "$EXT_DIR" "$BRANCH"
+        flatpak build-bundle --runtime --arch=x86_64 "$REPO_DIR" "$BUNDLE_PATH" "$FLATPAK_EXTENSION_ID" "$BRANCH"
 
-    echo "==> Installing Flatpak extension (--user): $FLATPAK_EXTENSION_ID//$FLATPAK_EXTENSION_BRANCH"
-    if ! flatpak install --user --bundle --or-update -y --noninteractive "$BUNDLE_PATH"; then
-        echo "==> WARNING: Flatpak extension install failed for --user."
-    fi
+        echo "==> Installing Flatpak extension (--user): $FLATPAK_EXTENSION_ID//$BRANCH"
+        if ! flatpak install --user --bundle --or-update -y --noninteractive "$BUNDLE_PATH"; then
+            echo "==> ERROR: Flatpak extension install failed for --user: $BRANCH" >&2
+            return 1
+        fi
+    done
 }
 
 ##############################################################################
 
 _uninstall_flatpak_extension() {
-    if command -v flatpak >/dev/null 2>&1 \
-        && flatpak info --user "$FLATPAK_EXTENSION_ID" >/dev/null 2>&1; then
-        echo "==> Removing Flatpak extension (--user): $FLATPAK_EXTENSION_ID"
-        flatpak uninstall --user -y --noninteractive "$FLATPAK_EXTENSION_ID" || true
-    fi
+    command -v flatpak >/dev/null 2>&1 || return
+    local BRANCH
+    for BRANCH in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+        if flatpak info --user "$FLATPAK_EXTENSION_ID//$BRANCH" >/dev/null 2>&1; then
+            echo "==> Removing Flatpak extension (--user): $FLATPAK_EXTENSION_ID//$BRANCH"
+            flatpak uninstall --user -y --noninteractive "$FLATPAK_EXTENSION_ID//$BRANCH" || true
+        fi
+    done
 }
 
 ##############################################################################
@@ -607,31 +637,35 @@ build_flatpak() {
     local MODE="$1"
     local MODE_LOWER
     MODE_LOWER="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
-    local BUILD_ROOT
-    BUILD_ROOT="$(_get_build_root)/flatpak"
-    local BUILD_DIR="$BUILD_ROOT/${MODE_LOWER}"
+    local BRANCH
+    local BRANCH_BUILD_ROOT
+    local BUILD_DIR
     local MAKE_JOBS
     MAKE_JOBS="$(_make_jobs)"
 
-    echo "==> Building Flatpak overlay ($MODE_LOWER, Freedesktop SDK $FLATPAK_EXTENSION_BRANCH)..."
     _install_imgui
-    _require_flatpak_sdk
-    flatpak run --user \
-        --filesystem="$PROJECT_ROOT" \
-        --command=make \
-        "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" \
-        -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BUILD_ROOT" ARCH=x86_64
+    for BRANCH in "${FLATPAK_EXTENSION_BRANCHES[@]}"; do
+        BRANCH_BUILD_ROOT="$(_flatpak_build_root "$BRANCH")"
+        BUILD_DIR="$BRANCH_BUILD_ROOT/$MODE_LOWER"
+        echo "==> Building Flatpak overlay ($MODE_LOWER, Freedesktop SDK $BRANCH)..."
+        _require_flatpak_sdk "$BRANCH"
+        flatpak run --user \
+            --filesystem="$PROJECT_ROOT" \
+            --command=make \
+            "$FLATPAK_SDK_ID//$BRANCH" \
+            -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="$MODE_LOWER" BUILD_ROOT="$BRANCH_BUILD_ROOT" ARCH=x86_64
 
-    flatpak run --user \
-        --filesystem="$PROJECT_ROOT" \
-        --command=make \
-        "$FLATPAK_SDK_ID//$FLATPAK_EXTENSION_BRANCH" \
-        -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="${MODE_LOWER}-i386" BUILD_ROOT="$BUILD_ROOT" ARCH=i386
+        flatpak run --user \
+            --filesystem="$PROJECT_ROOT" \
+            --command=make \
+            "$FLATPAK_SDK_ID//$BRANCH" \
+            -j"$MAKE_JOBS" -C "$SCRIPT_DIR" BUILD="${MODE_LOWER}-i386" BUILD_ROOT="$BRANCH_BUILD_ROOT" ARCH=i386
 
-    _validate_overlay_artifact_set "$BUILD_DIR" 64 "Flatpak x86_64"
-    _validate_overlay_artifact_set "$BUILD_ROOT/${MODE_LOWER}-i386" 32 "Flatpak i386"
+        _validate_overlay_artifact_set "$BUILD_DIR" 64 "Flatpak $BRANCH x86_64"
+        _validate_overlay_artifact_set "$BRANCH_BUILD_ROOT/${MODE_LOWER}-i386" 32 "Flatpak $BRANCH i386"
 
-    _check_flatpak_runtime_dependencies "$BUILD_DIR"
+        _check_flatpak_runtime_dependencies "$BUILD_DIR" "$BRANCH"
+    done
 }
 
 ##############################################################################
