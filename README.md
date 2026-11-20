@@ -6,7 +6,7 @@
 - Can be configured to run in the background without the user interface.
 - Import your official Steam achievements.
 
-> The **v0.9.*-beta** release is available for **Linux** and **Windows**. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
+> The **v0.10.0-beta** release is available for **Linux** and **Windows**. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
@@ -152,42 +152,51 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 ## Project Status
 
-Current progress towards different versions, platform-wise
+Current release: **v0.10.0-beta** for Linux and Windows.
 
 ### Linux
-| Component | Status<br>v0.8.0-beta | Status<br>v0.9.0-beta | Milestone |
-|-----------|--------|--------|--------|
-| **Frontend** | | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Side Navigation Bar Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Settings Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Dashboard Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Achievement Progress Details Business Logic | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics | - | 🚧 In Development | v0.9.x-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Statistics Business Logic | - | 🚧 In Development | v0.9.x-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Localisation | - | 🔴 To Be Started | v1.x.x |
-| **Backend Service** | | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Core Functionality | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Local Achievement File Support | 🚧 In Development | - | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Sound System | ✅ Ready to Deploy | - | v0.8.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL) | ✅ Ready to Deploy | - | v0.8.0-beta |
-| **Compatibility & Testing** | | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Distribution Compatibility | 🚧 In Development | - | v1.0.0 |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | - | v1.0.0 |
+
+| Component | Status | Milestone |
+|-----------|--------|-----------|
+| Notification Overlay (Vulkan, OpenGL) | ✅ Released | v0.8.0-beta |
+| Linux release packaging | 🔴 Planned | v1.0.0 |
+| Distribution Compatibility Testing | 🚧 Ongoing | - |
+| Notification Overlay Compatibility Issues | 🚧 Ongoing | - |
 
 ### Windows
-| Component | Status<br>v0.9.0-beta | Milestone |
-|-----------|--------|--------|
-| **Frontend** | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Initial port | ✅ Ready to Deploy | v0.9.0-beta |
+
+| Component | Status | Milestone |
+|-----------|--------|-----------|
+| Frontend initial port | ✅ Released | v0.9.0-beta |
+| Backend Service initial port | ✅ Released | v0.9.0-beta |
+| Notification Overlay (Vulkan, OpenGL, DX9-12) | ✅ Released | v0.9.0-beta |
+| Notification Overlay Compatibility Issues | 🚧 Ongoing | - |
+
+### Core
+
+| Component | Status | Milestone (Linux / Windows) |
+|-----------|--------|-----------------------------|
+| **Frontend Interface** | | |
+| Side Navigation Bar | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Side Navigation Bar Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Settings | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Settings Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Dashboard | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Dashboard Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Achievement Progress Details | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Achievement Progress Details Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Statistics | 🔴 Planned | v0.11.0-beta |
+| Localisation | 🔴 Planned | After v1.0.0 |
 | **Backend Service** | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Initial port | ✅ Ready to Deploy | v0.9.0-beta |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay (Vulkan, OpenGL, DX9-12) | ✅ Ready to Deploy | v0.9.0-beta |
-| **Compatibility & Testing** | | |
-| &nbsp;&nbsp;&nbsp;&nbsp;Notification Overlay Compatibility Issues | 🚧 In Development | v1.0.0 |
+| Core Functionality | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+| Additional emulator support and testing | 🚧 Ongoing | - |
+| Notification Sound System | ✅ Released | v0.8.0-beta / v0.9.0-beta |
+
+### Upcoming Features
+
+| Feature | Status | Milestone |
+|---------|--------|-----------|
+| SOVEREIGN emulator achievement support | 🔴 Planned | v0.11.0-beta |
 
 ---
 
