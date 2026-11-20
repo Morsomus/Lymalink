@@ -185,7 +185,7 @@ Current release: **v0.10.0-beta** for Linux and Windows.
 | Dashboard Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
 | Achievement Progress Details | ✅ Released | v0.8.0-beta / v0.9.0-beta |
 | Achievement Progress Details Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
-| Statistics | 🔴 Planned | v0.11.0-beta |
+| Statistics | 🚧 Ongoing | v0.11.0-beta |
 | Localisation | 🔴 Planned | After v1.0.0 |
 | **Backend Service** | | |
 | Core Functionality | ✅ Released | v0.8.0-beta / v0.9.0-beta |
@@ -196,7 +196,7 @@ Current release: **v0.10.0-beta** for Linux and Windows.
 
 | Feature | Status | Milestone |
 |---------|--------|-----------|
-| SOVEREIGN emulator achievement support | 🔴 Planned | v0.11.0-beta |
+| SOVEREIGN emulator achievement support | 🚧 Ongoing | v0.11.0-beta |
 
 ---
 
