@@ -163,10 +163,20 @@ Item {
                     Layout.fillWidth: true
                     p_collapsed: id_root.p_collapsed
                     p_selected: id_root.p_currentPage === 1
+                    p_iconText: "▥"
+                    p_iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00046_ED.png"
+                    p_label: qsTr("Statistics")
+                    onClicked: id_root.p_currentPage = 1
+                }
+
+                SidebarButton {
+                    Layout.fillWidth: true
+                    p_collapsed: id_root.p_collapsed
+                    p_selected: id_root.p_currentPage === 2
                     p_iconText: "⚙"
                     p_iconUrl: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00004_ED.png"
                     p_label: qsTr("Settings")
-                    onClicked: id_root.p_currentPage = 1
+                    onClicked: id_root.p_currentPage = 2
                 }
             }
 
@@ -303,7 +313,7 @@ Item {
 
             BackendServiceElement {
                 p_collapsed: id_root.p_collapsed
-                onClicked: id_root.p_currentPage = 1
+                onClicked: id_root.p_currentPage = 2
             }
 
             GHElement {

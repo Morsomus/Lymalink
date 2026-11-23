@@ -11,6 +11,7 @@
 #include "Defines.h"
 #include "Settings.h"
 #include "api/SteamApi.h"
+#include "data/StatisticsHandler.h"
 #include "tools/Utils.h"
 
 #include <QDateTime>
@@ -52,10 +53,17 @@ Lymalink::Lymalink(Settings *settings, QObject *parent) :
     m_steamImportAutoSyncBusy = false;
     m_appIdFolderFindThread = nullptr;
     m_appIdFolderFindBusy = false;
+    m_statisticsThread = nullptr;
+    m_statisticsRefreshPending = false;
 }
 
 Lymalink::~Lymalink()
 {
+    if (m_statisticsThread)
+    {
+        m_statisticsThread->wait();
+    }
+
     if (m_steamApiHydrationWorker && m_hydrationWorkerThread.isRunning())
     {
         QMetaObject::invokeMethod(m_steamApiHydrationWorker, &SteamApiHydrationWorker::CancelAllEnqueueTasks, Qt::BlockingQueuedConnection);
@@ -167,6 +175,15 @@ bool Lymalink::GetSteamHydrationBusy() const
 bool Lymalink::GetSteamImportAutoSyncBusy() const
 {
     return m_steamImportAutoSyncBusy;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+bool Lymalink::GetStatisticsBusy() const
+{
+    const bool statisticsBusy = m_statisticsThread != nullptr;
+    
+    return statisticsBusy;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2476,6 +2493,39 @@ QVariantMap Lymalink::FetchSteamOwnedGames(const QString &steamId, const QString
     payload["games"] = games;
     m_lastOperationError.clear();
     return payload;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalink::RefreshStatistics()
+{
+    if (m_statisticsThread)
+    {
+        m_statisticsRefreshPending = true;
+        return;
+    }
+
+    const QString databasePath = m_databasePath;
+    m_statisticsThread = QThread::create([this, databasePath]() {
+        StatisticsHandler handler;
+        const QVariantMap payload = handler.Read(databasePath);
+        QMetaObject::invokeMethod(this, [this, payload]() {
+            emit signalStatisticsReady(payload);
+        }, Qt::QueuedConnection);
+    });
+    m_statisticsThread->setParent(this);
+    connect(m_statisticsThread, &QThread::finished, this, [this]() {
+        m_statisticsThread = nullptr;
+        emit signalStatisticsBusyChanged();
+        if (m_statisticsRefreshPending)
+        {
+            m_statisticsRefreshPending = false;
+            RefreshStatistics();
+        }
+    });
+    connect(m_statisticsThread, &QThread::finished, m_statisticsThread, &QObject::deleteLater);
+    emit signalStatisticsBusyChanged();
+    m_statisticsThread->start();
 }
 
 /////////////////////////////////////////////////////////////////////

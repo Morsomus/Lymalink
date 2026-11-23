@@ -31,7 +31,7 @@ public:
     ~SQLiteManager();
 
     // Connection methods
-    bool openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal);
+    bool openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal, bool readOnly = false);
     void closeDatabase(const QString &connectionName);
     bool isDatabaseOpen(const QString &connectionName) const;
     bool databaseAvailable(const QString &connectionName);

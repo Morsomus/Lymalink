@@ -54,6 +54,8 @@ qt_add_executable(Lymalink
     src/SysTray.cpp
     src/data/DataTransporter.h
     src/data/DataTransporter.cpp
+    src/data/StatisticsHandler.h
+    src/data/StatisticsHandler.cpp
     src/ipc/BackendControl.h
     src/ipc/BackendControl.cpp
     ${PLATFORM_BACKEND_SOURCES}
@@ -150,6 +152,7 @@ qt_add_qml_module(Lymalink
         res/img/BlankBackground_MFC_Glow_00038_ED.png
         res/img/BlankBackground_MFC_Glow_00039_ED.png
         res/img/BlankBackground_MFC_Glow_00040_ED.png
+        res/img/BlankBackground_MFC_Glow_00046_ED.png
     QML_FILES
         Main.qml 
         Themes.qml
@@ -187,6 +190,7 @@ qt_add_qml_module(Lymalink
         views/Main/Dashboard/DashboardSettings.qml
         views/Main/Dashboard/DashboardToolbar.qml
         views/Main/Settings/Settings.qml
+        views/Main/Statistics/Statistics.qml
         views/Sidebar/Components/BackendServiceElement.qml
         views/Sidebar/Components/GHElement.qml
         views/Sidebar/Components/SidebarButton.qml

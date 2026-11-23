@@ -19,10 +19,13 @@ T.Control {
     property string p_firstText: ""
     property string p_secondText: ""
     property int p_currentIndex: 0
+    property color p_accentColor: "transparent"
 
     signal activated(int index)
 
     // Internals _____________________________________________
+    readonly property bool accentEnabled: enabled && p_accentColor.a > 0
+
     implicitWidth: 240
     implicitHeight: 40
     padding: 2
@@ -37,12 +40,17 @@ T.Control {
     }
 
     background: Rectangle {
+        readonly property color neutralBorder: id_root.visualFocus
+            ? Themes.customTabSelector.colors.borderFocus
+            : Themes.customTabSelector.colors.border
+
         radius: 6
         color: Themes.customTabSelector.colors.background
         border.width: 1
-        border.color: id_root.visualFocus
-            ? Themes.customTabSelector.colors.borderFocus
-            : Themes.customTabSelector.colors.border
+        border.color: id_root.accentEnabled
+            ? Qt.tint(neutralBorder, Themes.globalStyle.withAlpha(id_root.p_accentColor,
+                id_root.visualFocus ? Themes.statistics.opacity.activeBorder : Themes.statistics.opacity.border))
+            : neutralBorder
     }
 
     contentItem: RowLayout {
@@ -80,8 +88,7 @@ T.Control {
                 }
 
                 background: Rectangle {
-                    radius: 4
-                    color: !id_tab.enabled
+                    readonly property color neutralBackground: !id_tab.enabled
                         ? Themes.customTabSelector.colors.backgroundDisabled
                         : (id_tab.down
                             ? Themes.customTabSelector.colors.backgroundPressed
@@ -89,11 +96,22 @@ T.Control {
                                 ? Themes.customTabSelector.colors.backgroundSelected
                                 : (id_tab.hovered
                                     ? Themes.customTabSelector.colors.backgroundHover
-                                    : "transparent")))
-                    border.width: id_tab.selected || id_tab.visualFocus ? 1 : 0
-                    border.color: id_tab.visualFocus
+                                    : Themes.customTabSelector.colors.background)))
+                    readonly property color neutralBorder: id_tab.visualFocus
                         ? Themes.customTabSelector.colors.borderFocus
                         : Themes.customTabSelector.colors.borderSelected
+                    readonly property real accentOpacity: id_tab.down || id_tab.selected
+                        ? Themes.statistics.opacity.selected
+                        : (id_tab.hovered ? Themes.statistics.opacity.hover : 0)
+
+                    radius: 4
+                    color: id_root.accentEnabled && id_tab.enabled
+                        ? Qt.tint(neutralBackground, Themes.globalStyle.withAlpha(id_root.p_accentColor, accentOpacity))
+                        : neutralBackground
+                    border.width: id_tab.selected || id_tab.visualFocus ? 1 : 0
+                    border.color: id_root.accentEnabled && id_tab.enabled
+                        ? Qt.tint(neutralBorder, Themes.globalStyle.withAlpha(id_root.p_accentColor, Themes.statistics.opacity.activeBorder))
+                        : neutralBorder
 
                     Behavior on color {
                         ColorAnimation {

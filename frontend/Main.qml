@@ -327,6 +327,10 @@ ApplicationWindow {
                     id: id_dashboard
                     enabled: !id_root.fatalErrorOccurred
                 }
+                Statistics {
+                    enabled: !id_root.fatalErrorOccurred
+                    p_active: id_sidebar.p_currentPage === 1
+                }
                 Settings {
                     onAchievementImportCompleted: function(addedTargets) {
                         id_dashboard.applyAchievementImportResult(addedTargets)

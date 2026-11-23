@@ -42,10 +42,10 @@ SQLiteManager::~SQLiteManager()
 ////////////////////////////// PUBLIC ///////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal)
+bool SQLiteManager::openDatabase(const QString &connectionName, const QString &dbPath, bool createMissingDb, bool useWal, bool readOnly)
 {
     const QString conn = resolveConn(connectionName);
-    if (!createMissingDb && !QFileInfo::exists(dbPath))
+    if ((!createMissingDb || readOnly) && !QFileInfo::exists(dbPath))
     {
         setLastError("Database file is not available: " + dbPath);
         emit signalDatabaseError(m_lastError);
@@ -54,7 +54,7 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
 
     if (m_dbConnections.contains(conn))
     {
-        if (isDatabaseOpen(conn) && m_dbConnections.value(conn).databaseName() == dbPath)
+        if (isDatabaseOpen(conn) && m_dbConnections.value(conn).databaseName() == dbPath && m_dbConnections.value(conn).connectOptions().contains("QSQLITE_OPEN_READONLY") == readOnly)
         {
             m_lastError.clear();
             return true;
@@ -64,6 +64,12 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", conn);
     db.setDatabaseName(dbPath);
+    
+    if (readOnly)
+    {
+        db.setConnectOptions("QSQLITE_OPEN_READONLY;QSQLITE_BUSY_TIMEOUT=3000");
+    }
+
     if (!db.open())
     {
         setLastError(db.lastError().text());
@@ -74,13 +80,13 @@ bool SQLiteManager::openDatabase(const QString &connectionName, const QString &d
     }
 
     QString journalError;
-    bool success = false;
-    if (useWal)
+    bool success = true;
+    if (!readOnly && useWal)
     {
         // WAL mode + busy timeout + foreign keys
         success = configureWalConnection(db, journalError);
     }
-    else
+    else if (!readOnly)
     {
         // DELETE mode + busy timeout + foreign keys
         success = configureRollbackConnection(db, journalError);

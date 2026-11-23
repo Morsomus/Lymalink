@@ -31,6 +31,10 @@ Item {
     property bool p_returnLocked: false
     property bool p_detailsRefreshBusy: false
     property bool p_showAllHiddenAchievements: false
+    property bool p_statisticsVisible: false
+    property bool p_statisticsBusy: false
+    property string p_statisticsSort: "title"
+    property bool p_statisticsDescending: false
 
     signal layoutSelected(string size)
     signal returnClicked()
@@ -51,9 +55,14 @@ Item {
     signal targetDetailsSortOrderSelected(bool descending)
     signal targetDetailsFiltersSelected(var filters)
     signal showAllHiddenAchievementsChanged(bool show)
+    signal statisticsSearchChanged(string text)
+    signal statisticsSortSelected(string sort)
+    signal statisticsOrderSelected(bool descending)
     
     // Internals _____________________________________________
     property string activePanel: ""
+    property bool statisticsSortOpen: false
+    readonly property var statisticsSortModel: ["title", "playtime", "completion", "lastPlayed", "latestUnlock"]
     property string activeSort: ctxSettings.dashboardToolbarSort
     property string activeFilter: activeFilters.length > 1 ? "multiple" : activeFilters[0]
     property var activeFilters: ctxSettings.dashboardToolbarFilters.length > 0 ? ctxSettings.dashboardToolbarFilters : ["none"]
@@ -77,15 +86,18 @@ Item {
         { value: "largeCardGrid", label: "Large" }
     ]
 
-    implicitHeight: p_addTargetVisible
-        ? id_addTargetToolbar.implicitHeight
-        : p_targetDetailsVisible
-            ? id_targetDetailsToolbar.implicitHeight
-            : id_toolbar.implicitHeight
+    implicitHeight: p_statisticsVisible
+        ? id_statisticsToolbar.implicitHeight
+        : p_addTargetVisible
+            ? id_addTargetToolbar.implicitHeight
+            : p_targetDetailsVisible
+                ? id_targetDetailsToolbar.implicitHeight
+                : id_toolbar.implicitHeight
 
     Shortcut {
         sequence: "Esc"
-        enabled: (id_root.activePanel !== ""
+        enabled: (id_root.statisticsSortOpen
+            || id_root.activePanel !== ""
             || id_root.targetDetailsActivePanel !== ""
             || id_root.p_targetDetailsVisible
             || id_root.p_addTargetVisible)
@@ -93,7 +105,7 @@ Item {
             && !id_dashboardSettingsPopup.opened
             && !id_root.p_returnLocked
         onActivated: {
-            if (id_root.activePanel !== "" || id_root.targetDetailsActivePanel !== "") {
+            if (id_root.statisticsSortOpen || id_root.activePanel !== "" || id_root.targetDetailsActivePanel !== "") {
                 id_root.closeOpenPanels()
                 return
             }
@@ -135,6 +147,8 @@ Item {
             case "playtime":     return qsTr("Playtime")
             case "lastPlayed":   return qsTr("Last Played")
             case "dateAdded":    return qsTr("Date Added")
+            case "completion":   return qsTr("Completion")
+            case "latestUnlock": return qsTr("Latest Unlock")
             default:             return qsTr("Error")
         }
     }
@@ -228,6 +242,7 @@ Item {
     }
 
     function closeOpenPanels() {
+        statisticsSortOpen = false
         activePanel = ""
         targetDetailsActivePanel = ""
     }
@@ -456,6 +471,170 @@ Item {
         }
         onTargetsVisibilityChanged: {
             id_root.targetsVisibilityChanged()
+        }
+    }
+
+    // Statistics Toolbar
+    ColumnLayout {
+        id: id_statisticsToolbar
+
+        visible: id_root.p_statisticsVisible
+        anchors.fill: parent
+        spacing: 8
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 12
+
+            Label {
+                text: id_root.p_toolbarTitle
+                font.pixelSize: Themes.dashboardToolbar.fontSizes.title
+                font.bold: true
+                color: Themes.dashboardToolbar.colors.titleText
+            }
+
+            Rectangle {
+                width: 1
+                height: 32
+                color: Themes.dashboardToolbar.colors.divider
+                opacity: 0.5
+            }
+
+            Rectangle {
+                width: 200
+                height: 32
+                radius: 16
+                color: Themes.dashboardToolbar.colors.searchBackground
+                border.width: 1
+                border.color: Themes.dashboardToolbar.colors.searchBorder
+
+                CustomTextField {
+                    anchors.fill: parent
+                    leftPadding: 12
+                    rightPadding: 12
+                    placeholderText: qsTr("Search...")
+                    color: Themes.dashboardToolbar.colors.searchText
+                    font.pixelSize: Themes.dashboardToolbar.fontSizes.searchInput
+                    background: Item {}
+                    onTextChanged: id_root.statisticsSearchChanged(text)
+                    Keys.onEscapePressed: {
+                        text = ""
+                        focus = false
+                    }
+                }
+            }
+
+            C_SortFilterPill {
+                pillLabel: qsTr("Sort:")
+                pillValue: id_root.sortLabel(id_root.p_statisticsSort)
+                isOpen: id_root.statisticsSortOpen
+                onPillClicked: id_root.statisticsSortOpen = !id_root.statisticsSortOpen
+            }
+
+            C_SortFilterPill {
+                pillLabel: qsTr("Order:")
+                pillValue: id_root.p_statisticsDescending ? "↓" : "↑"
+                onPillClicked: id_root.statisticsOrderSelected(!id_root.p_statisticsDescending)
+            }
+
+            Rectangle {
+                id: id_statisticsRefresh
+
+                property real refreshRotation: 0
+
+                implicitWidth: 32
+                implicitHeight: 32
+                radius: 16
+
+                color: id_statisticsRefreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
+                    : id_statisticsRefreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                        : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
+
+                border.width: 1
+                border.color: id_statisticsRefreshMouseArea.pressed
+                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
+                    : id_statisticsRefreshMouseArea.containsMouse
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+
+                Image {
+                    id: id_statisticsRefreshIcon
+
+                    anchors.centerIn: parent
+                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                    width: 19
+                    height: 19
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                    visible: false // MultiEffect draws image
+                }
+
+                MultiEffect {
+                    anchors.fill: id_statisticsRefreshIcon
+                    source: id_statisticsRefreshIcon
+                    colorizationColor: id_root.themedCompletionColor
+                    colorization: 1.0
+                    rotation: id_statisticsRefresh.refreshRotation
+                    visible: !id_root.p_statisticsBusy
+                }
+
+                CustomBusyIndicator {
+                    anchors.centerIn: parent
+                    p_indicatorSize: 26
+                    p_running: id_root.p_statisticsVisible && id_root.p_statisticsBusy
+                }
+
+                NumberAnimation {
+                    id: id_statisticsRefreshSpinAnimation
+
+                    target: id_statisticsRefresh
+                    property: "refreshRotation"
+                    from: 0
+                    to: 360
+                    duration: 300
+                    easing.type: Easing.Linear
+                }
+
+                MouseArea {
+                    id: id_statisticsRefreshMouseArea
+
+                    anchors.fill: parent
+                    enabled: !id_root.p_statisticsBusy
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        id_statisticsRefreshSpinAnimation.restart()
+                        id_root.refreshClicked()
+                    }
+
+                    CustomTooltip {
+                        p_active: id_statisticsRefreshMouseArea.containsMouse
+                        p_text: qsTr("Refresh statistics")
+                    }
+                }
+            }
+        }
+
+        C_ChipBar {
+            Layout.fillWidth: true
+            visible: id_root.statisticsSortOpen
+            barLabel: qsTr("Sort by:")
+            chipModel: id_root.statisticsSortModel
+            labelFn: id_root.sortLabel
+            isActiveFn: function(value) { return value === id_root.p_statisticsSort }
+            onChipClicked: function(value) {
+                id_root.statisticsSortOpen = false
+                id_root.statisticsSortSelected(value)
+            }
         }
     }
 
@@ -1152,7 +1331,7 @@ Item {
     ColumnLayout {
         id: id_toolbar
 
-        visible: !p_targetDetailsVisible && !p_addTargetVisible
+        visible: !p_targetDetailsVisible && !p_addTargetVisible && !p_statisticsVisible
         anchors.fill: parent
         spacing: 8
 

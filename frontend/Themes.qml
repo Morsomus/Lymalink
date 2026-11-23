@@ -364,6 +364,35 @@ QtObject {
         }
     }
 
+    // Statistics.qml
+    readonly property QtObject statistics: QtObject {
+        readonly property QtObject opacity: QtObject {
+            readonly property real panel: id_themes.isLight ? 0.02 : 0.04
+            readonly property real border: id_themes.isLight ? 0.15 : 0.20
+            readonly property real alternateRow: id_themes.isLight ? 0.02 : 0.03
+            readonly property real hover: id_themes.isLight ? 0.04 : 0.06
+            readonly property real selected: id_themes.isLight ? 0.07 : 0.10
+            readonly property real activeBorder: id_themes.isLight ? 0.28 : 0.35
+        }
+
+        readonly property QtObject colors: QtObject {
+            readonly property color panel: id_themes.themeColor("#202020", "#ffffff")
+            readonly property color alternateRow: id_themes.themeColor("#242424", "#f5f7f9")
+            readonly property color border: id_themes.themeColor("#303030", "#d8dee6")
+            readonly property color title: id_themes.themeColor("#eeeeee", "#1f2933")
+            readonly property color body: id_themes.themeColor("#aaaaaa", "#4b5563")
+            readonly property color error: id_themes.themeColor("#f0b8b8", "#b42318")
+        }
+
+        readonly property QtObject fontSizes: QtObject {
+            readonly property int value: 23
+            readonly property int activityValue: 15
+            readonly property int section: 16
+            readonly property int body: 13
+            readonly property int caption: 12
+        }
+    }
+
     // Settings.qml
     readonly property QtObject settings: QtObject {
         readonly property QtObject colors: QtObject {

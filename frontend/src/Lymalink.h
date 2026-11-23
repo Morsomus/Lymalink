@@ -31,6 +31,7 @@ class Lymalink : public QObject
     Q_OBJECT
     Q_PROPERTY(bool steamHydrationBusy READ GetSteamHydrationBusy NOTIFY signalSteamHydrationBusyChanged)
     Q_PROPERTY(bool steamImportAutoSyncBusy READ GetSteamImportAutoSyncBusy NOTIFY signalSteamImportAutoSyncBusyChanged)
+    Q_PROPERTY(bool statisticsBusy READ GetStatisticsBusy NOTIFY signalStatisticsBusyChanged)
 
 public:
     explicit Lymalink(Settings *settings, QObject *parent = nullptr);
@@ -40,6 +41,7 @@ public:
 
     bool GetSteamHydrationBusy() const;
     bool GetSteamImportAutoSyncBusy() const;
+    bool GetStatisticsBusy() const;
     
     Q_INVOKABLE void SearchSteamAppIds(const QString &term);
     Q_INVOKABLE void CancelSteamAppIdSearch();
@@ -76,6 +78,7 @@ public:
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QVariantMap FetchSteamOwnedGames(const QString &steamId, const QString &apiKey);
+    Q_INVOKABLE void RefreshStatistics();
 
 signals:
     void signalSteamAppIdsSearchReady(bool success, bool cancelled, QVariantList results);
@@ -88,6 +91,8 @@ signals:
     void signalSteamImportAutoSyncFinished(QVariantMap payload);
     void signalAchievementMetadataReady(int appId, QString targetType, bool success);
     void signalEmulatorAppIdFolderFindFinished(bool success, QVariantList results, QString error);
+    void signalStatisticsBusyChanged();
+    void signalStatisticsReady(QVariantMap payload);
     void signalErrorOccurred(QString title, QString message);
 
     // Internal - SteamApiSearchWorker
@@ -119,6 +124,8 @@ private:
     bool m_steamImportAutoSyncBusy;
     QThread *m_appIdFolderFindThread;
     bool m_appIdFolderFindBusy;
+    QThread *m_statisticsThread;
+    bool m_statisticsRefreshPending;
 
     Error DatabaseInit(const QString &databasePath, bool createMissingDatabase);
     Error FileSystemInit();
