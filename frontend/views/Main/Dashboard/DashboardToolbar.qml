@@ -584,15 +584,15 @@ Item {
                 const refreshWidth = id_detailsRefreshGroup.visible
                     ? itemWidth(id_detailsRefreshGroup)
                     : 0
-                const reservedWidth = settingsWidth
-                    + spacing
-                    + (id_detailsRefreshGroup.visible ? refreshWidth + spacing : 0)
+                const reservedActionWidth = id_detailsRefreshGroup.visible
+                    ? refreshWidth + spacing
+                    : 0
                 const minimumTitleWidth = 35
                     + id_backArrowRow.spacing
                     + id_titleLabel.Layout.minimumWidth
                 const availableTitleWidth = Math.max(
                     minimumTitleWidth,
-                    maxWidth - reservedWidth
+                    maxWidth - reservedActionWidth
                 )
                 const titleWidth = Math.min(
                     itemWidth(id_detailsBackTitleGroup),
@@ -724,7 +724,8 @@ Item {
 
                             Layout.minimumWidth: 80
                             Layout.fillWidth: true
-                            Layout.preferredWidth: implicitWidth
+                            // Fractional implicit widths can round down in RowLayout and elide a fitting title.
+                            Layout.preferredWidth: Math.ceil(implicitWidth) + 2
                             font.pixelSize: Themes.dashboardToolbar.fontSizes.title
                             font.bold: true
                             color: Themes.dashboardToolbar.colors.titleText
