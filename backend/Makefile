@@ -54,13 +54,15 @@ SOURCES := \
     src/tools/parsers/GoGNParser.cpp \
     src/tools/parsers/RLDParser.cpp \
     src/tools/parsers/SSEParser.cpp \
-    src/tools/parsers/TenokeParser.cpp
+    src/tools/parsers/TenokeParser.cpp \
+    src/tools/parsers/SovereignParser.cpp
 
 OBJECTS := $(SOURCES:src/%.cpp=$(OBJ_DIR)/%.o)
 
 TEST_SOURCES := \
     tests/SQLiteManagerTests.cpp \
     tests/ParserTests.cpp \
+    tests/AchievementHandlerTests.cpp \
     tests/AchievementKeyResolverTests.cpp \
     tests/PathScannerTests.cpp \
     src/database/SQLiteManager.cpp \
@@ -68,10 +70,14 @@ TEST_SOURCES := \
     src/tools/AchievementKeyResolver.cpp \
     src/tools/Logger.cpp \
     src/watcher/PathScanner.cpp \
+    src/watcher/AchievementHandler.cpp \
+    src/tools/parsers/RUNECodexParser.cpp \
+    src/tools/parsers/GoldbergParser.cpp \
     src/tools/parsers/GoGNParser.cpp \
     src/tools/parsers/RLDParser.cpp \
     src/tools/parsers/SSEParser.cpp \
-    src/tools/parsers/TenokeParser.cpp
+    src/tools/parsers/TenokeParser.cpp \
+    src/tools/parsers/SovereignParser.cpp
 
 .PHONY: all clean test
 

@@ -24,8 +24,8 @@ struct AppIdDirPathScanTarget
     std::string installationDir;
     std::string dataOpt;
     bool customAchievementLocation = false;
-    std::string customAchievementDataLocation;
-    std::string emulatorType;
+    std::string customAchievementDataLocation{};
+    std::string emulatorType{};
 };
 
 struct AppIdDirPathScanResult
@@ -35,6 +35,7 @@ struct AppIdDirPathScanResult
     std::string emulatorType;
     std::string dataOpt;
     bool appidDirFound = false;
+    std::string achievementFileName{};    // Optional filename selected by the scanner for parser usage - empty uses the parser defaults
 };
 
 class PathScanner
@@ -62,6 +63,7 @@ private:
 #endif
     std::string FindNemirtingasDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
     std::string FindTenokeDir(const AppIdDirPathScanTarget& target, const std::function<bool()>& shouldStopScanning) const;
+    std::string FindSovereignDir(const AppIdDirPathScanTarget& target, std::string& achievementFileName, const std::function<bool()>& shouldStopScanning) const;
     std::string FindGogPrefixAppIdDir(const AppIdDirPathScanTarget& target, const std::vector<std::string>& gogIds, const std::function<bool()>& shouldStopScanning) const;
     std::vector<std::string> FindGogIds(const std::string& installationDir) const;
     std::string JoinIds(const std::vector<std::string>& ids) const;

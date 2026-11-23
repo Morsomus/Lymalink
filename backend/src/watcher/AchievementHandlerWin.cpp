@@ -15,6 +15,7 @@
 #include "../tools/parsers/RUNECodexParser.h"
 #include "../tools/parsers/SSEParser.h"
 #include "../tools/parsers/TenokeParser.h"
+#include "../tools/parsers/SovereignParser.h"
 
 #include <filesystem>
 #include <exception>
@@ -108,7 +109,7 @@ void AchievementHandler::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, std::optional<std::filesystem::file_time_type> processStartedAt)
+void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride, std::optional<std::filesystem::file_time_type> processStartedAt)
 {
     // Ensure the directory exists before continuing
     if (!fs::is_directory(appIdDirPath))
@@ -141,7 +142,15 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
     session.targetId = targetId;
     session.appIdDirPath = appIdDirPath;
     session.emulatorType = emulatorType;
-    session.achievementFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+    if (emulatorType == "SOVEREIGN" && fileNameOverride.empty())
+    {
+        // Choose between the two SOVEREIGN filenames in this directory
+        session.achievementFileName = SovereignParser::FindFileNameInDirectory(appIdDirPath);
+    }
+    else
+    {
+        session.achievementFileName = fileNameOverride.empty() ? parser->GetFileName() : fileNameOverride;
+    }
     session.processStartedAt = processStartedAt;
     m_parsers[targetId] = parser;
     m_sessions[targetId] = std::move(session);
@@ -201,7 +210,7 @@ std::vector<AchievementData> AchievementHandler::PollUnhandled(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
-std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, bool *achievementFileFound)
+std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride, bool *achievementFileFound)
 {
     std::vector<AchievementData> values;
     if (achievementFileFound)
@@ -216,7 +225,7 @@ std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int tar
         return values;
     }
 
-    const std::string resolvedFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+    const std::string resolvedFileName = fileNameOverride.empty() ? parser->GetFileName() : fileNameOverride;
     const fs::path filePath = fs::path(appIdDirPath) / resolvedFileName;
     if (!fs::is_regular_file(filePath))
     {
@@ -266,6 +275,17 @@ void AchievementHandler::WatchLoop()
                     const int targetId = session.targetId;
                     ++it;
                     RemoveSessionLocked(targetId);
+                    continue;
+                }
+
+                if (session.emulatorType == "SOVEREIGN" && session.achievementFileName.empty())
+                {
+                    // Recheck until an achievement filename can be chosen
+                    session.achievementFileName = SovereignParser::FindFileNameInDirectory(session.appIdDirPath);
+                }
+                if (session.achievementFileName.empty())
+                {
+                    ++it;
                     continue;
                 }
 
@@ -494,6 +514,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating Tenoke parser.");
         return new TenokeParser();
+    }
+    if (emulatorType == "SOVEREIGN")
+    {
+        LOG_BE(Urgency::Debug, "Creating SOVEREIGN parser.");
+        return new SovereignParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());

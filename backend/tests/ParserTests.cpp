@@ -17,6 +17,7 @@
 #include "tools/parsers/RLDParser.h"
 #include "tools/parsers/SSEParser.h"
 #include "tools/parsers/TenokeParser.h"
+#include "tools/parsers/SovereignParser.h"
 
 #include <filesystem>
 #include <fstream>
@@ -231,6 +232,162 @@ malformed = true
     TenokeParser parser;
     CHECK(parser.Parse((root / "missing.ini").string()).empty());
     CHECK(parser.Parse(filePath.string()).empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("sovereignParser_readsAchievementStatesOnly", "[sovereign]")
+{
+    const fs::path root = "/tmp/lymalink_sovereign_parser_states";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "SOVEREIGN.ini";
+    {
+        std::ofstream file(filePath);
+        file << R"([Game]
+AppID=367520
+[Achievements]
+; Achievement description
+TRAITOR_LORD=1785652344
+  CHARMED = 0
+# Another comment
+  PANTHEON1 = 1785652392
+[Experimental]
+Overlay=1
+)";
+    }
+
+    SovereignParser parser;
+    CHECK(parser.GetFileName() == "SOVEREIGN.ini");
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
+
+    REQUIRE(parsed.size() == 3);
+    CHECK(parsed[0].key == "TRAITOR_LORD");
+    CHECK(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 1785652344);
+    CHECK_FALSE(parsed[0].hasCurProgress);
+    CHECK_FALSE(parsed[0].hasMaxProgress);
+    CHECK(parsed[1].key == "CHARMED");
+    CHECK_FALSE(parsed[1].achieved);
+    CHECK(parsed[1].unlockTime == 0);
+    CHECK(parsed[2].key == "PANTHEON1");
+    CHECK(parsed[2].achieved);
+    CHECK(parsed[2].unlockTime == 1785652392);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("sovereignParser_ignoresMalformedEntriesAndMissingFile", "[sovereign]")
+{
+    const fs::path root = "/tmp/lymalink_sovereign_parser_invalid";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "SOVEREIGN.ini";
+    {
+        std::ofstream file(filePath);
+        file << R"([Game]
+AppID=367520
+[Achievements]
+INVALID_VALUE=abc
+NO_EQUALS
+=1
+=1785652344
+TEXT=true
+NEGATIVE=-1
+; STILL_IGNORED=1
+[Profile]
+Username=1
+)";
+    }
+
+    SovereignParser parser;
+    CHECK(parser.Parse((root / "missing.ini").string()).empty());
+    CHECK(parser.Parse(filePath.string()).empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("sovereignParser_readsSectionBasedAchievements", "[sovereign]")
+{
+    const fs::path root = "/tmp/lymalink_sovereign_parser_sections";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path filePath = root / "achievements.ini";
+    {
+        std::ofstream file(filePath);
+        file << R"([NoviceOfPlanedEconomy]
+Name=Novice to Planned Economy
+Description=Enter into the gameplay.
+Percent=70.7
+Unlocked=0
+[TRAITOR_LORD]
+Unlocked=1785652344
+; Ignored comment
+[ ]
+Unlocked=1
+[BROKEN]
+Unlocked=abc
+=1785652344
+[MISSING]
+Name=No unlock field
+)";
+    }
+
+    SovereignParser parser;
+    const std::vector<AchievementData> parsed = parser.Parse(filePath.string());
+
+    REQUIRE(parsed.size() == 2);
+    CHECK(parsed[0].key == "NoviceOfPlanedEconomy");
+    CHECK_FALSE(parsed[0].achieved);
+    CHECK(parsed[0].unlockTime == 0);
+    CHECK(parsed[1].key == "TRAITOR_LORD");
+    CHECK(parsed[1].achieved);
+    CHECK(parsed[1].unlockTime == 1785652344);
+    CHECK_FALSE(parsed[1].hasCurProgress);
+    CHECK_FALSE(parsed[1].hasMaxProgress);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("sovereignParser_customFolderSelectsExpectedFile", "[sovereign]")
+{
+    const fs::path root = "/tmp/lymalink_sovereign_parser_folder";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const fs::path sovereignFile = root / "SOVEREIGN.ini";
+
+    CHECK(SovereignParser::FindFileNameInDirectory(root.string()).empty());
+    {
+        std::ofstream file(root / "achievements.ini");
+        file << "[TRAITOR_LORD]\nUnlocked=0\n";
+    }
+    CHECK(SovereignParser::FindFileNameInDirectory(root.string()) == "achievements.ini");
+    fs::remove(root / "achievements.ini");
+    {
+        std::ofstream file(sovereignFile);
+        file << "[Game]\nAppID=784150\n";
+    }
+
+    // Config-only file means achievements.ini is expected, even before it exists
+    SovereignParser parser;
+    CHECK_FALSE(SovereignParser::HasAchievementsSection(sovereignFile.string()));
+    CHECK(parser.Parse(sovereignFile.string()).empty());
+    CHECK(SovereignParser::FindFileNameInDirectory(root.string()) == "achievements.ini");
+
+    {
+        std::ofstream file(sovereignFile);
+        file << "[Achievements]\nTRAITOR_LORD=0\n";
+    }
+    CHECK(SovereignParser::HasAchievementsSection(sovereignFile.string()));
+    CHECK(SovereignParser::FindFileNameInDirectory(root.string()) == "SOVEREIGN.ini");
 
     fs::remove_all(root);
 }

@@ -46,6 +46,7 @@ Popup {
         { label: qsTr("Reloaded"), value: "RLD", filePattern: "*.ini" },
         { label: qsTr("SmartSteamEmu"), value: "SmartSteamEmu", filePattern: "*.bin" },
         { label: qsTr("Tenoke"), value: "Tenoke", filePattern: "*.ini" },
+        { label: qsTr("SOVEREIGN"), value: "SOVEREIGN", filePattern: "*.ini" },
         { label: qsTr("NemirtingasGalaxyEmulator"), value: "GOG-N", filePattern: "*.json" }
     ]
     readonly property string draftAchievementLocation: draftAchievementLocationIsFolder
@@ -424,7 +425,7 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
-                text: qsTr("Game Installation Directory (Optional - Tenoke, NemirtingasGalaxyEmulator)")
+                text: qsTr("Game Installation Directory (Optional - Tenoke, SOVEREIGN, NemirtingasGalaxyEmulator)")
                 color: Themes.targetSettings.colors.bodyText
                 font.pixelSize: Themes.targetSettings.fontSizes.body
             }

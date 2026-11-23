@@ -10,6 +10,7 @@
 #include "Defines.h"
 #include "tools/Logger.h"
 #include "tools/Utils.h"
+#include "tools/parsers/SovereignParser.h"
 
 #include <cerrno>
 #include <cctype>
@@ -478,9 +479,9 @@ void Lymalinkd::Monitor()
                                         }
                                     }
 
-                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, "", hasProcessStartTime ? std::optional{processStartedAt} : std::nullopt);
+                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, result.achievementFileName, hasProcessStartTime ? std::optional{processStartedAt} : std::nullopt);
 #else
-                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType);
+                                    m_achievementHandler.AddTarget(result.targetId, result.appidDirLocation, result.emulatorType, result.achievementFileName);
 #endif
                                 }
                             }
@@ -943,14 +944,14 @@ void Lymalinkd::OnProcessStarted(int targetId, const std::string& executablePath
 
         // Custom file paths reuse normal directory monitoring with an exact filename override
         std::string achievementDirectory = appIdDirPath;
-        std::string customAchievementFileName;
+        std::string selectedAchievementFileName;
         if (customAchievementLocation)
         {
             const CustomAchievementLocation location = ResolveCustomAchievementLocation(appIdDirPath);
             achievementDirectory = location.directoryPath;
-            customAchievementFileName = location.fileName;
+            selectedAchievementFileName = location.fileName;
         }
-        m_achievementHandler.AddTarget(targetId, achievementDirectory, emulatorType, customAchievementFileName);
+        m_achievementHandler.AddTarget(targetId, achievementDirectory, emulatorType, selectedAchievementFileName);
     }
 
     ScheduleStartupNotification(targetId, gameName);
@@ -1339,7 +1340,18 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
             {
                 const CustomAchievementLocation location = ResolveCustomAchievementLocation(target.customAchievementDataLocation);
                 customAchievementDirectory = location.directoryPath;
-                customAchievements = m_achievementHandler.ReadAchievementFileOnce(targetId, location.directoryPath, target.emulatorType, location.fileName, &customAchievementFileFound);
+                std::string fileName = location.fileName;
+                if (target.emulatorType == "SOVEREIGN" && fileName.empty())
+                {
+                    // Resolve the selected folder's file for this one-shot read
+                    fileName = SovereignParser::FindFileNameInDirectory(location.directoryPath);
+                }
+
+                if (target.emulatorType != "SOVEREIGN" || !fileName.empty())
+                {
+                    customAchievements = m_achievementHandler.ReadAchievementFileOnce(targetId, location.directoryPath, target.emulatorType, fileName, &customAchievementFileFound);
+                }
+
                 if (shouldStopScanning())
                 {
                     customAchievementFileFound = false;
@@ -1407,7 +1419,7 @@ void Lymalinkd::OnStartManualAchievementDataScan(int targetId)
                 }
                 else
                 {
-                    achievements = m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType);
+                    achievements = m_achievementHandler.ReadAchievementFileOnce(result.targetId, result.appidDirLocation, result.emulatorType, result.achievementFileName);
                 }
                 for (const AchievementData& achievement : achievements)
                 {

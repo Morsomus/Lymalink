@@ -236,6 +236,7 @@ QVariantMap Lymalink::InspectExecutableFolder(const QString &executablePath)
     };
 
     const QRegularExpression appIdLineRegex(QStringLiteral("^\\s*AppId\\s*=\\s*(\\d+)\\s*$"), QRegularExpression::MultilineOption);
+    const QRegularExpression sovereignAppIdLineRegex(QStringLiteral("^\\s*AppID\\s*=\\s*(\\d+)\\s*$"), QRegularExpression::CaseInsensitiveOption);
     const QRegularExpression tenokeIdLineRegex(QStringLiteral("^\\s*id\\s*=\\s*(\\d+)\\s*(?:#.*)?$"), QRegularExpression::MultilineOption);
     const QRegularExpression numericTextRegex(QStringLiteral("^\\d+$"));
     const QFileInfoList entries = installDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
@@ -283,6 +284,34 @@ QVariantMap Lymalink::InspectExecutableFolder(const QString &executablePath)
                 if (match.hasMatch())
                 {
                     addSteamAppId(match.captured(1));
+                }
+            }
+        }
+        else if (lowerName == QStringLiteral("sovereign.ini"))
+        {
+            QFile file(entry.absoluteFilePath());
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                bool inGame = false;
+                const QStringList lines = QString::fromUtf8(file.readAll()).split('\n');
+                for (const QString &line : lines)
+                {
+                    const QString trimmedLine = line.trimmed();
+                    if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']'))
+                    {
+                        inGame = trimmedLine.compare(QStringLiteral("[Game]"), Qt::CaseInsensitive) == 0;
+                        continue;
+                    }
+
+                    if (inGame)
+                    {
+                        const QRegularExpressionMatch match = sovereignAppIdLineRegex.match(line);
+                        if (match.hasMatch())
+                        {
+                            addSteamAppId(match.captured(1));
+                            break;
+                        }
+                    }
                 }
             }
         }

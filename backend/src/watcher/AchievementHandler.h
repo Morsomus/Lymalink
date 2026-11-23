@@ -76,16 +76,16 @@ public:
 
     // Add a target session to track. Parser is selected by emulatorType.
 #if defined(_WIN32)
-    void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName = "", std::optional<std::filesystem::file_time_type> processStartedAt = std::nullopt);
+    void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride = "", std::optional<std::filesystem::file_time_type> processStartedAt = std::nullopt);
 #else
-    void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName = "");
+    void AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride = "");
 #endif
     void RemoveTarget(int targetId);
 
     // Called by Lymalinkd to collect achievement changes for DB sync.
     // Returns unhandled changes and marks them as handled.
     std::vector<AchievementData> PollUnhandled(int targetId);
-    std::vector<AchievementData> ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName = "", bool *achievementFileFound = nullptr);
+    std::vector<AchievementData> ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride = "", bool *achievementFileFound = nullptr);
 
     // Fired when the stored AppID directory path is no longer watchable.
     std::function<void(int targetId, const std::string& appIdDirPath)> onAppIdDirUnavailable;

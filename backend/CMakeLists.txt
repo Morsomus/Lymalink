@@ -64,6 +64,7 @@ qt_add_executable(lymalinkd
     src/tools/parsers/RLDParser.cpp src/tools/parsers/RLDParser.h
     src/tools/parsers/SSEParser.cpp src/tools/parsers/SSEParser.h
     src/tools/parsers/TenokeParser.cpp src/tools/parsers/TenokeParser.h
+    src/tools/parsers/SovereignParser.cpp src/tools/parsers/SovereignParser.h
 )
 qt_add_resources(lymalinkd "lymalinkd_resources"
     PREFIX /qt/qml/Lymalink

@@ -64,10 +64,10 @@ Item {
     readonly property bool p_enabledAchievementRowDynamicWidth: ctxSettings.enableDynamicAchievementRows
     readonly property color themedProgressColor: Themes.globalStyle.progressColor(p_globalColorStyle)
     readonly property color themedCompletionColor: Themes.globalStyle.completionColor(p_globalColorStyle)
-    // Tenoke and SmartSteamEmu do not expose reliable per-achievement progress
+    // Tenoke, SOVEREIGN and SmartSteamEmu do not expose reliable per-achievement progress
     readonly property bool achievementProgressSupported: {
         const emulatorType = (p_emulatorType || "").trim().toUpperCase()
-        return emulatorType !== "TENOKE" && emulatorType !== "SMARTSTEAMEMU"
+        return emulatorType !== "TENOKE" && emulatorType !== "SOVEREIGN" && emulatorType !== "SMARTSTEAMEMU"
     }
 
     function scaledCoverSourceSize(imageWidth, imageHeight) {
@@ -120,6 +120,8 @@ Item {
             return "SmartSteamEmu"
         case "TENOKE":
             return "Tenoke"
+        case "SOVEREIGN":
+            return "SOVEREIGN"
         default:
             return "-"
         }

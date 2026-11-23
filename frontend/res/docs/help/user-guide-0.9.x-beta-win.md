@@ -46,7 +46,7 @@
 ###
 ## 🎮 Managing Emulator Targets
 
-In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED, SmartSteamEmu, Tenoke and NemirtingasGalaxyEmulator.
+In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses on **Steam** based achievement file targets and may work with achievement files created by CODEX, RUNE, GOLDBERG, RELOADED, SmartSteamEmu, Tenoke, SOVEREIGN and NemirtingasGalaxyEmulator.
 
 ###
 ### ➕ Add an Emulator Target
@@ -57,7 +57,7 @@ In Lymalink, a **Target** refers to any tracked item. The Emulator mode focuses 
 4. Choose **Achievement data source**:
    1. **Automatic detection:**
       - Select **Game Executable**, Lymalink uses it to detect when the game is running.
-      - For Tenoke or NemirtingasGalaxyEmulator, enable **Install-dir emulator used** and select **Game Installation Directory** so Lymalink can scan its achievement files.
+      - For Tenoke, SOVEREIGN or NemirtingasGalaxyEmulator, enable **Install-dir emulator used** and select **Game Installation Directory** so Lymalink can scan its achievement files.
    2. **Specify achievement file manually (Advanced):**
       - Select the emulator type, choose the achievement file or folder, and select **Game Executable**.
 5. Click **Confirm**.
@@ -169,7 +169,7 @@ If notification popups cause crashes or other issues, please open an issue.
 ### How do achievements appear on the Dashboard?
 They update automatically when `lymalinkd` is running and the game executable and installation directory paths are correctly configured.
 - The executable path **MUST** be set correctly. The background service only scans when a game is actively being played; otherwise, it sleeps and only checks for the presence of the configured executables.
-- The installation directory path **MUST** be set correctly. Path is used to detect install-dir based achievement files, including NemirtingasGalaxyEmulator and Tenoke.
+- The installation directory path **MUST** be set correctly. Path is used to detect install-dir based achievement files, including NemirtingasGalaxyEmulator, Tenoke and SOVEREIGN.
 
 ###
 ### How do I check if I have configured my target correctly?
@@ -229,6 +229,7 @@ Lymalink currently fully/partially supports parsing local achievement files gene
 - **RELOADED**
 - **SmartSteamEmu**
 - **Tenoke**
+- **SOVEREIGN**
 - **NemirtingasGalaxyEmulator 1.4.2/1.9.2 (GOG - Requires Steam equivalent achievements)**
 
 ###

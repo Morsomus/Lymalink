@@ -208,6 +208,195 @@ TEST_CASE("pathScanner_prefersNemirtingasOverTenokeInInstallationDir", "[pathsca
 
 /////////////////////////////////////////////////////////////////////
 
+TEST_CASE("pathScanner_detectsSovereignAtInstallationRoot", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_sovereign_root";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(installDir);
+    fs::create_directories(prefix);
+    {
+        std::ofstream file(installDir / "SOVEREIGN.ini");
+        file << "[Achievements]\nTRAITOR_LORD=1785652344\n";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", installDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].targetId == 123);
+    CHECK(results[0].appidDirFound);
+    CHECK(results[0].emulatorType == "SOVEREIGN");
+    CHECK(results[0].achievementFileName == "SOVEREIGN.ini");
+    CHECK(fs::path(results[0].appidDirLocation) == installDir);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_detectsSovereignBelowInstallationDir", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_sovereign_nested";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path configDir = installDir / "Binaries" / "Win64";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(configDir);
+    fs::create_directories(prefix);
+    {
+        std::ofstream file(configDir / "SOVEREIGN.ini");
+        file << "[Achievements]\nTRAITOR_LORD=0\n";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", installDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> results = scanner.ScanOnceForAppIdDir();
+
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].emulatorType == "SOVEREIGN");
+    CHECK(results[0].achievementFileName == "SOVEREIGN.ini");
+    CHECK(fs::path(results[0].appidDirLocation) == configDir);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_ignoresUnidentifiedOrDisabledSovereign", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_sovereign_missing";
+    fs::remove_all(root);
+    const fs::path missingDir = root / "missing";
+    const fs::path configOnlyDir = root / "config-only";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(missingDir);
+    fs::create_directories(configOnlyDir);
+    fs::create_directories(prefix);
+    {
+        std::ofstream file(missingDir / "achievements.ini");
+        file << "[TRAITOR_LORD]\nUnlocked=0\n";
+    }
+    {
+        std::ofstream file(configOnlyDir / "SOVEREIGN.ini");
+        file << "[Game]\nAppID=784150\n";
+    }
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", missingDir.string(), ""}});
+    CHECK(scanner.ScanOnceForAppIdDir().empty());
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", configOnlyDir.string(), ""}});
+    CHECK(scanner.ScanOnceForAppIdDir().empty());
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", "", ""}});
+    CHECK(scanner.ScanOnceForAppIdDir().empty());
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_findsSovereignAchievementFilesAcrossInstallationTree", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_sovereign_sections";
+    fs::remove_all(root);
+    const fs::path nestedInstallDir = root / "nested";
+    const fs::path configDir = nestedInstallDir / "config";
+    const fs::path achievementsDir = nestedInstallDir / "achievements";
+    const fs::path rootInstallDir = root / "at-root";
+    const fs::path sovereignInstallDir = root / "in-config";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(configDir);
+    fs::create_directories(achievementsDir);
+    fs::create_directories(rootInstallDir);
+    fs::create_directories(sovereignInstallDir);
+    fs::create_directories(prefix);
+    {
+        std::ofstream file(configDir / "SOVEREIGN.ini");
+        file << "[Game]\nAppID=784150\n";
+    }
+    {
+        std::ofstream file(achievementsDir / "achievements.ini");
+        file << "[TRAITOR_LORD]\nUnlocked=0\n";
+    }
+    {
+        std::ofstream file(rootInstallDir / "SOVEREIGN.ini");
+        file << "[Game]\nAppID=784150\n";
+    }
+    {
+        std::ofstream file(rootInstallDir / "achievements.ini");
+        file << "[TRAITOR_LORD]\nUnlocked=1785652344\n";
+    }
+    {
+        std::ofstream file(sovereignInstallDir / "SOVEREIGN.ini");
+        file << "[Achievements]\nTRAITOR_LORD=1785652344\n";
+    }
+    {
+        std::ofstream file(sovereignInstallDir / "achievements.ini");
+        file << "[TRAITOR_LORD]\nUnlocked=0\n";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", nestedInstallDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> nestedResults = scanner.ScanOnceForAppIdDir();
+    REQUIRE(nestedResults.size() == 1);
+    CHECK(nestedResults[0].emulatorType == "SOVEREIGN");
+    CHECK(nestedResults[0].achievementFileName == "achievements.ini");
+    CHECK(fs::path(nestedResults[0].appidDirLocation) == achievementsDir);
+
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", rootInstallDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> rootResults = scanner.ScanOnceForAppIdDir();
+    REQUIRE(rootResults.size() == 1);
+    CHECK(rootResults[0].emulatorType == "SOVEREIGN");
+    CHECK(rootResults[0].achievementFileName == "achievements.ini");
+    CHECK(fs::path(rootResults[0].appidDirLocation) == rootInstallDir);
+
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", sovereignInstallDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> sovereignResults = scanner.ScanOnceForAppIdDir();
+    REQUIRE(sovereignResults.size() == 1);
+    CHECK(sovereignResults[0].emulatorType == "SOVEREIGN");
+    CHECK(sovereignResults[0].achievementFileName == "SOVEREIGN.ini");
+    CHECK(fs::path(sovereignResults[0].appidDirLocation) == sovereignInstallDir);
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+TEST_CASE("pathScanner_prefersExistingInstallDirEmulatorsOverSovereign", "[pathscanner]")
+{
+    const fs::path root = "/tmp/lymalink_pathscanner_sovereign_priority";
+    fs::remove_all(root);
+    const fs::path installDir = root / "Game";
+    const fs::path prefix = root / "prefix";
+    fs::create_directories(installDir / "SteamData");
+    fs::create_directories(installDir / "ngalaxye_settings");
+    fs::create_directories(prefix);
+    {
+        std::ofstream file(installDir / "SOVEREIGN.ini");
+        file << "[Achievements]\n";
+    }
+    {
+        std::ofstream file(installDir / "SteamData" / "user_stats.ini");
+        file << "[ACHIEVEMENTS]\n";
+    }
+
+    PathScanner scanner;
+    scanner.SetTargets({AppIdDirPathScanTarget{123, "123", prefix.string(), "", installDir.string(), ""}});
+    const std::vector<AppIdDirPathScanResult> nemirtingasResults = scanner.ScanOnceForAppIdDir();
+    REQUIRE(nemirtingasResults.size() == 1);
+    CHECK(nemirtingasResults[0].emulatorType == "GOG-N");
+
+    fs::remove_all(installDir / "ngalaxye_settings");
+    const std::vector<AppIdDirPathScanResult> tenokeResults = scanner.ScanOnceForAppIdDir();
+    REQUIRE(tenokeResults.size() == 1);
+    CHECK(tenokeResults[0].emulatorType == "Tenoke");
+
+    fs::remove_all(root);
+}
+
+/////////////////////////////////////////////////////////////////////
+
 #if !defined(_WIN32)
 TEST_CASE("pathScanner_detectsReloadedWineProgramDataSteamStatsDir", "[pathscanner]")
 {

@@ -55,6 +55,7 @@ Item {
         { label: qsTr("Reloaded"), value: "RLD", filePattern: "*.ini" },
         { label: qsTr("SmartSteamEmu"), value: "SmartSteamEmu", filePattern: "*.bin" },
         { label: qsTr("Tenoke"), value: "Tenoke", filePattern: "*.ini" },
+        { label: qsTr("SOVEREIGN"), value: "SOVEREIGN", filePattern: "*.ini" },
         { label: qsTr("NemirtingasGalaxyEmulator"), value: "GOG-N", filePattern: "*.json" }
     ]
     property var detectedSteamAppIds: []
@@ -767,6 +768,10 @@ Item {
                                     {
                                         label: qsTr("Tenoke"),
                                         value: "Reads generated 'user_stats.ini' file for unlocked achievements"
+                                    },
+                                    {
+                                        label: qsTr("SOVEREIGN"),
+                                        value: "Reads generated 'SOVEREIGN.ini' or 'achievements.ini' file for unlocked achievements"
                                     },
                                     {
                                         label: qsTr("NemirtingasGalaxyEmulator 1.4.2"),
@@ -1811,7 +1816,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("Used for scanning install-dir based emulators like NemirtingasGalaxyEmulator and Tenoke")
+                                text: qsTr("Used for scanning install-dir based emulators like NemirtingasGalaxyEmulator, Tenoke and SOVEREIGN")
                                 font.pixelSize: Themes.emulatorTarget.fontSizes.descriptionSubtle
                                 color: Themes.emulatorTarget.colors.descriptionMutedText
                                 wrapMode: Text.Wrap

@@ -15,6 +15,7 @@
 #include "../tools/parsers/RLDParser.h"
 #include "../tools/parsers/SSEParser.h"
 #include "../tools/parsers/TenokeParser.h"
+#include "../tools/parsers/SovereignParser.h"
 #include "../tools/Logger.h"
 
 #include <unistd.h>
@@ -145,7 +146,7 @@ void AchievementHandler::Stop()
 
 /////////////////////////////////////////////////////////////////////
 
-void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName)
+void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride)
 {
     bool appIdDirUnavailable = false;
     bool achievementFileAvailable = false;
@@ -173,7 +174,15 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
         session.targetId = targetId;
         session.appIdDirPath = appIdDirPath;
         session.emulatorType = emulatorType;
-        session.achievementFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+        if (emulatorType == "SOVEREIGN" && fileNameOverride.empty())
+        {
+            // Choose between the two SOVEREIGN filenames in this directory
+            session.achievementFileName = SovereignParser::FindFileNameInDirectory(appIdDirPath);
+        }
+        else
+        {
+            session.achievementFileName = fileNameOverride.empty() ? parser->GetFileName() : fileNameOverride;
+        }
 
         // Watch directory for file creation/move and directory removal.
         session.dirWd = inotify_add_watch(m_inotifyFd, appIdDirPath.c_str(), IN_CREATE | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF);
@@ -202,7 +211,7 @@ void AchievementHandler::AddTarget(int targetId, const std::string& appIdDirPath
             // If achievement file already exists: initial read + add file watch
             WatchSession& stored = m_sessions[targetId];
             const std::string filePath = stored.appIdDirPath + "/" + stored.achievementFileName;
-            if (access(filePath.c_str(), F_OK) == 0)
+            if (!stored.achievementFileName.empty() && access(filePath.c_str(), F_OK) == 0)
             {
                 AddFileWatch(stored);
                 ReadInitial(stored);
@@ -306,7 +315,7 @@ std::vector<AchievementData> AchievementHandler::PollUnhandled(int targetId)
 
 /////////////////////////////////////////////////////////////////////
 
-std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& customAchievementFileName, bool *achievementFileFound)
+std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int targetId, const std::string& appIdDirPath, const std::string& emulatorType, const std::string& fileNameOverride, bool *achievementFileFound)
 {
     std::vector<AchievementData> parsed;
     if (achievementFileFound)
@@ -321,7 +330,7 @@ std::vector<AchievementData> AchievementHandler::ReadAchievementFileOnce(int tar
         return parsed;
     }
 
-    const std::string resolvedFileName = customAchievementFileName.empty() ? parser->GetFileName() : customAchievementFileName;
+    const std::string resolvedFileName = fileNameOverride.empty() ? parser->GetFileName() : fileNameOverride;
     const std::string filePath = appIdDirPath + "/" + resolvedFileName;
     if (access(filePath.c_str(), F_OK) != 0)
     {
@@ -475,6 +484,12 @@ std::pair<int, std::string> AchievementHandler::HandleInotifyEvent(const struct 
     // Directory event: achievement file appeared
     if (ev->wd == session.dirWd && (ev->mask & (IN_CREATE | IN_MOVED_TO)))
     {
+        if (session.emulatorType == "SOVEREIGN" && session.achievementFileName.empty())
+        {
+            // Resolve the filename before comparing it with the new file
+            session.achievementFileName = SovereignParser::FindFileNameInDirectory(appIdDirPath);
+        }
+
         // Ignore unrelated files created in the same directory
         const std::string expected = session.achievementFileName;
         if (fileName != expected)
@@ -709,6 +724,11 @@ AchievementParser* AchievementHandler::CreateParser(const std::string& emulatorT
     {
         LOG_BE(Urgency::Debug, "Creating Tenoke parser.");
         return new TenokeParser();
+    }
+    else if (emulatorType == "SOVEREIGN")
+    {
+        LOG_BE(Urgency::Debug, "Creating SOVEREIGN parser.");
+        return new SovereignParser();
     }
 
     LOG_BE(Urgency::Warning, "Unknown emulator type: %s", emulatorType.c_str());

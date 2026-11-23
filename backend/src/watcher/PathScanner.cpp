@@ -10,6 +10,7 @@
 #include "PathScanner.h"
 #include "Defines.h"
 #include "../tools/Logger.h"
+#include "../tools/parsers/SovereignParser.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -103,6 +104,15 @@ std::vector<AppIdDirPathScanResult> PathScanner::ScanOnceForAppIdDir(const std::
             {
                 results.push_back(AppIdDirPathScanResult{target.targetId, tenokeDir, "Tenoke", joinedGogIds, true});
                 LOG_BE(Urgency::Debug, "Found Tenoke dir: targetId=%d path=%s", target.targetId, tenokeDir.c_str());
+                continue;
+            }
+
+            std::string sovereignFileName;
+            const std::string sovereignDir = FindSovereignDir(target, sovereignFileName, shouldStopScanning);
+            if (!sovereignDir.empty())
+            {
+                results.push_back(AppIdDirPathScanResult{target.targetId, sovereignDir, "SOVEREIGN", joinedGogIds, true, sovereignFileName});
+                LOG_BE(Urgency::Debug, "Found SOVEREIGN dir: targetId=%d path=%s", target.targetId, sovereignDir.c_str());
                 continue;
             }
 
@@ -693,6 +703,77 @@ std::string PathScanner::FindTenokeDir(const AppIdDirPathScanTarget& target, con
     if (ec)
     {
         LOG_BE(Urgency::Warning, "Scan error: targetId=%d installDir=%s error=%s", target.targetId, target.installationDir.c_str(), ec.message().c_str());
+    }
+
+    return "";
+}
+
+/////////////////////////////////////////////////////////////////////
+
+std::string PathScanner::FindSovereignDir(const AppIdDirPathScanTarget& target, std::string& achievementFileName, const std::function<bool()>& shouldStopScanning) const
+{
+    if (target.installationDir.empty())
+    {
+        return "";
+    }
+
+    std::error_code ec;
+    if (!fs::exists(target.installationDir, ec) || !fs::is_directory(target.installationDir, ec))
+    {
+        return "";
+    }
+
+    // Search install tree - config and state file may be in different folders
+    std::string achievementsDir;
+    bool sovereignConfigFound = false;
+    SovereignParser parser;
+    fs::recursive_directory_iterator it(target.installationDir, fs::directory_options::skip_permission_denied, ec);
+    const fs::recursive_directory_iterator end;
+    for (; it != end && !ec; it.increment(ec))
+    {
+        if (shouldStopScanning && shouldStopScanning())
+        {
+            return "";
+        }
+
+        const std::string fileName = it->path().filename().string();
+        if (fileName != "SOVEREIGN.ini" && fileName != "achievements.ini")
+        {
+            continue;
+        }
+
+        std::error_code fileEc;
+        if (!it->is_regular_file(fileEc))
+        {
+            continue;
+        }
+
+        if (fileName == "SOVEREIGN.ini")
+        {
+            // SOVEREIGN.ini with [Achievements] takes priority over achievements.ini
+            if (SovereignParser::HasAchievementsSection(it->path().string()))
+            {
+                achievementFileName = "SOVEREIGN.ini";
+                return it->path().parent_path().string();
+            }
+            sovereignConfigFound = true;
+        }
+        if (fileName == "achievements.ini" && achievementsDir.empty() && !parser.Parse(it->path().string()).empty())
+        {
+            achievementsDir = it->path().parent_path().string();
+        }
+    }
+
+    if (ec)
+    {
+        LOG_BE(Urgency::Warning, "Scan error: targetId=%d installDir=%s error=%s", target.targetId, target.installationDir.c_str(), ec.message().c_str());
+    }
+
+    // Automatic scan requires SOVEREIGN.ini without [Achievements] to identify achievements.ini
+    if (sovereignConfigFound && !achievementsDir.empty())
+    {
+        achievementFileName = "achievements.ini";
+        return achievementsDir;
     }
 
     return "";
