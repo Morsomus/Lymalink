@@ -100,6 +100,8 @@ REQUIRED_FRONTEND_QML_MODULES=(
     QtQml/Models
     QtQuick
     QtQuick/Controls
+    QtQuick/Controls/Basic
+    QtQuick/Controls/Basic/impl
     QtQuick/Dialogs
     QtQuick/Effects
     QtQuick/Controls/Fusion

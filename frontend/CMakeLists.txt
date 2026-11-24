@@ -19,7 +19,7 @@ else()
     set(LYMALINK_PRERELEASE_FLAG 0)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets Sql Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
 find_package(OpenSSL REQUIRED)
 qt_standard_project_setup()
 qt_policy(SET QTP0004 NEW)
@@ -32,7 +32,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
 elseif(WIN32)
     enable_language(RC)
-    find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
     set(PLATFORM_BACKEND_SOURCES
         src/ipc/WinSocketService.h
         src/ipc/WinSocketService.cpp
@@ -202,6 +201,7 @@ target_link_libraries(Lymalink PRIVATE
     Qt6::Gui
     Qt6::Qml
     Qt6::Quick
+    Qt6::QuickControls2
     Qt6::Widgets
     Qt6::Sql
     Qt6::Network
@@ -210,8 +210,6 @@ target_link_libraries(Lymalink PRIVATE
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(Lymalink PRIVATE Qt6::DBus)
-elseif(WIN32)
-    target_link_libraries(Lymalink PRIVATE Qt6::QuickControls2)
 endif()
 
 ##############################################################

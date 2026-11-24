@@ -14,7 +14,6 @@
 #include "ipc/BackendControl.h"
 #if defined(Q_OS_WIN)
     #include "ipc/WinSocketService.h"
-    #include <QQuickStyle>
 #else
     #include "ipc/DBusService.h"
 #endif
@@ -28,6 +27,7 @@
 #include <QLocalSocket>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include <QUrl>
 #include <QDir>
 #include <QFileInfo>
@@ -48,9 +48,7 @@ int main(int argc, char *argv[]) {
 
     QCoreApplication::setApplicationName("Lymalink");
     QGuiApplication::setDesktopFileName("lymalink");
-#if defined(Q_OS_WIN)
     QQuickStyle::setStyle(QStringLiteral("Basic"));
-#endif
 
     // Single instance guard
     const QString lockPath = QDir::temp().absoluteFilePath("Lymalink.lock");
