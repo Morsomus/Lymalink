@@ -283,6 +283,12 @@ bool Settings::LoadConfig()
     m_targetDetailsHelpText = m_settings.value("TargetDetailsHelpText", m_targetDetailsHelpText).toString();
     m_settings.endGroup();
 
+    m_settings.beginGroup(GROUP_STATISTICS);
+    m_statisticsToolbarSort = m_settings.value("ToolbarSort", m_statisticsToolbarSort).toString();
+    m_statisticsToolbarSortDescending = m_settings.value("ToolbarSortDescending", m_statisticsToolbarSortDescending).toBool();
+    m_statisticsActiveTab = m_settings.value("ActiveTab", m_statisticsActiveTab).toInt();
+    m_settings.endGroup();
+
     m_settings.beginGroup(GROUP_DATABASE);
     m_databaseCustomPath = m_settings.value("CustomDBPath", m_databaseCustomPath).toString().trimmed();
     m_settings.endGroup();
@@ -588,6 +594,30 @@ bool Settings::SaveValue(Key key, const QVariant &value, bool emitSignal)
             settingsValue = m_dashboardToolbarLayout;
             break;
         }
+        case StatisticsToolbarSort:
+        {
+            m_statisticsToolbarSort = value.toString();
+            group = GROUP_STATISTICS;
+            settingsKey = "ToolbarSort";
+            settingsValue = m_statisticsToolbarSort;
+            break;
+        }
+        case StatisticsToolbarSortDescending:
+        {
+            m_statisticsToolbarSortDescending = value.toBool();
+            group = GROUP_STATISTICS;
+            settingsKey = "ToolbarSortDescending";
+            settingsValue = m_statisticsToolbarSortDescending;
+            break;
+        }
+        case StatisticsActiveTab:
+        {
+            m_statisticsActiveTab = value.toInt();
+            group = GROUP_STATISTICS;
+            settingsKey = "ActiveTab";
+            settingsValue = m_statisticsActiveTab;
+            break;
+        }
         case TargetDetailsCoverSize:
         {
             const QString coverSize = value.toString().toLower();
@@ -815,6 +845,9 @@ void Settings::SetDefaults()
     m_dashboardToolbarFilters = QStringList{"none"};
     m_dashboardToolbarSortDescending = false;
     m_dashboardToolbarLayout = "defaultCardGrid";
+    m_statisticsToolbarSort = "title";
+    m_statisticsToolbarSortDescending = false;
+    m_statisticsActiveTab = 0;
     m_targetDetailsCoverSize = "default";
     m_targetDetailsExpandableInfoPanel = false;
     m_targetDetailsEmulatorMetaFields = QStringList{"status", "type", "playtime", "lastPlayed", "recentUnlock", "achievementData", "customPath"};
@@ -1036,6 +1069,12 @@ void Settings::SavePlainValues()
     m_settings.setValue("TargetDetailsSteamMetaFields", m_targetDetailsSteamMetaFields);
     m_settings.setValue("WelcomeHelpText", m_welcomeHelpText);
     m_settings.setValue("TargetDetailsHelpText", m_targetDetailsHelpText);
+    m_settings.endGroup();
+
+    m_settings.beginGroup(GROUP_STATISTICS);
+    m_settings.setValue("ToolbarSort", m_statisticsToolbarSort);
+    m_settings.setValue("ToolbarSortDescending", m_statisticsToolbarSortDescending);
+    m_settings.setValue("ActiveTab", m_statisticsActiveTab);
     m_settings.endGroup();
 
     m_settings.beginGroup(GROUP_DATABASE);

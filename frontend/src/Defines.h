@@ -30,6 +30,7 @@
 #define GROUP_BACKGROUND_SERVICE        "BackgroundService"
 #define GROUP_STEAM_WEB_API             "SteamWebApi"
 #define GROUP_DASHBOARD                 "Dashboard"
+#define GROUP_STATISTICS                "Statistics"
 #define GROUP_DATABASE                  "Database"
 
 /////////////////////////////////////////////////////////////////////

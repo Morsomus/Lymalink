@@ -61,7 +61,6 @@ Item {
     
     // Internals _____________________________________________
     property string activePanel: ""
-    property bool statisticsSortOpen: false
     readonly property var statisticsSortModel: ["title", "playtime", "completion", "lastPlayed", "latestUnlock"]
     property string activeSort: ctxSettings.dashboardToolbarSort
     property string activeFilter: activeFilters.length > 1 ? "multiple" : activeFilters[0]
@@ -96,8 +95,7 @@ Item {
 
     Shortcut {
         sequence: "Esc"
-        enabled: (id_root.statisticsSortOpen
-            || id_root.activePanel !== ""
+        enabled: (id_root.activePanel !== ""
             || id_root.targetDetailsActivePanel !== ""
             || id_root.p_targetDetailsVisible
             || id_root.p_addTargetVisible)
@@ -105,7 +103,7 @@ Item {
             && !id_dashboardSettingsPopup.opened
             && !id_root.p_returnLocked
         onActivated: {
-            if (id_root.statisticsSortOpen || id_root.activePanel !== "" || id_root.targetDetailsActivePanel !== "") {
+            if (id_root.activePanel !== "" || id_root.targetDetailsActivePanel !== "") {
                 id_root.closeOpenPanels()
                 return
             }
@@ -242,7 +240,6 @@ Item {
     }
 
     function closeOpenPanels() {
-        statisticsSortOpen = false
         activePanel = ""
         targetDetailsActivePanel = ""
     }
@@ -524,11 +521,88 @@ Item {
                 }
             }
 
-            C_SortFilterPill {
-                pillLabel: qsTr("Sort:")
-                pillValue: id_root.sortLabel(id_root.p_statisticsSort)
-                isOpen: id_root.statisticsSortOpen
-                onPillClicked: id_root.statisticsSortOpen = !id_root.statisticsSortOpen
+            Rectangle {
+                implicitHeight: 32
+                implicitWidth: id_statisticsSortRow.implicitWidth + 6
+                radius: 16
+                color: Themes.dashboardToolbar.colors.pillBackground
+                border.width: 1
+                border.color: Themes.dashboardToolbar.colors.pillBorder
+
+                RowLayout {
+                    id: id_statisticsSortRow
+
+                    anchors.centerIn: parent
+                    spacing: 2
+
+                    Label {
+                        Layout.leftMargin: 9
+                        Layout.rightMargin: 6
+                        text: qsTr("Sort")
+                        color: Themes.dashboardToolbar.colors.pillLabel
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                    }
+
+                    Rectangle {
+                        Layout.rightMargin: 6
+                        implicitWidth: 1
+                        implicitHeight: 16
+                        color: Themes.dashboardToolbar.colors.divider
+                    }
+
+                    Repeater {
+                        model: id_root.statisticsSortModel
+
+                        delegate: Rectangle {
+                            required property string modelData
+                            readonly property bool active: modelData === id_root.p_statisticsSort
+
+                            implicitWidth: id_statisticsSortLabel.implicitWidth + 20
+                            implicitHeight: 26
+                            radius: 13
+                            color: active
+                                ? Themes.dashboardToolbar.colors.segmentActive
+                                : id_statisticsSortMouseArea.pressed
+                                    ? Themes.dashboardToolbar.colors.segmentPressed
+                                    : id_statisticsSortMouseArea.containsMouse
+                                        ? Themes.dashboardToolbar.colors.segmentHover
+                                        : Themes.dashboardToolbar.colors.segmentBackground
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 120
+                                }
+                            }
+
+                            Text {
+                                id: id_statisticsSortLabel
+
+                                anchors.centerIn: parent
+                                text: id_root.sortLabel(modelData)
+                                color: active
+                                    ? Themes.dashboardToolbar.colors.segmentLabelActive
+                                    : Themes.dashboardToolbar.colors.segmentLabel
+                                font.pixelSize: Themes.dashboardToolbar.fontSizes.segmentLabel
+                                font.bold: active
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: id_statisticsSortMouseArea
+
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: id_root.statisticsSortSelected(modelData)
+                            }
+                        }
+                    }
+                }
             }
 
             C_SortFilterPill {
@@ -621,19 +695,6 @@ Item {
                         p_text: qsTr("Refresh statistics")
                     }
                 }
-            }
-        }
-
-        C_ChipBar {
-            Layout.fillWidth: true
-            visible: id_root.statisticsSortOpen
-            barLabel: qsTr("Sort by:")
-            chipModel: id_root.statisticsSortModel
-            labelFn: id_root.sortLabel
-            isActiveFn: function(value) { return value === id_root.p_statisticsSort }
-            onChipClicked: function(value) {
-                id_root.statisticsSortOpen = false
-                id_root.statisticsSortSelected(value)
             }
         }
     }

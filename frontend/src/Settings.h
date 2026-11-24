@@ -58,6 +58,9 @@ class Settings : public QObject
     Q_PROPERTY(QStringList dashboardToolbarFilters READ GetDashboardToolbarFilters NOTIFY signalConfigChanged)
     Q_PROPERTY(bool dashboardToolbarSortDescending READ GetDashboardToolbarSortDescending NOTIFY signalConfigChanged)
     Q_PROPERTY(QString dashboardToolbarLayout READ GetDashboardToolbarLayout NOTIFY signalConfigChanged)
+    Q_PROPERTY(QString statisticsToolbarSort READ GetStatisticsToolbarSort NOTIFY signalConfigChanged)
+    Q_PROPERTY(bool statisticsToolbarSortDescending READ GetStatisticsToolbarSortDescending NOTIFY signalConfigChanged)
+    Q_PROPERTY(int statisticsActiveTab READ GetStatisticsActiveTab NOTIFY signalConfigChanged)
     Q_PROPERTY(QString targetDetailsCoverSize READ GetTargetDetailsCoverSize NOTIFY signalConfigChanged)
     Q_PROPERTY(bool targetDetailsExpandableInfoPanel READ GetTargetDetailsExpandableInfoPanel NOTIFY signalConfigChanged)
     Q_PROPERTY(QStringList targetDetailsEmulatorMetaFields READ GetTargetDetailsEmulatorMetaFields NOTIFY signalConfigChanged)
@@ -108,6 +111,9 @@ public:
         DashboardToolbarFilters,
         DashboardToolbarSortDescending,
         DashboardToolbarLayout,
+        StatisticsToolbarSort,
+        StatisticsToolbarSortDescending,
+        StatisticsActiveTab,
         TargetDetailsCoverSize,
         TargetDetailsExpandableInfoPanel,
         TargetDetailsEmulatorMetaFields,
@@ -179,6 +185,9 @@ public:
     inline QStringList GetDashboardToolbarFilters() const { return m_dashboardToolbarFilters; }
     inline bool GetDashboardToolbarSortDescending() const { return m_dashboardToolbarSortDescending; }
     inline QString GetDashboardToolbarLayout() const { return m_dashboardToolbarLayout; }
+    inline QString GetStatisticsToolbarSort() const { return m_statisticsToolbarSort; }
+    inline bool GetStatisticsToolbarSortDescending() const { return m_statisticsToolbarSortDescending; }
+    inline int GetStatisticsActiveTab() const { return m_statisticsActiveTab; }
     inline QString GetTargetDetailsCoverSize() const { return m_targetDetailsCoverSize; }
     inline bool GetTargetDetailsExpandableInfoPanel() const { return m_targetDetailsExpandableInfoPanel; }
     inline QStringList GetTargetDetailsEmulatorMetaFields() const { return m_targetDetailsEmulatorMetaFields; }
@@ -237,6 +246,9 @@ private:
     QStringList m_dashboardToolbarFilters;
     bool m_dashboardToolbarSortDescending;
     QString m_dashboardToolbarLayout;
+    QString m_statisticsToolbarSort;
+    bool m_statisticsToolbarSortDescending;
+    int m_statisticsActiveTab;
     QString m_targetDetailsCoverSize;
     bool m_targetDetailsExpandableInfoPanel;
     QStringList m_targetDetailsEmulatorMetaFields;

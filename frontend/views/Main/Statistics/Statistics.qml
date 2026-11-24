@@ -8,6 +8,7 @@
 
 import Lymalink
 import app.themes 1.0
+import app.settings 1.0
 
 import QtQuick
 import QtQuick.Controls
@@ -20,15 +21,16 @@ Item {
     property bool p_active: false
 
     // Internals _____________________________________________
-    property int activeTab: 0
+    property int activeTab: ctxSettings.statisticsActiveTab
     property var snapshot: ({})
     property string refreshError: ""
     property string activeSearch: ""
-    property string activeSort: "title"
-    property bool sortDescending: false
+    property string activeSort: ctxSettings.statisticsToolbarSort
+    property bool sortDescending: ctxSettings.statisticsToolbarSortDescending
     readonly property bool steam: activeTab === 1
     readonly property var source: snapshot[steam ? "steamImports" : "emulators"] || ({})
     readonly property var summary: source.summary || ({})
+    readonly property int completionGameCount: summary.gamesWithAchievements || 0
     readonly property var games: source.games || []
     readonly property var filteredGames: filterGames()
     readonly property bool compactRows: id_games.width < 680
@@ -129,6 +131,16 @@ Item {
         })
 
         return result
+    }
+
+    Connections {
+        target: ctxSettings
+
+        function onSignalDefaultsReset() {
+            id_root.activeSort = ctxSettings.statisticsToolbarSort
+            id_root.sortDescending = ctxSettings.statisticsToolbarSortDescending
+            id_root.activeTab = ctxSettings.statisticsActiveTab
+        }
     }
 
     Connections {
@@ -339,9 +351,11 @@ Item {
             }
             onStatisticsSortSelected: function(sort) {
                 id_root.activeSort = sort
+                ctxSettings.SaveValue(Settings.StatisticsToolbarSort, sort)
             }
             onStatisticsOrderSelected: function(descending) {
                 id_root.sortDescending = descending
+                ctxSettings.SaveValue(Settings.StatisticsToolbarSortDescending, descending)
             }
             onRefreshClicked: id_root.refresh()
         }
@@ -354,6 +368,7 @@ Item {
             p_accentColor: id_root.accentColor
             onActivated: function(index) {
                 id_root.activeTab = index
+                ctxSettings.SaveValue(Settings.StatisticsActiveTab, index)
             }
         }
 
@@ -394,15 +409,15 @@ Item {
                     C_SummaryCard {
                         Layout.fillWidth: true
                         title: qsTr("Games")
-                        value: String(id_root.summary.gameCount || 0)
-                        detail: id_root.steam
-                            ? qsTr("%1 with achievement data").arg(id_root.summary.gamesWithAchievements || 0)
-                            : qsTr("Includes hidden games")
+                        value: String(id_root.completionGameCount)
+                        detail: !id_root.steam && id_root.summary.hiddenGameCount > 0
+                            ? qsTr("%1 total games (Includes hidden games)").arg(id_root.summary.gameCount || 0)
+                            : qsTr("%1 total games").arg(id_root.summary.gameCount || 0)
                     }
 
                     C_SummaryCard {
                         Layout.fillWidth: true
-                        title: id_root.steam ? qsTr("Imported Steam playtime") : qsTr("Saved playtime")
+                        title: qsTr("Playtime")
                         value: id_root.playtime(id_root.summary.playtimeSeconds)
                         detail: qsTr("Total")
                     }
@@ -418,8 +433,8 @@ Item {
                         Layout.fillWidth: true
                         title: qsTr("Completed games")
                         value: String(id_root.summary.completedGames || 0)
-                        detail: id_root.completion(id_root.summary.gameCount > 0
-                            ? 100 * (id_root.summary.completedGames || 0) / id_root.summary.gameCount
+                        detail: id_root.completion(id_root.completionGameCount > 0
+                            ? 100 * (id_root.summary.completedGames || 0) / id_root.completionGameCount
                             : 0)
                     }
                 }

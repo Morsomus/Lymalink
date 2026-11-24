@@ -143,12 +143,14 @@ QVariantMap StatisticsHandler::BuildSource(const QVariantList &gameRows, const Q
     qint64 unlockedAchievements = 0;
     int completedGames = 0;
     int gamesWithAchievements = 0;
+    int hiddenGameCount = 0;
 
     for (const QVariant &value : gameRows)
     {
         const QVariantMap row = value.toMap();
         const int appId = row.value("id").toInt();
         const QString title = row.value("game_name").toString();
+        const bool hidden = row.value("target_hidden").toBool();
         const QVariantList achievements = achievementsByGame.value(appId);
         int unlocked = 0;
         qint64 latestUnlock = 0;
@@ -190,7 +192,7 @@ QVariantMap StatisticsHandler::BuildSource(const QVariantList &gameRows, const Q
         QVariantMap game = {
             {"appId", appId},
             {"title", title},
-            {"hidden", row.value("target_hidden").toBool()},
+            {"hidden", hidden},
             {"playtimeSeconds", seconds},
             {"lastPlayedTimestamp", std::max(qint64(0), row.value("last_played_date").toLongLong())},
             {"latestUnlockTimestamp", latestUnlock},
@@ -206,6 +208,7 @@ QVariantMap StatisticsHandler::BuildSource(const QVariantList &gameRows, const Q
         unlockedAchievements += unlocked;
         gamesWithAchievements += total > 0 ? 1 : 0;
         completedGames += total > 0 && unlocked == total ? 1 : 0;
+        hiddenGameCount += hidden ? 1 : 0;
     }
 
     std::sort(games.begin(), games.end(), [this](const QVariant &left, const QVariant &right) {
@@ -246,6 +249,7 @@ QVariantMap StatisticsHandler::BuildSource(const QVariantList &gameRows, const Q
 
     QVariantMap summary = {
         {"gameCount", games.size()},
+        {"hiddenGameCount", hiddenGameCount},
         {"playtimeSeconds", totalSeconds},
         {"totalAchievements", totalAchievements},
         {"unlockedAchievements", unlockedAchievements},
