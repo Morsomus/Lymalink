@@ -6,7 +6,7 @@
 - Can be configured to run in the background without the user interface.
 - Import your official Steam achievements.
 
-> The **v0.10.0-beta** release is available for **Linux** and **Windows**. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.9.x-beta-win.md) user guide for configuration, usage instructions, and FAQ.
+> The **v0.11.0-beta** release is available for **Linux** and **Windows**. See [Installation - Linux](#installation---linux) or [Installation - Windows](#installation---windows) to get started and consult the [Linux](frontend/res/docs/help/user-guide-0.11.0-beta-linux.md) or [Windows](frontend/res/docs/help/user-guide-0.11.0-beta-win.md) user guide for configuration, usage instructions, and FAQ.
 
 > **Note:** Lymalink is currently under active development. If you encounter any bugs or unexpected behavior, your feedback is highly appreciated, please report them by opening an issue on [Issues](https://github.com/Morsomus/Lymalink/issues).
 
@@ -81,7 +81,7 @@
 
 Lymalink can be installed either by using the pre-built installer or by compiling the binaries manually from source if your Linux distribution has compatibility issues with the pre-made packages.
 
-> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-linux.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
+> **Important:** Post-installation, please consult the [User Guide](frontend/res/docs/help/user-guide-0.11.0-beta-linux.md#-achievement-notifications) for initial setup steps, specifically regarding the launcher-specific configuration required to ensure the in-game achievement overlay works correctly.
 
 ### Option 1: Pre-built Release (Recommended for Supported Distros)
 
@@ -101,7 +101,7 @@ chmod +x lymalink-installer-*.run
 ### Option 2: Building from Source
 
 ```bash
-git clone --depth 1 --branch v0.10.0-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.11.0-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -114,12 +114,12 @@ Install the required dependencies for your specific Linux distribution (the docu
 
 ```bash
 installer/linux/build.sh
-./installer/linux/build/lymalink-installer-0.10.0-*-x86_64.run
+./installer/linux/build/lymalink-installer-0.11.0-*-x86_64.run
 ```
 
 ## Installation - Windows
 
-> After installation, consult the [Windows User Guide](frontend/res/docs/help/user-guide-0.9.x-beta-win.md#-achievement-notifications) for usage information.
+> After installation, consult the [Windows User Guide](frontend/res/docs/help/user-guide-0.11.0-beta-win.md#-achievement-notifications) for usage information.
 
 ### Option 1: Pre-built Release
 
@@ -132,7 +132,7 @@ Download the latest `lymalink-installer-<VERSION>-win-x64.exe` from the [Release
 ### Option 2: Building from Source
 
 ```powershell
-git clone --depth 1 --branch v0.10.0-beta https://github.com/Morsomus/Lymalink.git
+git clone --depth 1 --branch v0.11.0-beta https://github.com/Morsomus/Lymalink.git
 cd Lymalink
 ```
 
@@ -146,13 +146,13 @@ Install the Windows dependencies documented for each component:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\installer\windows\build.ps1
-.\installer\windows\build\lymalink-installer-0.10.0-win-x64.exe
+.\installer\windows\build\lymalink-installer-0.11.0-win-x64.exe
 ```
 
 
 ## Project Status
 
-Current release: **v0.10.0-beta** for Linux and Windows.
+Current release: **v0.11.0-beta** for Linux and Windows.
 
 ### Linux
 
@@ -185,18 +185,12 @@ Current release: **v0.10.0-beta** for Linux and Windows.
 | Dashboard Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
 | Achievement Progress Details | ✅ Released | v0.8.0-beta / v0.9.0-beta |
 | Achievement Progress Details Business Logic | ✅ Released | v0.8.0-beta / v0.9.0-beta |
-| Statistics | 🚧 Ongoing | v0.11.0-beta |
+| Statistics | ✅ Released | v0.11.0-beta |
 | Localisation | 🔴 Planned | After v1.0.0 |
 | **Backend Service** | | |
 | Core Functionality | ✅ Released | v0.8.0-beta / v0.9.0-beta |
 | Additional emulator support and testing | 🚧 Ongoing | - |
 | Notification Sound System | ✅ Released | v0.8.0-beta / v0.9.0-beta |
-
-### Upcoming Features
-
-| Feature | Status | Milestone |
-|---------|--------|-----------|
-| SOVEREIGN emulator achievement support | 🚧 Ongoing | v0.11.0-beta |
 
 ---
 

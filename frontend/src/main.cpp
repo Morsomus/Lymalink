@@ -128,9 +128,9 @@ int main(int argc, char *argv[]) {
 #endif
     engine.rootContext()->setContextProperty("CREDITS_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/CREDITS.md")));
 #if defined(Q_OS_WIN)
-    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.9.x-beta-win.md")));
+    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.11.0-beta-win.md")));
 #else
-    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.9.x-beta-linux.md")));
+    engine.rootContext()->setContextProperty("USER_GUIDE_MD_TEXT", Utils::ReadTextResource(QStringLiteral(":/qt/qml/Lymalink/res/docs/help/user-guide-0.11.0-beta-linux.md")));
 #endif
     engine.rootContext()->setContextProperty("ctxLymalink", lymalink);
     engine.rootContext()->setContextProperty("ctxUpdateChecker", updateChecker);

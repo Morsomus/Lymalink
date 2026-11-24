@@ -11,6 +11,7 @@
 |  |  |
 | --- | --- |
 | **Dashboard** | View tracked targets and achievement progress. |
+| **Statistics** | View playtime, achievement progress, and activity for Emulator and Steam Import targets. |
 | **Settings** | Configure app, display, background service, customization, notifications, Steam import, and updates. |
 | **Currently Playing** | Displays the active tracked game. |
 | **Service Status** | Shows background service status. Click to open Settings. |
@@ -40,6 +41,17 @@
 | **Display Options** | Filter, sort, and order the displayed achievements. |
 | **Achievement Icon** | Click to manually lock/unlock an achievement. |
 | **Hidden Achievement** | Click a hidden achievement row to reveal or conceal its details. |
+
+###
+### 📊 Statistics
+
+|  |  |
+| --- | --- |
+| **Overview** | View total playtime, unlocked and total achievements, completion progress, and completed games. |
+| **Activity & Highlights** | View your most played and recently played games, latest and recent unlocks, and rarest unlocked achievements. Rarity uses available Steam global unlock percentages. |
+| **Game List** | View each game's completion, achievement counts, playtime, last played date, and latest unlock date. |
+| **Search & Sort** | Search games by title. Sort by Title, Playtime, Completion, Last Played, or Latest Unlock in ascending or descending order. |
+| **Update Global Percentages** | Fetch current Steam global achievement percentages for both Emulator and Steam Import targets. This requires an internet connection and may take a while for larger libraries. |
 
 ---
 

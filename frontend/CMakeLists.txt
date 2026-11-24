@@ -128,8 +128,8 @@ qt_add_qml_module(Lymalink
         res/docs/THIRD-PARTY-LICENSES-LINUX.md
         res/docs/THIRD-PARTY-LICENSES-WIN.md
         res/docs/LICENSE.md
-        res/docs/help/user-guide-0.9.x-beta-linux.md
-        res/docs/help/user-guide-0.9.x-beta-win.md
+        res/docs/help/user-guide-0.11.0-beta-linux.md
+        res/docs/help/user-guide-0.11.0-beta-win.md
         res/fonts/Inter/Inter-VariableFont_opsz,wght.ttf
         res/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf
         res/fonts/Inter/OFL.txt
