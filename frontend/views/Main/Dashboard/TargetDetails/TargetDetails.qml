@@ -915,16 +915,23 @@ Item {
                 Item {
                     id: id_infoPanel
 
-                    readonly property bool panelEnabled: ctxSettings.targetDetailsExpandableInfoPanel
+                    readonly property bool alwaysExpanded: ctxSettings.targetDetailsAlwaysExpandedInfoPanel
+                    readonly property bool panelEnabled: alwaysExpanded || ctxSettings.targetDetailsExpandableInfoPanel
+                    readonly property bool expanded: alwaysExpanded || hoverActive
                     readonly property int collapsedHeight: 30
                     readonly property int contentTopMargin: 8
                     property bool hoverActive: false
 
+                    onAlwaysExpandedChanged: {
+                        id_infoPanelHoverTimer.stop()
+                        hoverActive = false
+                    }
+
                     visible: !id_root.metaFieldEnabled("none")
                     width: parent.width
                     height: panelEnabled
-                        ? (hoverActive
-                            ? collapsedHeight + contentTopMargin + id_metaRows.implicitHeight + 10
+                        ? (expanded
+                            ? (alwaysExpanded ? 10 : collapsedHeight + contentTopMargin) + id_metaRows.implicitHeight + 10
                             : collapsedHeight)
                         : id_metaRows.implicitHeight
                     clip: panelEnabled
@@ -966,7 +973,7 @@ Item {
                     }
 
                     HoverHandler {
-                        enabled: id_infoPanel.panelEnabled
+                        enabled: id_infoPanel.panelEnabled && !id_infoPanel.alwaysExpanded
                         onHoveredChanged: {
                             if (hovered) {
                                 id_infoPanelHoverTimer.start()
@@ -981,7 +988,7 @@ Item {
                     Item {
                         id: id_infoPanelHeader
 
-                        visible: id_infoPanel.panelEnabled
+                        visible: id_infoPanel.panelEnabled && !id_infoPanel.alwaysExpanded
                         width: parent.width
                         height: id_infoPanel.collapsedHeight
 
@@ -1018,6 +1025,8 @@ Item {
                         Text {
                             id: id_infoPanelDisclosure
 
+                            visible: !id_infoPanel.alwaysExpanded
+
                             anchors {
                                 right: parent.right
                                 rightMargin: 12
@@ -1048,12 +1057,12 @@ Item {
 
                         x: id_infoPanel.panelEnabled ? 10 : 0
                         y: id_infoPanel.panelEnabled
-                            ? id_infoPanel.collapsedHeight + id_infoPanel.contentTopMargin
+                            ? (id_infoPanel.alwaysExpanded ? 10 : id_infoPanel.collapsedHeight + id_infoPanel.contentTopMargin)
                             : 0
                         width: parent.width - (id_infoPanel.panelEnabled ? 20 : 0)
                         spacing: 6
-                        opacity: !id_infoPanel.panelEnabled || id_infoPanel.hoverActive ? 1.0 : 0.0
-                        enabled: !id_infoPanel.panelEnabled || id_infoPanel.hoverActive
+                        opacity: !id_infoPanel.panelEnabled || id_infoPanel.expanded ? 1.0 : 0.0
+                        enabled: !id_infoPanel.panelEnabled || id_infoPanel.expanded
 
                         Behavior on opacity {
                             enabled: id_infoPanel.panelEnabled

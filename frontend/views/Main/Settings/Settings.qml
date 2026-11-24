@@ -1150,7 +1150,21 @@ Item {
                             }
                         }
 
-                        C_SettingRow {}
+                        C_SettingRow {
+                            label: qsTr("Dynamic achievement rows")
+                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            CustomSwitch {
+                                checked: ctxSettings.enableDynamicAchievementRows
+                                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                                HoverHandler { id: id_dynamicAchievementRows }
+                                CustomTooltip {
+                                    p_active: id_dynamicAchievementRows.hovered
+                                    p_delay: 600
+                                    p_text: qsTr("Achievement rows resize automatically to use available window space")
+                                }
+                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
+                            }
+                        }
 
                         C_SettingRow {
                             label: qsTr("Expandable info panel")
@@ -1170,18 +1184,19 @@ Item {
                         }
 
                         C_SettingRow {
-                            label: qsTr("Dynamic achievement rows")
-                            tooltip: qsTr("Achievement rows resize automatically to use available window space")
+                            label: qsTr("Always-expanded info panel")
+                            tooltip: qsTr("Keep Target Details information expanded")
+
                             CustomSwitch {
-                                checked: ctxSettings.enableDynamicAchievementRows
+                                checked: ctxSettings.targetDetailsAlwaysExpandedInfoPanel
                                 text: checked ? qsTr("Enabled") : qsTr("Disabled")
-                                HoverHandler { id: id_dynamicAchievementRows }
+                                HoverHandler { id: id_alwaysExpandedInfoPanelHover }
                                 CustomTooltip {
-                                    p_active: id_dynamicAchievementRows.hovered
+                                    p_active: id_alwaysExpandedInfoPanelHover.hovered
                                     p_delay: 600
-                                    p_text: qsTr("Achievement rows resize automatically to use available window space")
+                                    p_text: qsTr("Keep Target Details information expanded")
                                 }
-                                onToggled: ctxSettings.SaveValue(Settings.EnableDynamicAchievementRows, checked)
+                                onToggled: ctxSettings.SaveValue(Settings.TargetDetailsAlwaysExpandedInfoPanel, checked)
                             }
                         }
 
