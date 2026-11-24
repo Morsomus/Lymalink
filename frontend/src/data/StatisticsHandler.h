@@ -22,6 +22,7 @@ public:
     ~StatisticsHandler();
 
     QVariantMap Read(const QString &databasePath) const;
+    QVariantMap UpdateGlobalAchievementPercentages(const QString &databasePath, bool useCustomDatabasePath, bool useWal) const;
 
 private:
     bool TitleLess(const QVariant &left, const QVariant &right) const;

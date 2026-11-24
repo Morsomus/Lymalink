@@ -54,7 +54,7 @@ Item {
 
     function refresh() {
         refreshError = ""
-        ctxLymalink.RefreshStatistics()
+        ctxLymalink.RefreshStatistics(false)
     }
 
     function playtime(seconds) {
@@ -357,6 +357,7 @@ Item {
                 id_root.sortDescending = descending
                 ctxSettings.SaveValue(Settings.StatisticsToolbarSortDescending, descending)
             }
+            onStatisticsGlobalPercentagesUpdateClicked: ctxLymalink.RefreshStatistics(true)
             onRefreshClicked: id_root.refresh()
         }
 

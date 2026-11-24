@@ -58,6 +58,7 @@ Item {
     signal statisticsSearchChanged(string text)
     signal statisticsSortSelected(string sort)
     signal statisticsOrderSelected(bool descending)
+    signal statisticsGlobalPercentagesUpdateClicked()
     
     // Internals _____________________________________________
     property string activePanel: ""
@@ -611,88 +612,147 @@ Item {
                 onPillClicked: id_root.statisticsOrderSelected(!id_root.p_statisticsDescending)
             }
 
-            Rectangle {
-                id: id_statisticsRefresh
+            RowLayout {
+                spacing: 12
 
-                property real refreshRotation: 0
+                Rectangle {
+                    implicitWidth: id_statisticsUpdateLabel.implicitWidth + 24
+                    implicitHeight: 32
+                    radius: 16
 
-                implicitWidth: 32
-                implicitHeight: 32
-                radius: 16
+                    color: !id_statisticsUpdateMouseArea.enabled
+                        ? Themes.dashboardToolbar.colors.pillBackground
+                        : id_statisticsUpdateMouseArea.pressed
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
+                            : id_statisticsUpdateMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                                : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
 
-                color: id_statisticsRefreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
-                    : id_statisticsRefreshMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
-                        : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
+                    border.width: 1
+                    border.color: !id_statisticsUpdateMouseArea.enabled
+                        ? Themes.dashboardToolbar.colors.pillBorder
+                        : id_statisticsUpdateMouseArea.pressed
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
+                            : id_statisticsUpdateMouseArea.containsMouse
+                                ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                                : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
 
-                border.width: 1
-                border.color: id_statisticsRefreshMouseArea.pressed
-                    ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
-                    : id_statisticsRefreshMouseArea.containsMouse
-                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
-                        : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
+                    Label {
+                        id: id_statisticsUpdateLabel
+
+                        anchors.centerIn: parent
+                        text: qsTr("Update Global Percentages")
+                        color: id_statisticsUpdateMouseArea.enabled
+                            ? id_root.themedCompletionColor
+                            : Themes.dashboardToolbar.colors.searchIcon
+                        font.pixelSize: Themes.dashboardToolbar.fontSizes.pillLabel
+                    }
+
+                    MouseArea {
+                        id: id_statisticsUpdateMouseArea
+
+                        anchors.fill: parent
+                        enabled: !id_root.p_statisticsBusy
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: id_root.statisticsGlobalPercentagesUpdateClicked()
+
+                        CustomTooltip {
+                            p_active: id_statisticsUpdateMouseArea.containsMouse
+                            p_text: qsTr("Updates global achievement percentages. This may take a while, depending on your library size.")
+                        }
                     }
                 }
 
-                Image {
-                    id: id_statisticsRefreshIcon
+                Rectangle {
+                    id: id_statisticsRefresh
 
-                    anchors.centerIn: parent
-                    source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
-                    width: 19
-                    height: 19
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                    visible: false // MultiEffect draws image
-                }
+                    property real refreshRotation: 0
 
-                MultiEffect {
-                    anchors.fill: id_statisticsRefreshIcon
-                    source: id_statisticsRefreshIcon
-                    colorizationColor: id_root.themedCompletionColor
-                    colorization: 1.0
-                    rotation: id_statisticsRefresh.refreshRotation
-                    visible: !id_root.p_statisticsBusy
-                }
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    radius: 16
 
-                CustomBusyIndicator {
-                    anchors.centerIn: parent
-                    p_indicatorSize: 26
-                    p_running: id_root.p_statisticsVisible && id_root.p_statisticsBusy
-                }
+                    color: id_statisticsRefreshMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.44)
+                        : id_statisticsRefreshMouseArea.containsMouse
+                            ? Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.34)
+                            : Themes.globalStyle.withAlpha(id_root.themedProgressColor, 0.00)
 
-                NumberAnimation {
-                    id: id_statisticsRefreshSpinAnimation
+                    border.width: 1
+                    border.color: id_statisticsRefreshMouseArea.pressed
+                        ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 1.00)
+                        : id_statisticsRefreshMouseArea.containsMouse
+                            ? Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.92)
+                            : Themes.globalStyle.withAlpha(id_root.themedCompletionColor, 0.72)
 
-                    target: id_statisticsRefresh
-                    property: "refreshRotation"
-                    from: 0
-                    to: 360
-                    duration: 300
-                    easing.type: Easing.Linear
-                }
-
-                MouseArea {
-                    id: id_statisticsRefreshMouseArea
-
-                    anchors.fill: parent
-                    enabled: !id_root.p_statisticsBusy
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        id_statisticsRefreshSpinAnimation.restart()
-                        id_root.refreshClicked()
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
                     }
 
-                    CustomTooltip {
-                        p_active: id_statisticsRefreshMouseArea.containsMouse
-                        p_text: qsTr("Refresh statistics")
+                    Image {
+                        id: id_statisticsRefreshIcon
+
+                        anchors.centerIn: parent
+                        source: "qrc:/qt/qml/Lymalink/res/img/BlankBackground_MFC_Glow_00038_ED.png"
+                        width: 19
+                        height: 19
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
+                        visible: false // MultiEffect draws image
+                    }
+
+                    MultiEffect {
+                        anchors.fill: id_statisticsRefreshIcon
+                        source: id_statisticsRefreshIcon
+                        colorizationColor: id_root.themedCompletionColor
+                        colorization: 1.0
+                        rotation: id_statisticsRefresh.refreshRotation
+                        visible: !id_root.p_statisticsBusy
+                    }
+
+                    CustomBusyIndicator {
+                        anchors.centerIn: parent
+                        p_indicatorSize: 26
+                        p_running: id_root.p_statisticsVisible && id_root.p_statisticsBusy
+                    }
+
+                    NumberAnimation {
+                        id: id_statisticsRefreshSpinAnimation
+
+                        target: id_statisticsRefresh
+                        property: "refreshRotation"
+                        from: 0
+                        to: 360
+                        duration: 300
+                        easing.type: Easing.Linear
+                    }
+
+                    MouseArea {
+                        id: id_statisticsRefreshMouseArea
+
+                        anchors.fill: parent
+                        enabled: !id_root.p_statisticsBusy
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            id_statisticsRefreshSpinAnimation.restart()
+                            id_root.refreshClicked()
+                        }
+
+                        CustomTooltip {
+                            p_active: id_statisticsRefreshMouseArea.containsMouse
+                            p_text: qsTr("Refresh statistics")
+                        }
                     }
                 }
             }

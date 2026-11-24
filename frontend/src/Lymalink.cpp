@@ -55,12 +55,14 @@ Lymalink::Lymalink(Settings *settings, QObject *parent) :
     m_appIdFolderFindBusy = false;
     m_statisticsThread = nullptr;
     m_statisticsRefreshPending = false;
+    m_statisticsGlobalPercentagesUpdatePending = false;
 }
 
 Lymalink::~Lymalink()
 {
     if (m_statisticsThread)
     {
+        m_statisticsThread->requestInterruption();
         m_statisticsThread->wait();
     }
 
@@ -2497,35 +2499,16 @@ QVariantMap Lymalink::FetchSteamOwnedGames(const QString &steamId, const QString
 
 /////////////////////////////////////////////////////////////////////
 
-void Lymalink::RefreshStatistics()
+void Lymalink::RefreshStatistics(bool updateGlobalAchievementPercentages)
 {
     if (m_statisticsThread)
     {
         m_statisticsRefreshPending = true;
+        m_statisticsGlobalPercentagesUpdatePending |= updateGlobalAchievementPercentages;
         return;
     }
 
-    const QString databasePath = m_databasePath;
-    m_statisticsThread = QThread::create([this, databasePath]() {
-        StatisticsHandler handler;
-        const QVariantMap payload = handler.Read(databasePath);
-        QMetaObject::invokeMethod(this, [this, payload]() {
-            emit signalStatisticsReady(payload);
-        }, Qt::QueuedConnection);
-    });
-    m_statisticsThread->setParent(this);
-    connect(m_statisticsThread, &QThread::finished, this, [this]() {
-        m_statisticsThread = nullptr;
-        emit signalStatisticsBusyChanged();
-        if (m_statisticsRefreshPending)
-        {
-            m_statisticsRefreshPending = false;
-            RefreshStatistics();
-        }
-    });
-    connect(m_statisticsThread, &QThread::finished, m_statisticsThread, &QObject::deleteLater);
-    emit signalStatisticsBusyChanged();
-    m_statisticsThread->start();
+    StartStatisticsRefresh(updateGlobalAchievementPercentages);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -3417,4 +3400,48 @@ QString Lymalink::AssetFolderForTargetType(const QString &targetType) const
 bool Lymalink::IsSteamTargetType(const QString &targetType) const
 {
     return targetType.trimmed().compare("Steam", Qt::CaseInsensitive) == 0;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void Lymalink::StartStatisticsRefresh(bool updateGlobalPercentages)
+{
+    const QString databasePath = m_databasePath;
+    const bool useCustomDatabasePath = !m_useDefaultDbPath;
+    const bool useWal = m_useDbWalMode;
+
+    m_statisticsThread = QThread::create([this, databasePath, useCustomDatabasePath, useWal, updateGlobalPercentages]() {
+        StatisticsHandler handler;
+        QVariantMap updateResult;
+        if (updateGlobalPercentages)
+        {
+            updateResult = handler.UpdateGlobalAchievementPercentages(databasePath, useCustomDatabasePath, useWal);
+        }
+        const QVariantMap payload = handler.Read(databasePath);
+        QMetaObject::invokeMethod(this, [this, payload, updateResult, updateGlobalPercentages]() {
+            emit signalStatisticsReady(payload);
+            if (updateGlobalPercentages && !updateResult.value("success").toBool())
+            {
+                emit signalErrorOccurred(tr("Global percentage update failed"), updateResult.value("error").toString());
+            }
+        }, Qt::QueuedConnection);
+    });
+    m_statisticsThread->setParent(this);
+
+    connect(m_statisticsThread, &QThread::finished, this, [this]() {
+        m_statisticsThread = nullptr;
+        emit signalStatisticsBusyChanged();
+        if (m_statisticsRefreshPending)
+        {
+            const bool updateGlobalPercentages = m_statisticsGlobalPercentagesUpdatePending;
+            m_statisticsRefreshPending = false;
+            m_statisticsGlobalPercentagesUpdatePending = false;
+            RefreshStatistics(updateGlobalPercentages);
+        }
+    });
+    connect(m_statisticsThread, &QThread::finished, m_statisticsThread, &QObject::deleteLater);
+
+    emit signalStatisticsBusyChanged();
+
+    m_statisticsThread->start();
 }

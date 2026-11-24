@@ -78,7 +78,7 @@ public:
     Q_INVOKABLE QVariantList FetchDashboardTargets();
     Q_INVOKABLE QVariantMap FetchTargetDetails(int appId, const QString &targetType = "Emulator");
     Q_INVOKABLE QVariantMap FetchSteamOwnedGames(const QString &steamId, const QString &apiKey);
-    Q_INVOKABLE void RefreshStatistics();
+    Q_INVOKABLE void RefreshStatistics(bool updateGlobalAchievementPercentages);
 
 signals:
     void signalSteamAppIdsSearchReady(bool success, bool cancelled, QVariantList results);
@@ -126,6 +126,7 @@ private:
     bool m_appIdFolderFindBusy;
     QThread *m_statisticsThread;
     bool m_statisticsRefreshPending;
+    bool m_statisticsGlobalPercentagesUpdatePending;
 
     Error DatabaseInit(const QString &databasePath, bool createMissingDatabase);
     Error FileSystemInit();
@@ -148,4 +149,5 @@ private:
     QString AchievementTableForTargetType(const QString &targetType) const;
     QString AssetFolderForTargetType(const QString &targetType) const;
     bool IsSteamTargetType(const QString &targetType) const;
+    void StartStatisticsRefresh(bool updateGlobalPercentages);
 };

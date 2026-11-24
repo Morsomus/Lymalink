@@ -111,6 +111,7 @@ public:
     Error BenchmarkAchievementIconCdn(QStringList &benchmarkedUrlFormats);
     Error FetchAchievementDataPrimary(int appId, QList<SteamAchievementData> &achievements, Locale locale = English);
     Error FetchAchievementDataSecondary(int appId, QList<SteamAchievementData> &achievements, Locale locale, const QString &apiKey);
+    Error FetchGlobalAchievementPercentages(int appId, QMap<QString, double> &percentages);
     Error FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData> &games, const QString &apiKey);
     Error FetchPlayerAchievements(int appId, const QString &steamId, QList<SteamPlayerAchievementData> &achievements, const QString &apiKey, Locale locale = English);
 

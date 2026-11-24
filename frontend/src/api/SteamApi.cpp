@@ -926,6 +926,66 @@ Error SteamApi::FetchAchievementDataSecondary(int appId, QList<SteamAchievementD
 
 /////////////////////////////////////////////////////////////////////
 
+Error SteamApi::FetchGlobalAchievementPercentages(int appId, QMap<QString, double> &percentages)
+{
+    percentages.clear();
+    if (appId <= 0)
+    {
+        qWarning() << "SteamApi::FetchGlobalAchievementPercentages: invalid appId:" << appId;
+        return Error::InvalidParameter;
+    }
+
+    QUrl url("https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/");
+    QUrlQuery query;
+    query.addQueryItem("gameid", QString::number(appId));
+    query.addQueryItem("format", "json");
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    // Workaround for Qt HTTP/2 teardown issues
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setRawHeader("User-Agent", "Mozilla/5.0");
+    request.setRawHeader("Accept", "application/json");
+
+    QNetworkReply *reply = m_networkManager->get(request);
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        qWarning() << "SteamApi::FetchGlobalAchievementPercentages: fetch failed appId:" << appId << "status:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() << reply->errorString();
+        reply->deleteLater();
+        return Error::NotFound;
+    }
+
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+    QString errorMessage;
+    percentages = ParseGlobalAchievementPercentagesResponse(data, &errorMessage);
+    if (!errorMessage.isEmpty())
+    {
+        qWarning() << "SteamApi::FetchGlobalAchievementPercentages: parse failed appId:" << appId << errorMessage;
+        percentages.clear();
+        return Error::ParseError;
+    }
+
+    for (auto it = percentages.begin(); it != percentages.end(); ++it)
+    {
+        const double percentage = it.value();
+        if (!std::isfinite(percentage) || percentage < 0.0 || percentage > 100.0)
+        {
+            qWarning() << "SteamApi::FetchGlobalAchievementPercentages: invalid percentage appId:" << appId << "achievement:" << it.key() << percentage;
+            percentages.clear();
+            return Error::ParseError;
+        }
+        it.value() = std::trunc(percentage * 10.0) / 10.0;
+    }
+
+    return percentages.isEmpty() ? Error::NoData : Error::NoError;
+}
+
+/////////////////////////////////////////////////////////////////////
+
 Error SteamApi::FetchOwnedGames(const QString &steamId, QList<SteamOwnedGameData> &games, const QString &apiKey)
 {
     Error err = Error::NoError;

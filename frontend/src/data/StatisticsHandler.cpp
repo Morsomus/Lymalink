@@ -8,10 +8,14 @@
 
 #include "StatisticsHandler.h"
 #include "../Defines.h"
+#include "../api/SteamApi.h"
+#include "../database/DatabaseUtils.h"
 #include "../database/SQLiteManager.h"
 
+#include <QDebug>
 #include <QMap>
 #include <QStringList>
+#include <QThread>
 #include <QUuid>
 #include <QVariantList>
 
@@ -90,6 +94,167 @@ QVariantMap StatisticsHandler::Read(const QString &databasePath) const
         payload["error"] = tr("Couldn't read local statistics: %1").arg(error);
     }
     return payload;
+}
+
+/////////////////////////////////////////////////////////////////////
+
+QVariantMap StatisticsHandler::UpdateGlobalAchievementPercentages(const QString &databasePath, bool useCustomDatabasePath, bool useWal) const
+{
+    qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: starting, database:" << databasePath;
+    QVariantMap result = {{"success", false}};
+    const QString connectionName = "statistics_percentages_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    DatabaseUtils databaseUtils;
+    SQLiteManager databaseManager(useCustomDatabasePath ? &databaseUtils : nullptr);
+    if (databasePath.trimmed().isEmpty() || !databaseManager.openDatabase(connectionName, databasePath, false, useWal))
+    {
+        qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: couldn't open database:" << databaseManager.lastError();
+        result["error"] = tr("Couldn't open the database to update global achievement percentages.");
+        return result;
+    }
+
+    // Fetch only games with saved achievements, once per App ID across both sources
+    const QMap<QString, QString> sourceTables = {
+        {DATABASE_TABLE_EMU_GAMES, DATABASE_TABLE_EMU_ACHIEVEMENTS},
+        {DATABASE_TABLE_GAMES, DATABASE_TABLE_ACHIEVEMENTS}
+    };
+    QMap<int, QStringList> achievementTablesByAppId;
+    for (auto source = sourceTables.cbegin(); source != sourceTables.cend(); ++source)
+    {
+        const QVariantList games = databaseManager.selectAll(connectionName, source.key(), {"id"});
+        if (!databaseManager.lastError().isEmpty())
+        {
+            qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: couldn't read games from" << source.key() << databaseManager.lastError();
+            result["error"] = tr("Couldn't read saved games to update global achievement percentages.");
+            return result;
+        }
+
+        for (const QVariant &game : games)
+        {
+            const int appId = game.toMap().value("id").toInt();
+            const int achievementCount = databaseManager.count(connectionName, source.value(), "id = ?", {appId});
+            if (achievementCount < 0)
+            {
+                qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: couldn't read achievements appId:" << appId << "table:" << source.value() << databaseManager.lastError();
+                result["error"] = tr("Couldn't read saved achievements to update global achievement percentages.");
+                return result;
+            }
+            if (achievementCount > 0)
+            {
+                achievementTablesByAppId[appId] << source.value();
+            }
+            else
+            {
+                qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: skipping appId:" << appId << "table:" << source.value() << "no saved achievements";
+            }
+        }
+    }
+
+    SteamApi steamApi;
+    int failedGames = 0;
+    int consecutiveFetchErrors = 0;
+    qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: unique App IDs to fetch:" << achievementTablesByAppId.size();
+    for (auto game = achievementTablesByAppId.cbegin(); game != achievementTablesByAppId.cend(); ++game)
+    {
+        if (QThread::currentThread()->isInterruptionRequested())
+        {
+            break;
+        }
+
+        const int appId = game.key();
+        QMap<QString, double> percentages;
+        const Error fetchError = steamApi.FetchGlobalAchievementPercentages(appId, percentages);
+        qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: fetched appId:" << appId << "error:" << static_cast<int>(fetchError) << "percentages:" << percentages.size();
+        if (fetchError == Error::NoData)
+        {
+            consecutiveFetchErrors = 0;
+            continue;
+        }
+        if (fetchError != Error::NoError)
+        {
+            ++failedGames;
+            qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: fetch failed appId:" << appId << "tables:" << game.value() << "error:" << static_cast<int>(fetchError);
+            if (++consecutiveFetchErrors >= 3)
+            {
+                result["error"] = tr("Couldn't fetch achievement percentages.");
+                return result;
+            }
+            continue;
+        }
+        consecutiveFetchErrors = 0;
+
+        // Keep network waits outside transactions, both sources commit together for this game
+        if (!databaseManager.beginTransaction(connectionName))
+        {
+            ++failedGames;
+            qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: couldn't begin transaction appId:" << appId << "tables:" << game.value() << databaseManager.lastError();
+            continue;
+        }
+
+        QString gameError;
+        for (const QString &table : game.value())
+        {
+            const QVariantList achievements = databaseManager.selectWhere(connectionName, table, "id = ?", {appId}, {"achievement_key", "global_unlock_percentage"});
+            if (!databaseManager.lastError().isEmpty())
+            {
+                gameError = table + ": " + databaseManager.lastError();
+                break;
+            }
+
+            for (const QVariant &value : achievements)
+            {
+                const QVariantMap achievement = value.toMap();
+                const QString key = achievement.value("achievement_key").toString();
+                const auto percentage = percentages.constFind(key);
+                if (percentage == percentages.cend())
+                {
+                    continue;
+                }
+
+                const QVariant savedPercentage = achievement.value("global_unlock_percentage");
+                if (!savedPercentage.isNull() && savedPercentage.toDouble() == percentage.value())
+                {
+                    continue;
+                }
+
+                if (!databaseManager.update(connectionName, table, {{"global_unlock_percentage", percentage.value()}}, "id = ? AND achievement_key = ?", {appId, key}))
+                {
+                    gameError = table + "/" + key + ": " + databaseManager.lastError();
+                    break;
+                }
+                qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: staged change appId:" << appId << "table:" << table << "achievement:" << key << "old:" << savedPercentage << "new:" << percentage.value();
+            }
+            if (!gameError.isEmpty())
+            {
+                break;
+            }
+        }
+
+        if (gameError.isEmpty() && !databaseManager.commitTransaction(connectionName))
+        {
+            gameError = databaseManager.lastError();
+        }
+
+        if (!gameError.isEmpty())
+        {
+            ++failedGames;
+            qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: update failed appId:" << appId << "tables:" << game.value() << gameError;
+            if (!databaseManager.rollbackTransaction(connectionName))
+            {
+                qWarning() << "StatisticsHandler::UpdateGlobalAchievementPercentages: rollback failed appId:" << appId << databaseManager.lastError();
+                result["error"] = tr("Couldn't finish updating global achievement percentages.");
+                return result;
+            }
+        }
+    }
+
+    result["success"] = failedGames == 0;
+    if (failedGames > 0)
+    {
+        result["error"] = tr("Global achievement percentages couldn't be updated for %1 games.").arg(failedGames);
+    }
+
+    qDebug() << "StatisticsHandler::UpdateGlobalAchievementPercentages: finished, failed games:" << failedGames;
+    return result;
 }
 
 /////////////////////////////////////////////////////////////////////
